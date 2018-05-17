@@ -1,6 +1,7 @@
 package qora.account;
 
 import qora.crypto.Crypto;
+import qora.crypto.Ed25519;
 import utils.Pair;
 
 public class PrivateKeyAccount extends PublicKeyAccount {
@@ -10,7 +11,7 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 
 	public PrivateKeyAccount(byte[] seed) {
 		this.seed = seed;
-		this.keyPair = Crypto.createKeyPair(seed);
+		this.keyPair = Ed25519.createKeyPair(seed);
 		this.publicKey = keyPair.getB();
 		this.address = Crypto.toAddress(this.publicKey);
 	}
@@ -25,6 +26,14 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 
 	public Pair<byte[], byte[]> getKeyPair() {
 		return this.keyPair;
+	}
+
+	public byte[] sign(byte[] message) {
+		try {
+			return Ed25519.sign(this.keyPair, message);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 }

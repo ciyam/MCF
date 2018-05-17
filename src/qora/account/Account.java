@@ -17,14 +17,6 @@ public class Account {
 		return address;
 	}
 
-	// TOSTRING
-
-	@Override
-	public int hashCode() {
-		return this.getAddress().hashCode();
-	}
-
-	// EQUALS
 	@Override
 	public boolean equals(Object b) {
 		if (!(b instanceof Account))

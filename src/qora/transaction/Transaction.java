@@ -18,7 +18,8 @@ import database.DB;
 import database.NoDataFoundException;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
-import qora.crypto.Crypto;
+import qora.block.Block;
+import qora.block.BlockTransaction;
 import settings.Settings;
 
 public abstract class Transaction {
@@ -52,26 +53,28 @@ public abstract class Transaction {
 
 	// Database properties shared with all transaction types
 	protected TransactionType type;
-	protected String creator;
+	protected PublicKeyAccount creator;
 	protected long timestamp;
 	protected byte[] reference;
 	protected BigDecimal fee;
 	protected byte[] signature;
 
 	// Derived/cached properties
-	// maybe: protected PublicKeyAccount creatorAccount;
-	
-	// Property lengths
+
+	// Property lengths for serialisation
 	protected static final int TYPE_LENGTH = 4;
 	protected static final int TIMESTAMP_LENGTH = 8;
 	protected static final int REFERENCE_LENGTH = 64;
 	protected static final int FEE_LENGTH = 8;
-	protected static final int SIGNATURE_LENGTH = 64;
+	public static final int SIGNATURE_LENGTH = 64;
 	protected static final int BASE_TYPELESS_LENGTH = TIMESTAMP_LENGTH + REFERENCE_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
+
+	// Other length constants
+	protected static final int CREATOR_LENGTH = 32;
 
 	// Constructors
 
-	protected Transaction(TransactionType type, BigDecimal fee, String creator, long timestamp, byte[] reference, byte[] signature) {
+	protected Transaction(TransactionType type, BigDecimal fee, PublicKeyAccount creator, long timestamp, byte[] reference, byte[] signature) {
 		this.fee = fee;
 		this.type = type;
 		this.creator = creator;
@@ -80,7 +83,7 @@ public abstract class Transaction {
 		this.signature = signature;
 	}
 
-	protected Transaction(TransactionType type, BigDecimal fee, String creator, long timestamp, byte[] reference) {
+	protected Transaction(TransactionType type, BigDecimal fee, PublicKeyAccount creator, long timestamp, byte[] reference) {
 		this(type, fee, creator, timestamp, reference, null);
 	}
 
@@ -90,7 +93,7 @@ public abstract class Transaction {
 		return this.type;
 	}
 
-	public String getCreator() {
+	public PublicKeyAccount getCreator() {
 		return this.creator;
 	}
 
@@ -148,6 +151,20 @@ public abstract class Transaction {
 
 	// Load/Save
 
+	// Typically called by sub-class' load-from-DB constructors
+
+	/**
+	 * Load base Transaction from DB using signature.
+	 * <p>
+	 * Note that the transaction type is <b>not</b> checked against the DB's value.
+	 * 
+	 * @param connection
+	 * @param type
+	 * @param signature
+	 * @throws NoDataFoundException
+	 *             if no matching row found
+	 * @throws SQLException
+	 */
 	protected Transaction(Connection connection, TransactionType type, byte[] signature) throws SQLException {
 		ResultSet rs = DB.executeUsingBytes(connection, "SELECT reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
 		if (rs == null)
@@ -155,7 +172,7 @@ public abstract class Transaction {
 
 		this.type = type;
 		this.reference = DB.getResultSetBytes(rs.getBinaryStream(1), REFERENCE_LENGTH);
-		this.creator = rs.getString(2);
+		this.creator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(2), CREATOR_LENGTH));
 		this.timestamp = rs.getTimestamp(3).getTime();
 		this.fee = rs.getBigDecimal(4).setScale(8);
 		this.signature = signature;
@@ -164,32 +181,57 @@ public abstract class Transaction {
 	protected void save(Connection connection) throws SQLException {
 		String sql = DB.formatInsertWithPlaceholders("Transactions", "signature", "reference", "type", "creator", "creation", "fee", "milestone_block");
 		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.reference, this.type.value, this.creator,
+		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.reference, this.type.value, this.creator.getPublicKey(),
 				Timestamp.from(Instant.ofEpochSecond(this.timestamp)), this.fee, null);
 		preparedStatement.execute();
 	}
 
 	// Navigation
 
-	/*
-	 * public Block getBlock() { BlockTransaction blockTx = BlockTransaction.fromTransactionSignature(this.signature); if (blockTx == null) return null;
+	/**
+	 * Load encapsulating Block from DB, if any
 	 * 
-	 * return Block.fromSignature(blockTx.getSignature()); }
-	 * 
+	 * @param connection
+	 * @return Block, or null if transaction is not in a Block
+	 * @throws SQLException
 	 */
-	
+	public Block getBlock(Connection connection) throws SQLException {
+		if (this.signature == null)
+			return null;
+
+		BlockTransaction blockTx = BlockTransaction.fromTransactionSignature(connection, this.signature);
+		if (blockTx == null)
+			return null;
+
+		return Block.fromSignature(connection, blockTx.getBlockSignature());
+	}
+
+	/**
+	 * Load parent Transaction from DB via this transaction's reference.
+	 * 
+	 * @param connection
+	 * @return Transaction, or null if no parent found (which should not happen)
+	 * @throws SQLException
+	 */
 	public Transaction getParent(Connection connection) throws SQLException {
 		if (this.reference == null)
 			return null;
-	
-		return TransactionFactory.fromSignature(connection, this.reference); 
+
+		return TransactionFactory.fromSignature(connection, this.reference);
 	}
 
+	/**
+	 * Load child Transaction from DB, if any.
+	 * 
+	 * @param connection
+	 * @return Transaction, or null if no child found
+	 * @throws SQLException
+	 */
 	public Transaction getChild(Connection connection) throws SQLException {
 		if (this.signature == null)
 			return null;
-	
-		return TransactionFactory.fromReference(connection, this.signature); 
+
+		return TransactionFactory.fromReference(connection, this.signature);
 	}
 
 	// Converters
@@ -203,14 +245,14 @@ public abstract class Transaction {
 	public byte[] calcSignature(PrivateKeyAccount signer) {
 		byte[] bytes = this.toBytes();
 
-		return Crypto.sign(signer, bytes);
+		return signer.sign(bytes);
 	}
 
 	public boolean isSignatureValid(PublicKeyAccount signer) {
 		if (this.signature == null)
 			return false;
 
-		return Crypto.verify(signer.getPublicKey(), this.signature, this.toBytes());
+		return signer.verify(this.signature, this.toBytes());
 	}
 
 	public abstract int isValid();

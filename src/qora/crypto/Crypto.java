@@ -4,17 +4,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import qora.account.Account;
-import qora.account.PrivateKeyAccount;
 import utils.Base58;
-import utils.Pair;
 
 public class Crypto {
-
-	private static final Logger LOGGER = LogManager.getLogger(Crypto.class);
 
 	public static final byte ADDRESS_VERSION = 58;
 	public static final byte AT_ADDRESS_VERSION = 23;
@@ -32,16 +25,6 @@ public class Crypto {
 	public static byte[] doubleDigest(byte[] input) {
 		// Two rounds of SHA2-256
 		return digest(digest(input));
-	}
-
-	public static Pair<byte[], byte[]> createKeyPair(byte[] seed) {
-		try {
-			// Generate private and public key pair
-			return Ed25519.createKeyPair(seed);
-		} catch (Exception e) {
-			LOGGER.error(e.getMessage(), e);
-			return null;
-		}
 	}
 
 	@SuppressWarnings("deprecation")
@@ -80,7 +63,7 @@ public class Crypto {
 
 	public static boolean isValidAddress(String address) {
 		byte[] addressBytes;
-		
+
 		try {
 			// Attempt Base58 decoding
 			addressBytes = Base58.decode(address);
@@ -98,32 +81,12 @@ public class Crypto {
 			case AT_ADDRESS_VERSION:
 				byte[] addressWithoutChecksum = Arrays.copyOf(addressBytes, addressBytes.length - 4);
 				byte[] passedChecksum = Arrays.copyOfRange(addressWithoutChecksum, addressBytes.length - 4, addressBytes.length);
-				
+
 				byte[] generatedChecksum = doubleDigest(addressWithoutChecksum);
 				return Arrays.equals(passedChecksum, generatedChecksum);
-				
+
 			default:
 				return false;
-		}
-	}
-
-	public static byte[] sign(PrivateKeyAccount account, byte[] message) {
-		try {
-			// GET SIGNATURE
-			return Ed25519.sign(account.getKeyPair(), message);
-		} catch (Exception e) {
-			LOGGER.error(e.getMessage(),e);
-			return new byte[64];
-		}
-	}
-
-	public static boolean verify(byte[] publicKey, byte[] signature, byte[] message) {
-		try {
-			// VERIFY SIGNATURE
-			return Ed25519.verify(signature, message, publicKey);
-		} catch (Exception e) {
-			LOGGER.error(e.getMessage(),e);
-			return false;
 		}
 	}
 

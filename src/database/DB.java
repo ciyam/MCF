@@ -26,6 +26,13 @@ public class DB {
 		c.prepareStatement("ROLLBACK").execute();
 	}
 
+	/**
+	 * Convert InputStream, from ResultSet.getBinaryStream(), into byte[] of set length.
+	 * 
+	 * @param inputStream
+	 * @param length
+	 * @return byte[length]
+	 */
 	public static byte[] getResultSetBytes(InputStream inputStream, int length) {
 		if (inputStream == null)
 			return null;
@@ -42,6 +49,12 @@ public class DB {
 		return null;
 	}
 
+	/**
+	 * Convert InputStream, from ResultSet.getBinaryStream(), into byte[] of unknown length.
+	 * 
+	 * @param inputStream
+	 * @return byte[]
+	 */
 	public static byte[] getResultSetBytes(InputStream inputStream) {
 		final int BYTE_BUFFER_LENGTH = 1024;
 
@@ -64,6 +77,19 @@ public class DB {
 		return result;
 	}
 
+	/**
+	 * Format table and column names into an INSERT INTO ... SQL statement.
+	 * <p>
+	 * Full form is:
+	 * <p>
+	 * INSERT INTO <I>table</I> (<I>column</I>, ...) VALUES (?, ...) ON DUPLICATE KEY UPDATE <I>column</I>=?, ...
+	 * <p>
+	 * Note that HSQLDB needs to put into mySQL compatibility mode first via "SET DATABASE SQL SYNTAX MYS TRUE".
+	 * 
+	 * @param table
+	 * @param columns
+	 * @return String
+	 */
 	public static String formatInsertWithPlaceholders(String table, String... columns) {
 		String[] placeholders = new String[columns.length];
 		Arrays.setAll(placeholders, (int i) -> "?");
@@ -81,9 +107,18 @@ public class DB {
 		return output.toString();
 	}
 
+	/**
+	 * Binds Objects to PreparedStatement based on INSERT INTO ... ON DUPLICATE KEY UPDATE ...
+	 * <p>
+	 * Note that each object is bound to <b>two</b> place-holders based on this SQL syntax:
+	 * <p>
+	 * INSERT INTO <I>table</I> (<I>column</I>, ...) VALUES (<b>?</b>, ...) ON DUPLICATE KEY UPDATE <I>column</I>=<b>?</b>, ...
+	 * 
+	 * @param preparedStatement
+	 * @param objects
+	 * @throws SQLException
+	 */
 	public static void bindInsertPlaceholders(PreparedStatement preparedStatement, Object... objects) throws SQLException {
-		// We need to bind two sets of placeholders based on this syntax:
-		// INSERT INTO table (column, ... ) VALUES (?, ...) ON DUPLICATE KEY UPDATE SET column=?, ...
 		for (int i = 0; i < objects.length; ++i) {
 			Object object = objects[i];
 
@@ -126,4 +161,24 @@ public class DB {
 		return rs;
 	}
 
+	/**
+	 * Execute PreparedStatement and return ResultSet with but added checking
+	 * 
+	 * @param preparedStatement
+	 * @return ResultSet, or null if there are no found rows
+	 * @throws SQLException
+	 */
+	public static ResultSet checkedExecute(PreparedStatement preparedStatement) throws SQLException {
+		if (!preparedStatement.execute())
+			throw new SQLException("Fetching from database produced no results");
+
+		ResultSet resultSet = preparedStatement.getResultSet();
+		if (resultSet == null)
+			throw new SQLException("Fetching results from database produced no ResultSet");
+
+		if (!resultSet.next())
+			return null;
+
+		return resultSet;
+	}
 }

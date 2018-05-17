@@ -9,11 +9,27 @@ import qora.transaction.Transaction.TransactionType;
 
 public class TransactionFactory {
 
+	/**
+	 * Load Transaction from DB using signature.
+	 * 
+	 * @param connection
+	 * @param signature
+	 * @return ? extends Transaction, or null if not found
+	 * @throws SQLException
+	 */
 	public static Transaction fromSignature(Connection connection, byte[] signature) throws SQLException {
 		ResultSet resultSet = DB.executeUsingBytes(connection, "SELECT type, signature FROM Transactions WHERE signature = ?", signature);
 		return fromResultSet(connection, resultSet);
 	}
 
+	/**
+	 * Load Transaction from DB using reference.
+	 * 
+	 * @param connection
+	 * @param reference
+	 * @return ? extends Transaction, or null if not found
+	 * @throws SQLException
+	 */
 	public static Transaction fromReference(Connection connection, byte[] reference) throws SQLException {
 		ResultSet resultSet = DB.executeUsingBytes(connection, "SELECT type, signature FROM Transactions WHERE reference = ?", reference);
 		return fromResultSet(connection, resultSet);
@@ -35,7 +51,7 @@ public class TransactionFactory {
 				return null;
 
 			case Payment:
-				return new PaymentTransaction(connection, signature);
+				return PaymentTransaction.fromSignature(connection, signature);
 
 			default:
 				return null;

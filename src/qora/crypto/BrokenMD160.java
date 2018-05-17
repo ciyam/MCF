@@ -1,9 +1,9 @@
 package qora.crypto;
 
 /**
- * BROKEN RIPEMD160
+ * <b>BROKEN RIPEMD160</b>
  * <p>
- * DO NOT USE in future code as this implementation is BROKEN and returns incorrect digests for some inputs.
+ * <b>DO NOT USE in future code</b> as this implementation is BROKEN and returns incorrect digests for some inputs.
  * <p>
  * It is only "grand-fathered" here to produce correct QORA addresses.
  */

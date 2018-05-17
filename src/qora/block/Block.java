@@ -1,20 +1,24 @@
 package qora.block;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.json.simple.JSONObject;
 
 import com.google.common.primitives.Bytes;
 
 import database.DB;
+import database.NoDataFoundException;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
-import qora.crypto.Crypto;
 import qora.transaction.Transaction;
+import qora.transaction.TransactionFactory;
 
 /*
  * Typical use-case scenarios:
@@ -43,7 +47,11 @@ public class Block {
 	// Validation results
 	public static final int VALIDATE_OK = 1;
 
-	// Database properties shared with all block types
+	// Columns when fetching from database
+	private static final String DB_COLUMNS = "version, reference, transaction_count, total_fees, "
+			+ "transactions_signature, height, generation, generation_target, generator, generation_signature, " + "AT_data, AT_fees";
+
+	// Database properties
 	protected int version;
 	protected byte[] reference;
 	protected int transactionCount;
@@ -52,10 +60,13 @@ public class Block {
 	protected int height;
 	protected long timestamp;
 	protected BigDecimal generationTarget;
-	protected String generator;
+	protected PublicKeyAccount generator;
 	protected byte[] generationSignature;
 	protected byte[] atBytes;
 	protected BigDecimal atFees;
+
+	// Other properties
+	protected List<Transaction> transactions;
 
 	// Property lengths for serialisation
 	protected static final int VERSION_LENGTH = 4;
@@ -70,24 +81,27 @@ public class Block {
 			+ TRANSACTIONS_SIGNATURE_LENGTH + GENERATION_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
 
 	// Other length constants
+	protected static final int BLOCK_SIGNATURE_LENGTH = GENERATION_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
 	public static final int MAX_BLOCK_BYTES = 1048576;
-	protected static final int TRANSACTION_SIZE_LENGTH = 4;
-	public static final int MAX_TRANSACTION_BYTES = MAX_BLOCK_BYTES - BASE_LENGTH - TRANSACTION_SIZE_LENGTH;
+	protected static final int TRANSACTION_SIZE_LENGTH = 4; // per transaction
+	public static final int MAX_TRANSACTION_BYTES = MAX_BLOCK_BYTES - BASE_LENGTH;
 	protected static final int AT_BYTES_LENGTH = 4;
 	protected static final int AT_FEES_LENGTH = 8;
 	protected static final int AT_LENGTH = AT_FEES_LENGTH + AT_BYTES_LENGTH;
 
 	// Constructors
-	protected Block(int version, byte[] reference, long timestamp, BigDecimal generationTarget, String generator, byte[] generationSignature, byte[] atBytes,
-			BigDecimal atFees) {
+	protected Block(int version, byte[] reference, long timestamp, BigDecimal generationTarget, PublicKeyAccount generator, byte[] generationSignature,
+			byte[] atBytes, BigDecimal atFees) {
 		this.version = version;
 		this.reference = reference;
 		this.timestamp = timestamp;
 		this.generationTarget = generationTarget;
 		this.generator = generator;
 		this.generationSignature = generationSignature;
+		this.height = 0;
 
 		this.transactionCount = 0;
+		this.transactions = null;
 		this.transactionsSignature = null;
 		this.totalFees = null;
 
@@ -113,7 +127,7 @@ public class Block {
 		return this.generationTarget;
 	}
 
-	public String getGenerator() {
+	public PublicKeyAccount getGenerator() {
 		return this.generator;
 	}
 
@@ -141,6 +155,10 @@ public class Block {
 		return this.atFees;
 	}
 
+	public int getHeight() {
+		return this.height;
+	}
+
 	// More information
 
 	public byte[] getSignature() {
@@ -151,17 +169,59 @@ public class Block {
 	}
 
 	public int getDataLength() {
-		return 0;
+		int blockLength = BASE_LENGTH;
+
+		if (version >= 2 && this.atBytes != null)
+			blockLength += AT_FEES_LENGTH + AT_BYTES_LENGTH + this.atBytes.length;
+
+		// Short cut for no transactions
+		if (this.transactions == null || this.transactions.isEmpty())
+			return blockLength;
+
+		for (Transaction transaction : this.transactions)
+			blockLength += TRANSACTION_SIZE_LENGTH + transaction.getDataLength();
+
+		return blockLength;
+	}
+
+	public List<Transaction> getTransactions() {
+		return this.transactions;
+	}
+
+	public List<Transaction> getTransactions(Connection connection) throws SQLException {
+		// Already loaded?
+		if (this.transactions != null)
+			return this.transactions;
+
+		// Load from DB
+		this.transactions = new ArrayList<Transaction>();
+
+		PreparedStatement preparedStatement = connection.prepareStatement("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ?");
+		preparedStatement.setBinaryStream(1, new ByteArrayInputStream(this.getSignature()));
+		if (!preparedStatement.execute())
+			throw new SQLException("Fetching from database produced no results");
+
+		ResultSet rs = preparedStatement.getResultSet();
+		if (rs == null)
+			throw new SQLException("Fetching results from database produced no ResultSet");
+
+		while (rs.next()) {
+			byte[] transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Transaction.SIGNATURE_LENGTH);
+			this.transactions.add(TransactionFactory.fromSignature(connection, transactionSignature));
+		}
+
+		return this.transactions;
 	}
 
 	// Load/Save
 
 	protected Block(Connection connection, byte[] signature) throws SQLException {
-		ResultSet rs = DB.executeUsingBytes(connection,
-				"SELECT version, reference, transaction_count, total_fees, "
-						+ "transactions_signature, height, generation, generation_target, generator, generation_signature, "
-						+ "AT_data, AT_fees FROM Blocks WHERE signature = ?",
-				signature);
+		this(DB.executeUsingBytes(connection, "SELECT " + DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature));
+	}
+
+	protected Block(ResultSet rs) throws SQLException {
+		if (rs == null)
+			throw new NoDataFoundException();
 
 		this.version = rs.getInt(1);
 		this.reference = DB.getResultSetBytes(rs.getBinaryStream(2), REFERENCE_LENGTH);
@@ -171,10 +231,45 @@ public class Block {
 		this.height = rs.getInt(6);
 		this.timestamp = rs.getTimestamp(7).getTime();
 		this.generationTarget = rs.getBigDecimal(8);
-		this.generator = rs.getString(9);
+		this.generator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(9), GENERATOR_LENGTH));
 		this.generationSignature = DB.getResultSetBytes(rs.getBinaryStream(10), GENERATION_SIGNATURE_LENGTH);
 		this.atBytes = DB.getResultSetBytes(rs.getBinaryStream(11));
 		this.atFees = rs.getBigDecimal(12);
+	}
+
+	/**
+	 * Load Block from DB using block signature.
+	 * 
+	 * @param connection
+	 * @param signature
+	 * @return Block, or null if not found
+	 * @throws SQLException
+	 */
+	public static Block fromSignature(Connection connection, byte[] signature) throws SQLException {
+		try {
+			return new Block(connection, signature);
+		} catch (NoDataFoundException e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Load Block from DB using block height
+	 * 
+	 * @param connection
+	 * @param height
+	 * @return Block, or null if not found
+	 * @throws SQLException
+	 */
+	public static Block fromHeight(Connection connection, int height) throws SQLException {
+		PreparedStatement preparedStatement = connection.prepareStatement("SELECT signature FROM Blocks WHERE height = ?");
+		preparedStatement.setInt(1, height);
+
+		try {
+			return new Block(DB.checkedExecute(preparedStatement));
+		} catch (NoDataFoundException e) {
+			return null;
+		}
 	}
 
 	protected void save(Connection connection) throws SQLException {
@@ -182,7 +277,7 @@ public class Block {
 				"generation", "generation_target", "generator", "generation_signature", "AT_data", "AT_fees");
 		PreparedStatement preparedStatement = connection.prepareStatement(sql);
 		DB.bindInsertPlaceholders(preparedStatement, this.version, this.reference, this.transactionCount, this.totalFees, this.transactionsSignature,
-				this.height, this.timestamp, this.generationTarget, this.generator, this.generationSignature, this.atBytes, this.atFees);
+				this.height, this.timestamp, this.generationTarget, this.generator.getPublicKey(), this.generationSignature, this.atBytes, this.atFees);
 		preparedStatement.execute();
 
 		// Save transactions
@@ -191,19 +286,58 @@ public class Block {
 
 	// Navigation
 
+	/**
+	 * Load parent Block from DB
+	 * 
+	 * @param connection
+	 * @return Block, or null if not found
+	 * @throws SQLException
+	 */
+	public Block getParent(Connection connection) throws SQLException {
+		try {
+			return new Block(connection, this.reference);
+		} catch (NoDataFoundException e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Load child Block from DB
+	 * 
+	 * @param connection
+	 * @return Block, or null if not found
+	 * @throws SQLException
+	 */
+	public Block getChild(Connection connection) throws SQLException {
+		byte[] blockSignature = this.getSignature();
+		if (blockSignature == null)
+			return null;
+
+		ResultSet resultSet = DB.executeUsingBytes(connection, "SELECT " + DB_COLUMNS + " FROM Blocks WHERE reference = ?", blockSignature);
+
+		try {
+			return new Block(resultSet);
+		} catch (NoDataFoundException e) {
+			return null;
+		}
+	}
+
 	// Converters
 
 	public JSONObject toJSON() {
+		// TODO
 		return null;
 	}
 
 	public byte[] toBytes() {
+		// TODO
 		return null;
 	}
 
 	// Processing
 
 	public boolean addTransaction(Transaction transaction) {
+		// TODO
 		// Check there is space in block
 		// Add to block
 		// Update transaction count
@@ -212,23 +346,26 @@ public class Block {
 	}
 
 	public byte[] calcSignature(PrivateKeyAccount signer) {
-		byte[] bytes = this.toBytes();
-
-		return Crypto.sign(signer, bytes);
+		// TODO
+		return null;
 	}
 
 	public boolean isSignatureValid(PublicKeyAccount signer) {
+		// TODO
 		return false;
 	}
 
 	public int isValid() {
+		// TODO
 		return VALIDATE_OK;
 	}
 
 	public void process() {
+		// TODO
 	}
 
 	public void orphan() {
+		// TODO
 	}
 
 }

@@ -35,5 +35,5 @@ public class crypto {
 		
 		assertEquals(expected, Crypto.toAddress(publicKey));
 	}
-	
+
 }

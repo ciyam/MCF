@@ -7,7 +7,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -18,7 +17,9 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -29,14 +30,20 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.hash.HashCode;
+import com.google.common.io.CharStreams;
 
 import utils.Base58;
 
 public class migrate {
 
+	private static final String GENESIS_ADDRESS = "QfGMeDQQUQePMpAmfLBJzgqyrM35RWxHGD";
+	private static final byte[] GENESIS_PUBLICKEY = new byte[] { 1, 1, 1, 1, 1, 1, 1, 1 };
+
 	private static Connection c;
 	private static PreparedStatement startTransactionPStmt;
 	private static PreparedStatement commitPStmt;
+
+	private static Map<String, byte[]> publicKeyByAddress = new HashMap<String, byte[]>();
 
 	@Before
 	public void connect() throws SQLException {
@@ -54,8 +61,9 @@ public class migrate {
 		}
 	}
 
-	public Object fetchBlockJSON(int height) {
+	public Object fetchBlockJSON(int height) throws IOException {
 		InputStream is;
+
 		try {
 			is = new URL("http://localhost:9085/blocks/byheight/" + height).openStream();
 		} catch (IOException e) {
@@ -65,13 +73,28 @@ public class migrate {
 		try {
 			BufferedReader reader = new BufferedReader(new InputStreamReader(is, Charset.forName("UTF-8")));
 			return JSONValue.parseWithException(reader);
-		} catch (IOException | ParseException e) {
+		} catch (ParseException e) {
 			return null;
 		} finally {
-			try {
-				is.close();
-			} catch (IOException e) {
-			}
+			is.close();
+		}
+	}
+
+	public byte[] addressToPublicKey(String address) throws IOException {
+		byte[] cachedPublicKey = publicKeyByAddress.get(address);
+		if (cachedPublicKey != null)
+			return cachedPublicKey;
+
+		InputStream is = new URL("http://localhost:9085/addresses/publickey/" + address).openStream();
+
+		try {
+			String publicKey58 = CharStreams.toString(new InputStreamReader(is, Charset.forName("UTF-8")));
+
+			byte[] publicKey = Base58.decode(publicKey58);
+			publicKeyByAddress.put(address, publicKey);
+			return publicKey;
+		} finally {
+			is.close();
 		}
 	}
 
@@ -97,7 +120,12 @@ public class migrate {
 	}
 
 	@Test
-	public void testMigration() throws SQLException, UnsupportedEncodingException {
+	public void testMigration() throws SQLException, IOException {
+		// Genesis public key
+		publicKeyByAddress.put(GENESIS_ADDRESS, GENESIS_PUBLICKEY);
+		// Some other public keys for addresses that have never created a transaction
+		publicKeyByAddress.put("QcDLhirHkSbR4TLYeShLzHw61B8UGTFusk", Base58.decode("HP58uWRBae654ze6ysmdyGv3qaDrr9BEk6cHv4WuiF7d"));
+
 		Statement stmt = c.createStatement();
 		stmt.execute("DELETE FROM Blocks");
 
@@ -148,7 +176,8 @@ public class migrate {
 		PreparedStatement sharedPaymentPStmt = c
 				.prepareStatement("INSERT INTO SharedTransactionPayments " + formatWithPlaceholders("signature", "recipient", "amount", "asset"));
 
-		PreparedStatement blockTxPStmt = c.prepareStatement("INSERT INTO BlockTransactions " + formatWithPlaceholders("block", "sequence", "signature"));
+		PreparedStatement blockTxPStmt = c
+				.prepareStatement("INSERT INTO BlockTransactions " + formatWithPlaceholders("block_signature", "sequence", "transaction_signature"));
 
 		int height = 1;
 		byte[] milestone_block = null;
@@ -158,7 +187,7 @@ public class migrate {
 				break;
 
 			if (height % 1000 == 0)
-				System.out.println("Height: " + height);
+				System.out.println("Height: " + height + ", public key map size: " + publicKeyByAddress.size());
 
 			JSONArray transactions = (JSONArray) json.get("transactions");
 
@@ -173,6 +202,8 @@ public class migrate {
 			byte[] blockTransactionsSignature = Base58.decode((String) json.get("transactionsSignature"));
 			byte[] blockGeneratorSignature = Base58.decode((String) json.get("generatorSignature"));
 
+			byte[] generatorPublicKey = addressToPublicKey((String) json.get("generator"));
+
 			blocksPStmt.setBinaryStream(1, new ByteArrayInputStream(blockSignature));
 			blocksPStmt.setInt(2, ((Long) json.get("version")).intValue());
 			blocksPStmt.setBinaryStream(3, new ByteArrayInputStream(blockReference));
@@ -182,7 +213,7 @@ public class migrate {
 			blocksPStmt.setInt(7, height);
 			blocksPStmt.setTimestamp(8, new Timestamp((Long) json.get("timestamp")));
 			blocksPStmt.setBigDecimal(9, BigDecimal.valueOf((Long) json.get("generatingBalance")));
-			blocksPStmt.setString(10, (String) json.get("generator"));
+			blocksPStmt.setBinaryStream(10, new ByteArrayInputStream(generatorPublicKey));
 			blocksPStmt.setBinaryStream(11, new ByteArrayInputStream(blockGeneratorSignature));
 
 			String blockATs = (String) json.get("blockATs");
@@ -221,6 +252,7 @@ public class migrate {
 
 				txPStmt.setInt(3, type);
 
+				// Determine transaction "creator" from specific transaction info
 				switch (type) {
 					case 1: // genesis
 						txPStmt.setNull(4, java.sql.Types.VARCHAR); // genesis transactions only
@@ -229,21 +261,21 @@ public class migrate {
 					case 2: // payment
 					case 12: // transfer asset
 					case 15: // multi-payment
-						txPStmt.setString(4, (String) transaction.get("sender"));
+						txPStmt.setBinaryStream(4, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("sender"))));
 						break;
 
 					case 3: // register name
-						txPStmt.setString(4, (String) transaction.get("registrant"));
+						txPStmt.setBinaryStream(4, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("registrant"))));
 						break;
 
 					case 4: // update name
 					case 5: // sell name
 					case 6: // cancel sell name
-						txPStmt.setString(4, (String) transaction.get("owner"));
+						txPStmt.setBinaryStream(4, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("owner"))));
 						break;
 
 					case 7: // buy name
-						txPStmt.setString(4, (String) transaction.get("buyer"));
+						txPStmt.setBinaryStream(4, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("buyer"))));
 						break;
 
 					case 8: // create poll
@@ -254,7 +286,7 @@ public class migrate {
 					case 14: // cancel asset order
 					case 16: // deploy CIYAM AT
 					case 17: // message
-						txPStmt.setString(4, (String) transaction.get("creator"));
+						txPStmt.setBinaryStream(4, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						break;
 
 					default:
@@ -344,7 +376,7 @@ public class migrate {
 
 					case 2: // payment
 						paymentPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						paymentPStmt.setString(2, (String) transaction.get("sender"));
+						paymentPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("sender"))));
 						paymentPStmt.setString(3, recipients.get(0));
 						paymentPStmt.setBigDecimal(4, BigDecimal.valueOf(Double.valueOf((String) transaction.get("amount")).doubleValue()));
 
@@ -354,7 +386,7 @@ public class migrate {
 
 					case 3: // register name
 						registerNamePStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						registerNamePStmt.setString(2, (String) transaction.get("registrant"));
+						registerNamePStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("registrant"))));
 						registerNamePStmt.setString(3, (String) transaction.get("name"));
 						registerNamePStmt.setString(4, (String) transaction.get("owner"));
 						registerNamePStmt.setString(5, (String) transaction.get("value"));
@@ -365,7 +397,7 @@ public class migrate {
 
 					case 4: // update name
 						updateNamePStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						updateNamePStmt.setString(2, (String) transaction.get("owner"));
+						updateNamePStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("owner"))));
 						updateNamePStmt.setString(3, (String) transaction.get("name"));
 						updateNamePStmt.setString(4, (String) transaction.get("newOwner"));
 						updateNamePStmt.setString(5, (String) transaction.get("newValue"));
@@ -376,7 +408,7 @@ public class migrate {
 
 					case 5: // sell name
 						sellNamePStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						sellNamePStmt.setString(2, (String) transaction.get("owner"));
+						sellNamePStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("owner"))));
 						sellNamePStmt.setString(3, (String) transaction.get("name"));
 						sellNamePStmt.setBigDecimal(4, BigDecimal.valueOf(Double.valueOf((String) transaction.get("amount")).doubleValue()));
 
@@ -386,7 +418,7 @@ public class migrate {
 
 					case 6: // cancel sell name
 						cancelSellNamePStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						cancelSellNamePStmt.setString(2, (String) transaction.get("owner"));
+						cancelSellNamePStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("owner"))));
 						cancelSellNamePStmt.setString(3, (String) transaction.get("name"));
 
 						cancelSellNamePStmt.execute();
@@ -395,7 +427,7 @@ public class migrate {
 
 					case 7: // buy name
 						buyNamePStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						buyNamePStmt.setString(2, (String) transaction.get("buyer"));
+						buyNamePStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("buyer"))));
 						buyNamePStmt.setString(3, (String) transaction.get("name"));
 						buyNamePStmt.setString(4, (String) transaction.get("seller"));
 						buyNamePStmt.setBigDecimal(5, BigDecimal.valueOf(Double.valueOf((String) transaction.get("amount")).doubleValue()));
@@ -406,7 +438,7 @@ public class migrate {
 
 					case 8: // create poll
 						createPollPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						createPollPStmt.setString(2, (String) transaction.get("creator"));
+						createPollPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						createPollPStmt.setString(3, (String) transaction.get("name"));
 						createPollPStmt.setString(4, (String) transaction.get("description"));
 
@@ -426,7 +458,7 @@ public class migrate {
 
 					case 9: // vote on poll
 						voteOnPollPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						voteOnPollPStmt.setString(2, (String) transaction.get("creator"));
+						voteOnPollPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						voteOnPollPStmt.setString(3, (String) transaction.get("poll"));
 						voteOnPollPStmt.setInt(4, ((Long) transaction.get("option")).intValue());
 
@@ -436,7 +468,7 @@ public class migrate {
 
 					case 10: // arbitrary transactions
 						arbitraryPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						arbitraryPStmt.setString(2, (String) transaction.get("creator"));
+						arbitraryPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						arbitraryPStmt.setInt(3, ((Long) transaction.get("service")).intValue());
 						arbitraryPStmt.setString(4, "TODO");
 
@@ -459,7 +491,7 @@ public class migrate {
 
 					case 11: // issue asset
 						issueAssetPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						issueAssetPStmt.setString(2, (String) transaction.get("creator"));
+						issueAssetPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						issueAssetPStmt.setString(3, (String) transaction.get("name"));
 						issueAssetPStmt.setString(4, (String) transaction.get("description"));
 						issueAssetPStmt.setBigDecimal(5, BigDecimal.valueOf(((Long) transaction.get("quantity")).longValue()));
@@ -471,7 +503,7 @@ public class migrate {
 
 					case 12: // transfer asset
 						transferAssetPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						transferAssetPStmt.setString(2, (String) transaction.get("sender"));
+						transferAssetPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("sender"))));
 						transferAssetPStmt.setString(3, (String) transaction.get("recipient"));
 						transferAssetPStmt.setLong(4, ((Long) transaction.get("asset")).longValue());
 						transferAssetPStmt.setBigDecimal(5, BigDecimal.valueOf(Double.valueOf((String) transaction.get("amount")).doubleValue()));
@@ -482,7 +514,7 @@ public class migrate {
 
 					case 13: // create asset order
 						createAssetOrderPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						createAssetOrderPStmt.setString(2, (String) transaction.get("creator"));
+						createAssetOrderPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 
 						JSONObject assetOrder = (JSONObject) transaction.get("order");
 						createAssetOrderPStmt.setLong(3, ((Long) assetOrder.get("have")).longValue());
@@ -496,7 +528,7 @@ public class migrate {
 
 					case 14: // cancel asset order
 						cancelAssetOrderPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						cancelAssetOrderPStmt.setString(2, (String) transaction.get("creator"));
+						cancelAssetOrderPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						cancelAssetOrderPStmt.setString(3, (String) transaction.get("order"));
 
 						cancelAssetOrderPStmt.execute();
@@ -505,7 +537,7 @@ public class migrate {
 
 					case 15: // multi-payment
 						multiPaymentPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						multiPaymentPStmt.setString(2, (String) transaction.get("sender"));
+						multiPaymentPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("sender"))));
 
 						multiPaymentPStmt.execute();
 						multiPaymentPStmt.clearParameters();
@@ -528,7 +560,7 @@ public class migrate {
 						InputStream creationBytesStream = new ByteArrayInputStream(creationBytes.asBytes());
 
 						deployATPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						deployATPStmt.setString(2, (String) transaction.get("creator"));
+						deployATPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						deployATPStmt.setString(3, (String) transaction.get("name"));
 						deployATPStmt.setString(4, (String) transaction.get("description"));
 						deployATPStmt.setString(5, (String) transaction.get("atType"));
@@ -554,7 +586,7 @@ public class migrate {
 						}
 
 						messagePStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						messagePStmt.setString(2, (String) transaction.get("creator"));
+						messagePStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						messagePStmt.setString(3, (String) transaction.get("recipient"));
 						messagePStmt.setBoolean(4, isText);
 						messagePStmt.setBoolean(5, isEncrypted);

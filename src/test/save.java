@@ -12,6 +12,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import qora.account.PublicKeyAccount;
 import qora.transaction.PaymentTransaction;
 import utils.Base58;
 
@@ -41,8 +42,9 @@ public class save {
 		byte[] reference = Base58.decode(reference58);
 		String signature58 = "ssss";
 		byte[] signature = Base58.decode(signature58);
+		PublicKeyAccount sender = new PublicKeyAccount("Qsender".getBytes());
 
-		PaymentTransaction paymentTransaction = new PaymentTransaction("Qsender", "Qrecipient", BigDecimal.valueOf(12345L), BigDecimal.ONE,
+		PaymentTransaction paymentTransaction = new PaymentTransaction(sender, "Qrecipient", BigDecimal.valueOf(12345L), BigDecimal.ONE,
 				Instant.now().getEpochSecond(), reference, signature);
 
 		paymentTransaction.save(connection);

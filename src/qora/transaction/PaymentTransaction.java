@@ -10,12 +10,12 @@ import org.json.simple.JSONObject;
 
 import database.DB;
 import database.NoDataFoundException;
+import qora.account.PublicKeyAccount;
 
 public class PaymentTransaction extends Transaction {
 
 	// Properties
-	// private PublicKeyAccount sender;
-	private String sender;
+	private PublicKeyAccount sender;
 	private String recipient;
 	private BigDecimal amount;
 
@@ -27,7 +27,8 @@ public class PaymentTransaction extends Transaction {
 
 	// Constructors
 
-	public PaymentTransaction(String sender, String recipient, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+	public PaymentTransaction(PublicKeyAccount sender, String recipient, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference,
+			byte[] signature) {
 		super(TransactionType.Payment, fee, sender, timestamp, reference, signature);
 
 		this.sender = sender;
@@ -35,13 +36,13 @@ public class PaymentTransaction extends Transaction {
 		this.amount = amount;
 	}
 
-	public PaymentTransaction(String sender, String recipient, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference) {
+	public PaymentTransaction(PublicKeyAccount sender, String recipient, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference) {
 		this(sender, recipient, amount, fee, timestamp, reference, null);
 	}
 
 	// Getters/Setters
 
-	public String getSender() {
+	public PublicKeyAccount getSender() {
 		return this.sender;
 	}
 
@@ -61,16 +62,41 @@ public class PaymentTransaction extends Transaction {
 
 	// Load/Save
 
-	public PaymentTransaction(Connection connection, byte[] signature) throws SQLException {
+	/**
+	 * Load PaymentTransaction from DB using signature.
+	 * 
+	 * @param connection
+	 * @param signature
+	 * @throws NoDataFoundException
+	 *             if no matching row found
+	 * @throws SQLException
+	 */
+	protected PaymentTransaction(Connection connection, byte[] signature) throws SQLException {
 		super(connection, TransactionType.Payment, signature);
 
 		ResultSet rs = DB.executeUsingBytes(connection, "SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature);
 		if (rs == null)
 			throw new NoDataFoundException();
 
-		this.sender = rs.getString(1);
+		this.sender = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(1), CREATOR_LENGTH));
 		this.recipient = rs.getString(2);
 		this.amount = rs.getBigDecimal(3).setScale(8);
+	}
+
+	/**
+	 * Load PaymentTransaction from DB using signature
+	 * 
+	 * @param connection
+	 * @param signature
+	 * @return PaymentTransaction, or null if not found
+	 * @throws SQLException
+	 */
+	public static PaymentTransaction fromSignature(Connection connection, byte[] signature) throws SQLException {
+		try {
+			return new PaymentTransaction(connection, signature);
+		} catch (NoDataFoundException e) {
+			return null;
+		}
 	}
 
 	@Override
@@ -79,7 +105,7 @@ public class PaymentTransaction extends Transaction {
 
 		String sql = DB.formatInsertWithPlaceholders("PaymentTransactions", "signature", "sender", "recipient", "amount");
 		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.sender, this.recipient, this.amount);
+		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.sender.getPublicKey(), this.recipient, this.amount);
 		preparedStatement.execute();
 	}
 
@@ -109,9 +135,11 @@ public class PaymentTransaction extends Transaction {
 	}
 
 	public void process() {
+		// TODO
 	}
 
 	public void orphan() {
+		// TODO
 	}
 
 }
