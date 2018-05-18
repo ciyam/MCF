@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Map;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
@@ -19,14 +20,18 @@ import database.NoDataFoundException;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
 import qora.block.Block;
+import qora.block.BlockChain;
 import qora.block.BlockTransaction;
 import settings.Settings;
+
+import utils.Base58;
 
 public abstract class Transaction {
 
 	// Transaction types
 	public enum TransactionType {
-		Genesis(1), Payment(2);
+		GENESIS(1), PAYMENT(2), REGISTER_NAME(3), UPDATE_NAME(4), SELL_NAME(5), CANCEL_SELL_NAME(6), BUY_NAME(7), CREATE_POLL(8), VOTE_ON_POLL(9), ARBITRARY(
+				10), ISSUE_ASSET(11), TRANSFER_ASSET(12), CREATE_ASSET_ORDER(13), CANCEL_ASSET_ORDER(14), MULTIPAYMENT(15), DEPLOY_AT(16), MESSAGE(17);
 
 		public final int value;
 
@@ -42,7 +47,21 @@ public abstract class Transaction {
 	}
 
 	// Validation results
-	public static final int VALIDATE_OK = 1;
+	public enum ValidationResult {
+		OK(1), INVALID_ADDRESS(2), NEGATIVE_AMOUNT(3);
+
+		public final int value;
+
+		private final static Map<Integer, ValidationResult> map = stream(ValidationResult.values()).collect(toMap(result -> result.value, result -> result));
+
+		ValidationResult(int value) {
+			this.value = value;
+		}
+
+		public static ValidationResult valueOf(int value) {
+			return map.get(value);
+		}
+	}
 
 	// Minimum fee
 	public static final BigDecimal MINIMUM_FEE = BigDecimal.ONE;
@@ -149,6 +168,40 @@ public abstract class Transaction {
 		return recommendedFee.setScale(8);
 	}
 
+	/**
+	 * Get block height for this transaction in the blockchain.
+	 * 
+	 * @param connection
+	 * @return height, or 0 if not in blockchain (i.e. unconfirmed)
+	 * @throws SQLException
+	 */
+	public int getHeight(Connection connection) throws SQLException {
+		if (this.signature == null)
+			return 0;
+
+		BlockTransaction blockTx = BlockTransaction.fromTransactionSignature(connection, this.signature);
+		if (blockTx == null)
+			return 0;
+
+		return BlockChain.getBlockHeightFromSignature(connection, blockTx.getBlockSignature());
+	}
+
+	/**
+	 * Get number of confirmations for this transaction.
+	 * 
+	 * @param connection
+	 * @return confirmation count, or 0 if not in blockchain (i.e. unconfirmed)
+	 * @throws SQLException
+	 */
+	public int getConfirmations(Connection connection) throws SQLException {
+		int ourHeight = this.getHeight(connection);
+		if (ourHeight == 0)
+			return 0;
+
+		int blockChainHeight = BlockChain.getMaxHeight(connection);
+		return blockChainHeight - ourHeight + 1;
+	}
+
 	// Load/Save
 
 	// Typically called by sub-class' load-from-DB constructors
@@ -238,24 +291,76 @@ public abstract class Transaction {
 
 	public abstract JSONObject toJSON();
 
+	/**
+	 * Produce JSON representation of common/base Transaction info.
+	 * <p>
+	 * To include info on number of confirmations, a Connection object is required. See {@link Transaction#getBaseJSON(Connection)}
+	 * 
+	 * @return JSONObject
+	 */
+	@SuppressWarnings("unchecked")
+	protected JSONObject getBaseJSON() {
+		JSONObject json = new JSONObject();
+
+		json.put("type", this.type.value);
+		json.put("fee", this.fee.toPlainString());
+		json.put("timestamp", this.timestamp);
+		json.put("reference", Base58.encode(this.reference));
+		json.put("signature", Base58.encode(this.signature));
+
+		return json;
+	}
+
+	/**
+	 * Produce JSON representation of common/base Transaction info, including number of confirmations.
+	 * <p>
+	 * Requires SQL Connection object to determine number of confirmations.
+	 * 
+	 * @param connection
+	 * @return JSONObject
+	 * @throws SQLException
+	 * @see Transaction#getBaseJSON()
+	 */
+	@SuppressWarnings("unchecked")
+	protected JSONObject getBaseJSON(Connection connection) throws SQLException {
+		JSONObject json = this.getBaseJSON();
+
+		json.put("confirmations", this.getConfirmations(connection));
+
+		return json;
+	}
+
+	/**
+	 * Serialize transaction as byte[], including signature.
+	 * 
+	 * @return byte[]
+	 */
 	public abstract byte[] toBytes();
+
+	/**
+	 * Serialize transaction as byte[], stripping off trailing signature.
+	 * 
+	 * @return byte[]
+	 */
+	private byte[] toBytesLessSignature() {
+		byte[] bytes = this.toBytes();
+		return Arrays.copyOf(bytes, bytes.length - SIGNATURE_LENGTH);
+	}
 
 	// Processing
 
 	public byte[] calcSignature(PrivateKeyAccount signer) {
-		byte[] bytes = this.toBytes();
-
-		return signer.sign(bytes);
+		return signer.sign(this.toBytesLessSignature());
 	}
 
 	public boolean isSignatureValid(PublicKeyAccount signer) {
 		if (this.signature == null)
 			return false;
 
-		return signer.verify(this.signature, this.toBytes());
+		return signer.verify(this.signature, this.toBytesLessSignature());
 	}
 
-	public abstract int isValid();
+	public abstract ValidationResult isValid(Connection connection);
 
 	public abstract void process();
 

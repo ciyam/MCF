@@ -46,11 +46,10 @@ public class TransactionFactory {
 		byte[] signature = DB.getResultSetBytes(resultSet.getBinaryStream(2), Transaction.SIGNATURE_LENGTH);
 
 		switch (type) {
-			case Genesis:
-				// return new GenesisTransaction(connection, signature);
-				return null;
+			case GENESIS:
+				return GenesisTransaction.fromSignature(connection, signature);
 
-			case Payment:
+			case PAYMENT:
 				return PaymentTransaction.fromSignature(connection, signature);
 
 			default:

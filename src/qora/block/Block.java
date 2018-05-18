@@ -1,6 +1,5 @@
 package qora.block;
 
-import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -70,12 +69,12 @@ public class Block {
 
 	// Property lengths for serialisation
 	protected static final int VERSION_LENGTH = 4;
-	protected static final int REFERENCE_LENGTH = 64;
+	protected static final int TRANSACTIONS_SIGNATURE_LENGTH = 64;
+	protected static final int GENERATION_SIGNATURE_LENGTH = 64;
+	protected static final int REFERENCE_LENGTH = GENERATION_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
 	protected static final int TIMESTAMP_LENGTH = 8;
 	protected static final int GENERATION_TARGET_LENGTH = 8;
 	protected static final int GENERATOR_LENGTH = 32;
-	protected static final int TRANSACTIONS_SIGNATURE_LENGTH = 64;
-	protected static final int GENERATION_SIGNATURE_LENGTH = 64;
 	protected static final int TRANSACTION_COUNT_LENGTH = 8;
 	protected static final int BASE_LENGTH = VERSION_LENGTH + REFERENCE_LENGTH + TIMESTAMP_LENGTH + GENERATION_TARGET_LENGTH + GENERATOR_LENGTH
 			+ TRANSACTIONS_SIGNATURE_LENGTH + GENERATION_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
@@ -188,27 +187,34 @@ public class Block {
 		return this.transactions;
 	}
 
+	/**
+	 * Return block's transactions from DB (or cache).
+	 * <p>
+	 * If block's transactions have already been loaded from DB then the cached copied is returned instead.
+	 * 
+	 * @param connection
+	 * @return
+	 * @throws SQLException
+	 */
 	public List<Transaction> getTransactions(Connection connection) throws SQLException {
 		// Already loaded?
 		if (this.transactions != null)
 			return this.transactions;
 
-		// Load from DB
+		// Allocate cache for results
 		this.transactions = new ArrayList<Transaction>();
 
-		PreparedStatement preparedStatement = connection.prepareStatement("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ?");
-		preparedStatement.setBinaryStream(1, new ByteArrayInputStream(this.getSignature()));
-		if (!preparedStatement.execute())
-			throw new SQLException("Fetching from database produced no results");
-
-		ResultSet rs = preparedStatement.getResultSet();
+		// Load from DB
+		ResultSet rs = DB.executeUsingBytes(connection, "SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ?", this.getSignature());
 		if (rs == null)
-			throw new SQLException("Fetching results from database produced no ResultSet");
+			return this.transactions; // No transactions in this block
 
-		while (rs.next()) {
+		// Use each row's signature to load, and cache, Transactions
+		// NB: do-while loop because DB.executeUsingBytes() implicitly calls ResultSet.next() for us
+		do {
 			byte[] transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Transaction.SIGNATURE_LENGTH);
 			this.transactions.add(TransactionFactory.fromSignature(connection, transactionSignature));
-		}
+		} while (rs.next());
 
 		return this.transactions;
 	}
@@ -355,9 +361,9 @@ public class Block {
 		return false;
 	}
 
-	public int isValid() {
+	public boolean isValid(Connection connection) throws SQLException {
 		// TODO
-		return VALIDATE_OK;
+		return false;
 	}
 
 	public void process() {

@@ -1,5 +1,7 @@
 package qora.transaction;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -8,15 +10,22 @@ import java.sql.SQLException;
 
 import org.json.simple.JSONObject;
 
+import com.google.common.hash.HashCode;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
+
 import database.DB;
 import database.NoDataFoundException;
+import qora.account.Account;
 import qora.account.PublicKeyAccount;
+import utils.Base58;
+import utils.Serialization;
 
 public class PaymentTransaction extends Transaction {
 
 	// Properties
 	private PublicKeyAccount sender;
-	private String recipient;
+	private Account recipient;
 	private BigDecimal amount;
 
 	// Property lengths
@@ -29,10 +38,10 @@ public class PaymentTransaction extends Transaction {
 
 	public PaymentTransaction(PublicKeyAccount sender, String recipient, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference,
 			byte[] signature) {
-		super(TransactionType.Payment, fee, sender, timestamp, reference, signature);
+		super(TransactionType.PAYMENT, fee, sender, timestamp, reference, signature);
 
 		this.sender = sender;
-		this.recipient = recipient;
+		this.recipient = new Account(recipient);
 		this.amount = amount;
 	}
 
@@ -46,7 +55,7 @@ public class PaymentTransaction extends Transaction {
 		return this.sender;
 	}
 
-	public String getRecipient() {
+	public Account getRecipient() {
 		return this.recipient;
 	}
 
@@ -72,14 +81,14 @@ public class PaymentTransaction extends Transaction {
 	 * @throws SQLException
 	 */
 	protected PaymentTransaction(Connection connection, byte[] signature) throws SQLException {
-		super(connection, TransactionType.Payment, signature);
+		super(connection, TransactionType.PAYMENT, signature);
 
 		ResultSet rs = DB.executeUsingBytes(connection, "SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature);
 		if (rs == null)
 			throw new NoDataFoundException();
 
 		this.sender = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(1), CREATOR_LENGTH));
-		this.recipient = rs.getString(2);
+		this.recipient = new Account(rs.getString(2));
 		this.amount = rs.getBigDecimal(3).setScale(8);
 	}
 
@@ -116,22 +125,41 @@ public class PaymentTransaction extends Transaction {
 		return null;
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public JSONObject toJSON() {
-		// TODO
-		return null;
+		JSONObject json = getBaseJSON();
+
+		json.put("sender", this.sender.getAddress());
+		json.put("senderPublicKey", HashCode.fromBytes(this.sender.getPublicKey()).toString());
+		json.put("recipient", this.recipient.getAddress());
+		json.put("amount", this.amount.toPlainString());
+
+		return json;
 	}
 
 	public byte[] toBytes() {
-		// TODO
-		return new byte[0];
+		try {
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(getDataLength());
+			bytes.write(Ints.toByteArray(this.type.value));
+			bytes.write(Longs.toByteArray(this.timestamp));
+			bytes.write(this.reference);
+			bytes.write(this.sender.getPublicKey());
+			bytes.write(Base58.decode(this.recipient.getAddress()));
+			bytes.write(Serialization.serializeBigDecimal(this.amount));
+			bytes.write(Serialization.serializeBigDecimal(this.fee));
+			bytes.write(this.signature);
+			return bytes.toByteArray();
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	// Processing
 
-	public int isValid() {
+	public ValidationResult isValid(Connection connection) {
 		// TODO
-		return VALIDATE_OK;
+		return ValidationResult.OK;
 	}
 
 	public void process() {

@@ -12,6 +12,10 @@ import java.util.Arrays;
 
 import com.google.common.primitives.Bytes;
 
+/**
+ * Helper methods for common database actions.
+ *
+ */
 public class DB {
 
 	public static void startTransaction(Connection c) throws SQLException {
@@ -122,6 +126,8 @@ public class DB {
 		for (int i = 0; i < objects.length; ++i) {
 			Object object = objects[i];
 
+			// Special treatment for BigDecimals so that they retain their "scale",
+			// which would otherwise be assumed as 0.
 			if (object instanceof BigDecimal) {
 				preparedStatement.setBigDecimal(i + 1, (BigDecimal) object);
 				preparedStatement.setBigDecimal(i + objects.length + 1, (BigDecimal) object);
@@ -133,10 +139,11 @@ public class DB {
 	}
 
 	/**
-	 * Execute SQL using byte[] as 1st placeholder
+	 * Execute SQL using byte[] as 1st placeholder.
+	 * <p>
+	 * <b>Note: calls ResultSet.next()</b> therefore returned ResultSet is already pointing to first row.
 	 * <p>
 	 * Typically used to fetch Blocks or Transactions using signature or reference.
-	 * <p>
 	 * 
 	 * @param connection
 	 * @param sql
@@ -162,7 +169,9 @@ public class DB {
 	}
 
 	/**
-	 * Execute PreparedStatement and return ResultSet with but added checking
+	 * Execute PreparedStatement and return ResultSet with but added checking.
+	 * <p>
+	 * <b>Note: calls ResultSet.next()</b> therefore returned ResultSet is already pointing to first row.
 	 * 
 	 * @param preparedStatement
 	 * @return ResultSet, or null if there are no found rows
@@ -181,4 +190,5 @@ public class DB {
 
 		return resultSet;
 	}
+
 }

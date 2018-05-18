@@ -41,7 +41,7 @@ public class load {
 
 		assertEquals(paymentTransaction.getSender().getAddress(), "QXwu8924WdgPoRmtiWQBUMF6eedmp1Hu2E");
 		assertEquals(paymentTransaction.getCreator().getAddress(), "QXwu8924WdgPoRmtiWQBUMF6eedmp1Hu2E");
-		assertEquals(paymentTransaction.getRecipient(), "QZsv8vbJ6QfrBNba4LMp5UtHhAzhrxvVUU");
+		assertEquals(paymentTransaction.getRecipient().getAddress(), "QZsv8vbJ6QfrBNba4LMp5UtHhAzhrxvVUU");
 		assertEquals(paymentTransaction.getTimestamp(), 1416209264000L);
 		assertEquals(Base58.encode(paymentTransaction.getReference()),
 				"31dC6kHHBeG5vYb8LMaZDjLEmhc9kQB2VUApVd8xWncSRiXu7yMejdprjYFMP2rUnzZxWd4KJhkq6LsV7rQvU1kY");
