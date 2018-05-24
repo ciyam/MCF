@@ -47,25 +47,26 @@ public class BlockTransaction {
 
 	// Load/Save
 
-	protected BlockTransaction(Connection connection, byte[] blockSignature, int sequence) throws SQLException {
-		// Can't use DB.executeUsingBytes() here as we need two placeholders
-		PreparedStatement preparedStatement = connection
-				.prepareStatement("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? and sequence = ?");
-		preparedStatement.setBinaryStream(1, new ByteArrayInputStream(blockSignature));
-		preparedStatement.setInt(2, sequence);
+	protected BlockTransaction(byte[] blockSignature, int sequence) throws SQLException {
+		try (final Connection connection = DB.getConnection()) {
+			// Can't use DB.executeUsingBytes() here as we need two placeholders
+			PreparedStatement preparedStatement = connection
+					.prepareStatement("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? and sequence = ?");
+			preparedStatement.setBinaryStream(1, new ByteArrayInputStream(blockSignature));
+			preparedStatement.setInt(2, sequence);
 
-		ResultSet rs = DB.checkedExecute(preparedStatement);
-		if (rs == null)
-			throw new NoDataFoundException();
+			ResultSet rs = DB.checkedExecute(preparedStatement);
+			if (rs == null)
+				throw new NoDataFoundException();
 
-		this.blockSignature = blockSignature;
-		this.sequence = sequence;
-		this.transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Transaction.SIGNATURE_LENGTH);
+			this.blockSignature = blockSignature;
+			this.sequence = sequence;
+			this.transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Transaction.SIGNATURE_LENGTH);
+		}
 	}
 
-	protected BlockTransaction(Connection connection, byte[] transactionSignature) throws SQLException {
-		ResultSet rs = DB.executeUsingBytes(connection, "SELECT block_signature, sequence FROM BlockTransactions WHERE transaction_signature = ?",
-				transactionSignature);
+	protected BlockTransaction(byte[] transactionSignature) throws SQLException {
+		ResultSet rs = DB.executeUsingBytes("SELECT block_signature, sequence FROM BlockTransactions WHERE transaction_signature = ?", transactionSignature);
 		if (rs == null)
 			throw new NoDataFoundException();
 
@@ -77,15 +78,14 @@ public class BlockTransaction {
 	/**
 	 * Load BlockTransaction from DB using block signature and tx-in-block sequence.
 	 * 
-	 * @param connection
 	 * @param blockSignature
 	 * @param sequence
 	 * @return BlockTransaction, or null if not found
 	 * @throws SQLException
 	 */
-	public static BlockTransaction fromBlockSignature(Connection connection, byte[] blockSignature, int sequence) throws SQLException {
+	public static BlockTransaction fromBlockSignature(byte[] blockSignature, int sequence) throws SQLException {
 		try {
-			return new BlockTransaction(connection, blockSignature, sequence);
+			return new BlockTransaction(blockSignature, sequence);
 		} catch (NoDataFoundException e) {
 			return null;
 		}
@@ -94,14 +94,13 @@ public class BlockTransaction {
 	/**
 	 * Load BlockTransaction from DB using transaction signature.
 	 * 
-	 * @param connection
 	 * @param transactionSignature
 	 * @return BlockTransaction, or null if not found
 	 * @throws SQLException
 	 */
-	public static BlockTransaction fromTransactionSignature(Connection connection, byte[] transactionSignature) throws SQLException {
+	public static BlockTransaction fromTransactionSignature(byte[] transactionSignature) throws SQLException {
 		try {
-			return new BlockTransaction(connection, transactionSignature);
+			return new BlockTransaction(transactionSignature);
 		} catch (NoDataFoundException e) {
 			return null;
 		}
@@ -119,23 +118,21 @@ public class BlockTransaction {
 	/**
 	 * Load corresponding Block from DB.
 	 * 
-	 * @param connection
 	 * @return Block, or null if not found (which should never happen)
 	 * @throws SQLException
 	 */
-	public Block getBlock(Connection connection) throws SQLException {
-		return Block.fromSignature(connection, this.blockSignature);
+	public Block getBlock() throws SQLException {
+		return Block.fromSignature(this.blockSignature);
 	}
 
 	/**
 	 * Load corresponding Transaction from DB.
 	 * 
-	 * @param connection
 	 * @return Transaction, or null if not found (which should never happen)
 	 * @throws SQLException
 	 */
-	public Transaction getTransaction(Connection connection) throws SQLException {
-		return TransactionFactory.fromSignature(connection, this.transactionSignature);
+	public Transaction getTransaction() throws SQLException {
+		return TransactionFactory.fromSignature(this.transactionSignature);
 	}
 
 	// Converters

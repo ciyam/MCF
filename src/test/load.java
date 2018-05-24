@@ -2,43 +2,28 @@ package test;
 
 import static org.junit.Assert.*;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
+import qora.block.BlockChain;
 import qora.transaction.PaymentTransaction;
 import qora.transaction.Transaction;
 import qora.transaction.TransactionFactory;
 import utils.Base58;
 
-public class load {
-
-	private static Connection connection;
-
-	@Before
-	public void connect() throws SQLException {
-		connection = common.getConnection();
-	}
-
-	@After
-	public void disconnect() {
-		try {
-			connection.createStatement().execute("SHUTDOWN");
-		} catch (SQLException e) {
-			fail();
-		}
-	}
+public class load extends common {
 
 	@Test
 	public void testLoadPaymentTransaction() throws SQLException {
+		assertTrue("Migrate old database to at least block 49778 before running this test", BlockChain.getMaxHeight() >= 49778);
+
 		String signature58 = "1211ZPwG3hk5evWzXCZi9hMDRpwumWmkENjwWkeTCik9xA5uoYnxzF7rwR5hmHH3kG2RXo7ToCAaRc7dvnynByJt";
 		byte[] signature = Base58.decode(signature58);
 
-		PaymentTransaction paymentTransaction = PaymentTransaction.fromSignature(connection, signature);
+		PaymentTransaction paymentTransaction = PaymentTransaction.fromSignature(signature);
 
+		assertNotNull(paymentTransaction);
 		assertEquals(paymentTransaction.getSender().getAddress(), "QXwu8924WdgPoRmtiWQBUMF6eedmp1Hu2E");
 		assertEquals(paymentTransaction.getCreator().getAddress(), "QXwu8924WdgPoRmtiWQBUMF6eedmp1Hu2E");
 		assertEquals(paymentTransaction.getRecipient().getAddress(), "QZsv8vbJ6QfrBNba4LMp5UtHhAzhrxvVUU");
@@ -49,17 +34,19 @@ public class load {
 
 	@Test
 	public void testLoadFactory() throws SQLException {
+		assertTrue("Migrate old database to at least block 49778 before running this test", BlockChain.getMaxHeight() >= 49778);
+
 		String signature58 = "1211ZPwG3hk5evWzXCZi9hMDRpwumWmkENjwWkeTCik9xA5uoYnxzF7rwR5hmHH3kG2RXo7ToCAaRc7dvnynByJt";
 		byte[] signature = Base58.decode(signature58);
 
 		while (true) {
-			Transaction transaction = TransactionFactory.fromSignature(connection, signature);
+			Transaction transaction = TransactionFactory.fromSignature(signature);
 			if (transaction == null)
 				break;
 
 			PaymentTransaction payment = (PaymentTransaction) transaction;
-			System.out.println("Transaction " + Base58.encode(payment.getSignature()) + ": " + payment.getAmount().toString() + " QORA from "
-					+ payment.getSender().getAddress() + " to " + payment.getRecipient());
+			System.out
+					.println(payment.getSender().getAddress() + " sent " + payment.getAmount().toString() + " QORA to " + payment.getRecipient().getAddress());
 
 			signature = payment.getReference();
 		}
@@ -70,11 +57,11 @@ public class load {
 		String signature58 = "1111222233334444";
 		byte[] signature = Base58.decode(signature58);
 
-		PaymentTransaction payment = PaymentTransaction.fromSignature(connection, signature);
+		PaymentTransaction payment = PaymentTransaction.fromSignature(signature);
 
 		if (payment != null) {
-			System.out.println("Transaction " + Base58.encode(payment.getSignature()) + ": " + payment.getAmount().toString() + " QORA from "
-					+ payment.getSender().getAddress() + " to " + payment.getRecipient());
+			System.out
+					.println(payment.getSender().getAddress() + " sent " + payment.getAmount().toString() + " QORA to " + payment.getRecipient().getAddress());
 			fail();
 		}
 	}

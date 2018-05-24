@@ -12,13 +12,12 @@ public class BlockFactory {
 	/**
 	 * Load Block from DB using block signature.
 	 * 
-	 * @param connection
 	 * @param signature
 	 * @return ? extends Block, or null if not found
 	 * @throws SQLException
 	 */
-	public static Block fromSignature(Connection connection, byte[] signature) throws SQLException {
-		Block block = Block.fromSignature(connection, signature);
+	public static Block fromSignature(byte[] signature) throws SQLException {
+		Block block = Block.fromSignature(signature);
 		if (block == null)
 			return null;
 
@@ -33,22 +32,23 @@ public class BlockFactory {
 	/**
 	 * Load Block from DB using block height
 	 * 
-	 * @param connection
 	 * @param height
 	 * @return ? extends Block, or null if not found
 	 * @throws SQLException
 	 */
-	public static Block fromHeight(Connection connection, int height) throws SQLException {
+	public static Block fromHeight(int height) throws SQLException {
 		if (height == 1)
 			return GenesisBlock.getInstance();
 
-		PreparedStatement preparedStatement = connection.prepareStatement("SELECT signature FROM Blocks WHERE height = ?");
-		preparedStatement.setInt(1, height);
+		try (final Connection connection = DB.getConnection()) {
+			PreparedStatement preparedStatement = connection.prepareStatement("SELECT signature FROM Blocks WHERE height = ?");
+			preparedStatement.setInt(1, height);
 
-		try {
-			return new Block(DB.checkedExecute(preparedStatement));
-		} catch (NoDataFoundException e) {
-			return null;
+			try {
+				return new Block(DB.checkedExecute(preparedStatement));
+			} catch (NoDataFoundException e) {
+				return null;
+			}
 		}
 	}
 

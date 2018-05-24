@@ -13,7 +13,6 @@ import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,41 +24,21 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 import org.json.simple.parser.ParseException;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.hash.HashCode;
 import com.google.common.io.CharStreams;
 
+import database.DB;
+import qora.block.BlockChain;
 import utils.Base58;
 
-public class migrate {
+public class migrate extends common {
 
 	private static final String GENESIS_ADDRESS = "QfGMeDQQUQePMpAmfLBJzgqyrM35RWxHGD";
 	private static final byte[] GENESIS_PUBLICKEY = new byte[] { 1, 1, 1, 1, 1, 1, 1, 1 };
 
-	private static Connection c;
-	private static PreparedStatement startTransactionPStmt;
-	private static PreparedStatement commitPStmt;
-
 	private static Map<String, byte[]> publicKeyByAddress = new HashMap<String, byte[]>();
-
-	@Before
-	public void connect() throws SQLException {
-		c = common.getConnection();
-		startTransactionPStmt = c.prepareStatement("START TRANSACTION");
-		commitPStmt = c.prepareStatement("COMMIT");
-	}
-
-	@After
-	public void disconnect() {
-		try {
-			c.createStatement().execute("SHUTDOWN");
-		} catch (SQLException e) {
-			fail();
-		}
-	}
 
 	public Object fetchBlockJSON(int height) throws IOException {
 		InputStream is;
@@ -111,14 +90,6 @@ public class migrate {
 		return output.toString();
 	}
 
-	public void startTransaction() throws SQLException {
-		startTransactionPStmt.execute();
-	}
-
-	public void commit() throws SQLException {
-		commitPStmt.execute();
-	}
-
 	@Test
 	public void testMigration() throws SQLException, IOException {
 		// Genesis public key
@@ -126,8 +97,7 @@ public class migrate {
 		// Some other public keys for addresses that have never created a transaction
 		publicKeyByAddress.put("QcDLhirHkSbR4TLYeShLzHw61B8UGTFusk", Base58.decode("HP58uWRBae654ze6ysmdyGv3qaDrr9BEk6cHv4WuiF7d"));
 
-		Statement stmt = c.createStatement();
-		stmt.execute("DELETE FROM Blocks");
+		Connection c = DB.getConnection();
 
 		PreparedStatement blocksPStmt = c
 				.prepareStatement("INSERT INTO Blocks " + formatWithPlaceholders("signature", "version", "reference", "transaction_count", "total_fees",
@@ -179,8 +149,10 @@ public class migrate {
 		PreparedStatement blockTxPStmt = c
 				.prepareStatement("INSERT INTO BlockTransactions " + formatWithPlaceholders("block_signature", "sequence", "transaction_signature"));
 
-		int height = 1;
+		int height = BlockChain.getMaxHeight() + 1;
 		byte[] milestone_block = null;
+		System.out.println("Starting migration from block height " + height);
+
 		while (true) {
 			JSONObject json = (JSONObject) fetchBlockJSON(height);
 			if (json == null)
@@ -191,7 +163,7 @@ public class migrate {
 
 			JSONArray transactions = (JSONArray) json.get("transactions");
 
-			startTransaction();
+			DB.startTransaction(c);
 
 			// Blocks:
 			// signature, version, reference, transaction_count, total_fees, transactions_signature, height, generation, generation_target, generator,
@@ -246,7 +218,7 @@ public class migrate {
 				if (txReference != null)
 					txPStmt.setBinaryStream(2, new ByteArrayInputStream(txReference));
 				else if (height == 1 && type == 1)
-					txPStmt.setNull(2, java.sql.Types.VARCHAR); // genesis transactions only
+					txPStmt.setNull(2, java.sql.Types.VARBINARY); // genesis transactions only
 				else
 					fail();
 
@@ -255,7 +227,7 @@ public class migrate {
 				// Determine transaction "creator" from specific transaction info
 				switch (type) {
 					case 1: // genesis
-						txPStmt.setNull(4, java.sql.Types.VARCHAR); // genesis transactions only
+						txPStmt.setBinaryStream(4, new ByteArrayInputStream(GENESIS_PUBLICKEY)); // genesis transactions only
 						break;
 
 					case 2: // payment
@@ -299,7 +271,7 @@ public class migrate {
 				if (milestone_block != null)
 					txPStmt.setBinaryStream(7, new ByteArrayInputStream(milestone_block));
 				else if (height == 1 && type == 1)
-					txPStmt.setNull(7, java.sql.Types.VARCHAR); // genesis transactions only
+					txPStmt.setNull(7, java.sql.Types.VARBINARY); // genesis transactions only
 				else
 					fail();
 
@@ -614,7 +586,7 @@ public class migrate {
 				blockTxPStmt.execute();
 				blockTxPStmt.clearParameters();
 
-				commit();
+				DB.commit(c);
 			}
 
 			// new milestone block every 500 blocks?
@@ -623,6 +595,9 @@ public class migrate {
 
 			++height;
 		}
+
+		c.close();
+		System.out.println("Migration finished with new blockchain height " + BlockChain.getMaxHeight());
 	}
 
 }

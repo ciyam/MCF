@@ -10,6 +10,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 
+import org.hsqldb.jdbc.JDBCPool;
+
 import com.google.common.primitives.Bytes;
 
 /**
@@ -17,6 +19,33 @@ import com.google.common.primitives.Bytes;
  *
  */
 public class DB {
+
+	private static JDBCPool connectionPool;
+	private static String connectionUrl;
+
+	public static void open() throws SQLException {
+		connectionPool = new JDBCPool();
+		connectionPool.setUrl(connectionUrl);
+	}
+
+	public static void setUrl(String url) {
+		connectionUrl = url;
+	}
+
+	/**
+	 * Return an on-demand Connection from connection pool.
+	 * <p>
+	 * Mostly used in database-read scenarios whereas database-write scenarios, especially multi-statement transactions, are likely to pass around a Connection
+	 * object.
+	 * <p>
+	 * By default HSQLDB will wait up to 30 seconds for a pooled connection to become free.
+	 * 
+	 * @return Connection
+	 * @throws SQLException
+	 */
+	public static Connection getConnection() throws SQLException {
+		return connectionPool.getConnection();
+	}
 
 	public static void startTransaction(Connection c) throws SQLException {
 		c.prepareStatement("START TRANSACTION").execute();
@@ -28,6 +57,11 @@ public class DB {
 
 	public static void rollback(Connection c) throws SQLException {
 		c.prepareStatement("ROLLBACK").execute();
+	}
+
+	public static void close() throws SQLException {
+		getConnection().createStatement().execute("SHUTDOWN");
+		connectionPool.close(0);
 	}
 
 	/**
@@ -71,6 +105,9 @@ public class DB {
 			try {
 				byte[] buffer = new byte[BYTE_BUFFER_LENGTH];
 				int length = inputStream.read(buffer);
+				if (length == -1)
+					break;
+
 				result = Bytes.concat(result, Arrays.copyOf(buffer, length));
 			} catch (IOException e) {
 				// No more bytes
@@ -117,6 +154,8 @@ public class DB {
 	 * Note that each object is bound to <b>two</b> place-holders based on this SQL syntax:
 	 * <p>
 	 * INSERT INTO <I>table</I> (<I>column</I>, ...) VALUES (<b>?</b>, ...) ON DUPLICATE KEY UPDATE <I>column</I>=<b>?</b>, ...
+	 * <p>
+	 * Requires that mySQL SQL syntax support is enabled during connection.
 	 * 
 	 * @param preparedStatement
 	 * @param objects
@@ -145,27 +184,28 @@ public class DB {
 	 * <p>
 	 * Typically used to fetch Blocks or Transactions using signature or reference.
 	 * 
-	 * @param connection
 	 * @param sql
 	 * @param bytes
 	 * @return ResultSet, or null if no matching rows found
 	 * @throws SQLException
 	 */
-	public static ResultSet executeUsingBytes(Connection connection, String sql, byte[] bytes) throws SQLException {
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		preparedStatement.setBinaryStream(1, new ByteArrayInputStream(bytes));
+	public static ResultSet executeUsingBytes(String sql, byte[] bytes) throws SQLException {
+		try (final Connection connection = DB.getConnection()) {
+			PreparedStatement preparedStatement = connection.prepareStatement(sql);
+			preparedStatement.setBinaryStream(1, new ByteArrayInputStream(bytes));
 
-		if (!preparedStatement.execute())
-			throw new SQLException("Fetching from database produced no results");
+			if (!preparedStatement.execute())
+				throw new SQLException("Fetching from database produced no results");
 
-		ResultSet rs = preparedStatement.getResultSet();
-		if (rs == null)
-			throw new SQLException("Fetching results from database produced no ResultSet");
+			ResultSet rs = preparedStatement.getResultSet();
+			if (rs == null)
+				throw new SQLException("Fetching results from database produced no ResultSet");
 
-		if (!rs.next())
-			return null;
+			if (!rs.next())
+				return null;
 
-		return rs;
+			return rs;
+		}
 	}
 
 	/**

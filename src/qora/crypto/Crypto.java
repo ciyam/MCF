@@ -80,9 +80,9 @@ public class Crypto {
 			case ADDRESS_VERSION:
 			case AT_ADDRESS_VERSION:
 				byte[] addressWithoutChecksum = Arrays.copyOf(addressBytes, addressBytes.length - 4);
-				byte[] passedChecksum = Arrays.copyOfRange(addressWithoutChecksum, addressBytes.length - 4, addressBytes.length);
+				byte[] passedChecksum = Arrays.copyOfRange(addressBytes, addressBytes.length - 4, addressBytes.length);
 
-				byte[] generatedChecksum = doubleDigest(addressWithoutChecksum);
+				byte[] generatedChecksum = Arrays.copyOf(doubleDigest(addressWithoutChecksum), 4);
 				return Arrays.equals(passedChecksum, generatedChecksum);
 
 			default:

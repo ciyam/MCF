@@ -20,7 +20,6 @@ import database.NoDataFoundException;
 import qora.account.Account;
 import qora.account.GenesisAccount;
 import qora.account.PrivateKeyAccount;
-import qora.account.PublicKeyAccount;
 import qora.crypto.Crypto;
 import utils.Base58;
 import utils.Serialization;
@@ -40,7 +39,7 @@ public class GenesisTransaction extends Transaction {
 	// Constructors
 
 	public GenesisTransaction(String recipient, BigDecimal amount, long timestamp) {
-		super(TransactionType.PAYMENT, BigDecimal.ZERO, new GenesisAccount(), timestamp, new byte[0], null);
+		super(TransactionType.GENESIS, BigDecimal.ZERO, new GenesisAccount(), timestamp, null, null);
 
 		this.recipient = new Account(recipient);
 		this.amount = amount;
@@ -68,34 +67,32 @@ public class GenesisTransaction extends Transaction {
 	/**
 	 * Load GenesisTransaction from DB using signature.
 	 * 
-	 * @param connection
 	 * @param signature
 	 * @throws NoDataFoundException
 	 *             if no matching row found
 	 * @throws SQLException
 	 */
-	protected GenesisTransaction(Connection connection, byte[] signature) throws SQLException {
-		super(connection, TransactionType.GENESIS, signature);
+	protected GenesisTransaction(byte[] signature) throws SQLException {
+		super(TransactionType.GENESIS, signature);
 
-		ResultSet rs = DB.executeUsingBytes(connection, "SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
+		ResultSet rs = DB.executeUsingBytes("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
 		if (rs == null)
 			throw new NoDataFoundException();
 
-		this.recipient = new Account(rs.getString(2));
-		this.amount = rs.getBigDecimal(3).setScale(8);
+		this.recipient = new Account(rs.getString(1));
+		this.amount = rs.getBigDecimal(2).setScale(8);
 	}
 
 	/**
 	 * Load GenesisTransaction from DB using signature
 	 * 
-	 * @param connection
 	 * @param signature
-	 * @return PaymentTransaction, or null if not found
+	 * @return GenesisTransaction, or null if not found
 	 * @throws SQLException
 	 */
-	public static GenesisTransaction fromSignature(Connection connection, byte[] signature) throws SQLException {
+	public static GenesisTransaction fromSignature(byte[] signature) throws SQLException {
 		try {
-			return new GenesisTransaction(connection, signature);
+			return new GenesisTransaction(signature);
 		} catch (NoDataFoundException e) {
 			return null;
 		}
@@ -120,7 +117,7 @@ public class GenesisTransaction extends Transaction {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public JSONObject toJSON() {
+	public JSONObject toJSON() throws SQLException {
 		JSONObject json = getBaseJSON();
 
 		json.put("recipient", this.recipient.getAddress());
@@ -173,7 +170,7 @@ public class GenesisTransaction extends Transaction {
 	}
 
 	/**
-	 * Check validity of genesis transction signature.
+	 * Check validity of genesis transaction signature.
 	 * <p>
 	 * This is handled differently as there is no private key for the genesis account and so no way to sign/verify data.
 	 * <p>
@@ -182,7 +179,7 @@ public class GenesisTransaction extends Transaction {
 	 * @return boolean
 	 */
 	@Override
-	public boolean isSignatureValid(PublicKeyAccount signer) {
+	public boolean isSignatureValid() {
 		return Arrays.equals(this.signature, calcSignature());
 	}
 

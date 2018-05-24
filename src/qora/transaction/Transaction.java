@@ -171,34 +171,32 @@ public abstract class Transaction {
 	/**
 	 * Get block height for this transaction in the blockchain.
 	 * 
-	 * @param connection
 	 * @return height, or 0 if not in blockchain (i.e. unconfirmed)
 	 * @throws SQLException
 	 */
-	public int getHeight(Connection connection) throws SQLException {
+	public int getHeight() throws SQLException {
 		if (this.signature == null)
 			return 0;
 
-		BlockTransaction blockTx = BlockTransaction.fromTransactionSignature(connection, this.signature);
+		BlockTransaction blockTx = BlockTransaction.fromTransactionSignature(this.signature);
 		if (blockTx == null)
 			return 0;
 
-		return BlockChain.getBlockHeightFromSignature(connection, blockTx.getBlockSignature());
+		return BlockChain.getBlockHeightFromSignature(blockTx.getBlockSignature());
 	}
 
 	/**
 	 * Get number of confirmations for this transaction.
 	 * 
-	 * @param connection
 	 * @return confirmation count, or 0 if not in blockchain (i.e. unconfirmed)
 	 * @throws SQLException
 	 */
-	public int getConfirmations(Connection connection) throws SQLException {
-		int ourHeight = this.getHeight(connection);
+	public int getConfirmations() throws SQLException {
+		int ourHeight = this.getHeight();
 		if (ourHeight == 0)
 			return 0;
 
-		int blockChainHeight = BlockChain.getMaxHeight(connection);
+		int blockChainHeight = BlockChain.getMaxHeight();
 		return blockChainHeight - ourHeight + 1;
 	}
 
@@ -211,21 +209,20 @@ public abstract class Transaction {
 	 * <p>
 	 * Note that the transaction type is <b>not</b> checked against the DB's value.
 	 * 
-	 * @param connection
 	 * @param type
 	 * @param signature
 	 * @throws NoDataFoundException
 	 *             if no matching row found
 	 * @throws SQLException
 	 */
-	protected Transaction(Connection connection, TransactionType type, byte[] signature) throws SQLException {
-		ResultSet rs = DB.executeUsingBytes(connection, "SELECT reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
+	protected Transaction(TransactionType type, byte[] signature) throws SQLException {
+		ResultSet rs = DB.executeUsingBytes("SELECT reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
 		if (rs == null)
 			throw new NoDataFoundException();
 
 		this.type = type;
 		this.reference = DB.getResultSetBytes(rs.getBinaryStream(1), REFERENCE_LENGTH);
-		this.creator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(2), CREATOR_LENGTH));
+		this.creator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(2)));
 		this.timestamp = rs.getTimestamp(3).getTime();
 		this.fee = rs.getBigDecimal(4).setScale(8);
 		this.signature = signature;
@@ -244,88 +241,67 @@ public abstract class Transaction {
 	/**
 	 * Load encapsulating Block from DB, if any
 	 * 
-	 * @param connection
 	 * @return Block, or null if transaction is not in a Block
 	 * @throws SQLException
 	 */
-	public Block getBlock(Connection connection) throws SQLException {
+	public Block getBlock() throws SQLException {
 		if (this.signature == null)
 			return null;
 
-		BlockTransaction blockTx = BlockTransaction.fromTransactionSignature(connection, this.signature);
+		BlockTransaction blockTx = BlockTransaction.fromTransactionSignature(this.signature);
 		if (blockTx == null)
 			return null;
 
-		return Block.fromSignature(connection, blockTx.getBlockSignature());
+		return Block.fromSignature(blockTx.getBlockSignature());
 	}
 
 	/**
 	 * Load parent Transaction from DB via this transaction's reference.
 	 * 
-	 * @param connection
 	 * @return Transaction, or null if no parent found (which should not happen)
 	 * @throws SQLException
 	 */
-	public Transaction getParent(Connection connection) throws SQLException {
+	public Transaction getParent() throws SQLException {
 		if (this.reference == null)
 			return null;
 
-		return TransactionFactory.fromSignature(connection, this.reference);
+		return TransactionFactory.fromSignature(this.reference);
 	}
 
 	/**
 	 * Load child Transaction from DB, if any.
 	 * 
-	 * @param connection
 	 * @return Transaction, or null if no child found
 	 * @throws SQLException
 	 */
-	public Transaction getChild(Connection connection) throws SQLException {
+	public Transaction getChild() throws SQLException {
 		if (this.signature == null)
 			return null;
 
-		return TransactionFactory.fromReference(connection, this.signature);
+		return TransactionFactory.fromReference(this.signature);
 	}
 
 	// Converters
 
-	public abstract JSONObject toJSON();
+	public abstract JSONObject toJSON() throws SQLException;
 
 	/**
 	 * Produce JSON representation of common/base Transaction info.
-	 * <p>
-	 * To include info on number of confirmations, a Connection object is required. See {@link Transaction#getBaseJSON(Connection)}
 	 * 
 	 * @return JSONObject
+	 * @throws SQLException
 	 */
 	@SuppressWarnings("unchecked")
-	protected JSONObject getBaseJSON() {
+	protected JSONObject getBaseJSON() throws SQLException {
 		JSONObject json = new JSONObject();
 
 		json.put("type", this.type.value);
 		json.put("fee", this.fee.toPlainString());
 		json.put("timestamp", this.timestamp);
-		json.put("reference", Base58.encode(this.reference));
+		if (this.reference != null)
+			json.put("reference", Base58.encode(this.reference));
 		json.put("signature", Base58.encode(this.signature));
-
-		return json;
-	}
-
-	/**
-	 * Produce JSON representation of common/base Transaction info, including number of confirmations.
-	 * <p>
-	 * Requires SQL Connection object to determine number of confirmations.
-	 * 
-	 * @param connection
-	 * @return JSONObject
-	 * @throws SQLException
-	 * @see Transaction#getBaseJSON()
-	 */
-	@SuppressWarnings("unchecked")
-	protected JSONObject getBaseJSON(Connection connection) throws SQLException {
-		JSONObject json = this.getBaseJSON();
-
-		json.put("confirmations", this.getConfirmations(connection));
+		json.put("confirmations", this.getConfirmations());
 
 		return json;
 	}
@@ -353,11 +329,11 @@ public abstract class Transaction {
 		return signer.sign(this.toBytesLessSignature());
 	}
 
-	public boolean isSignatureValid(PublicKeyAccount signer) {
+	public boolean isSignatureValid() {
 		if (this.signature == null)
 			return false;
 
-		return signer.verify(this.signature, this.toBytesLessSignature());
+		return this.creator.verify(this.signature, this.toBytesLessSignature());
 	}
 
 	public abstract ValidationResult isValid(Connection connection);

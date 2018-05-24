@@ -74,16 +74,15 @@ public class PaymentTransaction extends Transaction {
 	/**
 	 * Load PaymentTransaction from DB using signature.
 	 * 
-	 * @param connection
 	 * @param signature
 	 * @throws NoDataFoundException
 	 *             if no matching row found
 	 * @throws SQLException
 	 */
-	protected PaymentTransaction(Connection connection, byte[] signature) throws SQLException {
-		super(connection, TransactionType.PAYMENT, signature);
+	protected PaymentTransaction(byte[] signature) throws SQLException {
+		super(TransactionType.PAYMENT, signature);
 
-		ResultSet rs = DB.executeUsingBytes(connection, "SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature);
+		ResultSet rs = DB.executeUsingBytes("SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature);
 		if (rs == null)
 			throw new NoDataFoundException();
 
@@ -95,14 +94,13 @@ public class PaymentTransaction extends Transaction {
 	/**
 	 * Load PaymentTransaction from DB using signature
 	 * 
-	 * @param connection
 	 * @param signature
 	 * @return PaymentTransaction, or null if not found
 	 * @throws SQLException
 	 */
-	public static PaymentTransaction fromSignature(Connection connection, byte[] signature) throws SQLException {
+	public static PaymentTransaction fromSignature(byte[] signature) throws SQLException {
 		try {
-			return new PaymentTransaction(connection, signature);
+			return new PaymentTransaction(signature);
 		} catch (NoDataFoundException e) {
 			return null;
 		}
@@ -114,7 +112,7 @@ public class PaymentTransaction extends Transaction {
 
 		String sql = DB.formatInsertWithPlaceholders("PaymentTransactions", "signature", "sender", "recipient", "amount");
 		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.sender.getPublicKey(), this.recipient, this.amount);
+		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.sender.getPublicKey(), this.recipient.getAddress(), this.amount);
 		preparedStatement.execute();
 	}
 
@@ -127,7 +125,7 @@ public class PaymentTransaction extends Transaction {
 
 	@SuppressWarnings("unchecked")
 	@Override
-	public JSONObject toJSON() {
+	public JSONObject toJSON() throws SQLException {
 		JSONObject json = getBaseJSON();
 
 		json.put("sender", this.sender.getAddress());

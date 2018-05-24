@@ -2,33 +2,14 @@ package test;
 
 import static org.junit.Assert.*;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import qora.block.GenesisBlock;
 import utils.Base58;
 
-public class signatures {
-
-	private static Connection connection;
-
-	@Before
-	public void connect() throws SQLException {
-		connection = common.getConnection();
-	}
-
-	@After
-	public void disconnect() {
-		try {
-			connection.createStatement().execute("SHUTDOWN");
-		} catch (SQLException e) {
-			fail();
-		}
-	}
+public class signatures extends common {
 
 	@Test
 	public void testGenesisBlockSignature() throws SQLException {

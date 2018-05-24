@@ -1,21 +1,31 @@
 package test;
 
-import static org.junit.Assert.fail;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
+
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+
+import database.DB;
 
 public class common {
 
-	public static Connection getConnection() {
+	@BeforeClass
+	public static void setConnection() throws SQLException {
+		DB.setUrl("jdbc:hsqldb:file:db/test;create=true;close_result=true;sql.strict_exec=true;sql.enforce_names=true;sql.syntax_mys=true");
+		DB.open();
+
+		// Create/update database schema
 		try {
-			return DriverManager.getConnection("jdbc:hsqldb:file:db/test;create=true;close_result=true;sql.strict_exec=true;sql.enforce_names=true;sql.syntax_mys=true", "SA", "");
+			updates.updateDatabase();
 		} catch (SQLException e) {
 			e.printStackTrace();
-			fail();
-			return null;
+			throw e;
 		}
+	}
+
+	@AfterClass
+	public static void closeDatabase() throws SQLException {
+		DB.close();
 	}
 
 }

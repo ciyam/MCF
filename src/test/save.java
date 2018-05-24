@@ -1,40 +1,18 @@
 package test;
 
-import static org.junit.Assert.*;
-
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.Instant;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
+import database.DB;
 import qora.account.PublicKeyAccount;
 import qora.transaction.PaymentTransaction;
 import utils.Base58;
 
-public class save {
-
-	private static Connection connection;
-
-	@Before
-	public void connect() throws SQLException {
-		connection = common.getConnection();
-		Statement stmt = connection.createStatement();
-		stmt.execute("SET DATABASE SQL SYNTAX MYS TRUE");
-	}
-
-	@After
-	public void disconnect() {
-		try {
-			connection.createStatement().execute("SHUTDOWN");
-		} catch (SQLException e) {
-			fail();
-		}
-	}
+public class save extends common {
 
 	@Test
 	public void testSavePaymentTransaction() throws SQLException {
@@ -47,7 +25,9 @@ public class save {
 		PaymentTransaction paymentTransaction = new PaymentTransaction(sender, "Qrecipient", BigDecimal.valueOf(12345L), BigDecimal.ONE,
 				Instant.now().getEpochSecond(), reference, signature);
 
-		paymentTransaction.save(connection);
+		try (final Connection connection = DB.getConnection()) {
+			paymentTransaction.save(connection);
+		}
 	}
 
 }
