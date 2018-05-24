@@ -2,6 +2,7 @@ package qora.transaction;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -89,7 +90,8 @@ public abstract class Transaction {
 	protected static final int BASE_TYPELESS_LENGTH = TIMESTAMP_LENGTH + REFERENCE_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
 
 	// Other length constants
-	protected static final int CREATOR_LENGTH = 32;
+	public static final int CREATOR_LENGTH = 32;
+	public static final int RECIPIENT_LENGTH = 25;
 
 	// Constructors
 
@@ -282,6 +284,31 @@ public abstract class Transaction {
 	}
 
 	// Converters
+
+	public static Transaction parse(byte[] data) throws TransactionParseException {
+		if (data == null)
+			return null;
+
+		if (data.length < TYPE_LENGTH)
+			throw new TransactionParseException("Byte data too short to determine transaction type");
+
+		ByteBuffer byteBuffer = ByteBuffer.wrap(data);
+
+		TransactionType type = TransactionType.valueOf(byteBuffer.getInt());
+		if (type == null)
+			return null;
+
+		switch (type) {
+			case GENESIS:
+				return GenesisTransaction.parse(byteBuffer);
+
+			case PAYMENT:
+				return PaymentTransaction.parse(byteBuffer);
+
+			default:
+				return null;
+		}
+	}
 
 	public abstract JSONObject toJSON() throws SQLException;
 

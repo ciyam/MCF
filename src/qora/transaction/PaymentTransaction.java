@@ -3,6 +3,7 @@ package qora.transaction;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -30,7 +31,6 @@ public class PaymentTransaction extends Transaction {
 
 	// Property lengths
 	private static final int SENDER_LENGTH = 32;
-	private static final int RECIPIENT_LENGTH = 32;
 	private static final int AMOUNT_LENGTH = 8;
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
 
@@ -118,9 +118,22 @@ public class PaymentTransaction extends Transaction {
 
 	// Converters
 
-	public static Transaction parse(byte[] data) throws Exception {
+	protected static Transaction parse(ByteBuffer byteBuffer) throws TransactionParseException {
 		// TODO
-		return null;
+		if (byteBuffer.remaining() < TYPELESS_LENGTH)
+			throw new TransactionParseException("Byte data too short for PaymentTransaction");
+
+		long timestamp = byteBuffer.getLong();
+		byte[] reference = new byte[REFERENCE_LENGTH];
+		byteBuffer.get(reference);
+		PublicKeyAccount sender = Serialization.deserializePublicKey(byteBuffer);
+		String recipient = Serialization.deserializeRecipient(byteBuffer);
+		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
+		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+		byte[] signature = new byte[SIGNATURE_LENGTH];
+		byteBuffer.get(signature);
+
+		return new PaymentTransaction(sender, recipient, amount, fee, timestamp, reference, signature);
 	}
 
 	@SuppressWarnings("unchecked")

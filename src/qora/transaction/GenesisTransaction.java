@@ -3,6 +3,7 @@ package qora.transaction;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -31,7 +32,7 @@ public class GenesisTransaction extends Transaction {
 	private BigDecimal amount;
 
 	// Property lengths
-	private static final int RECIPIENT_LENGTH = 32;
+	private static final int RECIPIENT_LENGTH = 25; // raw, not Base58-encoded
 	private static final int AMOUNT_LENGTH = 8;
 	// Note that Genesis transactions don't require reference, fee or signature:
 	private static final int TYPELESS_LENGTH = TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
@@ -110,9 +111,15 @@ public class GenesisTransaction extends Transaction {
 
 	// Converters
 
-	public static Transaction parse(byte[] data) throws Exception {
-		// TODO
-		return null;
+	protected static Transaction parse(ByteBuffer byteBuffer) throws TransactionParseException {
+		if (byteBuffer.remaining() < TYPELESS_LENGTH)
+			throw new TransactionParseException("Byte data too short for GenesisTransaction");
+
+		long timestamp = byteBuffer.getLong();
+		String recipient = Serialization.deserializeRecipient(byteBuffer);
+		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
+
+		return new GenesisTransaction(recipient, amount, timestamp);
 	}
 
 	@SuppressWarnings("unchecked")
