@@ -24,26 +24,28 @@ public class transactions extends common {
 
 		GenesisTransaction transaction = (GenesisTransaction) block.getTransactions().get(1);
 		assertNotNull(transaction);
-		System.out.println(transaction.getTimestamp() + ": " + transaction.getRecipient().getAddress() + " received " + transaction.getAmount().toPlainString());
+		System.out
+				.println(transaction.getTimestamp() + ": " + transaction.getRecipient().getAddress() + " received " + transaction.getAmount().toPlainString());
 
 		byte[] bytes = transaction.toBytes();
 
 		GenesisTransaction parsedTransaction = (GenesisTransaction) Transaction.parse(bytes);
-		System.out.println(parsedTransaction.getTimestamp() + ": " + parsedTransaction.getRecipient().getAddress() + " received " + parsedTransaction.getAmount().toPlainString());
+		System.out.println(parsedTransaction.getTimestamp() + ": " + parsedTransaction.getRecipient().getAddress() + " received "
+				+ parsedTransaction.getAmount().toPlainString());
 
 		assertTrue(Arrays.equals(transaction.getSignature(), parsedTransaction.getSignature()));
 	}
-	
+
 	public void testGenericSerialization(Transaction transaction) throws SQLException, TransactionParseException {
 		assertNotNull(transaction);
 
 		byte[] bytes = transaction.toBytes();
-		
+
 		Transaction parsedTransaction = Transaction.parse(bytes);
-		
+
 		assertTrue(Arrays.equals(transaction.getSignature(), parsedTransaction.getSignature()));
 	}
-	
+
 	@Test
 	public void testPaymentSerialization() throws SQLException, TransactionParseException {
 		try (final Connection connection = DB.getConnection()) {
@@ -52,7 +54,7 @@ public class transactions extends common {
 			Block block = Block.fromHeight(754);
 			assertNotNull("Block 754 is required for this test", block);
 			assertTrue(block.isSignatureValid());
-			
+
 			List<Transaction> transactions = block.getTransactions();
 			assertNotNull(transactions);
 
@@ -60,5 +62,5 @@ public class transactions extends common {
 				testGenericSerialization(transaction);
 		}
 	}
-	
+
 }
