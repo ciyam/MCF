@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -17,6 +16,7 @@ import org.json.simple.JSONObject;
 
 import database.DB;
 import database.NoDataFoundException;
+import database.SaveHelper;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
 import qora.block.Block;
@@ -231,11 +231,11 @@ public abstract class Transaction {
 	}
 
 	protected void save(Connection connection) throws SQLException {
-		String sql = DB.formatInsertWithPlaceholders("Transactions", "signature", "reference", "type", "creator", "creation", "fee", "milestone_block");
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.reference, this.type.value, this.creator.getPublicKey(),
-				new Timestamp(this.timestamp), this.fee, null);
-		preparedStatement.execute();
+		SaveHelper saveHelper = new SaveHelper(connection, "Transactions");
+		saveHelper.bind("signature", this.signature).bind("reference", this.reference).bind("type", this.type.value)
+				.bind("creator", this.creator.getPublicKey()).bind("creation", new Timestamp(this.timestamp)).bind("fee", this.fee)
+				.bind("milestone_block", null);
+		saveHelper.execute();
 	}
 
 	// Navigation

@@ -3,7 +3,6 @@ package database;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -166,65 +165,6 @@ public class DB {
 		}
 
 		return result;
-	}
-
-	/**
-	 * Format table and column names into an INSERT INTO ... SQL statement.
-	 * <p>
-	 * Full form is:
-	 * <p>
-	 * INSERT INTO <I>table</I> (<I>column</I>, ...) VALUES (?, ...) ON DUPLICATE KEY UPDATE <I>column</I>=?, ...
-	 * <p>
-	 * Note that HSQLDB needs to put into mySQL compatibility mode first via "SET DATABASE SQL SYNTAX MYS TRUE".
-	 * 
-	 * @param table
-	 * @param columns
-	 * @return String
-	 */
-	public static String formatInsertWithPlaceholders(String table, String... columns) {
-		String[] placeholders = new String[columns.length];
-		Arrays.setAll(placeholders, (int i) -> "?");
-
-		StringBuilder output = new StringBuilder();
-		output.append("INSERT INTO ");
-		output.append(table);
-		output.append(" (");
-		output.append(String.join(", ", columns));
-		output.append(") VALUES (");
-		output.append(String.join(", ", placeholders));
-		output.append(") ON DUPLICATE KEY UPDATE ");
-		output.append(String.join("=?, ", columns));
-		output.append("=?");
-		return output.toString();
-	}
-
-	/**
-	 * Binds Objects to PreparedStatement based on INSERT INTO ... ON DUPLICATE KEY UPDATE ...
-	 * <p>
-	 * Note that each object is bound to <b>two</b> place-holders based on this SQL syntax:
-	 * <p>
-	 * INSERT INTO <I>table</I> (<I>column</I>, ...) VALUES (<b>?</b>, ...) ON DUPLICATE KEY UPDATE <I>column</I>=<b>?</b>, ...
-	 * <p>
-	 * Requires that mySQL SQL syntax support is enabled during connection.
-	 * 
-	 * @param preparedStatement
-	 * @param objects
-	 * @throws SQLException
-	 */
-	public static void bindInsertPlaceholders(PreparedStatement preparedStatement, Object... objects) throws SQLException {
-		for (int i = 0; i < objects.length; ++i) {
-			Object object = objects[i];
-
-			// Special treatment for BigDecimals so that they retain their "scale",
-			// which would otherwise be assumed as 0.
-			if (object instanceof BigDecimal) {
-				preparedStatement.setBigDecimal(i + 1, (BigDecimal) object);
-				preparedStatement.setBigDecimal(i + objects.length + 1, (BigDecimal) object);
-			} else {
-				preparedStatement.setObject(i + 1, object);
-				preparedStatement.setObject(i + objects.length + 1, object);
-			}
-		}
 	}
 
 	/**

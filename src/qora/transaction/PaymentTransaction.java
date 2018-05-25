@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -17,6 +16,7 @@ import com.google.common.primitives.Longs;
 
 import database.DB;
 import database.NoDataFoundException;
+import database.SaveHelper;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import utils.Base58;
@@ -110,10 +110,9 @@ public class PaymentTransaction extends Transaction {
 	public void save(Connection connection) throws SQLException {
 		super.save(connection);
 
-		String sql = DB.formatInsertWithPlaceholders("PaymentTransactions", "signature", "sender", "recipient", "amount");
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.sender.getPublicKey(), this.recipient.getAddress(), this.amount);
-		preparedStatement.execute();
+		SaveHelper saveHelper = new SaveHelper(connection, "PaymentTransactions");
+		saveHelper.bind("signature", this.signature).bind("sender", this.sender.getPublicKey()).bind("recipient", this.recipient.getAddress()).bind("amount", this.amount);
+		saveHelper.execute();
 	}
 
 	// Converters

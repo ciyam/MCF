@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -18,6 +17,7 @@ import com.google.common.primitives.Longs;
 
 import database.DB;
 import database.NoDataFoundException;
+import database.SaveHelper;
 import qora.account.Account;
 import qora.account.GenesisAccount;
 import qora.account.PrivateKeyAccount;
@@ -103,10 +103,9 @@ public class GenesisTransaction extends Transaction {
 	public void save(Connection connection) throws SQLException {
 		super.save(connection);
 
-		String sql = DB.formatInsertWithPlaceholders("GenesisTransactions", "signature", "recipient", "amount");
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.recipient.getAddress(), this.amount);
-		preparedStatement.execute();
+		SaveHelper saveHelper = new SaveHelper(connection, "GenesisTransactions");
+		saveHelper.bind("signature", this.signature).bind("recipient", this.recipient.getAddress()).bind("amount", this.amount);
+		saveHelper.execute();
 	}
 
 	// Converters

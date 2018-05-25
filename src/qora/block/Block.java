@@ -19,6 +19,7 @@ import com.google.common.primitives.Longs;
 
 import database.DB;
 import database.NoDataFoundException;
+import database.SaveHelper;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
@@ -290,13 +291,15 @@ public class Block {
 	}
 
 	protected void save(Connection connection) throws SQLException {
-		String sql = DB.formatInsertWithPlaceholders("Blocks", "signature", "version", "reference", "transaction_count", "total_fees", "transactions_signature",
-				"height", "generation", "generating_balance", "generator", "generator_signature", "AT_data", "AT_fees");
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.getSignature(), this.version, this.reference, this.transactionCount, this.totalFees,
-				this.transactionsSignature, this.height, new Timestamp(this.timestamp), this.generatingBalance, this.generator.getPublicKey(),
-				this.generatorSignature, this.atBytes, this.atFees);
-		preparedStatement.execute();
+		SaveHelper saveHelper = new SaveHelper(connection, "Blocks");
+
+		saveHelper.bind("signature", this.getSignature()).bind("version", this.version).bind("reference", this.reference)
+				.bind("transaction_count", this.transactionCount).bind("total_fees", this.totalFees).bind("transactions_signature", this.transactionsSignature)
+				.bind("height", this.height).bind("generation", new Timestamp(this.timestamp)).bind("generating_balance", this.generatingBalance)
+				.bind("generator", this.generator.getPublicKey()).bind("generator_signature", this.generatorSignature).bind("AT_data", this.atBytes)
+				.bind("AT_fees", this.atFees);
+
+		saveHelper.execute();
 	}
 
 	// Navigation

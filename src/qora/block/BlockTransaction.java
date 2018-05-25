@@ -11,6 +11,7 @@ import org.json.simple.JSONObject;
 
 import database.DB;
 import database.NoDataFoundException;
+import database.SaveHelper;
 import qora.transaction.Transaction;
 import qora.transaction.TransactionFactory;
 
@@ -107,10 +108,9 @@ public class BlockTransaction {
 	}
 
 	protected void save(Connection connection) throws SQLException {
-		String sql = DB.formatInsertWithPlaceholders("BlockTransactions", "block_signature", "sequence", "transaction_signature");
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.blockSignature, this.sequence, this.transactionSignature);
-		preparedStatement.execute();
+		SaveHelper saveHelper = new SaveHelper(connection, "BlockTransactions");
+		saveHelper.bind("block_signature", this.blockSignature).bind("sequence", this.sequence).bind("transaction_signature", this.transactionSignature);
+		saveHelper.execute();
 	}
 
 	// Navigation

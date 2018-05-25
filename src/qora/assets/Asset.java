@@ -1,10 +1,10 @@
 package qora.assets;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import database.DB;
+import database.SaveHelper;
 import qora.account.PublicKeyAccount;
 
 public class Asset {
@@ -37,11 +37,10 @@ public class Asset {
 	// Load/Save
 
 	public void save(Connection connection) throws SQLException {
-		String sql = DB.formatInsertWithPlaceholders("Assets", "asset", "owner", "asset_name", "description", "quantity", "is_divisible", "reference");
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.key, this.owner.getAddress(), this.name, this.description, this.quantity, this.isDivisible,
-				this.reference);
-		preparedStatement.execute();
+		SaveHelper saveHelper = new SaveHelper(connection, "Assets");
+		saveHelper.bind("asset", this.key).bind("owner", this.owner.getAddress()).bind("asset_name", this.name).bind("description", this.description)
+				.bind("quantity", this.quantity).bind("is_divisible", this.isDivisible).bind("reference", this.reference);
+		saveHelper.execute();
 
 		if (this.key == null)
 			this.key = DB.callIdentity(connection);
