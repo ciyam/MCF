@@ -15,7 +15,7 @@ public class navigation extends common {
 
 	@Test
 	public void testNavigateFromTransactionToBlock() throws SQLException {
-		assertTrue("Migrate old database to at least block 49778 before running this test", BlockChain.getMaxHeight() >= 49778);
+		assertTrue("Migrate old database to at least block 49778 before running this test", BlockChain.getHeight() >= 49778);
 
 		String signature58 = "1211ZPwG3hk5evWzXCZi9hMDRpwumWmkENjwWkeTCik9xA5uoYnxzF7rwR5hmHH3kG2RXo7ToCAaRc7dvnynByJt";
 		byte[] signature = Base58.decode(signature58);

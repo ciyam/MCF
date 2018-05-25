@@ -23,11 +23,28 @@ public class DB {
 	private static JDBCPool connectionPool;
 	private static String connectionUrl;
 
+	/**
+	 * Open connection pool to database using prior set connection URL.
+	 * <p>
+	 * The connection URL <b>must</b> be set via {@link DB#setUrl(String)} before using this call.
+	 * 
+	 * @throws SQLException
+	 * @see DB#setUrl(String)
+	 */
 	public static void open() throws SQLException {
 		connectionPool = new JDBCPool();
 		connectionPool.setUrl(connectionUrl);
 	}
 
+	/**
+	 * Set the database connection URL.
+	 * <p>
+	 * Typical example:
+	 * <p>
+	 * {@code setUrl("jdbc:hsqldb:file:db/qora")}
+	 * 
+	 * @param url
+	 */
 	public static void setUrl(String url) {
 		connectionUrl = url;
 	}
@@ -59,9 +76,42 @@ public class DB {
 		c.prepareStatement("ROLLBACK").execute();
 	}
 
+	/**
+	 * Shutdown database and close all connections in connection pool.
+	 * <p>
+	 * Note: any attempts to use an existing connection after this point will fail. Also, any attempts to request a connection using {@link DB#getConnection()}
+	 * will fail.
+	 * <p>
+	 * After this method returns, the database <i>can</i> be reopened using {@link DB#open()}.
+	 * 
+	 * @throws SQLException
+	 */
 	public static void close() throws SQLException {
 		getConnection().createStatement().execute("SHUTDOWN");
 		connectionPool.close(0);
+	}
+
+	/**
+	 * Shutdown and delete database, then rebuild it.
+	 * <p>
+	 * See {@link DB#close()} for warnings about connections.
+	 * <p>
+	 * Note that this only rebuilds the database schema, not the data itself.
+	 * 
+	 * @throws SQLException
+	 */
+	public static void rebuild() throws SQLException {
+		// Shutdown database and close any access
+		DB.close();
+
+		// Wipe files (if any)
+		// TODO
+
+		// Re-open clean database
+		DB.open();
+
+		// Apply schema updates
+		DatabaseUpdates.updateDatabase();
 	}
 
 	/**
@@ -229,6 +279,26 @@ public class DB {
 			return null;
 
 		return resultSet;
+	}
+
+	/**
+	 * Fetch last value of IDENTITY column after an INSERT statement.
+	 * <p>
+	 * Performs "CALL IDENTITY()" SQL statement to retrieve last value used when INSERTing into a table that has an IDENTITY column.
+	 * <p>
+	 * Typically used after INSERTing NULL as the IDENTIY column's value to fetch what value was actually stored by HSQLDB.
+	 * 
+	 * @param connection
+	 * @return Long
+	 * @throws SQLException
+	 */
+	public static Long callIdentity(Connection connection) throws SQLException {
+		PreparedStatement preparedStatement = connection.prepareStatement("CALL IDENTITY()");
+		ResultSet resultSet = DB.checkedExecute(preparedStatement);
+		if (resultSet == null)
+			return null;
+
+		return resultSet.getLong(1);
 	}
 
 }

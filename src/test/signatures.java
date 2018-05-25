@@ -17,7 +17,7 @@ public class signatures extends common {
 
 		GenesisBlock block = GenesisBlock.getInstance();
 
-		System.out.println("Generator: " + block.getGenerator().getAddress() + ", generation signature: " + Base58.encode(block.getGenerationSignature()));
+		System.out.println("Generator: " + block.getGenerator().getAddress() + ", generator signature: " + Base58.encode(block.getGeneratorSignature()));
 
 		assertEquals(expected58, Base58.encode(block.getSignature()));
 	}

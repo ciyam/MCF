@@ -6,6 +6,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 
 import database.DB;
+import database.DatabaseUpdates;
 
 public class common {
 
@@ -15,12 +16,7 @@ public class common {
 		DB.open();
 
 		// Create/update database schema
-		try {
-			updates.updateDatabase();
-		} catch (SQLException e) {
-			e.printStackTrace();
-			throw e;
-		}
+		DatabaseUpdates.updateDatabase();
 	}
 
 	@AfterClass

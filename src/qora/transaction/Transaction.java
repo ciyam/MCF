@@ -8,7 +8,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Map;
 import static java.util.Arrays.stream;
@@ -198,7 +197,7 @@ public abstract class Transaction {
 		if (ourHeight == 0)
 			return 0;
 
-		int blockChainHeight = BlockChain.getMaxHeight();
+		int blockChainHeight = BlockChain.getHeight();
 		return blockChainHeight - ourHeight + 1;
 	}
 
@@ -224,6 +223,7 @@ public abstract class Transaction {
 
 		this.type = type;
 		this.reference = DB.getResultSetBytes(rs.getBinaryStream(1), REFERENCE_LENGTH);
+		// Note: can't use CREATOR_LENGTH in case we encounter Genesis Account's short, 8-byte public key
 		this.creator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(2)));
 		this.timestamp = rs.getTimestamp(3).getTime();
 		this.fee = rs.getBigDecimal(4).setScale(8);
@@ -234,7 +234,7 @@ public abstract class Transaction {
 		String sql = DB.formatInsertWithPlaceholders("Transactions", "signature", "reference", "type", "creator", "creation", "fee", "milestone_block");
 		PreparedStatement preparedStatement = connection.prepareStatement(sql);
 		DB.bindInsertPlaceholders(preparedStatement, this.signature, this.reference, this.type.value, this.creator.getPublicKey(),
-				Timestamp.from(Instant.ofEpochSecond(this.timestamp)), this.fee, null);
+				new Timestamp(this.timestamp), this.fee, null);
 		preparedStatement.execute();
 	}
 
@@ -365,8 +365,8 @@ public abstract class Transaction {
 
 	public abstract ValidationResult isValid(Connection connection);
 
-	public abstract void process();
+	public abstract void process(Connection connection) throws SQLException;
 
-	public abstract void orphan();
+	public abstract void orphan(Connection connection);
 
 }

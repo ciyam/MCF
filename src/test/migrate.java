@@ -101,7 +101,7 @@ public class migrate extends common {
 
 		PreparedStatement blocksPStmt = c
 				.prepareStatement("INSERT INTO Blocks " + formatWithPlaceholders("signature", "version", "reference", "transaction_count", "total_fees",
-						"transactions_signature", "height", "generation", "generation_target", "generator", "generation_signature", "AT_data", "AT_fees"));
+						"transactions_signature", "height", "generation", "generating_balance", "generator", "generator_signature", "AT_data", "AT_fees"));
 
 		PreparedStatement txPStmt = c.prepareStatement(
 				"INSERT INTO Transactions " + formatWithPlaceholders("signature", "reference", "type", "creator", "creation", "fee", "milestone_block"));
@@ -149,7 +149,7 @@ public class migrate extends common {
 		PreparedStatement blockTxPStmt = c
 				.prepareStatement("INSERT INTO BlockTransactions " + formatWithPlaceholders("block_signature", "sequence", "transaction_signature"));
 
-		int height = BlockChain.getMaxHeight() + 1;
+		int height = BlockChain.getHeight() + 1;
 		byte[] milestone_block = null;
 		System.out.println("Starting migration from block height " + height);
 
@@ -166,8 +166,8 @@ public class migrate extends common {
 			DB.startTransaction(c);
 
 			// Blocks:
-			// signature, version, reference, transaction_count, total_fees, transactions_signature, height, generation, generation_target, generator,
-			// generation_signature
+			// signature, version, reference, transaction_count, total_fees, transactions_signature, height, generation, generating_balance, generator,
+			// generator_signature
 			// varchar, tinyint, varchar, int, decimal, varchar, int, timestamp, decimal, varchar, varchar
 			byte[] blockSignature = Base58.decode((String) json.get("signature"));
 			byte[] blockReference = Base58.decode((String) json.get("reference"));
@@ -597,7 +597,7 @@ public class migrate extends common {
 		}
 
 		c.close();
-		System.out.println("Migration finished with new blockchain height " + BlockChain.getMaxHeight());
+		System.out.println("Migration finished with new blockchain height " + BlockChain.getHeight());
 	}
 
 }

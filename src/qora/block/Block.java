@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -20,6 +21,7 @@ import database.DB;
 import database.NoDataFoundException;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
+import qora.assets.Asset;
 import qora.transaction.Transaction;
 import qora.transaction.TransactionFactory;
 
@@ -40,9 +42,9 @@ import qora.transaction.TransactionFactory;
  * In scenarios (2) and (3) this will need to be set after successful processing,
  * but before Block is saved into database.
  * 
- * GenerationSignature's data is: reference + generationTarget + generator's public key
- * TransactionSignature's data is: generationSignature + transaction signatures
- * Block signature is: generationSignature + transactionsSignature
+ * GeneratorSignature's data is: reference + generatingBalance + generator's public key
+ * TransactionSignature's data is: generatorSignature + transaction signatures
+ * Block signature is: generatorSignature + transactionsSignature
  */
 
 public class Block {
@@ -52,7 +54,7 @@ public class Block {
 
 	// Columns when fetching from database
 	private static final String DB_COLUMNS = "version, reference, transaction_count, total_fees, "
-			+ "transactions_signature, height, generation, generation_target, generator, generation_signature, " + "AT_data, AT_fees";
+			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, " + "AT_data, AT_fees";
 
 	// Database properties
 	protected int version;
@@ -62,9 +64,9 @@ public class Block {
 	protected byte[] transactionsSignature;
 	protected int height;
 	protected long timestamp;
-	protected BigDecimal generationTarget;
+	protected BigDecimal generatingBalance;
 	protected PublicKeyAccount generator;
-	protected byte[] generationSignature;
+	protected byte[] generatorSignature;
 	protected byte[] atBytes;
 	protected BigDecimal atFees;
 
@@ -74,17 +76,17 @@ public class Block {
 	// Property lengths for serialisation
 	protected static final int VERSION_LENGTH = 4;
 	protected static final int TRANSACTIONS_SIGNATURE_LENGTH = 64;
-	protected static final int GENERATION_SIGNATURE_LENGTH = 64;
-	protected static final int REFERENCE_LENGTH = GENERATION_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
+	protected static final int GENERATOR_SIGNATURE_LENGTH = 64;
+	protected static final int REFERENCE_LENGTH = GENERATOR_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
 	protected static final int TIMESTAMP_LENGTH = 8;
-	protected static final int GENERATION_TARGET_LENGTH = 8;
+	protected static final int GENERATING_BALANCE_LENGTH = 8;
 	protected static final int GENERATOR_LENGTH = 32;
 	protected static final int TRANSACTION_COUNT_LENGTH = 8;
-	protected static final int BASE_LENGTH = VERSION_LENGTH + REFERENCE_LENGTH + TIMESTAMP_LENGTH + GENERATION_TARGET_LENGTH + GENERATOR_LENGTH
-			+ TRANSACTIONS_SIGNATURE_LENGTH + GENERATION_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
+	protected static final int BASE_LENGTH = VERSION_LENGTH + REFERENCE_LENGTH + TIMESTAMP_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH
+			+ TRANSACTIONS_SIGNATURE_LENGTH + GENERATOR_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
 
 	// Other length constants
-	protected static final int BLOCK_SIGNATURE_LENGTH = GENERATION_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
+	protected static final int BLOCK_SIGNATURE_LENGTH = GENERATOR_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
 	public static final int MAX_BLOCK_BYTES = 1048576;
 	protected static final int TRANSACTION_SIZE_LENGTH = 4; // per transaction
 	public static final int MAX_TRANSACTION_BYTES = MAX_BLOCK_BYTES - BASE_LENGTH;
@@ -95,24 +97,25 @@ public class Block {
 	// Constructors
 
 	// For creating a new block from scratch or instantiating one that was previously serialized
-	// XXX shouldn't transactionsSignature be passed in here?
-	protected Block(int version, byte[] reference, long timestamp, BigDecimal generationTarget, PublicKeyAccount generator, byte[] generationSignature,
-			byte[] atBytes, BigDecimal atFees) {
+	protected Block(int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PublicKeyAccount generator, byte[] generatorSignature,
+			byte[] transactionsSignature, byte[] atBytes, BigDecimal atFees) {
 		this.version = version;
 		this.reference = reference;
 		this.timestamp = timestamp;
-		this.generationTarget = generationTarget;
+		this.generatingBalance = generatingBalance;
 		this.generator = generator;
-		this.generationSignature = generationSignature;
+		this.generatorSignature = generatorSignature;
 		this.height = 0;
 
 		this.transactionCount = 0;
 		this.transactions = new ArrayList<Transaction>();
-		this.transactionsSignature = null;
-		this.totalFees = null;
+		this.transactionsSignature = transactionsSignature;
+		this.totalFees = BigDecimal.ZERO.setScale(8);
 
 		this.atBytes = atBytes;
 		this.atFees = atFees;
+		if (this.atFees != null)
+			this.totalFees = this.totalFees.add(this.atFees);
 	}
 
 	// Getters/setters
@@ -129,16 +132,16 @@ public class Block {
 		return this.timestamp;
 	}
 
-	public BigDecimal getGenerationTarget() {
-		return this.generationTarget;
+	public BigDecimal getGeneratingBalance() {
+		return this.generatingBalance;
 	}
 
 	public PublicKeyAccount getGenerator() {
 		return this.generator;
 	}
 
-	public byte[] getGenerationSignature() {
-		return this.generationSignature;
+	public byte[] getGeneratorSignature() {
+		return this.generatorSignature;
 	}
 
 	public byte[] getTransactionsSignature() {
@@ -146,7 +149,7 @@ public class Block {
 	}
 
 	public BigDecimal getTotalFees() {
-		return null;
+		return this.totalFees;
 	}
 
 	public int getTransactionCount() {
@@ -167,11 +170,16 @@ public class Block {
 
 	// More information
 
+	/**
+	 * Return composite block signature (generatorSignature + transactionsSignature).
+	 * 
+	 * @return byte[], or null if either component signature is null.
+	 */
 	public byte[] getSignature() {
-		if (this.generationSignature == null || this.transactionsSignature == null)
+		if (this.generatorSignature == null || this.transactionsSignature == null)
 			return null;
 
-		return Bytes.concat(this.generationSignature, this.transactionsSignature);
+		return Bytes.concat(this.generatorSignature, this.transactionsSignature);
 	}
 
 	public int getDataLength() {
@@ -214,6 +222,8 @@ public class Block {
 		do {
 			byte[] transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Transaction.SIGNATURE_LENGTH);
 			this.transactions.add(TransactionFactory.fromSignature(transactionSignature));
+
+			// No need to update totalFees as this will be loaded via the Blocks table
 		} while (rs.next());
 
 		return this.transactions;
@@ -236,9 +246,10 @@ public class Block {
 		this.transactionsSignature = DB.getResultSetBytes(rs.getBinaryStream(5), TRANSACTIONS_SIGNATURE_LENGTH);
 		this.height = rs.getInt(6);
 		this.timestamp = rs.getTimestamp(7).getTime();
-		this.generationTarget = rs.getBigDecimal(8);
-		this.generator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(9), GENERATOR_LENGTH));
-		this.generationSignature = DB.getResultSetBytes(rs.getBinaryStream(10), GENERATION_SIGNATURE_LENGTH);
+		this.generatingBalance = rs.getBigDecimal(8);
+		// Note: can't use GENERATOR_LENGTH in case we encounter Genesis Account's short, 8-byte public key
+		this.generator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(9)));
+		this.generatorSignature = DB.getResultSetBytes(rs.getBinaryStream(10), GENERATOR_SIGNATURE_LENGTH);
 		this.atBytes = DB.getResultSetBytes(rs.getBinaryStream(11));
 		this.atFees = rs.getBigDecimal(12);
 	}
@@ -279,15 +290,13 @@ public class Block {
 	}
 
 	protected void save(Connection connection) throws SQLException {
-		String sql = DB.formatInsertWithPlaceholders("Blocks", "version", "reference", "transaction_count", "total_fees", "transactions_signature", "height",
-				"generation", "generation_target", "generator", "generation_signature", "AT_data", "AT_fees");
+		String sql = DB.formatInsertWithPlaceholders("Blocks", "signature", "version", "reference", "transaction_count", "total_fees", "transactions_signature",
+				"height", "generation", "generating_balance", "generator", "generator_signature", "AT_data", "AT_fees");
 		PreparedStatement preparedStatement = connection.prepareStatement(sql);
-		DB.bindInsertPlaceholders(preparedStatement, this.version, this.reference, this.transactionCount, this.totalFees, this.transactionsSignature,
-				this.height, this.timestamp, this.generationTarget, this.generator.getPublicKey(), this.generationSignature, this.atBytes, this.atFees);
+		DB.bindInsertPlaceholders(preparedStatement, this.getSignature(), this.version, this.reference, this.transactionCount, this.totalFees,
+				this.transactionsSignature, this.height, new Timestamp(this.timestamp), this.generatingBalance, this.generator.getPublicKey(),
+				this.generatorSignature, this.atBytes, this.atFees);
 		preparedStatement.execute();
-
-		// Save transactions
-		// Save transaction-block mappings
 	}
 
 	// Navigation
@@ -345,6 +354,7 @@ public class Block {
 		// Check there is space in block
 		// Add to block
 		// Update transaction count
+		// Update totalFees
 		// Update transactions signature
 		return false; // no room
 	}
@@ -356,10 +366,10 @@ public class Block {
 
 	private byte[] getBytesForSignature() {
 		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(REFERENCE_LENGTH + GENERATION_TARGET_LENGTH + GENERATOR_LENGTH);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(REFERENCE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH);
 			// Only copy the generator signature from reference, which is the first 64 bytes.
-			bytes.write(Arrays.copyOf(this.reference, GENERATION_SIGNATURE_LENGTH));
-			bytes.write(Longs.toByteArray(this.generationTarget.longValue()));
+			bytes.write(Arrays.copyOf(this.reference, GENERATOR_SIGNATURE_LENGTH));
+			bytes.write(Longs.toByteArray(this.generatingBalance.longValue()));
 			// We're padding here just in case the generator is the genesis account whose public key is only 8 bytes long.
 			bytes.write(Bytes.ensureCapacity(this.generator.getPublicKey(), GENERATOR_LENGTH, 0));
 			return bytes.toByteArray();
@@ -370,13 +380,13 @@ public class Block {
 
 	public boolean isSignatureValid() {
 		// Check generator's signature first
-		if (!this.generator.verify(this.generationSignature, getBytesForSignature()))
+		if (!this.generator.verify(this.generatorSignature, getBytesForSignature()))
 			return false;
 
 		// Check transactions signature
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATION_SIGNATURE_LENGTH + this.transactionCount * Transaction.SIGNATURE_LENGTH);
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + this.transactionCount * Transaction.SIGNATURE_LENGTH);
 		try {
-			bytes.write(this.generationSignature);
+			bytes.write(this.generatorSignature);
 
 			for (Transaction transaction : this.getTransactions()) {
 				if (!transaction.isSignatureValid())
@@ -399,11 +409,36 @@ public class Block {
 		return false;
 	}
 
-	public void process() {
-		// TODO
+	public void process(Connection connection) throws SQLException {
+		// Process transactions (we'll link them to this block after saving the block itself)
+		List<Transaction> transactions = this.getTransactions();
+		for (Transaction transaction : transactions)
+			transaction.process(connection);
+
+		// If fees are non-zero then add fees to generator's balance
+		BigDecimal blockFee = this.getTotalFees();
+		if (blockFee.compareTo(BigDecimal.ZERO) == 1)
+			this.generator.setConfirmedBalance(connection, Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFee));
+
+		// Link block into blockchain by fetching signature of highest block and setting that as our reference
+		int blockchainHeight = BlockChain.getHeight();
+		Block latestBlock = Block.fromHeight(blockchainHeight);
+		if (latestBlock != null)
+			this.reference = latestBlock.getSignature();
+		this.height = blockchainHeight + 1;
+		this.save(connection);
+
+		// Link transactions to this block, thus removing them from unconfirmed transactions list.
+		for (int sequence = 0; sequence < transactions.size(); ++sequence) {
+			Transaction transaction = transactions.get(sequence);
+
+			// Link transaction to this block
+			BlockTransaction blockTransaction = new BlockTransaction(this.getSignature(), sequence, transaction.getSignature());
+			blockTransaction.save(connection);
+		}
 	}
 
-	public void orphan() {
+	public void orphan(Connection connection) {
 		// TODO
 	}
 

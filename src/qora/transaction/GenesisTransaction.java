@@ -202,11 +202,18 @@ public class GenesisTransaction extends Transaction {
 		return ValidationResult.OK;
 	}
 
-	public void process() {
+	public void process(Connection connection) throws SQLException {
 		// TODO
+		this.save(connection);
+
+		// SET recipient's balance
+		// this.recipient.setConfirmedBalance(this.amount, db);
+
+		// Set recipient's reference
+		// recipient.setLastReference(this.signature, db);
 	}
 
-	public void orphan() {
+	public void orphan(Connection connection) {
 		// TODO
 	}
 

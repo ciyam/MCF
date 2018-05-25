@@ -173,11 +173,11 @@ public class PaymentTransaction extends Transaction {
 		return ValidationResult.OK;
 	}
 
-	public void process() {
+	public void process(Connection connection) {
 		// TODO
 	}
 
-	public void orphan() {
+	public void orphan(Connection connection) {
 		// TODO
 	}
 

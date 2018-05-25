@@ -24,19 +24,18 @@ public class GenesisBlock extends Block {
 
 	private static final int GENESIS_BLOCK_VERSION = 1;
 	private static final byte[] GENESIS_REFERENCE = new byte[] { 1, 1, 1, 1, 1, 1, 1, 1 }; // NOTE: Neither 64 nor 128 bytes!
-	private static final BigDecimal GENESIS_GENERATION_TARGET = BigDecimal.valueOf(10_000_000L).setScale(8);
+	private static final BigDecimal GENESIS_GENERATING_BALANCE = BigDecimal.valueOf(10_000_000L).setScale(8);
 	private static final GenesisAccount GENESIS_GENERATOR = new GenesisAccount();
 	private static final long GENESIS_TIMESTAMP = 1400247274336L; // QORA RELEASE: Fri May 16 13:34:34.336 2014 UTC
-	private static final byte[] GENESIS_GENERATION_SIGNATURE = calcSignature();
+	private static final byte[] GENESIS_GENERATOR_SIGNATURE = calcSignature();
 	private static final byte[] GENESIS_TRANSACTIONS_SIGNATURE = calcSignature();
 
 	// Constructors
 	protected GenesisBlock() {
-		super(GENESIS_BLOCK_VERSION, GENESIS_REFERENCE, GENESIS_TIMESTAMP, GENESIS_GENERATION_TARGET, GENESIS_GENERATOR, GENESIS_GENERATION_SIGNATURE, null,
-				null);
+		super(GENESIS_BLOCK_VERSION, GENESIS_REFERENCE, GENESIS_TIMESTAMP, GENESIS_GENERATING_BALANCE, GENESIS_GENERATOR, GENESIS_GENERATOR_SIGNATURE,
+				GENESIS_TRANSACTIONS_SIGNATURE, null, null);
 
 		this.height = 1;
-
 		this.transactions = new ArrayList<Transaction>();
 
 		// Genesis transactions
@@ -174,8 +173,6 @@ public class GenesisBlock extends Block {
 		addGenesisTransaction("QgcphUTiVHHfHg8e1LVgg5jujVES7ZDUTr", "115031531");
 		addGenesisTransaction("QbQk9s4j4EAxAguBhmqA8mdtTct3qGnsrx", "138348733.2");
 		addGenesisTransaction("QT79PhvBwE6vFzfZ4oh5wdKVsEazZuVJFy", "6360421.343");
-
-		this.transactionsSignature = GENESIS_TRANSACTIONS_SIGNATURE;
 	}
 
 	/**
@@ -199,7 +196,7 @@ public class GenesisBlock extends Block {
 			return false;
 
 		// Validate block signature
-		if (!Arrays.equals(GENESIS_GENERATION_SIGNATURE, block.generationSignature))
+		if (!Arrays.equals(GENESIS_GENERATOR_SIGNATURE, block.generatorSignature))
 			return false;
 
 		// Validate transactions signature
@@ -263,7 +260,7 @@ public class GenesisBlock extends Block {
 	}
 
 	/**
-	 * Generate genesis block generation/transactions signature.
+	 * Generate genesis block generator/transactions signature.
 	 * <p>
 	 * This is handled differently as there is no private key for the genesis account and so no way to sign data.
 	 * <p>
@@ -280,7 +277,7 @@ public class GenesisBlock extends Block {
 		try {
 			// Passing expected size to ByteArrayOutputStream avoids reallocation when adding more bytes than default 32.
 			// See below for explanation of some of the values used to calculated expected size.
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + 64 + GENERATION_TARGET_LENGTH + GENERATOR_LENGTH);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + 64 + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH);
 			/*
 			 * NOTE: Historic code had genesis block using Longs.toByteArray() compared to standard block's Ints.toByteArray. The subsequent
 			 * Bytes.ensureCapacity(versionBytes, 0, 4) did not truncate versionBytes back to 4 bytes either. This means 8 bytes were used even though
@@ -292,7 +289,7 @@ public class GenesisBlock extends Block {
 			 * will break genesis block signatures!
 			 */
 			bytes.write(Bytes.ensureCapacity(GENESIS_REFERENCE, 64, 0));
-			bytes.write(Longs.toByteArray(GENESIS_GENERATION_TARGET.longValue()));
+			bytes.write(Longs.toByteArray(GENESIS_GENERATING_BALANCE.longValue()));
 			// NOTE: Genesis account's public key is only 8 bytes, not the usual 32.
 			bytes.write(GENESIS_GENERATOR.getPublicKey());
 			return bytes.toByteArray();
@@ -304,7 +301,7 @@ public class GenesisBlock extends Block {
 	@Override
 	public boolean isSignatureValid() {
 		// Validate block signature
-		if (!Arrays.equals(GENESIS_GENERATION_SIGNATURE, this.generationSignature))
+		if (!Arrays.equals(GENESIS_GENERATOR_SIGNATURE, this.generatorSignature))
 			return false;
 
 		// Validate transactions signature
@@ -317,7 +314,7 @@ public class GenesisBlock extends Block {
 	@Override
 	public boolean isValid(Connection connection) throws SQLException {
 		// Check there is no other block in DB
-		if (BlockChain.getMaxHeight() != 0)
+		if (BlockChain.getHeight() != 0)
 			return false;
 
 		// Validate transactions

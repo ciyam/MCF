@@ -23,7 +23,7 @@ public class BlockTransaction {
 
 	// Constructors
 
-	protected BlockTransaction(byte[] blockSignature, int sequence, byte[] transactionSignature) {
+	public BlockTransaction(byte[] blockSignature, int sequence, byte[] transactionSignature) {
 		this.blockSignature = blockSignature;
 		this.sequence = sequence;
 		this.transactionSignature = transactionSignature;

@@ -40,12 +40,23 @@ public class connections extends common {
 		}
 	}
 
-	/*
-	 * @Test public void testConnectionAfterShutdown() { try { DB.close(); } catch (SQLException e) { e.printStackTrace(); fail(); }
-	 * 
-	 * try { Connection c = DB.getConnection(); c.close(); } catch (SQLException e) { // good return; }
-	 * 
-	 * fail(); }
-	 */
+	@Test
+	public void testConnectionAfterShutdown() {
+		try {
+			DB.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			fail();
+		}
+
+		try {
+			DB.open();
+			Connection c = DB.getConnection();
+			c.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			fail();
+		}
+	}
 
 }
