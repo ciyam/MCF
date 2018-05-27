@@ -16,7 +16,7 @@ public class TransactionFactory {
 	 * @throws SQLException
 	 */
 	public static Transaction fromSignature(byte[] signature) throws SQLException {
-		ResultSet resultSet = DB.executeUsingBytes("SELECT type, signature FROM Transactions WHERE signature = ?", signature);
+		ResultSet resultSet = DB.checkedExecute("SELECT type, signature FROM Transactions WHERE signature = ?", signature);
 		return fromResultSet(resultSet);
 	}
 
@@ -28,7 +28,7 @@ public class TransactionFactory {
 	 * @throws SQLException
 	 */
 	public static Transaction fromReference(byte[] reference) throws SQLException {
-		ResultSet resultSet = DB.executeUsingBytes("SELECT type, signature FROM Transactions WHERE reference = ?", reference);
+		ResultSet resultSet = DB.checkedExecute("SELECT type, signature FROM Transactions WHERE reference = ?", reference);
 		return fromResultSet(resultSet);
 	}
 

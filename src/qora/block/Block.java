@@ -12,9 +12,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
 import database.DB;
@@ -23,8 +26,13 @@ import database.SaveHelper;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
+import qora.assets.Order;
+import qora.assets.Trade;
+import qora.transaction.CreateOrderTransaction;
 import qora.transaction.Transaction;
 import qora.transaction.TransactionFactory;
+import utils.Base58;
+import utils.ParseException;
 
 /*
  * Typical use-case scenarios:
@@ -215,11 +223,11 @@ public class Block {
 		// Allocate cache for results
 		this.transactions = new ArrayList<Transaction>();
 
-		ResultSet rs = DB.executeUsingBytes("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ?", this.getSignature());
+		ResultSet rs = DB.checkedExecute("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ?", this.getSignature());
 		if (rs == null)
 			return this.transactions; // No transactions in this block
 
-		// NB: do-while loop because DB.executeUsingBytes() implicitly calls ResultSet.next() for us
+		// NB: do-while loop because DB.checkedExecute() implicitly calls ResultSet.next() for us
 		do {
 			byte[] transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Transaction.SIGNATURE_LENGTH);
 			this.transactions.add(TransactionFactory.fromSignature(transactionSignature));
@@ -233,7 +241,7 @@ public class Block {
 	// Load/Save
 
 	protected Block(byte[] signature) throws SQLException {
-		this(DB.executeUsingBytes("SELECT " + DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature));
+		this(DB.checkedExecute("SELECT " + DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature));
 	}
 
 	protected Block(ResultSet rs) throws SQLException {
@@ -329,7 +337,7 @@ public class Block {
 		if (blockSignature == null)
 			return null;
 
-		ResultSet resultSet = DB.executeUsingBytes("SELECT " + DB_COLUMNS + " FROM Blocks WHERE reference = ?", blockSignature);
+		ResultSet resultSet = DB.checkedExecute("SELECT " + DB_COLUMNS + " FROM Blocks WHERE reference = ?", blockSignature);
 
 		try {
 			return new Block(resultSet);
@@ -340,12 +348,95 @@ public class Block {
 
 	// Converters
 
-	public JSONObject toJSON() {
-		// TODO
-		return null;
+	@SuppressWarnings("unchecked")
+	public JSONObject toJSON() throws SQLException {
+		JSONObject json = new JSONObject();
+
+		json.put("version", this.version);
+		json.put("timestamp", this.timestamp);
+		json.put("generatingBalance", this.generatingBalance);
+		json.put("generator", this.generator.getAddress());
+		json.put("generatorPublicKey", Base58.encode(this.generator.getPublicKey()));
+		json.put("fee", this.getTotalFees().toPlainString());
+		json.put("transactionsSignature", Base58.encode(this.transactionsSignature));
+		json.put("generatorSignature", Base58.encode(this.generatorSignature));
+		json.put("signature", Base58.encode(this.getSignature()));
+
+		if (this.reference != null)
+			json.put("reference", Base58.encode(this.reference));
+
+		json.put("height", this.getHeight());
+
+		// Add transaction info
+		JSONArray transactionsJson = new JSONArray();
+		boolean tradesHappened = false;
+
+		for (Transaction transaction : this.getTransactions()) {
+			transactionsJson.add(transaction.toJSON());
+
+			// If this is an asset CreateOrderTransaction then check to see if any trades happened
+			if (transaction.getType() == Transaction.TransactionType.CREATE_ASSET_ORDER) {
+				CreateOrderTransaction orderTransaction = (CreateOrderTransaction) transaction;
+				Order order = orderTransaction.getOrder();
+				List<Trade> trades = order.getTrades();
+
+				// Filter out trades with timestamps that don't match order transaction's timestamp
+				trades.removeIf((Trade trade) -> trade.getTimestamp() != order.getTimestamp());
+
+				// Any trades left?
+				if (!trades.isEmpty()) {
+					tradesHappened = true;
+
+					// No need to check any further
+					break;
+				}
+			}
+		}
+		json.put("transactions", transactionsJson);
+
+		// Add asset trade activity flag
+		json.put("assetTrades", tradesHappened);
+
+		// Add CIYAM AT info (if any)
+		if (atBytes != null) {
+			json.put("blockATs", HashCode.fromBytes(atBytes).toString());
+			json.put("atFees", this.atFees);
+		}
+
+		return json;
 	}
 
 	public byte[] toBytes() {
+		try {
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(getDataLength());
+			bytes.write(Ints.toByteArray(this.version));
+			bytes.write(Longs.toByteArray(this.timestamp));
+			bytes.write(this.reference);
+			// NOTE: generatingBalance serialized as long value, not as BigDecimal, for historic compatibility
+			bytes.write(Longs.toByteArray(this.generatingBalance.longValue()));
+			bytes.write(this.generator.getPublicKey());
+			bytes.write(this.transactionsSignature);
+			bytes.write(this.generatorSignature);
+
+			if (this.version >= 2) {
+				if (this.atBytes != null) {
+					bytes.write(Ints.toByteArray(this.atBytes.length));
+					bytes.write(this.atBytes);
+					// NOTE: atFees serialized as long value, not as BigDecimal, for historic compatibility
+					bytes.write(Longs.toByteArray(this.atFees.longValue()));
+				} else {
+					bytes.write(Ints.toByteArray(0));
+					bytes.write(Longs.toByteArray(0L));
+				}
+			}
+
+			return bytes.toByteArray();
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	public static Block parse(byte[] data) throws ParseException {
 		// TODO
 		return null;
 	}

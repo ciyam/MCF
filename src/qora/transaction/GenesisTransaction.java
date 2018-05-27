@@ -21,8 +21,10 @@ import database.SaveHelper;
 import qora.account.Account;
 import qora.account.GenesisAccount;
 import qora.account.PrivateKeyAccount;
+import qora.assets.Asset;
 import qora.crypto.Crypto;
 import utils.Base58;
+import utils.ParseException;
 import utils.Serialization;
 
 public class GenesisTransaction extends Transaction {
@@ -59,6 +61,7 @@ public class GenesisTransaction extends Transaction {
 
 	// More information
 
+	@Override
 	public int getDataLength() {
 		return TYPE_LENGTH + TYPELESS_LENGTH;
 	}
@@ -76,7 +79,7 @@ public class GenesisTransaction extends Transaction {
 	protected GenesisTransaction(byte[] signature) throws SQLException {
 		super(TransactionType.GENESIS, signature);
 
-		ResultSet rs = DB.executeUsingBytes("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
+		ResultSet rs = DB.checkedExecute("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
 		if (rs == null)
 			throw new NoDataFoundException();
 
@@ -110,9 +113,9 @@ public class GenesisTransaction extends Transaction {
 
 	// Converters
 
-	protected static Transaction parse(ByteBuffer byteBuffer) throws TransactionParseException {
+	protected static Transaction parse(ByteBuffer byteBuffer) throws ParseException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransactionParseException("Byte data too short for GenesisTransaction");
+			throw new ParseException("Byte data too short for GenesisTransaction");
 
 		long timestamp = byteBuffer.getLong();
 		String recipient = Serialization.deserializeRecipient(byteBuffer);
@@ -132,6 +135,7 @@ public class GenesisTransaction extends Transaction {
 		return json;
 	}
 
+	@Override
 	public byte[] toBytes() {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream(getDataLength());
@@ -189,6 +193,7 @@ public class GenesisTransaction extends Transaction {
 		return Arrays.equals(this.signature, calcSignature());
 	}
 
+	@Override
 	public ValidationResult isValid(Connection connection) {
 		// Check amount is zero or positive
 		if (this.amount.compareTo(BigDecimal.ZERO) == -1)
@@ -201,19 +206,26 @@ public class GenesisTransaction extends Transaction {
 		return ValidationResult.OK;
 	}
 
+	@Override
 	public void process(Connection connection) throws SQLException {
-		// TODO
 		this.save(connection);
 
-		// SET recipient's balance
-		// this.recipient.setConfirmedBalance(this.amount, db);
+		// Set recipient's balance
+		this.recipient.setConfirmedBalance(connection, Asset.QORA, this.amount);
 
 		// Set recipient's reference
-		// recipient.setLastReference(this.signature, db);
+		recipient.setLastReference(connection, this.signature);
 	}
 
-	public void orphan(Connection connection) {
-		// TODO
+	@Override
+	public void orphan(Connection connection) throws SQLException {
+		this.delete(connection);
+
+		// Set recipient's balance
+		this.recipient.setConfirmedBalance(connection, Asset.QORA, BigDecimal.ZERO);
+
+		// Set recipient's reference
+		recipient.setLastReference(connection, null);
 	}
 
 }

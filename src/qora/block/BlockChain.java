@@ -61,7 +61,7 @@ public class BlockChain {
 	 * @throws SQLException
 	 */
 	public static int getBlockHeightFromSignature(byte[] signature) throws SQLException {
-		ResultSet rs = DB.executeUsingBytes("SELECT height FROM Blocks WHERE signature = ?", signature);
+		ResultSet rs = DB.checkedExecute("SELECT height FROM Blocks WHERE signature = ?", signature);
 		if (rs == null)
 			return 0;
 

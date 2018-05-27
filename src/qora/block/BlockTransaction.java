@@ -1,11 +1,8 @@
 package qora.block;
 
 import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
-import java.io.ByteArrayInputStream;
 
 import org.json.simple.JSONObject;
 
@@ -50,13 +47,8 @@ public class BlockTransaction {
 
 	protected BlockTransaction(byte[] blockSignature, int sequence) throws SQLException {
 		try (final Connection connection = DB.getConnection()) {
-			// Can't use DB.executeUsingBytes() here as we need two placeholders
-			PreparedStatement preparedStatement = connection
-					.prepareStatement("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? and sequence = ?");
-			preparedStatement.setBinaryStream(1, new ByteArrayInputStream(blockSignature));
-			preparedStatement.setInt(2, sequence);
-
-			ResultSet rs = DB.checkedExecute(preparedStatement);
+			ResultSet rs = DB.checkedExecute("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? and sequence = ?", blockSignature,
+					sequence);
 			if (rs == null)
 				throw new NoDataFoundException();
 
@@ -67,7 +59,7 @@ public class BlockTransaction {
 	}
 
 	protected BlockTransaction(byte[] transactionSignature) throws SQLException {
-		ResultSet rs = DB.executeUsingBytes("SELECT block_signature, sequence FROM BlockTransactions WHERE transaction_signature = ?", transactionSignature);
+		ResultSet rs = DB.checkedExecute("SELECT block_signature, sequence FROM BlockTransactions WHERE transaction_signature = ?", transactionSignature);
 		if (rs == null)
 			throw new NoDataFoundException();
 

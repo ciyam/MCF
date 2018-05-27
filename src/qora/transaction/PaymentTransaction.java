@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 
 import org.json.simple.JSONObject;
 
@@ -19,7 +20,10 @@ import database.NoDataFoundException;
 import database.SaveHelper;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
+import qora.assets.Asset;
+import qora.crypto.Crypto;
 import utils.Base58;
+import utils.ParseException;
 import utils.Serialization;
 
 public class PaymentTransaction extends Transaction {
@@ -82,7 +86,7 @@ public class PaymentTransaction extends Transaction {
 	protected PaymentTransaction(byte[] signature) throws SQLException {
 		super(TransactionType.PAYMENT, signature);
 
-		ResultSet rs = DB.executeUsingBytes("SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature);
+		ResultSet rs = DB.checkedExecute("SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature);
 		if (rs == null)
 			throw new NoDataFoundException();
 
@@ -111,16 +115,16 @@ public class PaymentTransaction extends Transaction {
 		super.save(connection);
 
 		SaveHelper saveHelper = new SaveHelper(connection, "PaymentTransactions");
-		saveHelper.bind("signature", this.signature).bind("sender", this.sender.getPublicKey()).bind("recipient", this.recipient.getAddress()).bind("amount", this.amount);
+		saveHelper.bind("signature", this.signature).bind("sender", this.sender.getPublicKey()).bind("recipient", this.recipient.getAddress()).bind("amount",
+				this.amount);
 		saveHelper.execute();
 	}
 
 	// Converters
 
-	protected static Transaction parse(ByteBuffer byteBuffer) throws TransactionParseException {
-		// TODO
+	protected static Transaction parse(ByteBuffer byteBuffer) throws ParseException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransactionParseException("Byte data too short for PaymentTransaction");
+			throw new ParseException("Byte data too short for PaymentTransaction");
 
 		long timestamp = byteBuffer.getLong();
 		byte[] reference = new byte[REFERENCE_LENGTH];
@@ -167,17 +171,67 @@ public class PaymentTransaction extends Transaction {
 
 	// Processing
 
-	public ValidationResult isValid(Connection connection) {
-		// TODO
+	public ValidationResult isValid(Connection connection) throws SQLException {
+		// Non-database checks first
+
+		// Check recipient is a valid address
+		if (!Crypto.isValidAddress(this.recipient.getAddress()))
+			return ValidationResult.INVALID_ADDRESS;
+
+		// Check amount is positive
+		if (this.amount.compareTo(BigDecimal.ZERO) <= 0)
+			return ValidationResult.NEGATIVE_AMOUNT;
+
+		// Check fee is positive
+		if (this.fee.compareTo(BigDecimal.ZERO) <= 0)
+			return ValidationResult.NEGATIVE_FEE;
+
+		// Check reference is correct
+		if (!Arrays.equals(this.sender.getLastReference(), this.reference))
+			return ValidationResult.INVALID_REFERENCE;
+
+		// Check sender has enough funds
+		if (this.sender.getBalance(Asset.QORA, 1).compareTo(this.amount.add(this.fee)) == -1)
+			return ValidationResult.NO_BALANCE;
+
 		return ValidationResult.OK;
 	}
 
-	public void process(Connection connection) {
-		// TODO
+	public void process(Connection connection) throws SQLException {
+		this.save(connection);
+
+		// Update sender's balance
+		this.sender.setConfirmedBalance(connection, Asset.QORA, this.sender.getConfirmedBalance(Asset.QORA).subtract(this.amount).subtract(this.fee));
+
+		// Update recipient's balance
+		this.recipient.setConfirmedBalance(connection, Asset.QORA, this.recipient.getConfirmedBalance(Asset.QORA).add(this.amount));
+
+		// Update sender's reference
+		this.sender.setLastReference(connection, this.signature);
+
+		// If recipient has no reference yet, then this is their starting reference
+		if (this.recipient.getLastReference() == null)
+			this.recipient.setLastReference(connection, this.signature);
 	}
 
-	public void orphan(Connection connection) {
-		// TODO
+	public void orphan(Connection connection) throws SQLException {
+		this.delete(connection);
+
+		// Update sender's balance
+		this.sender.setConfirmedBalance(connection, Asset.QORA, this.sender.getConfirmedBalance(Asset.QORA).add(this.amount).add(this.fee));
+
+		// Update recipient's balance
+		this.recipient.setConfirmedBalance(connection, Asset.QORA, this.recipient.getConfirmedBalance(Asset.QORA).subtract(this.amount));
+
+		// Update sender's reference
+		this.sender.setLastReference(connection, this.reference);
+
+		/*
+		 * If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own (which would have changed
+		 * their last reference) thus this is their first reference so remove it.
+		 */
+		if (Arrays.equals(this.recipient.getLastReference(), this.signature))
+			this.recipient.setLastReference(connection, null);
 	}
 
 }

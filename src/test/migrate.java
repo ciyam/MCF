@@ -132,19 +132,19 @@ public class migrate extends common {
 		PreparedStatement issueAssetPStmt = c.prepareStatement("INSERT INTO IssueAssetTransactions "
 				+ formatWithPlaceholders("signature", "creator", "asset_name", "description", "quantity", "is_divisible"));
 		PreparedStatement transferAssetPStmt = c
-				.prepareStatement("INSERT INTO TransferAssetTransactions " + formatWithPlaceholders("signature", "sender", "recipient", "asset", "amount"));
+				.prepareStatement("INSERT INTO TransferAssetTransactions " + formatWithPlaceholders("signature", "sender", "recipient", "asset_id", "amount"));
 		PreparedStatement createAssetOrderPStmt = c.prepareStatement("INSERT INTO CreateAssetOrderTransactions "
-				+ formatWithPlaceholders("signature", "creator", "have_asset", "have_amount", "want_asset", "want_amount"));
+				+ formatWithPlaceholders("signature", "creator", "have_asset_id", "amount", "want_asset_id", "price"));
 		PreparedStatement cancelAssetOrderPStmt = c
 				.prepareStatement("INSERT INTO CancelAssetOrderTransactions " + formatWithPlaceholders("signature", "creator", "asset_order"));
 		PreparedStatement multiPaymentPStmt = c.prepareStatement("INSERT INTO MultiPaymentTransactions " + formatWithPlaceholders("signature", "sender"));
 		PreparedStatement deployATPStmt = c.prepareStatement("INSERT INTO DeployATTransactions "
 				+ formatWithPlaceholders("signature", "creator", "AT_name", "description", "AT_type", "AT_tags", "creation_bytes", "amount"));
 		PreparedStatement messagePStmt = c.prepareStatement("INSERT INTO MessageTransactions "
-				+ formatWithPlaceholders("signature", "sender", "recipient", "is_text", "is_encrypted", "amount", "asset", "data"));
+				+ formatWithPlaceholders("signature", "sender", "recipient", "is_text", "is_encrypted", "amount", "asset_id", "data"));
 
 		PreparedStatement sharedPaymentPStmt = c
-				.prepareStatement("INSERT INTO SharedTransactionPayments " + formatWithPlaceholders("signature", "recipient", "amount", "asset"));
+				.prepareStatement("INSERT INTO SharedTransactionPayments " + formatWithPlaceholders("signature", "recipient", "amount", "asset_id"));
 
 		PreparedStatement blockTxPStmt = c
 				.prepareStatement("INSERT INTO BlockTransactions " + formatWithPlaceholders("block_signature", "sequence", "transaction_signature"));

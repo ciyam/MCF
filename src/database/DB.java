@@ -1,8 +1,8 @@
 package database;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -121,6 +121,7 @@ public class DB {
 	 * @return byte[length]
 	 */
 	public static byte[] getResultSetBytes(InputStream inputStream, int length) {
+		// inputStream could be null if database's column's value is null
 		if (inputStream == null)
 			return null;
 
@@ -145,6 +146,7 @@ public class DB {
 	public static byte[] getResultSetBytes(InputStream inputStream) {
 		final int BYTE_BUFFER_LENGTH = 1024;
 
+		// inputStream could be null if database's column's value is null
 		if (inputStream == null)
 			return null;
 
@@ -168,33 +170,27 @@ public class DB {
 	}
 
 	/**
-	 * Execute SQL using byte[] as 1st placeholder.
+	 * Execute SQL and return ResultSet with but added checking.
 	 * <p>
 	 * <b>Note: calls ResultSet.next()</b> therefore returned ResultSet is already pointing to first row.
-	 * <p>
-	 * Typically used to fetch Blocks or Transactions using signature or reference.
 	 * 
 	 * @param sql
-	 * @param bytes
-	 * @return ResultSet, or null if no matching rows found
+	 * @param objects
+	 * @return ResultSet, or null if there are no found rows
 	 * @throws SQLException
 	 */
-	public static ResultSet executeUsingBytes(String sql, byte[] bytes) throws SQLException {
+	public static ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		try (final Connection connection = DB.getConnection()) {
 			PreparedStatement preparedStatement = connection.prepareStatement(sql);
-			preparedStatement.setBinaryStream(1, new ByteArrayInputStream(bytes));
+			for (int i = 0; i < objects.length; ++i)
+				// Special treatment for BigDecimals so that they retain their "scale",
+				// which would otherwise be assumed as 0.
+				if (objects[i] instanceof BigDecimal)
+					preparedStatement.setBigDecimal(i + 1, (BigDecimal) objects[i]);
+				else
+					preparedStatement.setObject(i + 1, objects[i]);
 
-			if (!preparedStatement.execute())
-				throw new SQLException("Fetching from database produced no results");
-
-			ResultSet rs = preparedStatement.getResultSet();
-			if (rs == null)
-				throw new SQLException("Fetching results from database produced no ResultSet");
-
-			if (!rs.next())
-				return null;
-
-			return rs;
+			return checkedExecute(preparedStatement);
 		}
 	}
 

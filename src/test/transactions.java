@@ -14,12 +14,12 @@ import qora.block.Block;
 import qora.block.GenesisBlock;
 import qora.transaction.GenesisTransaction;
 import qora.transaction.Transaction;
-import qora.transaction.TransactionParseException;
+import utils.ParseException;
 
 public class transactions extends common {
 
 	@Test
-	public void testGenesisSerialization() throws SQLException, TransactionParseException {
+	public void testGenesisSerialization() throws SQLException, ParseException {
 		GenesisBlock block = GenesisBlock.getInstance();
 
 		GenesisTransaction transaction = (GenesisTransaction) block.getTransactions().get(1);
@@ -36,7 +36,7 @@ public class transactions extends common {
 		assertTrue(Arrays.equals(transaction.getSignature(), parsedTransaction.getSignature()));
 	}
 
-	public void testGenericSerialization(Transaction transaction) throws SQLException, TransactionParseException {
+	public void testGenericSerialization(Transaction transaction) throws SQLException, ParseException {
 		assertNotNull(transaction);
 
 		byte[] bytes = transaction.toBytes();
@@ -47,7 +47,7 @@ public class transactions extends common {
 	}
 
 	@Test
-	public void testPaymentSerialization() throws SQLException, TransactionParseException {
+	public void testPaymentSerialization() throws SQLException, ParseException {
 		try (final Connection connection = DB.getConnection()) {
 			// Block 949 has lots of varied transactions
 			// Blocks 390 & 754 have only payment transactions

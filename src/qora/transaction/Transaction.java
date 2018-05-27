@@ -25,6 +25,7 @@ import qora.block.BlockTransaction;
 import settings.Settings;
 
 import utils.Base58;
+import utils.ParseException;
 
 public abstract class Transaction {
 
@@ -48,7 +49,7 @@ public abstract class Transaction {
 
 	// Validation results
 	public enum ValidationResult {
-		OK(1), INVALID_ADDRESS(2), NEGATIVE_AMOUNT(3);
+		OK(1), INVALID_ADDRESS(2), NEGATIVE_AMOUNT(3), NEGATIVE_FEE(4), NO_BALANCE(5), INVALID_REFERENCE(6);
 
 		public final int value;
 
@@ -201,7 +202,7 @@ public abstract class Transaction {
 		return blockChainHeight - ourHeight + 1;
 	}
 
-	// Load/Save
+	// Load/Save/Delete
 
 	// Typically called by sub-class' load-from-DB constructors
 
@@ -217,7 +218,7 @@ public abstract class Transaction {
 	 * @throws SQLException
 	 */
 	protected Transaction(TransactionType type, byte[] signature) throws SQLException {
-		ResultSet rs = DB.executeUsingBytes("SELECT reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
+		ResultSet rs = DB.checkedExecute("SELECT reference, creator, creation, fee FROM Transactions WHERE signature = ? AND type = ?", signature, type.value);
 		if (rs == null)
 			throw new NoDataFoundException();
 
@@ -236,6 +237,10 @@ public abstract class Transaction {
 				.bind("creator", this.creator.getPublicKey()).bind("creation", new Timestamp(this.timestamp)).bind("fee", this.fee)
 				.bind("milestone_block", null);
 		saveHelper.execute();
+	}
+
+	protected void delete(Connection connection) throws SQLException {
+		DB.checkedExecute("DELETE FROM Transactions WHERE signature = ?", this.signature);
 	}
 
 	// Navigation
@@ -285,12 +290,12 @@ public abstract class Transaction {
 
 	// Converters
 
-	public static Transaction parse(byte[] data) throws TransactionParseException {
+	public static Transaction parse(byte[] data) throws ParseException {
 		if (data == null)
 			return null;
 
 		if (data.length < TYPE_LENGTH)
-			throw new TransactionParseException("Byte data too short to determine transaction type");
+			throw new ParseException("Byte data too short to determine transaction type");
 
 		ByteBuffer byteBuffer = ByteBuffer.wrap(data);
 
@@ -325,9 +330,11 @@ public abstract class Transaction {
 		json.put("type", this.type.value);
 		json.put("fee", this.fee.toPlainString());
 		json.put("timestamp", this.timestamp);
+		json.put("signature", Base58.encode(this.signature));
+
 		if (this.reference != null)
 			json.put("reference", Base58.encode(this.reference));
-		json.put("signature", Base58.encode(this.signature));
+
 		json.put("confirmations", this.getConfirmations());
 
 		return json;
@@ -363,10 +370,10 @@ public abstract class Transaction {
 		return this.creator.verify(this.signature, this.toBytesLessSignature());
 	}
 
-	public abstract ValidationResult isValid(Connection connection);
+	public abstract ValidationResult isValid(Connection connection) throws SQLException;
 
 	public abstract void process(Connection connection) throws SQLException;
 
-	public abstract void orphan(Connection connection);
+	public abstract void orphan(Connection connection) throws SQLException;
 
 }

@@ -206,8 +206,8 @@ public class DatabaseUpdates {
 				case 12:
 					// Arbitrary/Multi-payment Transaction Payments
 					stmt.execute("CREATE TABLE SharedTransactionPayments (signature Signature, recipient QoraPublicKey NOT NULL, "
-							+ "amount QoraAmount NOT NULL, asset AssetID NOT NULL, "
-							+ "PRIMARY KEY (signature, recipient, asset), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+							+ "amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, "
+							+ "PRIMARY KEY (signature, recipient, asset_id), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
 				case 13:
@@ -230,14 +230,14 @@ public class DatabaseUpdates {
 				case 15:
 					// Transfer Asset Transactions
 					stmt.execute("CREATE TABLE TransferAssetTransactions (signature Signature, sender QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, "
-							+ "asset AssetID NOT NULL, amount QoraAmount NOT NULL, "
+							+ "asset_id AssetID NOT NULL, amount QoraAmount NOT NULL, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
 				case 16:
 					// Create Asset Order Transactions
 					stmt.execute("CREATE TABLE CreateAssetOrderTransactions (signature Signature, creator QoraPublicKey NOT NULL, "
-							+ "have_asset AssetID NOT NULL, have_amount QoraAmount NOT NULL, want_asset AssetID NOT NULL, want_amount QoraAmount NOT NULL, "
+							+ "have_asset_id AssetID NOT NULL, amount QoraAmount NOT NULL, want_asset_id AssetID NOT NULL, price QoraAmount NOT NULL, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
@@ -265,20 +265,22 @@ public class DatabaseUpdates {
 				case 20:
 					// Message Transactions
 					stmt.execute("CREATE TABLE MessageTransactions (signature Signature, sender QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, "
-							+ "is_text BOOLEAN NOT NULL, is_encrypted BOOLEAN NOT NULL, amount QoraAmount NOT NULL, asset AssetID NOT NULL, data VARBINARY(4000) NOT NULL, "
+							+ "is_text BOOLEAN NOT NULL, is_encrypted BOOLEAN NOT NULL, amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, data VARBINARY(4000) NOT NULL, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
 				case 21:
 					// Assets (including QORA coin itself)
 					stmt.execute(
-							"CREATE TABLE Assets (asset AssetID IDENTITY, owner QoraAddress NOT NULL, asset_name AssetName NOT NULL, description VARCHAR(4000) NOT NULL, "
+							"CREATE TABLE Assets (asset_id AssetID IDENTITY, owner QoraAddress NOT NULL, asset_name AssetName NOT NULL, description VARCHAR(4000) NOT NULL, "
 									+ "quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, reference Signature NOT NULL)");
 					break;
 
 				case 22:
 					// Accounts
-					stmt.execute("CREATE TABLE AccountBalances (account QoraAddress, asset AssetID, amount QoraAmount NOT NULL, PRIMARY KEY (account, asset))");
+					stmt.execute("CREATE TABLE Accounts (account QoraAddress, reference Signature, PRIMARY KEY (account))");
+					stmt.execute(
+							"CREATE TABLE AccountBalances (account QoraAddress, asset_id AssetID, balance QoraAmount NOT NULL, PRIMARY KEY (account, asset_id))");
 					break;
 
 				default:
