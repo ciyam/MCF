@@ -1,5 +1,6 @@
 package qora.block;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -12,6 +13,23 @@ import qora.assets.Asset;
  *
  */
 public class BlockChain {
+
+	/**
+	 * Minimum Qora balance.
+	 */
+	public static final BigDecimal MIN_BALANCE = BigDecimal.valueOf(1L).setScale(8);
+	/**
+	 * Maximum Qora balance.
+	 */
+	public static final BigDecimal MAX_BALANCE = BigDecimal.valueOf(10_000_000_000L).setScale(8);
+	/**
+	 * Minimum target time between blocks, in seconds.
+	 */
+	public static final long MIN_BLOCK_TIME = 60;
+	/**
+	 * Maximum target time between blocks, in seconds.
+	 */
+	public static final long MAX_BLOCK_TIME = 300;
 
 	/**
 	 * Some sort start-up/initialization/checking method.
@@ -82,6 +100,19 @@ public class BlockChain {
 
 			return rs.getInt(1);
 		}
+	}
+
+	/**
+	 * Return Qora balance adjusted to within min/max limits.
+	 */
+	public static BigDecimal minMaxBalance(BigDecimal balance) {
+		if (balance.compareTo(MIN_BALANCE) < 0)
+			return MIN_BALANCE;
+
+		if (balance.compareTo(MAX_BALANCE) > 0)
+			return MAX_BALANCE;
+
+		return balance;
 	}
 
 }

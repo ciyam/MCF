@@ -13,7 +13,6 @@ import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
 
 import qora.account.GenesisAccount;
-import qora.account.PrivateKeyAccount;
 import qora.crypto.Crypto;
 import qora.transaction.GenesisTransaction;
 import qora.transaction.Transaction;
@@ -33,10 +32,9 @@ public class GenesisBlock extends Block {
 	// Constructors
 	protected GenesisBlock() {
 		super(GENESIS_BLOCK_VERSION, GENESIS_REFERENCE, GENESIS_TIMESTAMP, GENESIS_GENERATING_BALANCE, GENESIS_GENERATOR, GENESIS_GENERATOR_SIGNATURE,
-				GENESIS_TRANSACTIONS_SIGNATURE, null, null);
+				GENESIS_TRANSACTIONS_SIGNATURE, null, null, new ArrayList<Transaction>());
 
 		this.height = 1;
-		this.transactions = new ArrayList<Transaction>();
 
 		// Genesis transactions
 		addGenesisTransaction("QUD9y7NZqTtNwvSAUfewd7zKUGoVivVnTW", "7032468.191");
@@ -246,7 +244,7 @@ public class GenesisBlock extends Block {
 	}
 
 	/**
-	 * Refuse to calculate genesis block signature!
+	 * Refuse to calculate genesis block's generator signature!
 	 * <p>
 	 * This is not possible as there is no private key for the genesis account and so no way to sign data.
 	 * <p>
@@ -255,8 +253,22 @@ public class GenesisBlock extends Block {
 	 * @throws IllegalStateException
 	 */
 	@Override
-	public byte[] calcSignature(PrivateKeyAccount signer) {
-		throw new IllegalStateException("There is no private key for genesis transactions");
+	public void calcGeneratorSignature() {
+		throw new IllegalStateException("There is no private key for genesis account");
+	}
+
+	/**
+	 * Refuse to calculate genesis block's transactions signature!
+	 * <p>
+	 * This is not possible as there is no private key for the genesis account and so no way to sign data.
+	 * <p>
+	 * <b>Always throws IllegalStateException.</b>
+	 * 
+	 * @throws IllegalStateException
+	 */
+	@Override
+	public void calcTransactionsSignature() {
+		throw new IllegalStateException("There is no private key for genesis account");
 	}
 
 	/**

@@ -264,15 +264,16 @@ public class DatabaseUpdates {
 
 				case 20:
 					// Message Transactions
-					stmt.execute("CREATE TABLE MessageTransactions (signature Signature, sender QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, "
-							+ "is_text BOOLEAN NOT NULL, is_encrypted BOOLEAN NOT NULL, amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, data VARBINARY(4000) NOT NULL, "
-							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute(
+							"CREATE TABLE MessageTransactions (signature Signature, version TINYINT NOT NULL, sender QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, "
+									+ "is_text BOOLEAN NOT NULL, is_encrypted BOOLEAN NOT NULL, amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, data VARBINARY(4000) NOT NULL, "
+									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
 				case 21:
 					// Assets (including QORA coin itself)
 					stmt.execute(
-							"CREATE TABLE Assets (asset_id AssetID IDENTITY, owner QoraAddress NOT NULL, asset_name AssetName NOT NULL, description VARCHAR(4000) NOT NULL, "
+							"CREATE TABLE Assets (asset_id AssetID IDENTITY, owner QoraPublicKey NOT NULL, asset_name AssetName NOT NULL, description VARCHAR(4000) NOT NULL, "
 									+ "quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, reference Signature NOT NULL)");
 					break;
 

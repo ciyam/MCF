@@ -22,7 +22,7 @@ public class Account {
 	}
 
 	public String getAddress() {
-		return address;
+		return this.address;
 	}
 
 	@Override

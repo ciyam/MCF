@@ -9,6 +9,12 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 	private byte[] seed;
 	private Pair<byte[], byte[]> keyPair;
 
+	/**
+	 * Create PrivateKeyAccount using byte[32] seed.
+	 * 
+	 * @param seed
+	 *            byte[32] used to create private/public key pair
+	 */
 	public PrivateKeyAccount(byte[] seed) {
 		this.seed = seed;
 		this.keyPair = Ed25519.createKeyPair(seed);

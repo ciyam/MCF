@@ -49,31 +49,31 @@ public class Order implements Comparable<Order> {
 	}
 
 	public Account getCreator() {
-		return creator;
+		return this.creator;
 	}
 
 	public long getHaveAssetId() {
-		return haveAssetId;
+		return this.haveAssetId;
 	}
 
 	public long getWantAssetId() {
-		return wantAssetId;
+		return this.wantAssetId;
 	}
 
 	public BigDecimal getAmount() {
-		return amount;
+		return this.amount;
 	}
 
 	public BigDecimal getPrice() {
-		return price;
+		return this.price;
 	}
 
 	public long getTimestamp() {
-		return timestamp;
+		return this.timestamp;
 	}
 
 	public BigDecimal getFulfilled() {
-		return fulfilled;
+		return this.fulfilled;
 	}
 
 	public void setFulfilled(BigDecimal fulfilled) {

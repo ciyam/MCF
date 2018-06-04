@@ -25,23 +25,23 @@ public class Trade {
 	// Getters/setters
 
 	public BigInteger getInitiator() {
-		return initiator;
+		return this.initiator;
 	}
 
 	public BigInteger getTarget() {
-		return target;
+		return this.target;
 	}
 
 	public BigDecimal getAmount() {
-		return amount;
+		return this.amount;
 	}
 
 	public BigDecimal getPrice() {
-		return price;
+		return this.price;
 	}
 
 	public long getTimestamp() {
-		return timestamp;
+		return this.timestamp;
 	}
 
 }

@@ -1,11 +1,14 @@
 package qora.assets;
 
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import database.DB;
+import database.NoDataFoundException;
 import database.SaveHelper;
 import qora.account.PublicKeyAccount;
+import qora.transaction.Transaction;
 
 /*
  * TODO:
@@ -28,6 +31,9 @@ public class Asset {
 	private boolean isDivisible;
 	private byte[] reference;
 
+	// Property lengths
+	private static final int OWNER_LENGTH = Transaction.CREATOR_LENGTH;
+
 	// NOTE: key is Long because it can be null if asset ID/key not yet assigned (which is done by save() method).
 	public Asset(Long assetId, PublicKeyAccount owner, String name, String description, long quantity, boolean isDivisible, byte[] reference) {
 		this.assetId = assetId;
@@ -44,7 +50,31 @@ public class Asset {
 		this(null, owner, name, description, quantity, isDivisible, reference);
 	}
 
-	// Load/Save
+	// Load/Save/Delete/Exists
+
+	protected Asset(long assetId) throws SQLException {
+		this(DB.checkedExecute("SELECT owner, asset_name, description, quantity, is_divisible, reference FROM Assets WHERE asset_id = ?", assetId));
+	}
+
+	protected Asset(ResultSet rs) throws SQLException {
+		if (rs == null)
+			throw new NoDataFoundException();
+
+		this.owner = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(1), OWNER_LENGTH));
+		this.name = rs.getString(2);
+		this.description = rs.getString(3);
+		this.quantity = rs.getLong(4);
+		this.isDivisible = rs.getBoolean(5);
+		this.reference = DB.getResultSetBytes(rs.getBinaryStream(6), Transaction.REFERENCE_LENGTH);
+	}
+
+	public static Asset fromAssetId(long assetId) throws SQLException {
+		try {
+			return new Asset(assetId);
+		} catch (NoDataFoundException e) {
+			return null;
+		}
+	}
 
 	public void save(Connection connection) throws SQLException {
 		SaveHelper saveHelper = new SaveHelper(connection, "Assets");
@@ -55,4 +85,9 @@ public class Asset {
 		if (this.assetId == null)
 			this.assetId = DB.callIdentity(connection);
 	}
+
+	public static boolean exists(long assetId) throws SQLException {
+		return DB.exists("Assets", "asset_id = ?", assetId);
+	}
+
 }

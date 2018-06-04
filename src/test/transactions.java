@@ -44,6 +44,8 @@ public class transactions extends common {
 		Transaction parsedTransaction = Transaction.parse(bytes);
 
 		assertTrue(Arrays.equals(transaction.getSignature(), parsedTransaction.getSignature()));
+
+		assertEquals(transaction.getDataLength(), bytes.length);
 	}
 
 	@Test
@@ -61,6 +63,12 @@ public class transactions extends common {
 			for (Transaction transaction : transactions)
 				testGenericSerialization(transaction);
 		}
+	}
+
+	@Test
+	public void testMessageSerialization() throws SQLException, ParseException {
+		// Message transactions went live block 99000
+		// Some transactions to be found in block 99001/2/5/6
 	}
 
 }

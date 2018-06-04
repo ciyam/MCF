@@ -67,7 +67,6 @@ public class blocks extends common {
 				assertFalse(transaction.getFee().compareTo(BigDecimal.ZERO) == 0);
 				assertNotNull(transaction.getReference());
 				assertTrue(transaction.isSignatureValid());
-				assertEquals(Transaction.ValidationResult.OK, transaction.isValid(connection));
 			}
 
 			// Attempt to load first transaction directly from database
@@ -77,7 +76,21 @@ public class blocks extends common {
 			assertFalse(transaction.getFee().compareTo(BigDecimal.ZERO) == 0);
 			assertNotNull(transaction.getReference());
 			assertTrue(transaction.isSignatureValid());
-			assertEquals(Transaction.ValidationResult.OK, transaction.isValid(connection));
+		}
+	}
+
+	@Test
+	public void testBlockSerialization() throws SQLException {
+		try (final Connection connection = DB.getConnection()) {
+			// Block 949 has lots of varied transactions
+			// Blocks 390 & 754 have only payment transactions
+			Block block = Block.fromHeight(754);
+			assertNotNull("Block 754 is required for this test", block);
+			assertTrue(block.isSignatureValid());
+
+			byte[] bytes = block.toBytes();
+
+			assertEquals(block.getDataLength(), bytes.length);
 		}
 	}
 

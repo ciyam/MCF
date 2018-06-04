@@ -49,7 +49,8 @@ public abstract class Transaction {
 
 	// Validation results
 	public enum ValidationResult {
-		OK(1), INVALID_ADDRESS(2), NEGATIVE_AMOUNT(3), NEGATIVE_FEE(4), NO_BALANCE(5), INVALID_REFERENCE(6);
+		OK(1), INVALID_ADDRESS(2), NEGATIVE_AMOUNT(3), NEGATIVE_FEE(4), NO_BALANCE(5), INVALID_REFERENCE(6), INVALID_DATA_LENGTH(27), ASSET_DOES_NOT_EXIST(
+				29), NOT_YET_RELEASED(1000);
 
 		public final int value;
 
@@ -84,7 +85,7 @@ public abstract class Transaction {
 	// Property lengths for serialisation
 	protected static final int TYPE_LENGTH = 4;
 	protected static final int TIMESTAMP_LENGTH = 8;
-	protected static final int REFERENCE_LENGTH = 64;
+	public static final int REFERENCE_LENGTH = 64;
 	protected static final int FEE_LENGTH = 8;
 	public static final int SIGNATURE_LENGTH = 64;
 	protected static final int BASE_TYPELESS_LENGTH = TIMESTAMP_LENGTH + REFERENCE_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
@@ -141,6 +142,13 @@ public abstract class Transaction {
 		return this.timestamp + (24 * 60 * 60 * 1000);
 	}
 
+	/**
+	 * Return length of byte[] if {@link Transactions#toBytes()} is called.
+	 * <p>
+	 * Used to allocate byte[]s or during serialization.
+	 * 
+	 * @return length of serialized transaction
+	 */
 	public abstract int getDataLength();
 
 	public boolean hasMinimumFee() {
@@ -168,6 +176,14 @@ public abstract class Transaction {
 		}
 
 		return recommendedFee.setScale(8);
+	}
+
+	public static int getVersionByTimestamp(long timestamp) {
+		if (timestamp < Block.POWFIX_RELEASE_TIMESTAMP) {
+			return 1;
+		} else {
+			return 3;
+		}
 	}
 
 	/**
@@ -240,6 +256,8 @@ public abstract class Transaction {
 	}
 
 	protected void delete(Connection connection) throws SQLException {
+		// NOTE: The corresponding row in sub-table is deleted automatically by the database thanks to "ON DELETE CASCADE" in the sub-table's FOREIGN KEY
+		// definition.
 		DB.checkedExecute("DELETE FROM Transactions WHERE signature = ?", this.signature);
 	}
 
@@ -290,6 +308,13 @@ public abstract class Transaction {
 
 	// Converters
 
+	/**
+	 * Deserialize a byte[] into corresponding Transaction subclass.
+	 * 
+	 * @param data
+	 * @return subclass of Transaction, e.g. PaymentTransaction
+	 * @throws ParseException
+	 */
 	public static Transaction parse(byte[] data) throws ParseException {
 		if (data == null)
 			return null;
@@ -309,6 +334,9 @@ public abstract class Transaction {
 
 			case PAYMENT:
 				return PaymentTransaction.parse(byteBuffer);
+
+			case MESSAGE:
+				return MessageTransaction.parse(byteBuffer);
 
 			default:
 				return null;
@@ -349,6 +377,8 @@ public abstract class Transaction {
 
 	/**
 	 * Serialize transaction as byte[], stripping off trailing signature.
+	 * <p>
+	 * Used by signature-related methods such as {@link Transaction#calcSignature(PrivateKeyAccount)} and {@link Transaction#isSignatureValid()}
 	 * 
 	 * @return byte[]
 	 */
@@ -370,10 +400,43 @@ public abstract class Transaction {
 		return this.creator.verify(this.signature, this.toBytesLessSignature());
 	}
 
+	/**
+	 * Returns whether transaction can be added to the blockchain.
+	 * <p>
+	 * Checks if transaction can have {@link Transaction#process(Connection)} called.
+	 * <p>
+	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process(Connection)}, hence the need for the Connection parameter.
+	 * <p>
+	 * Transactions that have already been processed will return false.
+	 * 
+	 * @param connection
+	 * @return true if transaction can be processed, false otherwise
+	 * @throws SQLException
+	 */
 	public abstract ValidationResult isValid(Connection connection) throws SQLException;
 
+	/**
+	 * Actually process a transaction, updating the blockchain.
+	 * <p>
+	 * Processes transaction, updating balances, references, assets, etc. as appropriate.
+	 * <p>
+	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process(Connection)}, hence the need for the Connection parameter.
+	 * 
+	 * @param connection
+	 * @throws SQLException
+	 */
 	public abstract void process(Connection connection) throws SQLException;
 
+	/**
+	 * Undo transaction, updating the blockchain.
+	 * <p>
+	 * Undoes transaction, updating balances, references, assets, etc. as appropriate.
+	 * <p>
+	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process(Connection)}, hence the need for the Connection parameter.
+	 * 
+	 * @param connection
+	 * @throws SQLException
+	 */
 	public abstract void orphan(Connection connection) throws SQLException;
 
 }

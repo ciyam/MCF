@@ -75,6 +75,14 @@ public class DB {
 		c.prepareStatement("ROLLBACK").execute();
 	}
 
+	public static void createSavepoint(Connection c, String savepointName) throws SQLException {
+		c.prepareStatement("SAVEPOINT " + savepointName).execute();
+	}
+
+	public static void rollbackToSavepoint(Connection c, String savepointName) throws SQLException {
+		c.prepareStatement("ROLLBACK TO SAVEPOINT " + savepointName).execute();
+	}
+
 	/**
 	 * Shutdown database and close all connections in connection pool.
 	 * <p>
@@ -235,6 +243,35 @@ public class DB {
 			return null;
 
 		return resultSet.getLong(1);
+	}
+
+	/**
+	 * Efficiently query database for existing of matching row.
+	 * <p>
+	 * {@code whereClause} is SQL "WHERE" clause containing "?" placeholders suitable for use with PreparedStatements.
+	 * <p>
+	 * Example call:
+	 * <p>
+	 * {@code String manufacturer = "Lamborghini";}<br>
+	 * {@code int maxMileage = 100_000;}<br>
+	 * {@code boolean isAvailable = DB.exists("Cars", "manufacturer = ? AND mileage <= ?", manufacturer, maxMileage);}
+	 * 
+	 * @param tableName
+	 * @param whereClause
+	 * @param objects
+	 * @return true if matching row found in database, false otherwise
+	 * @throws SQLException
+	 */
+	public static boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
+		try (final Connection connection = DB.getConnection()) {
+			PreparedStatement preparedStatement = connection
+					.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " ORDER BY NULL LIMIT 1");
+			ResultSet resultSet = DB.checkedExecute(preparedStatement);
+			if (resultSet == null)
+				return false;
+
+			return true;
+		}
 	}
 
 }

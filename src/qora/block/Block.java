@@ -3,6 +3,7 @@ package qora.block;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -29,10 +30,13 @@ import qora.assets.Asset;
 import qora.assets.Order;
 import qora.assets.Trade;
 import qora.transaction.CreateOrderTransaction;
+import qora.transaction.GenesisTransaction;
 import qora.transaction.Transaction;
 import qora.transaction.TransactionFactory;
 import utils.Base58;
+import utils.NTP;
 import utils.ParseException;
+import utils.Serialization;
 
 /*
  * Typical use-case scenarios:
@@ -58,12 +62,11 @@ import utils.ParseException;
 
 public class Block {
 
-	// Validation results
-	public static final int VALIDATE_OK = 1;
-
-	// Columns when fetching from database
+	/**
+	 * Ordered list of columns when fetching a Block row from database.
+	 */
 	private static final String DB_COLUMNS = "version, reference, transaction_count, total_fees, "
-			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, " + "AT_data, AT_fees";
+			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, AT_data, AT_fees";
 
 	// Database properties
 	protected int version;
@@ -81,6 +84,7 @@ public class Block {
 
 	// Other properties
 	protected List<Transaction> transactions;
+	protected BigDecimal cachedNextGeneratingBalance;
 
 	// Property lengths for serialisation
 	protected static final int VERSION_LENGTH = 4;
@@ -90,7 +94,7 @@ public class Block {
 	protected static final int TIMESTAMP_LENGTH = 8;
 	protected static final int GENERATING_BALANCE_LENGTH = 8;
 	protected static final int GENERATOR_LENGTH = 32;
-	protected static final int TRANSACTION_COUNT_LENGTH = 8;
+	protected static final int TRANSACTION_COUNT_LENGTH = 4;
 	protected static final int BASE_LENGTH = VERSION_LENGTH + REFERENCE_LENGTH + TIMESTAMP_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH
 			+ TRANSACTIONS_SIGNATURE_LENGTH + GENERATOR_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
 
@@ -98,33 +102,62 @@ public class Block {
 	protected static final int BLOCK_SIGNATURE_LENGTH = GENERATOR_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
 	public static final int MAX_BLOCK_BYTES = 1048576;
 	protected static final int TRANSACTION_SIZE_LENGTH = 4; // per transaction
-	public static final int MAX_TRANSACTION_BYTES = MAX_BLOCK_BYTES - BASE_LENGTH;
 	protected static final int AT_BYTES_LENGTH = 4;
 	protected static final int AT_FEES_LENGTH = 8;
 	protected static final int AT_LENGTH = AT_FEES_LENGTH + AT_BYTES_LENGTH;
 
+	// Other useful constants
+	/**
+	 * Number of blocks between recalculating block's generating balance.
+	 */
+	private static final int BLOCK_RETARGET_INTERVAL = 10;
+	/**
+	 * Maximum acceptable timestamp disagreement offset in milliseconds.
+	 */
+	private static final long BLOCK_TIMESTAMP_MARGIN = 500L;
+
+	// Various release timestamps / block heights
+	public static final int MESSAGE_RELEASE_HEIGHT = 99000;
+	public static final int AT_BLOCK_HEIGHT_RELEASE = 99000;
+	public static final long POWFIX_RELEASE_TIMESTAMP = 1456426800000L; // Block Version 3 // 2016-02-25T19:00:00+00:00
+
 	// Constructors
 
-	// For creating a new block from scratch or instantiating one that was previously serialized
-	protected Block(int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PublicKeyAccount generator, byte[] generatorSignature,
-			byte[] transactionsSignature, byte[] atBytes, BigDecimal atFees) {
+	// For creating a new block from scratch
+	public Block(int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PublicKeyAccount generator, byte[] atBytes, BigDecimal atFees) {
 		this.version = version;
 		this.reference = reference;
 		this.timestamp = timestamp;
 		this.generatingBalance = generatingBalance;
 		this.generator = generator;
-		this.generatorSignature = generatorSignature;
+		this.generatorSignature = null;
 		this.height = 0;
 
 		this.transactionCount = 0;
 		this.transactions = new ArrayList<Transaction>();
-		this.transactionsSignature = transactionsSignature;
+		this.transactionsSignature = null;
 		this.totalFees = BigDecimal.ZERO.setScale(8);
 
 		this.atBytes = atBytes;
 		this.atFees = atFees;
 		if (this.atFees != null)
 			this.totalFees = this.totalFees.add(this.atFees);
+	}
+
+	// For instantiating a block that was previously serialized
+	protected Block(int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PublicKeyAccount generator, byte[] generatorSignature,
+			byte[] transactionsSignature, byte[] atBytes, BigDecimal atFees, List<Transaction> transactions) {
+		this(version, reference, timestamp, generatingBalance, generator, atBytes, atFees);
+
+		this.generatorSignature = generatorSignature;
+
+		this.transactionsSignature = transactionsSignature;
+		this.transactionCount = transactions.size();
+		this.transactions = transactions;
+
+		// Add transactions' fees to totalFees
+		for (Transaction transaction : this.transactions)
+			this.totalFees = this.totalFees.add(transaction.getFee());
 	}
 
 	// Getters/setters
@@ -208,6 +241,77 @@ public class Block {
 	}
 
 	/**
+	 * Return the next block's version.
+	 * 
+	 * @return 1, 2 or 3
+	 */
+	public int getNextBlockVersion() {
+		if (this.height < AT_BLOCK_HEIGHT_RELEASE)
+			return 1;
+		else if (this.timestamp < POWFIX_RELEASE_TIMESTAMP)
+			return 2;
+		else
+			return 3;
+	}
+
+	/**
+	 * Return the next block's generating balance.
+	 * <p>
+	 * Every BLOCK_RETARGET_INTERVAL the generating balance is recalculated.
+	 * <p>
+	 * If this block starts a new interval then the new generating balance is calculated, cached and returned.<br>
+	 * Within this interval, the generating balance stays the same so the current block's generating balance will be returned.
+	 * 
+	 * @return next block's generating balance
+	 * @throws SQLException
+	 */
+	public BigDecimal getNextBlockGeneratingBalance() throws SQLException {
+		// This block not at the start of an interval?
+		if (this.height % BLOCK_RETARGET_INTERVAL != 0)
+			return this.generatingBalance;
+
+		// Return cached calculation if we have one
+		if (this.cachedNextGeneratingBalance != null)
+			return this.cachedNextGeneratingBalance;
+
+		// Perform calculation
+
+		// Navigate back to first block in previous interval:
+		// XXX: why can't we simply load using block height?
+		Block firstBlock = this;
+		for (int i = 1; firstBlock != null && i < BLOCK_RETARGET_INTERVAL; ++i)
+			firstBlock = firstBlock.getParent();
+
+		// Couldn't navigate back far enough?
+		if (firstBlock == null)
+			throw new IllegalStateException("Failed to calculate next block's generating balance due to lack of historic blocks");
+
+		// Calculate the actual time period (in ms) over previous interval's blocks.
+		long previousGeneratingTime = this.timestamp - firstBlock.getTimestamp();
+
+		// Calculate expected forging time (in ms) for a whole interval based on this block's generating balance.
+		long expectedGeneratingTime = Block.calcForgingDelay(this.generatingBalance) * BLOCK_RETARGET_INTERVAL * 1000;
+
+		// Finally, scale generating balance such that faster than expected previous intervals produce larger generating balances.
+		BigDecimal multiplier = BigDecimal.valueOf((double) expectedGeneratingTime / (double) previousGeneratingTime);
+		this.cachedNextGeneratingBalance = BlockChain.minMaxBalance(this.generatingBalance.multiply(multiplier));
+
+		return this.cachedNextGeneratingBalance;
+	}
+
+	/**
+	 * Return expected forging delay, in seconds, since previous block based on block's generating balance.
+	 */
+	public static long calcForgingDelay(BigDecimal generatingBalance) {
+		generatingBalance = BlockChain.minMaxBalance(generatingBalance);
+
+		double percentageOfTotal = generatingBalance.divide(BlockChain.MAX_BALANCE).doubleValue();
+		long actualBlockTime = (long) (BlockChain.MIN_BLOCK_TIME + ((BlockChain.MAX_BLOCK_TIME - BlockChain.MIN_BLOCK_TIME) * (1 - percentageOfTotal)));
+
+		return actualBlockTime;
+	}
+
+	/**
 	 * Return block's transactions.
 	 * <p>
 	 * If the block was loaded from DB then it's possible this method will call the DB to load the transactions if they are not already loaded.
@@ -234,6 +338,10 @@ public class Block {
 
 			// No need to update totalFees as this will be loaded via the Blocks table
 		} while (rs.next());
+
+		// The number of transactions fetched from database should correspond with Block's transactionCount
+		if (this.transactions.size() != this.transactionCount)
+			throw new IllegalStateException("Block's transactions from database do not match block's transaction count");
 
 		return this.transactions;
 	}
@@ -406,7 +514,7 @@ public class Block {
 		return json;
 	}
 
-	public byte[] toBytes() {
+	public byte[] toBytes() throws SQLException {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream(getDataLength());
 			bytes.write(Ints.toByteArray(this.version));
@@ -430,6 +538,14 @@ public class Block {
 				}
 			}
 
+			// Transactions
+			bytes.write(Ints.toByteArray(this.transactionCount));
+
+			for (Transaction transaction : this.getTransactions()) {
+				bytes.write(Ints.toByteArray(transaction.getDataLength()));
+				bytes.write(transaction.toBytes());
+			}
+
 			return bytes.toByteArray();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
@@ -437,70 +553,281 @@ public class Block {
 	}
 
 	public static Block parse(byte[] data) throws ParseException {
-		// TODO
-		return null;
+		if (data == null)
+			return null;
+
+		if (data.length < BASE_LENGTH)
+			throw new ParseException("Byte data too short for Block");
+
+		ByteBuffer byteBuffer = ByteBuffer.wrap(data);
+
+		int version = byteBuffer.getInt();
+
+		if (version >= 2 && data.length < BASE_LENGTH + AT_LENGTH)
+			throw new ParseException("Byte data too short for V2+ Block");
+
+		long timestamp = byteBuffer.getLong();
+
+		byte[] reference = new byte[REFERENCE_LENGTH];
+		byteBuffer.get(reference);
+
+		BigDecimal generatingBalance = BigDecimal.valueOf(byteBuffer.getLong()).setScale(8);
+		PublicKeyAccount generator = Serialization.deserializePublicKey(byteBuffer);
+
+		byte[] transactionsSignature = new byte[TRANSACTIONS_SIGNATURE_LENGTH];
+		byteBuffer.get(transactionsSignature);
+		byte[] generatorSignature = new byte[GENERATOR_SIGNATURE_LENGTH];
+		byteBuffer.get(generatorSignature);
+
+		byte[] atBytes = null;
+		BigDecimal atFees = null;
+		if (version >= 2) {
+			int atBytesLength = byteBuffer.getInt();
+
+			if (atBytesLength > MAX_BLOCK_BYTES)
+				throw new ParseException("Byte data too long for Block's AT info");
+
+			atBytes = new byte[atBytesLength];
+			byteBuffer.get(atBytes);
+
+			atFees = BigDecimal.valueOf(byteBuffer.getLong()).setScale(8);
+		}
+
+		int transactionCount = byteBuffer.getInt();
+
+		// Parse transactions now, compared to deferred parsing in Gen1, so we can throw ParseException if need be
+		List<Transaction> transactions = new ArrayList<Transaction>();
+		for (int t = 0; t < transactionCount; ++t) {
+			if (byteBuffer.remaining() < TRANSACTION_SIZE_LENGTH)
+				throw new ParseException("Byte data too short for Block Transaction length");
+
+			int transactionLength = byteBuffer.getInt();
+			if (byteBuffer.remaining() < transactionLength)
+				throw new ParseException("Byte data too short for Block Transaction");
+			if (transactionLength > MAX_BLOCK_BYTES)
+				throw new ParseException("Byte data too long for Block Transaction");
+
+			byte[] transactionBytes = new byte[transactionLength];
+			byteBuffer.get(transactionBytes);
+
+			Transaction transaction = Transaction.parse(transactionBytes);
+			transactions.add(transaction);
+		}
+
+		if (byteBuffer.hasRemaining())
+			throw new ParseException("Excess byte data found after parsing Block");
+
+		return new Block(version, reference, timestamp, generatingBalance, generator, generatorSignature, transactionsSignature, atBytes, atFees, transactions);
 	}
 
 	// Processing
 
+	/**
+	 * Add a transaction to the block.
+	 * <p>
+	 * Used when constructing a new block during forging.
+	 * <p>
+	 * Requires block's {@code generator} being a {@code PrivateKeyAccount} so block's transactions signature can be recalculated.
+	 * 
+	 * @param transaction
+	 * @return true if transaction successfully added to block, false otherwise
+	 * @throws IllegalStateException
+	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
+	 */
 	public boolean addTransaction(Transaction transaction) {
-		// TODO
+		// Can't add to transactions if we haven't loaded existing ones yet
+		if (this.transactions == null)
+			throw new IllegalStateException("Attempted to add transaction to partially loaded database Block");
+
+		if (!(this.generator instanceof PrivateKeyAccount))
+			throw new IllegalStateException("Block's generator has no private key");
+
 		// Check there is space in block
+		if (this.getDataLength() + transaction.getDataLength() > MAX_BLOCK_BYTES)
+			return false;
+
 		// Add to block
+		this.transactions.add(transaction);
+
 		// Update transaction count
+		this.transactionCount++;
+
 		// Update totalFees
+		this.totalFees.add(transaction.getFee());
+
 		// Update transactions signature
-		return false; // no room
+		calcTransactionsSignature();
+
+		return true;
 	}
 
-	public byte[] calcSignature(PrivateKeyAccount signer) {
-		// TODO
-		return null;
+	/**
+	 * Recalculate block's generator signature.
+	 * <p>
+	 * Requires block's {@code generator} being a {@code PrivateKeyAccount}.
+	 * 
+	 * @throws IllegalStateException
+	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
+	 */
+	public void calcGeneratorSignature() {
+		if (!(this.generator instanceof PrivateKeyAccount))
+			throw new IllegalStateException("Block's generator has no private key");
+
+		this.generatorSignature = ((PrivateKeyAccount) this.generator).sign(this.getBytesForGeneratorSignature());
 	}
 
-	private byte[] getBytesForSignature() {
+	private byte[] getBytesForGeneratorSignature() {
 		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(REFERENCE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH);
+
 			// Only copy the generator signature from reference, which is the first 64 bytes.
 			bytes.write(Arrays.copyOf(this.reference, GENERATOR_SIGNATURE_LENGTH));
+
 			bytes.write(Longs.toByteArray(this.generatingBalance.longValue()));
+
 			// We're padding here just in case the generator is the genesis account whose public key is only 8 bytes long.
 			bytes.write(Bytes.ensureCapacity(this.generator.getPublicKey(), GENERATOR_LENGTH, 0));
+
 			return bytes.toByteArray();
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	public boolean isSignatureValid() {
-		// Check generator's signature first
-		if (!this.generator.verify(this.generatorSignature, getBytesForSignature()))
-			return false;
+	/**
+	 * Recalculate block's transactions signature.
+	 * <p>
+	 * Requires block's {@code generator} being a {@code PrivateKeyAccount}.
+	 * 
+	 * @throws IllegalStateException
+	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
+	 */
+	public void calcTransactionsSignature() {
+		if (!(this.generator instanceof PrivateKeyAccount))
+			throw new IllegalStateException("Block's generator has no private key");
 
-		// Check transactions signature
+		this.transactionsSignature = ((PrivateKeyAccount) this.generator).sign(this.getBytesForTransactionsSignature());
+	}
+
+	private byte[] getBytesForTransactionsSignature() {
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + this.transactionCount * Transaction.SIGNATURE_LENGTH);
+
 		try {
 			bytes.write(this.generatorSignature);
 
 			for (Transaction transaction : this.getTransactions()) {
 				if (!transaction.isSignatureValid())
-					return false;
+					return null;
 
 				bytes.write(transaction.getSignature());
 			}
+
+			return bytes.toByteArray();
 		} catch (IOException | SQLException e) {
 			throw new RuntimeException(e);
 		}
+	}
 
-		if (!this.generator.verify(this.transactionsSignature, bytes.toByteArray()))
+	public boolean isSignatureValid() {
+		// Check generator's signature first
+		if (!this.generator.verify(this.generatorSignature, getBytesForGeneratorSignature()))
+			return false;
+
+		// Check transactions signature
+		if (!this.generator.verify(this.transactionsSignature, getBytesForTransactionsSignature()))
 			return false;
 
 		return true;
 	}
 
+	/**
+	 * Returns whether Block is valid. Expected to be called within SQL Transaction.
+	 * <p>
+	 * Performs various tests like checking for parent block, correct block timestamp, version, generating balance, etc.<br>
+	 * Also checks block's transactions using an HSQLDB "SAVEPOINT" and hence needs to be called within an ongoing SQL Transaction.
+	 * 
+	 * @param connection
+	 * @return true if block is valid, false otherwise.
+	 * @throws SQLException
+	 */
 	public boolean isValid(Connection connection) throws SQLException {
 		// TODO
-		return false;
+
+		// Check parent blocks exists
+		if (this.reference == null)
+			return false;
+
+		Block parentBlock = this.getParent();
+		if (parentBlock == null)
+			return false;
+
+		// Check timestamp is valid, i.e. later than parent timestamp and not in the future, within ~500ms margin
+		if (this.timestamp < parentBlock.getTimestamp() || this.timestamp - BLOCK_TIMESTAMP_MARGIN > NTP.getTime())
+			return false;
+
+		// Legacy gen1 test: check timestamp ms is the same as parent timestamp ms?
+		if (this.timestamp % 1000 != parentBlock.getTimestamp() % 1000)
+			return false;
+
+		// Check block version
+		if (this.version != parentBlock.getNextBlockVersion())
+			return false;
+		if (this.version < 2 && (this.atBytes != null || this.atBytes.length > 0 || this.atFees != null || this.atFees.compareTo(BigDecimal.ZERO) > 0))
+			return false;
+
+		// Check generating balance
+		if (this.generatingBalance != parentBlock.getNextBlockGeneratingBalance())
+			return false;
+
+		// Check generator's proof of stake against block's generating balance
+		// TODO
+
+		// Check CIYAM AT
+		if (this.atBytes != null && this.atBytes.length > 0) {
+			// TODO
+			// try {
+			// AT_Block atBlock = AT_Controller.validateATs(this.getBlockATs(), BlockChain.getHeight() + 1);
+			// this.atFees = atBlock.getTotalFees();
+			// } catch (NoSuchAlgorithmException | AT_Exception e) {
+			// return false;
+			// }
+		}
+
+		// Check transactions
+		DB.createSavepoint(connection, "BLOCK_TRANSACTIONS");
+		// XXX: we might need to catch SQLExceptions and not rollback which could cause a new exception?
+		// OR: catch, attempt to rollback and then re-throw caught exception?
+		// OR: don't catch, attempt to rollback, catch exception during rollback then return false?
+		try {
+			for (Transaction transaction : this.getTransactions()) {
+				// GenesisTransactions are not allowed (GenesisBlock overrides isValid() to allow them)
+				if (transaction instanceof GenesisTransaction)
+					return false;
+
+				// Check timestamp and deadline
+				if (transaction.getTimestamp() > this.timestamp || transaction.getDeadline() <= this.timestamp)
+					return false;
+
+				// Check transaction is even valid
+				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
+				if (transaction.isValid(connection) != Transaction.ValidationResult.OK)
+					return false;
+
+				// Process transaction to make sure other transactions validate properly
+				try {
+					transaction.process(connection);
+				} catch (Exception e) {
+					// LOGGER.error("Exception during transaction processing, tx " + Base58.encode(transaction.getSignature()), e);
+					return false;
+				}
+			}
+		} finally {
+			// Revert back to savepoint
+			DB.rollbackToSavepoint(connection, "BLOCK_TRANSACTIONS");
+		}
+
+		// Block is valid
+		return true;
 	}
 
 	public void process(Connection connection) throws SQLException {
@@ -519,6 +846,7 @@ public class Block {
 		Block latestBlock = Block.fromHeight(blockchainHeight);
 		if (latestBlock != null)
 			this.reference = latestBlock.getSignature();
+
 		this.height = blockchainHeight + 1;
 		this.save(connection);
 

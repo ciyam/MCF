@@ -31,6 +31,7 @@ import com.google.common.io.CharStreams;
 
 import database.DB;
 import qora.block.BlockChain;
+import qora.transaction.Transaction;
 import utils.Base58;
 
 public class migrate extends common {
@@ -141,7 +142,7 @@ public class migrate extends common {
 		PreparedStatement deployATPStmt = c.prepareStatement("INSERT INTO DeployATTransactions "
 				+ formatWithPlaceholders("signature", "creator", "AT_name", "description", "AT_type", "AT_tags", "creation_bytes", "amount"));
 		PreparedStatement messagePStmt = c.prepareStatement("INSERT INTO MessageTransactions "
-				+ formatWithPlaceholders("signature", "sender", "recipient", "is_text", "is_encrypted", "amount", "asset_id", "data"));
+				+ formatWithPlaceholders("signature", "version", "sender", "recipient", "is_text", "is_encrypted", "amount", "asset_id", "data"));
 
 		PreparedStatement sharedPaymentPStmt = c
 				.prepareStatement("INSERT INTO SharedTransactionPayments " + formatWithPlaceholders("signature", "recipient", "amount", "asset_id"));
@@ -265,7 +266,8 @@ public class migrate extends common {
 						fail();
 				}
 
-				txPStmt.setTimestamp(5, new Timestamp((Long) transaction.get("timestamp")));
+				long transactionTimestamp = ((Long) transaction.get("timestamp")).longValue();
+				txPStmt.setTimestamp(5, new Timestamp(transactionTimestamp));
 				txPStmt.setBigDecimal(6, BigDecimal.valueOf(Double.valueOf((String) transaction.get("fee")).doubleValue()));
 
 				if (milestone_block != null)
@@ -558,18 +560,19 @@ public class migrate extends common {
 						}
 
 						messagePStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						messagePStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
-						messagePStmt.setString(3, (String) transaction.get("recipient"));
-						messagePStmt.setBoolean(4, isText);
-						messagePStmt.setBoolean(5, isEncrypted);
-						messagePStmt.setBigDecimal(6, BigDecimal.valueOf(Double.valueOf((String) transaction.get("amount")).doubleValue()));
+						messagePStmt.setInt(2, Transaction.getVersionByTimestamp(transactionTimestamp));
+						messagePStmt.setBinaryStream(3, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
+						messagePStmt.setString(4, (String) transaction.get("recipient"));
+						messagePStmt.setBoolean(5, isText);
+						messagePStmt.setBoolean(6, isEncrypted);
+						messagePStmt.setBigDecimal(7, BigDecimal.valueOf(Double.valueOf((String) transaction.get("amount")).doubleValue()));
 
 						if (transaction.containsKey("asset"))
-							messagePStmt.setLong(7, ((Long) transaction.get("asset")).longValue());
+							messagePStmt.setLong(8, ((Long) transaction.get("asset")).longValue());
 						else
-							messagePStmt.setLong(7, 0L); // QORA simulated asset
+							messagePStmt.setLong(8, 0L); // QORA simulated asset
 
-						messagePStmt.setBinaryStream(8, messageDataStream);
+						messagePStmt.setBinaryStream(9, messageDataStream);
 
 						messagePStmt.execute();
 						messagePStmt.clearParameters();
