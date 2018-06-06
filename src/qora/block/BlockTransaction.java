@@ -1,6 +1,5 @@
 package qora.block;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -44,16 +43,14 @@ public class BlockTransaction {
 	// Load/Save
 
 	protected BlockTransaction(byte[] blockSignature, int sequence) throws SQLException {
-		try (final Connection connection = DB.getConnection()) {
-			ResultSet rs = DB.checkedExecute("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? and sequence = ?", blockSignature,
-					sequence);
-			if (rs == null)
-				throw new NoDataFoundException();
+		ResultSet rs = DB.checkedExecute("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? and sequence = ?", blockSignature,
+				sequence);
+		if (rs == null)
+			throw new NoDataFoundException();
 
-			this.blockSignature = blockSignature;
-			this.sequence = sequence;
-			this.transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Transaction.SIGNATURE_LENGTH);
-		}
+		this.blockSignature = blockSignature;
+		this.sequence = sequence;
+		this.transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Transaction.SIGNATURE_LENGTH);
 	}
 
 	protected BlockTransaction(byte[] transactionSignature) throws SQLException {
@@ -97,8 +94,8 @@ public class BlockTransaction {
 		}
 	}
 
-	protected void save(Connection connection) throws SQLException {
-		SaveHelper saveHelper = new SaveHelper(connection, "BlockTransactions");
+	protected void save() throws SQLException {
+		SaveHelper saveHelper = new SaveHelper("BlockTransactions");
 		saveHelper.bind("block_signature", this.blockSignature).bind("sequence", this.sequence).bind("transaction_signature", this.transactionSignature);
 		saveHelper.execute();
 	}

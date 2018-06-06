@@ -3,7 +3,6 @@ package qora.transaction;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.nio.ByteBuffer;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -247,18 +246,18 @@ public abstract class Transaction {
 		this.signature = signature;
 	}
 
-	protected void save(Connection connection) throws SQLException {
-		SaveHelper saveHelper = new SaveHelper(connection, "Transactions");
+	protected void save() throws SQLException {
+		SaveHelper saveHelper = new SaveHelper("Transactions");
 		saveHelper.bind("signature", this.signature).bind("reference", this.reference).bind("type", this.type.value)
 				.bind("creator", this.creator.getPublicKey()).bind("creation", new Timestamp(this.timestamp)).bind("fee", this.fee)
 				.bind("milestone_block", null);
 		saveHelper.execute();
 	}
 
-	protected void delete(Connection connection) throws SQLException {
+	protected void delete() throws SQLException {
 		// NOTE: The corresponding row in sub-table is deleted automatically by the database thanks to "ON DELETE CASCADE" in the sub-table's FOREIGN KEY
 		// definition.
-		DB.checkedExecute(connection, "DELETE FROM Transactions WHERE signature = ?", this.signature);
+		DB.checkedExecute("DELETE FROM Transactions WHERE signature = ?", this.signature);
 	}
 
 	// Navigation
@@ -403,40 +402,37 @@ public abstract class Transaction {
 	/**
 	 * Returns whether transaction can be added to the blockchain.
 	 * <p>
-	 * Checks if transaction can have {@link Transaction#process(Connection)} called.
+	 * Checks if transaction can have {@link Transaction#process()} called.
 	 * <p>
-	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process(Connection)}, hence the need for the Connection parameter.
+	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process()}.
 	 * <p>
 	 * Transactions that have already been processed will return false.
 	 * 
-	 * @param connection
 	 * @return true if transaction can be processed, false otherwise
 	 * @throws SQLException
 	 */
-	public abstract ValidationResult isValid(Connection connection) throws SQLException;
+	public abstract ValidationResult isValid() throws SQLException;
 
 	/**
 	 * Actually process a transaction, updating the blockchain.
 	 * <p>
 	 * Processes transaction, updating balances, references, assets, etc. as appropriate.
 	 * <p>
-	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process(Connection)}, hence the need for the Connection parameter.
+	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process()}.
 	 * 
-	 * @param connection
 	 * @throws SQLException
 	 */
-	public abstract void process(Connection connection) throws SQLException;
+	public abstract void process() throws SQLException;
 
 	/**
 	 * Undo transaction, updating the blockchain.
 	 * <p>
 	 * Undoes transaction, updating balances, references, assets, etc. as appropriate.
 	 * <p>
-	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process(Connection)}, hence the need for the Connection parameter.
+	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process()}.
 	 * 
-	 * @param connection
 	 * @throws SQLException
 	 */
-	public abstract void orphan(Connection connection) throws SQLException;
+	public abstract void orphan() throws SQLException;
 
 }

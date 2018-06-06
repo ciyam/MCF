@@ -1,7 +1,6 @@
 package qora.block;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -58,17 +57,15 @@ public class BlockChain {
 		// (Re)build database
 		DB.rebuild();
 
-		try (final Connection connection = DB.getConnection()) {
-			// Add Genesis Block
-			GenesisBlock genesisBlock = GenesisBlock.getInstance();
-			genesisBlock.process(connection);
+		// Add Genesis Block
+		GenesisBlock genesisBlock = GenesisBlock.getInstance();
+		genesisBlock.process();
 
-			// Add QORA asset.
-			// NOTE: Asset's transaction reference is Genesis Block's generator signature which doesn't exist as a transaction!
-			Asset qoraAsset = new Asset(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.", 10_000_000_000L,
-					true, genesisBlock.getGeneratorSignature());
-			qoraAsset.save(connection);
-		}
+		// Add QORA asset.
+		// NOTE: Asset's transaction reference is Genesis Block's generator signature which doesn't exist as a transaction!
+		Asset qoraAsset = new Asset(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.", 10_000_000_000L, true,
+				genesisBlock.getGeneratorSignature());
+		qoraAsset.save();
 	}
 
 	/**
@@ -93,13 +90,11 @@ public class BlockChain {
 	 * @throws SQLException
 	 */
 	public static int getHeight() throws SQLException {
-		try (final Connection connection = DB.getConnection()) {
-			ResultSet rs = DB.checkedExecute(connection.prepareStatement("SELECT MAX(height) FROM Blocks"));
-			if (rs == null)
-				return 0;
+		ResultSet rs = DB.checkedExecute("SELECT MAX(height) FROM Blocks");
+		if (rs == null)
+			return 0;
 
-			return rs.getInt(1);
-		}
+		return rs.getInt(1);
 	}
 
 	/**

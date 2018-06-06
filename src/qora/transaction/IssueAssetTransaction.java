@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -184,10 +183,10 @@ public class IssueAssetTransaction extends Transaction {
 	}
 
 	@Override
-	public void save(Connection connection) throws SQLException {
-		super.save(connection);
+	public void save() throws SQLException {
+		super.save();
 
-		SaveHelper saveHelper = new SaveHelper(connection, "IssueAssetTransactions");
+		SaveHelper saveHelper = new SaveHelper("IssueAssetTransactions");
 		saveHelper.bind("signature", this.signature).bind("creator", this.creator.getPublicKey()).bind("asset_name", this.assetName)
 				.bind("description", this.description).bind("quantity", this.quantity).bind("is_divisible", this.isDivisible).bind("asset_id", this.assetId);
 		saveHelper.execute();
@@ -268,7 +267,7 @@ public class IssueAssetTransaction extends Transaction {
 
 	// Processing
 
-	public ValidationResult isValid(Connection connection) throws SQLException {
+	public ValidationResult isValid() throws SQLException {
 		// Lowest cost checks first
 
 		// Are IssueAssetTransactions even allowed at this point?
@@ -297,55 +296,55 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		if (!Arrays.equals(this.issuer.getLastReference(connection), this.reference))
+		if (!Arrays.equals(this.issuer.getLastReference(), this.reference))
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check issuer has enough funds
-		if (this.issuer.getConfirmedBalance(connection, Asset.QORA).compareTo(this.fee) == -1)
+		if (this.issuer.getConfirmedBalance(Asset.QORA).compareTo(this.fee) == -1)
 			return ValidationResult.NO_BALANCE;
 
 		// XXX: Surely we want to check the asset name isn't already taken?
-		if (Asset.exists(connection, this.assetName))
+		if (Asset.exists(this.assetName))
 			return ValidationResult.ASSET_ALREADY_EXISTS;
 
 		return ValidationResult.OK;
 	}
 
-	public void process(Connection connection) throws SQLException {
+	public void process() throws SQLException {
 		// Issue asset
 		Asset asset = new Asset(owner.getAddress(), this.assetName, this.description, this.quantity, this.isDivisible, this.reference);
-		asset.save(connection);
+		asset.save();
 
 		// Note newly assigned asset ID in our transaction record
 		this.assetId = asset.getAssetId();
 
-		this.save(connection);
+		this.save();
 
 		// Update issuer's balance
-		this.issuer.setConfirmedBalance(connection, Asset.QORA, this.issuer.getConfirmedBalance(connection, Asset.QORA).subtract(this.fee));
+		this.issuer.setConfirmedBalance(Asset.QORA, this.issuer.getConfirmedBalance(Asset.QORA).subtract(this.fee));
 
 		// Update issuer's reference
-		this.issuer.setLastReference(connection, this.signature);
-		
+		this.issuer.setLastReference(this.signature);
+
 		// Add asset to owner
-		this.owner.setConfirmedBalance(connection, this.assetId, BigDecimal.valueOf(this.quantity).setScale(8));
+		this.owner.setConfirmedBalance(this.assetId, BigDecimal.valueOf(this.quantity).setScale(8));
 	}
 
-	public void orphan(Connection connection) throws SQLException {
+	public void orphan() throws SQLException {
 		// Remove asset from owner
-		this.owner.deleteBalance(connection, this.assetId);
-		
+		this.owner.deleteBalance(this.assetId);
+
 		// Unissue asset
 		Asset asset = Asset.fromAssetId(this.assetId);
-		asset.delete(connection);
+		asset.delete();
 
-		this.delete(connection);
+		this.delete();
 
 		// Update issuer's balance
-		this.issuer.setConfirmedBalance(connection, Asset.QORA, this.issuer.getConfirmedBalance(connection, Asset.QORA).add(this.fee));
+		this.issuer.setConfirmedBalance(Asset.QORA, this.issuer.getConfirmedBalance(Asset.QORA).add(this.fee));
 
 		// Update issuer's reference
-		this.issuer.setLastReference(connection, this.reference);
+		this.issuer.setLastReference(this.reference);
 	}
 
 }

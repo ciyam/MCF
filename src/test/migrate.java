@@ -164,7 +164,7 @@ public class migrate extends common {
 
 			JSONArray transactions = (JSONArray) json.get("transactions");
 
-			DB.startTransaction(c);
+			DB.startTransaction();
 
 			// Blocks:
 			// signature, version, reference, transaction_count, total_fees, transactions_signature, height, generation, generating_balance, generator,
@@ -590,7 +590,7 @@ public class migrate extends common {
 				blockTxPStmt.execute();
 				blockTxPStmt.clearParameters();
 
-				DB.commit(c);
+				DB.commit();
 			}
 
 			// new milestone block every 500 blocks?
@@ -600,7 +600,6 @@ public class migrate extends common {
 			++height;
 		}
 
-		c.close();
 		System.out.println("Migration finished with new blockchain height " + BlockChain.getHeight());
 	}
 

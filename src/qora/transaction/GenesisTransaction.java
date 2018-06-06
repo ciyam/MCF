@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -103,10 +102,10 @@ public class GenesisTransaction extends Transaction {
 	}
 
 	@Override
-	public void save(Connection connection) throws SQLException {
-		super.save(connection);
+	public void save() throws SQLException {
+		super.save();
 
-		SaveHelper saveHelper = new SaveHelper(connection, "GenesisTransactions");
+		SaveHelper saveHelper = new SaveHelper("GenesisTransactions");
 		saveHelper.bind("signature", this.signature).bind("recipient", this.recipient.getAddress()).bind("amount", this.amount);
 		saveHelper.execute();
 	}
@@ -194,7 +193,7 @@ public class GenesisTransaction extends Transaction {
 	}
 
 	@Override
-	public ValidationResult isValid(Connection connection) {
+	public ValidationResult isValid() {
 		// Check amount is zero or positive
 		if (this.amount.compareTo(BigDecimal.ZERO) == -1)
 			return ValidationResult.NEGATIVE_AMOUNT;
@@ -207,25 +206,25 @@ public class GenesisTransaction extends Transaction {
 	}
 
 	@Override
-	public void process(Connection connection) throws SQLException {
-		this.save(connection);
+	public void process() throws SQLException {
+		this.save();
 
 		// Set recipient's balance
-		this.recipient.setConfirmedBalance(connection, Asset.QORA, this.amount);
+		this.recipient.setConfirmedBalance(Asset.QORA, this.amount);
 
 		// Set recipient's reference
-		recipient.setLastReference(connection, this.signature);
+		recipient.setLastReference(this.signature);
 	}
 
 	@Override
-	public void orphan(Connection connection) throws SQLException {
-		this.delete(connection);
+	public void orphan() throws SQLException {
+		this.delete();
 
 		// Reset recipient's balance
-		this.recipient.deleteBalance(connection, Asset.QORA);
+		this.recipient.deleteBalance(Asset.QORA);
 
 		// Set recipient's reference
-		recipient.setLastReference(connection, null);
+		recipient.setLastReference(null);
 	}
 
 }

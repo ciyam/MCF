@@ -1,7 +1,6 @@
 package qora.account;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -41,28 +40,21 @@ public class Account {
 	}
 
 	public BigDecimal getConfirmedBalance(long assetId) throws SQLException {
-		try (final Connection connection = DB.getConnection()) {
-			return getConfirmedBalance(connection, assetId);
-		}
-	}
-
-	public BigDecimal getConfirmedBalance(Connection connection, long assetId) throws SQLException {
-		ResultSet resultSet = DB.checkedExecute(connection, "SELECT balance FROM AccountBalances WHERE account = ? and asset_id = ?", this.getAddress(),
-				assetId);
+		ResultSet resultSet = DB.checkedExecute("SELECT balance FROM AccountBalances WHERE account = ? and asset_id = ?", this.getAddress(), assetId);
 		if (resultSet == null)
 			return BigDecimal.ZERO.setScale(8);
 
 		return resultSet.getBigDecimal(1);
 	}
 
-	public void setConfirmedBalance(Connection connection, long assetId, BigDecimal balance) throws SQLException {
-		SaveHelper saveHelper = new SaveHelper(connection, "AccountBalances");
+	public void setConfirmedBalance(long assetId, BigDecimal balance) throws SQLException {
+		SaveHelper saveHelper = new SaveHelper("AccountBalances");
 		saveHelper.bind("account", this.getAddress()).bind("asset_id", assetId).bind("balance", balance);
 		saveHelper.execute();
 	}
 
-	public void deleteBalance(Connection connection, long assetId) throws SQLException {
-		DB.checkedExecute(connection, "DELETE FROM AccountBalances WHERE account = ? and asset_id = ?", this.getAddress(), assetId);
+	public void deleteBalance(long assetId) throws SQLException {
+		DB.checkedExecute("DELETE FROM AccountBalances WHERE account = ? and asset_id = ?", this.getAddress(), assetId);
 	}
 
 	// Reference manipulations
@@ -74,22 +66,7 @@ public class Account {
 	 * @throws SQLException
 	 */
 	public byte[] getLastReference() throws SQLException {
-		try (final Connection connection = DB.getConnection()) {
-			return getLastReference(connection);
-		}
-	}
-
-	/**
-	 * Fetch last reference for account using supplied DB connection.
-	 * <p>
-	 * Typically for use within an ongoing SQL Transaction.
-	 * 
-	 * @param connection
-	 * @return byte[] reference, or null if no reference or account not found.
-	 * @throws SQLException
-	 */
-	public byte[] getLastReference(Connection connection) throws SQLException {
-		ResultSet resultSet = DB.checkedExecute(connection, "SELECT reference FROM Accounts WHERE account = ?", this.getAddress());
+		ResultSet resultSet = DB.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", this.getAddress());
 		if (resultSet == null)
 			return null;
 
@@ -99,13 +76,12 @@ public class Account {
 	/**
 	 * Set last reference for account.
 	 * 
-	 * @param connection
 	 * @param reference
 	 *            -- null allowed
 	 * @throws SQLException
 	 */
-	public void setLastReference(Connection connection, byte[] reference) throws SQLException {
-		SaveHelper saveHelper = new SaveHelper(connection, "Accounts");
+	public void setLastReference(byte[] reference) throws SQLException {
+		SaveHelper saveHelper = new SaveHelper("Accounts");
 		saveHelper.bind("account", this.getAddress()).bind("reference", reference);
 		saveHelper.execute();
 	}

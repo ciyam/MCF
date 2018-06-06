@@ -21,7 +21,7 @@ public class common {
 
 	@AfterClass
 	public static void closeDatabase() throws SQLException {
-		DB.close();
+		DB.shutdown();
 	}
 
 }

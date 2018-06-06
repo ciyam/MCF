@@ -1,6 +1,5 @@
 package qora.assets;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -103,34 +102,26 @@ public class Asset {
 		}
 	}
 
-	public void save(Connection connection) throws SQLException {
-		SaveHelper saveHelper = new SaveHelper(connection, "Assets");
+	public void save() throws SQLException {
+		SaveHelper saveHelper = new SaveHelper("Assets");
 		saveHelper.bind("asset_id", this.assetId).bind("owner", this.owner.getAddress()).bind("asset_name", this.name).bind("description", this.description)
 				.bind("quantity", this.quantity).bind("is_divisible", this.isDivisible).bind("reference", this.reference);
 		saveHelper.execute();
 
 		if (this.assetId == null)
-			this.assetId = DB.callIdentity(connection);
+			this.assetId = DB.callIdentity();
 	}
 
-	public void delete(Connection connection) throws SQLException {
-		DB.checkedExecute(connection, "DELETE FROM Assets WHERE asset_id = ?", this.assetId);
+	public void delete() throws SQLException {
+		DB.checkedExecute("DELETE FROM Assets WHERE asset_id = ?", this.assetId);
 	}
 
 	public static boolean exists(long assetId) throws SQLException {
 		return DB.exists("Assets", "asset_id = ?", assetId);
 	}
 
-	public static boolean exists(Connection connection, long assetId) throws SQLException {
-		return DB.exists(connection, "Assets", "asset_id = ?", assetId);
-	}
-
 	public static boolean exists(String assetName) throws SQLException {
 		return DB.exists("Assets", "asset_name = ?", assetName);
-	}
-
-	public static boolean exists(Connection connection, String assetName) throws SQLException {
-		return DB.exists(connection, "Assets", "asset_name = ?", assetName);
 	}
 
 }

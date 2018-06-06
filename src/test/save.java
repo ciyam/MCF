@@ -1,13 +1,11 @@
 package test;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
 
 import org.junit.Test;
 
-import database.DB;
 import qora.account.PublicKeyAccount;
 import qora.transaction.PaymentTransaction;
 import utils.Base58;
@@ -25,9 +23,7 @@ public class save extends common {
 		PaymentTransaction paymentTransaction = new PaymentTransaction(sender, "Qrecipient", BigDecimal.valueOf(12345L), BigDecimal.ONE,
 				Instant.now().getEpochSecond(), reference, signature);
 
-		try (final Connection connection = DB.getConnection()) {
-			paymentTransaction.save(connection);
-		}
+		paymentTransaction.save();
 	}
 
 }

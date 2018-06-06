@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -98,10 +97,10 @@ public class CreateOrderTransaction extends Transaction {
 	}
 
 	@Override
-	public void save(Connection connection) throws SQLException {
-		super.save(connection);
+	public void save() throws SQLException {
+		super.save();
 
-		SaveHelper saveHelper = new SaveHelper(connection, "CreateAssetOrderTransactions");
+		SaveHelper saveHelper = new SaveHelper("CreateAssetOrderTransactions");
 		saveHelper.bind("signature", this.signature).bind("creator", this.creator.getPublicKey()).bind("have_asset_id", this.order.getHaveAssetId())
 				.bind("amount", this.order.getAmount()).bind("want_asset_id", this.order.getWantAssetId()).bind("price", this.order.getPrice());
 		saveHelper.execute();
@@ -144,20 +143,20 @@ public class CreateOrderTransaction extends Transaction {
 
 	// Processing
 
-	public ValidationResult isValid(Connection connection) throws SQLException {
+	public ValidationResult isValid() throws SQLException {
 		// TODO
 
 		return ValidationResult.OK;
 	}
 
-	public void process(Connection connection) throws SQLException {
-		this.save(connection);
+	public void process() throws SQLException {
+		this.save();
 
 		// TODO
 	}
 
-	public void orphan(Connection connection) throws SQLException {
-		this.delete(connection);
+	public void orphan() throws SQLException {
+		this.delete();
 
 		// TODO
 	}

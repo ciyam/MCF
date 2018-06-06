@@ -3,7 +3,6 @@ package qora.block;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -329,14 +328,14 @@ public class GenesisBlock extends Block {
 	}
 
 	@Override
-	public boolean isValid(Connection connection) throws SQLException {
+	public boolean isValid() throws SQLException {
 		// Check there is no other block in DB
 		if (BlockChain.getHeight() != 0)
 			return false;
 
 		// Validate transactions
 		for (Transaction transaction : this.getTransactions())
-			if (transaction.isValid(connection) != Transaction.ValidationResult.OK)
+			if (transaction.isValid() != Transaction.ValidationResult.OK)
 				return false;
 
 		return true;

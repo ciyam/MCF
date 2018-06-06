@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.util.Arrays;
 
 import org.hsqldb.jdbc.JDBCPool;
@@ -17,10 +18,21 @@ import com.google.common.primitives.Bytes;
  * Helper methods for common database actions.
  *
  */
-public class DB {
+public abstract class DB {
 
 	private static JDBCPool connectionPool;
 	private static String connectionUrl;
+	private static ThreadLocal<Connection> local = new ThreadLocal<Connection>() {
+		@Override
+		protected Connection initialValue() {
+			Connection conn = null;
+			try {
+				conn = connectionPool.getConnection();
+			} catch (SQLException e) {
+			}
+			return conn;
+		}
+	};
 
 	/**
 	 * Open connection pool to database using prior set connection URL.
@@ -49,38 +61,51 @@ public class DB {
 	}
 
 	/**
-	 * Return an on-demand Connection from connection pool.
-	 * <p>
-	 * Mostly used in database-read scenarios whereas database-write scenarios, especially multi-statement transactions, are likely to pass around a Connection
-	 * object.
+	 * Return thread-local Connection from connection pool.
 	 * <p>
 	 * By default HSQLDB will wait up to 30 seconds for a pooled connection to become free.
 	 * 
 	 * @return Connection
-	 * @throws SQLException
 	 */
-	public static Connection getConnection() throws SQLException {
-		return connectionPool.getConnection();
+	public static Connection getConnection() {
+		return local.get();
 	}
 
-	public static void startTransaction(Connection c) throws SQLException {
-		c.prepareStatement("START TRANSACTION").execute();
+	public static void releaseConnection() {
+		Connection connection = local.get();
+		if (connection != null)
+			try {
+				connection.close();
+			} catch (SQLException e) {
+			}
+
+		local.remove();
 	}
 
-	public static void commit(Connection c) throws SQLException {
-		c.prepareStatement("COMMIT").execute();
+	public static void startTransaction() throws SQLException {
+		Connection connection = DB.getConnection();
+		connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+		connection.setAutoCommit(false);
 	}
 
-	public static void rollback(Connection c) throws SQLException {
-		c.prepareStatement("ROLLBACK").execute();
+	public static void commit() throws SQLException {
+		Connection connection = DB.getConnection();
+		connection.commit();
+		connection.setAutoCommit(true);
 	}
 
-	public static void createSavepoint(Connection c, String savepointName) throws SQLException {
-		c.prepareStatement("SAVEPOINT " + savepointName).execute();
+	public static void rollback() throws SQLException {
+		Connection connection = DB.getConnection();
+		connection.rollback();
+		connection.setAutoCommit(true);
 	}
 
-	public static void rollbackToSavepoint(Connection c, String savepointName) throws SQLException {
-		c.prepareStatement("ROLLBACK TO SAVEPOINT " + savepointName).execute();
+	public static Savepoint createSavepoint(String savepointName) throws SQLException {
+		return DB.getConnection().setSavepoint(savepointName);
+	}
+
+	public static void rollbackToSavepoint(Savepoint savepoint) throws SQLException {
+		DB.getConnection().rollback(savepoint);
 	}
 
 	/**
@@ -93,15 +118,16 @@ public class DB {
 	 * 
 	 * @throws SQLException
 	 */
-	public static void close() throws SQLException {
-		getConnection().createStatement().execute("SHUTDOWN");
+	public static void shutdown() throws SQLException {
+		DB.getConnection().createStatement().execute("SHUTDOWN");
+		DB.releaseConnection();
 		connectionPool.close(0);
 	}
 
 	/**
 	 * Shutdown and delete database, then rebuild it.
 	 * <p>
-	 * See {@link DB#close()} for warnings about connections.
+	 * See {@link DB#shutdown()} for warnings about connections.
 	 * <p>
 	 * Note that this only rebuilds the database schema, not the data itself.
 	 * 
@@ -109,7 +135,7 @@ public class DB {
 	 */
 	public static void rebuild() throws SQLException {
 		// Shutdown database and close any access
-		DB.close();
+		DB.shutdown();
 
 		// Wipe files (if any)
 		// TODO
@@ -188,26 +214,8 @@ public class DB {
 	 * @throws SQLException
 	 */
 	public static ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
-		try (final Connection connection = DB.getConnection()) {
-			return checkedExecute(connection, sql, objects);
-		}
-	}
+		PreparedStatement preparedStatement = DB.getConnection().prepareStatement(sql);
 
-	/**
-	 * Execute SQL using connection and return ResultSet with but added checking.
-	 * <p>
-	 * Typically for use within an ongoing SQL Transaction.
-	 * <p>
-	 * <b>Note: calls ResultSet.next()</b> therefore returned ResultSet is already pointing to first row.
-	 * 
-	 * @param connection
-	 * @param sql
-	 * @param objects
-	 * @return ResultSet, or null if there are no found rows
-	 * @throws SQLException
-	 */
-	public static ResultSet checkedExecute(Connection connection, String sql, Object... objects) throws SQLException {
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
 		for (int i = 0; i < objects.length; ++i)
 			// Special treatment for BigDecimals so that they retain their "scale",
 			// which would otherwise be assumed as 0.
@@ -216,7 +224,7 @@ public class DB {
 			else
 				preparedStatement.setObject(i + 1, objects[i]);
 
-		return checkedExecute(preparedStatement);
+		return DB.checkedExecute(preparedStatement);
 	}
 
 	/**
@@ -249,12 +257,11 @@ public class DB {
 	 * <p>
 	 * Typically used after INSERTing NULL as the IDENTIY column's value to fetch what value was actually stored by HSQLDB.
 	 * 
-	 * @param connection
 	 * @return Long
 	 * @throws SQLException
 	 */
-	public static Long callIdentity(Connection connection) throws SQLException {
-		PreparedStatement preparedStatement = connection.prepareStatement("CALL IDENTITY()");
+	public static Long callIdentity() throws SQLException {
+		PreparedStatement preparedStatement = DB.getConnection().prepareStatement("CALL IDENTITY()");
 		ResultSet resultSet = DB.checkedExecute(preparedStatement);
 		if (resultSet == null)
 			return null;
@@ -280,34 +287,7 @@ public class DB {
 	 * @throws SQLException
 	 */
 	public static boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
-		try (final Connection connection = DB.getConnection()) {
-			return exists(connection, tableName, whereClause, objects);
-		}
-	}
-
-	/**
-	 * Efficiently query database, using connection, for existing of matching row.
-	 * <p>
-	 * Typically for use within an ongoing SQL Transaction.
-	 * <p>
-	 * {@code whereClause} is SQL "WHERE" clause containing "?" placeholders suitable for use with PreparedStatements.
-	 * <p>
-	 * Example call:
-	 * <p>
-	 * {@code Connection connection = DB.getConnection();}<br> 
-	 * {@code String manufacturer = "Lamborghini";}<br>
-	 * {@code int maxMileage = 100_000;}<br>
-	 * {@code boolean isAvailable = DB.exists(connection, "Cars", "manufacturer = ? AND mileage <= ?", manufacturer, maxMileage);}
-	 * 
-	 * @param connection
-	 * @param tableName
-	 * @param whereClause
-	 * @param objects
-	 * @return true if matching row found in database, false otherwise
-	 * @throws SQLException
-	 */
-	public static boolean exists(Connection connection, String tableName, String whereClause, Object... objects) throws SQLException {
-		PreparedStatement preparedStatement = connection
+		PreparedStatement preparedStatement = DB.getConnection()
 				.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " ORDER BY NULL LIMIT 1");
 		ResultSet resultSet = DB.checkedExecute(preparedStatement);
 		if (resultSet == null)

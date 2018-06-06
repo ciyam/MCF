@@ -2,14 +2,12 @@ package test;
 
 import static org.junit.Assert.*;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Test;
 
-import database.DB;
 import qora.block.Block;
 import qora.block.GenesisBlock;
 import qora.transaction.GenesisTransaction;
@@ -50,19 +48,17 @@ public class transactions extends common {
 
 	@Test
 	public void testPaymentSerialization() throws SQLException, ParseException {
-		try (final Connection connection = DB.getConnection()) {
-			// Block 949 has lots of varied transactions
-			// Blocks 390 & 754 have only payment transactions
-			Block block = Block.fromHeight(754);
-			assertNotNull("Block 754 is required for this test", block);
-			assertTrue(block.isSignatureValid());
+		// Block 949 has lots of varied transactions
+		// Blocks 390 & 754 have only payment transactions
+		Block block = Block.fromHeight(754);
+		assertNotNull("Block 754 is required for this test", block);
+		assertTrue(block.isSignatureValid());
 
-			List<Transaction> transactions = block.getTransactions();
-			assertNotNull(transactions);
+		List<Transaction> transactions = block.getTransactions();
+		assertNotNull(transactions);
 
-			for (Transaction transaction : transactions)
-				testGenericSerialization(transaction);
-		}
+		for (Transaction transaction : transactions)
+			testGenericSerialization(transaction);
 	}
 
 	@Test

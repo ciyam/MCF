@@ -1,6 +1,5 @@
 package qora.block;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
@@ -40,15 +39,13 @@ public class BlockFactory {
 		if (height == 1)
 			return GenesisBlock.getInstance();
 
-		try (final Connection connection = DB.getConnection()) {
-			PreparedStatement preparedStatement = connection.prepareStatement("SELECT signature FROM Blocks WHERE height = ?");
-			preparedStatement.setInt(1, height);
+		PreparedStatement preparedStatement = DB.getConnection().prepareStatement("SELECT signature FROM Blocks WHERE height = ?");
+		preparedStatement.setInt(1, height);
 
-			try {
-				return new Block(DB.checkedExecute(preparedStatement));
-			} catch (NoDataFoundException e) {
-				return null;
-			}
+		try {
+			return new Block(DB.checkedExecute(preparedStatement));
+		} catch (NoDataFoundException e) {
+			return null;
 		}
 	}
 

@@ -1,7 +1,6 @@
 package database;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -13,14 +12,13 @@ import java.util.List;
  * <p>
  * Columns, and corresponding values, are bound via close-coupled pairs in a chain thus:
  * <p>
- * {@code SaveHelper helper = new SaveHelper(connection, "TableName"); }<br>
+ * {@code SaveHelper helper = new SaveHelper("TableName"); }<br>
  * {@code helper.bind("column_name", someColumnValue).bind("column2", columnValue2); }<br>
  * {@code helper.execute(); }<br>
  *
  */
 public class SaveHelper {
 
-	private Connection connection;
 	private String table;
 
 	private List<String> columns = new ArrayList<String>();
@@ -29,11 +27,9 @@ public class SaveHelper {
 	/**
 	 * Construct a SaveHelper, using SQL Connection and table name.
 	 * 
-	 * @param connection
 	 * @param table
 	 */
-	public SaveHelper(Connection connection, String table) {
-		this.connection = connection;
+	public SaveHelper(String table) {
 		this.table = table;
 	}
 
@@ -52,8 +48,6 @@ public class SaveHelper {
 
 	/**
 	 * Build PreparedStatement using bound column-value pairs then execute it.
-	 * <p>
-	 * Note that after this call, the SaveHelper's Connection is set to null and so this object is not reusable.
 	 * 
 	 * @return the result from {@link PreparedStatement#execute()}
 	 * @throws SQLException
@@ -61,15 +55,11 @@ public class SaveHelper {
 	public boolean execute() throws SQLException {
 		String sql = this.formatInsertWithPlaceholders();
 
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
+		PreparedStatement preparedStatement = DB.getConnection().prepareStatement(sql);
 
 		this.bindValues(preparedStatement);
 
-		try {
-			return preparedStatement.execute();
-		} finally {
-			this.connection = null;
-		}
+		return preparedStatement.execute();
 	}
 
 	/**

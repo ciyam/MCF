@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -163,10 +162,10 @@ public class MessageTransaction extends Transaction {
 	}
 
 	@Override
-	public void save(Connection connection) throws SQLException {
-		super.save(connection);
+	public void save() throws SQLException {
+		super.save();
 
-		SaveHelper saveHelper = new SaveHelper(connection, "MessageTransactions");
+		SaveHelper saveHelper = new SaveHelper("MessageTransactions");
 		saveHelper.bind("signature", this.signature).bind("version", this.version).bind("sender", this.sender.getPublicKey())
 				.bind("recipient", this.recipient.getAddress()).bind("is_text", this.isText).bind("is_encrypted", this.isEncrypted).bind("amount", this.amount)
 				.bind("asset_id", this.assetId).bind("data", this.data);
@@ -274,7 +273,7 @@ public class MessageTransaction extends Transaction {
 
 	// Processing
 
-	public ValidationResult isValid(Connection connection) throws SQLException {
+	public ValidationResult isValid() throws SQLException {
 		// Lowest cost checks first
 
 		// Are message transactions even allowed at this point?
@@ -307,70 +306,70 @@ public class MessageTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		if (!Arrays.equals(this.sender.getLastReference(connection), this.reference))
+		if (!Arrays.equals(this.sender.getLastReference(), this.reference))
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Does asset exist? (This test not present in gen1)
-		if (this.assetId != Asset.QORA && !Asset.exists(connection, this.assetId))
+		if (this.assetId != Asset.QORA && !Asset.exists(this.assetId))
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
 		// If asset is QORA then we need to check amount + fee in one go
 		if (this.assetId == Asset.QORA) {
 			// Check sender has enough funds for amount + fee in QORA
-			if (this.sender.getConfirmedBalance(connection, Asset.QORA).compareTo(this.amount.add(this.fee)) == -1)
+			if (this.sender.getConfirmedBalance(Asset.QORA).compareTo(this.amount.add(this.fee)) == -1)
 				return ValidationResult.NO_BALANCE;
 		} else {
 			// Check sender has enough funds for amount in whatever asset
-			if (this.sender.getConfirmedBalance(connection, this.assetId).compareTo(this.amount) == -1)
+			if (this.sender.getConfirmedBalance(this.assetId).compareTo(this.amount) == -1)
 				return ValidationResult.NO_BALANCE;
 
 			// Check sender has enough funds for fee in QORA
-			if (this.sender.getConfirmedBalance(connection, Asset.QORA).compareTo(this.fee) == -1)
+			if (this.sender.getConfirmedBalance(Asset.QORA).compareTo(this.fee) == -1)
 				return ValidationResult.NO_BALANCE;
 		}
 
 		return ValidationResult.OK;
 	}
 
-	public void process(Connection connection) throws SQLException {
-		this.save(connection);
+	public void process() throws SQLException {
+		this.save();
 
 		// Update sender's balance due to amount
-		this.sender.setConfirmedBalance(connection, this.assetId, this.sender.getConfirmedBalance(connection, this.assetId).subtract(this.amount));
+		this.sender.setConfirmedBalance(this.assetId, this.sender.getConfirmedBalance(this.assetId).subtract(this.amount));
 		// Update sender's balance due to fee
-		this.sender.setConfirmedBalance(connection, Asset.QORA, this.sender.getConfirmedBalance(connection, Asset.QORA).subtract(this.fee));
+		this.sender.setConfirmedBalance(Asset.QORA, this.sender.getConfirmedBalance(Asset.QORA).subtract(this.fee));
 
 		// Update recipient's balance
-		this.recipient.setConfirmedBalance(connection, this.assetId, this.recipient.getConfirmedBalance(connection, this.assetId).add(this.amount));
+		this.recipient.setConfirmedBalance(this.assetId, this.recipient.getConfirmedBalance(this.assetId).add(this.amount));
 
 		// Update sender's reference
-		this.sender.setLastReference(connection, this.signature);
+		this.sender.setLastReference(this.signature);
 
 		// For QORA amounts only: if recipient has no reference yet, then this is their starting reference
-		if (this.assetId == Asset.QORA && this.recipient.getLastReference(connection) == null)
-			this.recipient.setLastReference(connection, this.signature);
+		if (this.assetId == Asset.QORA && this.recipient.getLastReference() == null)
+			this.recipient.setLastReference(this.signature);
 	}
 
-	public void orphan(Connection connection) throws SQLException {
-		this.delete(connection);
+	public void orphan() throws SQLException {
+		this.delete();
 
 		// Update sender's balance due to amount
-		this.sender.setConfirmedBalance(connection, this.assetId, this.sender.getConfirmedBalance(connection, this.assetId).add(this.amount));
+		this.sender.setConfirmedBalance(this.assetId, this.sender.getConfirmedBalance(this.assetId).add(this.amount));
 		// Update sender's balance due to fee
-		this.sender.setConfirmedBalance(connection, Asset.QORA, this.sender.getConfirmedBalance(connection, Asset.QORA).add(this.fee));
+		this.sender.setConfirmedBalance(Asset.QORA, this.sender.getConfirmedBalance(Asset.QORA).add(this.fee));
 
 		// Update recipient's balance
-		this.recipient.setConfirmedBalance(connection, this.assetId, this.recipient.getConfirmedBalance(connection, this.assetId).subtract(this.amount));
+		this.recipient.setConfirmedBalance(this.assetId, this.recipient.getConfirmedBalance(this.assetId).subtract(this.amount));
 
 		// Update sender's reference
-		this.sender.setLastReference(connection, this.reference);
+		this.sender.setLastReference(this.reference);
 
 		/*
 		 * For QORA amounts only: If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own (which
 		 * would have changed their last reference) thus this is their first reference so remove it.
 		 */
-		if (this.assetId == Asset.QORA && Arrays.equals(this.recipient.getLastReference(connection), this.signature))
-			this.recipient.setLastReference(connection, null);
+		if (this.assetId == Asset.QORA && Arrays.equals(this.recipient.getLastReference(), this.signature))
+			this.recipient.setLastReference(null);
 	}
 
 }

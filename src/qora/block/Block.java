@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -395,20 +396,18 @@ public class Block {
 	 * @throws SQLException
 	 */
 	public static Block fromHeight(int height) throws SQLException {
-		try (final Connection connection = DB.getConnection()) {
-			PreparedStatement preparedStatement = connection.prepareStatement("SELECT " + DB_COLUMNS + " FROM Blocks WHERE height = ?");
-			preparedStatement.setInt(1, height);
+		PreparedStatement preparedStatement = DB.getConnection().prepareStatement("SELECT " + DB_COLUMNS + " FROM Blocks WHERE height = ?");
+		preparedStatement.setInt(1, height);
 
-			try {
-				return new Block(DB.checkedExecute(preparedStatement));
-			} catch (NoDataFoundException e) {
-				return null;
-			}
+		try {
+			return new Block(DB.checkedExecute(preparedStatement));
+		} catch (NoDataFoundException e) {
+			return null;
 		}
 	}
 
-	protected void save(Connection connection) throws SQLException {
-		SaveHelper saveHelper = new SaveHelper(connection, "Blocks");
+	protected void save() throws SQLException {
+		SaveHelper saveHelper = new SaveHelper("Blocks");
 
 		saveHelper.bind("signature", this.getSignature()).bind("version", this.version).bind("reference", this.reference)
 				.bind("transaction_count", this.transactionCount).bind("total_fees", this.totalFees).bind("transactions_signature", this.transactionsSignature)
@@ -742,17 +741,16 @@ public class Block {
 	}
 
 	/**
-	 * Returns whether Block is valid using passed connection.
+	 * Returns whether Block is valid.
 	 * <p>
 	 * Performs various tests like checking for parent block, correct block timestamp, version, generating balance, etc.
 	 * <p>
 	 * Checks block's transactions using an HSQLDB "SAVEPOINT" and hence needs to be called within an ongoing SQL Transaction.
 	 * 
-	 * @param connection
 	 * @return true if block is valid, false otherwise.
 	 * @throws SQLException
 	 */
-	public boolean isValid(Connection connection) throws SQLException {
+	public boolean isValid() throws SQLException {
 		// TODO
 
 		// Check parent blocks exists
@@ -796,7 +794,7 @@ public class Block {
 		}
 
 		// Check transactions
-		DB.createSavepoint(connection, "BLOCK_TRANSACTIONS");
+		Savepoint savepoint = DB.createSavepoint("BLOCK_TRANSACTIONS");
 		try {
 			for (Transaction transaction : this.getTransactions()) {
 				// GenesisTransactions are not allowed (GenesisBlock overrides isValid() to allow them)
@@ -809,12 +807,12 @@ public class Block {
 
 				// Check transaction is even valid
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
-				if (transaction.isValid(connection) != Transaction.ValidationResult.OK)
+				if (transaction.isValid() != Transaction.ValidationResult.OK)
 					return false;
 
 				// Process transaction to make sure other transactions validate properly
 				try {
-					transaction.process(connection);
+					transaction.process();
 				} catch (Exception e) {
 					// LOGGER.error("Exception during transaction processing, tx " + Base58.encode(transaction.getSignature()), e);
 					return false;
@@ -823,7 +821,7 @@ public class Block {
 		} finally {
 			// Revert back to savepoint
 			try {
-				DB.rollbackToSavepoint(connection, "BLOCK_TRANSACTIONS");
+				DB.rollbackToSavepoint(savepoint);
 			} catch (SQLException e) {
 				/*
 				 * Rollback failure most likely due to prior SQLException, so catch rollback's SQLException and discard. A "return false" in try-block will
@@ -836,16 +834,16 @@ public class Block {
 		return true;
 	}
 
-	public void process(Connection connection) throws SQLException {
+	public void process() throws SQLException {
 		// Process transactions (we'll link them to this block after saving the block itself)
 		List<Transaction> transactions = this.getTransactions();
 		for (Transaction transaction : transactions)
-			transaction.process(connection);
+			transaction.process();
 
 		// If fees are non-zero then add fees to generator's balance
 		BigDecimal blockFee = this.getTotalFees();
 		if (blockFee.compareTo(BigDecimal.ZERO) == 1)
-			this.generator.setConfirmedBalance(connection, Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFee));
+			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFee));
 
 		// Link block into blockchain by fetching signature of highest block and setting that as our reference
 		int blockchainHeight = BlockChain.getHeight();
@@ -854,7 +852,7 @@ public class Block {
 			this.reference = latestBlock.getSignature();
 
 		this.height = blockchainHeight + 1;
-		this.save(connection);
+		this.save();
 
 		// Link transactions to this block, thus removing them from unconfirmed transactions list.
 		for (int sequence = 0; sequence < transactions.size(); ++sequence) {
@@ -862,7 +860,7 @@ public class Block {
 
 			// Link transaction to this block
 			BlockTransaction blockTransaction = new BlockTransaction(this.getSignature(), sequence, transaction.getSignature());
-			blockTransaction.save(connection);
+			blockTransaction.save();
 		}
 	}
 
