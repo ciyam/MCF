@@ -131,7 +131,7 @@ public class migrate extends common {
 		PreparedStatement arbitraryPStmt = c
 				.prepareStatement("INSERT INTO ArbitraryTransactions " + formatWithPlaceholders("signature", "creator", "service", "data_hash"));
 		PreparedStatement issueAssetPStmt = c.prepareStatement("INSERT INTO IssueAssetTransactions "
-				+ formatWithPlaceholders("signature", "creator", "asset_name", "description", "quantity", "is_divisible"));
+				+ formatWithPlaceholders("signature", "issuer", "owner", "asset_name", "description", "quantity", "is_divisible"));
 		PreparedStatement transferAssetPStmt = c
 				.prepareStatement("INSERT INTO TransferAssetTransactions " + formatWithPlaceholders("signature", "sender", "recipient", "asset_id", "amount"));
 		PreparedStatement createAssetOrderPStmt = c.prepareStatement("INSERT INTO CreateAssetOrderTransactions "
@@ -466,10 +466,11 @@ public class migrate extends common {
 					case 11: // issue asset
 						issueAssetPStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
 						issueAssetPStmt.setBinaryStream(2, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
-						issueAssetPStmt.setString(3, (String) transaction.get("name"));
-						issueAssetPStmt.setString(4, (String) transaction.get("description"));
-						issueAssetPStmt.setBigDecimal(5, BigDecimal.valueOf(((Long) transaction.get("quantity")).longValue()));
-						issueAssetPStmt.setBoolean(6, (Boolean) transaction.get("divisible"));
+						issueAssetPStmt.setString(3, (String) transaction.get("owner"));
+						issueAssetPStmt.setString(4, (String) transaction.get("name"));
+						issueAssetPStmt.setString(5, (String) transaction.get("description"));
+						issueAssetPStmt.setBigDecimal(6, BigDecimal.valueOf(((Long) transaction.get("quantity")).longValue()));
+						issueAssetPStmt.setBoolean(7, (Boolean) transaction.get("divisible"));
 
 						issueAssetPStmt.execute();
 						issueAssetPStmt.clearParameters();

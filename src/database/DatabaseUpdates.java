@@ -82,21 +82,21 @@ public class DatabaseUpdates {
 					stmt.execute("SET FILES SPACE TRUE");
 					stmt.execute("CREATE TABLE DatabaseInfo ( version INTEGER NOT NULL )");
 					stmt.execute("INSERT INTO DatabaseInfo VALUES ( 0 )");
-					stmt.execute("CREATE DOMAIN BlockSignature AS VARBINARY(128)");
-					stmt.execute("CREATE DOMAIN Signature AS VARBINARY(64)");
-					stmt.execute("CREATE DOMAIN QoraAddress AS VARCHAR(36)");
-					stmt.execute("CREATE DOMAIN QoraPublicKey AS VARBINARY(32)");
-					stmt.execute("CREATE DOMAIN QoraAmount AS DECIMAL(19, 8)");
-					stmt.execute("CREATE DOMAIN RegisteredName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
-					stmt.execute("CREATE DOMAIN NameData AS VARCHAR(4000)");
-					stmt.execute("CREATE DOMAIN PollName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
-					stmt.execute("CREATE DOMAIN PollOption AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
-					stmt.execute("CREATE DOMAIN DataHash AS VARCHAR(100)");
-					stmt.execute("CREATE DOMAIN AssetID AS BIGINT");
-					stmt.execute("CREATE DOMAIN AssetName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
-					stmt.execute("CREATE DOMAIN AssetOrderID AS VARCHAR(100)");
-					stmt.execute("CREATE DOMAIN ATName AS VARCHAR(200) COLLATE SQL_TEXT_UCC");
-					stmt.execute("CREATE DOMAIN ATType AS VARCHAR(200) COLLATE SQL_TEXT_UCC");
+					stmt.execute("CREATE TYPE BlockSignature AS VARBINARY(128)");
+					stmt.execute("CREATE TYPE Signature AS VARBINARY(64)");
+					stmt.execute("CREATE TYPE QoraAddress AS VARCHAR(36)");
+					stmt.execute("CREATE TYPE QoraPublicKey AS VARBINARY(32)");
+					stmt.execute("CREATE TYPE QoraAmount AS DECIMAL(19, 8)");
+					stmt.execute("CREATE TYPE RegisteredName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
+					stmt.execute("CREATE TYPE NameData AS VARCHAR(4000)");
+					stmt.execute("CREATE TYPE PollName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
+					stmt.execute("CREATE TYPE PollOption AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
+					stmt.execute("CREATE TYPE DataHash AS VARCHAR(100)");
+					stmt.execute("CREATE TYPE AssetID AS BIGINT");
+					stmt.execute("CREATE TYPE AssetName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
+					stmt.execute("CREATE TYPE AssetOrderID AS VARCHAR(100)");
+					stmt.execute("CREATE TYPE ATName AS VARCHAR(200) COLLATE SQL_TEXT_UCC");
+					stmt.execute("CREATE TYPE ATType AS VARCHAR(200) COLLATE SQL_TEXT_UCC");
 					break;
 
 				case 1:
@@ -221,9 +221,10 @@ public class DatabaseUpdates {
 
 				case 14:
 					// Issue Asset Transactions
-					stmt.execute("CREATE TABLE IssueAssetTransactions (signature Signature, creator QoraPublicKey NOT NULL, asset_name AssetName NOT NULL, "
-							+ "description VARCHAR(4000) NOT NULL, quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, "
-							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute(
+							"CREATE TABLE IssueAssetTransactions (signature Signature, issuer QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, asset_name AssetName NOT NULL, "
+									+ "description VARCHAR(4000) NOT NULL, quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, asset_id AssetID, "
+									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					// For the future: maybe convert quantity from BIGINT to QoraAmount, regardless of divisibility
 					break;
 
@@ -275,6 +276,7 @@ public class DatabaseUpdates {
 					stmt.execute(
 							"CREATE TABLE Assets (asset_id AssetID IDENTITY, owner QoraPublicKey NOT NULL, asset_name AssetName NOT NULL, description VARCHAR(4000) NOT NULL, "
 									+ "quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, reference Signature NOT NULL)");
+					stmt.execute("CREATE INDEX AssetNameIndex on Assets (asset_name)");
 					break;
 
 				case 22:

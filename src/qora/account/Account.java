@@ -40,13 +40,15 @@ public class Account {
 		return null;
 	}
 
-	public BigDecimal getUnconfirmedBalance(long assetId) {
-		// TODO
-		return null;
+	public BigDecimal getConfirmedBalance(long assetId) throws SQLException {
+		try (final Connection connection = DB.getConnection()) {
+			return getConfirmedBalance(connection, assetId);
+		}
 	}
 
-	public BigDecimal getConfirmedBalance(long assetId) throws SQLException {
-		ResultSet resultSet = DB.checkedExecute("SELECT balance FROM AccountBalances WHERE account = ? and asset_id = ?", this.getAddress(), assetId);
+	public BigDecimal getConfirmedBalance(Connection connection, long assetId) throws SQLException {
+		ResultSet resultSet = DB.checkedExecute(connection, "SELECT balance FROM AccountBalances WHERE account = ? and asset_id = ?", this.getAddress(),
+				assetId);
 		if (resultSet == null)
 			return BigDecimal.ZERO.setScale(8);
 
@@ -59,6 +61,10 @@ public class Account {
 		saveHelper.execute();
 	}
 
+	public void deleteBalance(Connection connection, long assetId) throws SQLException {
+		DB.checkedExecute(connection, "DELETE FROM AccountBalances WHERE account = ? and asset_id = ?", this.getAddress(), assetId);
+	}
+
 	// Reference manipulations
 
 	/**
@@ -68,7 +74,22 @@ public class Account {
 	 * @throws SQLException
 	 */
 	public byte[] getLastReference() throws SQLException {
-		ResultSet resultSet = DB.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", this.getAddress());
+		try (final Connection connection = DB.getConnection()) {
+			return getLastReference(connection);
+		}
+	}
+
+	/**
+	 * Fetch last reference for account using supplied DB connection.
+	 * <p>
+	 * Typically for use within an ongoing SQL Transaction.
+	 * 
+	 * @param connection
+	 * @return byte[] reference, or null if no reference or account not found.
+	 * @throws SQLException
+	 */
+	public byte[] getLastReference(Connection connection) throws SQLException {
+		ResultSet resultSet = DB.checkedExecute(connection, "SELECT reference FROM Accounts WHERE account = ?", this.getAddress());
 		if (resultSet == null)
 			return null;
 

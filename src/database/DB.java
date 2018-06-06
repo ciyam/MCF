@@ -189,17 +189,34 @@ public class DB {
 	 */
 	public static ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		try (final Connection connection = DB.getConnection()) {
-			PreparedStatement preparedStatement = connection.prepareStatement(sql);
-			for (int i = 0; i < objects.length; ++i)
-				// Special treatment for BigDecimals so that they retain their "scale",
-				// which would otherwise be assumed as 0.
-				if (objects[i] instanceof BigDecimal)
-					preparedStatement.setBigDecimal(i + 1, (BigDecimal) objects[i]);
-				else
-					preparedStatement.setObject(i + 1, objects[i]);
-
-			return checkedExecute(preparedStatement);
+			return checkedExecute(connection, sql, objects);
 		}
+	}
+
+	/**
+	 * Execute SQL using connection and return ResultSet with but added checking.
+	 * <p>
+	 * Typically for use within an ongoing SQL Transaction.
+	 * <p>
+	 * <b>Note: calls ResultSet.next()</b> therefore returned ResultSet is already pointing to first row.
+	 * 
+	 * @param connection
+	 * @param sql
+	 * @param objects
+	 * @return ResultSet, or null if there are no found rows
+	 * @throws SQLException
+	 */
+	public static ResultSet checkedExecute(Connection connection, String sql, Object... objects) throws SQLException {
+		PreparedStatement preparedStatement = connection.prepareStatement(sql);
+		for (int i = 0; i < objects.length; ++i)
+			// Special treatment for BigDecimals so that they retain their "scale",
+			// which would otherwise be assumed as 0.
+			if (objects[i] instanceof BigDecimal)
+				preparedStatement.setBigDecimal(i + 1, (BigDecimal) objects[i]);
+			else
+				preparedStatement.setObject(i + 1, objects[i]);
+
+		return checkedExecute(preparedStatement);
 	}
 
 	/**
@@ -264,14 +281,39 @@ public class DB {
 	 */
 	public static boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
 		try (final Connection connection = DB.getConnection()) {
-			PreparedStatement preparedStatement = connection
-					.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " ORDER BY NULL LIMIT 1");
-			ResultSet resultSet = DB.checkedExecute(preparedStatement);
-			if (resultSet == null)
-				return false;
-
-			return true;
+			return exists(connection, tableName, whereClause, objects);
 		}
+	}
+
+	/**
+	 * Efficiently query database, using connection, for existing of matching row.
+	 * <p>
+	 * Typically for use within an ongoing SQL Transaction.
+	 * <p>
+	 * {@code whereClause} is SQL "WHERE" clause containing "?" placeholders suitable for use with PreparedStatements.
+	 * <p>
+	 * Example call:
+	 * <p>
+	 * {@code Connection connection = DB.getConnection();}<br> 
+	 * {@code String manufacturer = "Lamborghini";}<br>
+	 * {@code int maxMileage = 100_000;}<br>
+	 * {@code boolean isAvailable = DB.exists(connection, "Cars", "manufacturer = ? AND mileage <= ?", manufacturer, maxMileage);}
+	 * 
+	 * @param connection
+	 * @param tableName
+	 * @param whereClause
+	 * @param objects
+	 * @return true if matching row found in database, false otherwise
+	 * @throws SQLException
+	 */
+	public static boolean exists(Connection connection, String tableName, String whereClause, Object... objects) throws SQLException {
+		PreparedStatement preparedStatement = connection
+				.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " ORDER BY NULL LIMIT 1");
+		ResultSet resultSet = DB.checkedExecute(preparedStatement);
+		if (resultSet == null)
+			return false;
+
+		return true;
 	}
 
 }

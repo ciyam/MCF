@@ -7,7 +7,7 @@ import java.sql.SQLException;
 import database.DB;
 import database.NoDataFoundException;
 import database.SaveHelper;
-import qora.account.PublicKeyAccount;
+import qora.account.Account;
 import qora.transaction.Transaction;
 
 /*
@@ -24,20 +24,17 @@ public class Asset {
 
 	// Properties
 	private Long assetId;
-	private PublicKeyAccount owner;
+	private Account owner;
 	private String name;
 	private String description;
 	private long quantity;
 	private boolean isDivisible;
 	private byte[] reference;
 
-	// Property lengths
-	private static final int OWNER_LENGTH = Transaction.CREATOR_LENGTH;
-
 	// NOTE: key is Long because it can be null if asset ID/key not yet assigned (which is done by save() method).
-	public Asset(Long assetId, PublicKeyAccount owner, String name, String description, long quantity, boolean isDivisible, byte[] reference) {
+	public Asset(Long assetId, String owner, String name, String description, long quantity, boolean isDivisible, byte[] reference) {
 		this.assetId = assetId;
-		this.owner = owner;
+		this.owner = new Account(owner);
 		this.name = name;
 		this.description = description;
 		this.quantity = quantity;
@@ -46,8 +43,38 @@ public class Asset {
 	}
 
 	// New asset with unassigned assetId
-	public Asset(PublicKeyAccount owner, String name, String description, long quantity, boolean isDivisible, byte[] reference) {
+	public Asset(String owner, String name, String description, long quantity, boolean isDivisible, byte[] reference) {
 		this(null, owner, name, description, quantity, isDivisible, reference);
+	}
+
+	// Getters/Setters
+
+	public Long getAssetId() {
+		return this.assetId;
+	}
+
+	public Account getOwner() {
+		return this.owner;
+	}
+
+	public String getName() {
+		return this.name;
+	}
+
+	public String getDescription() {
+		return this.description;
+	}
+
+	public long getQuantity() {
+		return this.quantity;
+	}
+
+	public boolean isDivisible() {
+		return this.isDivisible;
+	}
+
+	public byte[] getReference() {
+		return this.reference;
 	}
 
 	// Load/Save/Delete/Exists
@@ -60,7 +87,7 @@ public class Asset {
 		if (rs == null)
 			throw new NoDataFoundException();
 
-		this.owner = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(1), OWNER_LENGTH));
+		this.owner = new Account(rs.getString(1));
 		this.name = rs.getString(2);
 		this.description = rs.getString(3);
 		this.quantity = rs.getLong(4);
@@ -86,8 +113,24 @@ public class Asset {
 			this.assetId = DB.callIdentity(connection);
 	}
 
+	public void delete(Connection connection) throws SQLException {
+		DB.checkedExecute(connection, "DELETE FROM Assets WHERE asset_id = ?", this.assetId);
+	}
+
 	public static boolean exists(long assetId) throws SQLException {
 		return DB.exists("Assets", "asset_id = ?", assetId);
+	}
+
+	public static boolean exists(Connection connection, long assetId) throws SQLException {
+		return DB.exists(connection, "Assets", "asset_id = ?", assetId);
+	}
+
+	public static boolean exists(String assetName) throws SQLException {
+		return DB.exists("Assets", "asset_name = ?", assetName);
+	}
+
+	public static boolean exists(Connection connection, String assetName) throws SQLException {
+		return DB.exists(connection, "Assets", "asset_name = ?", assetName);
 	}
 
 }

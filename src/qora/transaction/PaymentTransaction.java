@@ -76,7 +76,7 @@ public class PaymentTransaction extends Transaction {
 	// Load/Save
 
 	/**
-	 * Load PaymentTransaction from DB using signature.
+	 * Construct PaymentTransaction from DB using signature.
 	 * 
 	 * @param signature
 	 * @throws NoDataFoundException
@@ -96,7 +96,7 @@ public class PaymentTransaction extends Transaction {
 	}
 
 	/**
-	 * Load PaymentTransaction from DB using signature
+	 * Load PaymentTransaction from DB using signature.
 	 * 
 	 * @param signature
 	 * @return PaymentTransaction, or null if not found
@@ -127,12 +127,15 @@ public class PaymentTransaction extends Transaction {
 			throw new ParseException("Byte data too short for PaymentTransaction");
 
 		long timestamp = byteBuffer.getLong();
+
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
+
 		PublicKeyAccount sender = Serialization.deserializePublicKey(byteBuffer);
 		String recipient = Serialization.deserializeRecipient(byteBuffer);
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
@@ -172,7 +175,7 @@ public class PaymentTransaction extends Transaction {
 	// Processing
 
 	public ValidationResult isValid(Connection connection) throws SQLException {
-		// Non-database checks first
+		// Lowest cost checks first
 
 		// Check recipient is a valid address
 		if (!Crypto.isValidAddress(this.recipient.getAddress()))
@@ -187,11 +190,11 @@ public class PaymentTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		if (!Arrays.equals(this.sender.getLastReference(), this.reference))
+		if (!Arrays.equals(this.sender.getLastReference(connection), this.reference))
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check sender has enough funds
-		if (this.sender.getBalance(Asset.QORA, 1).compareTo(this.amount.add(this.fee)) == -1)
+		if (this.sender.getConfirmedBalance(connection, Asset.QORA).compareTo(this.amount.add(this.fee)) == -1)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -201,16 +204,16 @@ public class PaymentTransaction extends Transaction {
 		this.save(connection);
 
 		// Update sender's balance
-		this.sender.setConfirmedBalance(connection, Asset.QORA, this.sender.getConfirmedBalance(Asset.QORA).subtract(this.amount).subtract(this.fee));
+		this.sender.setConfirmedBalance(connection, Asset.QORA, this.sender.getConfirmedBalance(connection, Asset.QORA).subtract(this.amount).subtract(this.fee));
 
 		// Update recipient's balance
-		this.recipient.setConfirmedBalance(connection, Asset.QORA, this.recipient.getConfirmedBalance(Asset.QORA).add(this.amount));
+		this.recipient.setConfirmedBalance(connection, Asset.QORA, this.recipient.getConfirmedBalance(connection, Asset.QORA).add(this.amount));
 
 		// Update sender's reference
 		this.sender.setLastReference(connection, this.signature);
 
 		// If recipient has no reference yet, then this is their starting reference
-		if (this.recipient.getLastReference() == null)
+		if (this.recipient.getLastReference(connection) == null)
 			this.recipient.setLastReference(connection, this.signature);
 	}
 
@@ -218,10 +221,10 @@ public class PaymentTransaction extends Transaction {
 		this.delete(connection);
 
 		// Update sender's balance
-		this.sender.setConfirmedBalance(connection, Asset.QORA, this.sender.getConfirmedBalance(Asset.QORA).add(this.amount).add(this.fee));
+		this.sender.setConfirmedBalance(connection, Asset.QORA, this.sender.getConfirmedBalance(connection, Asset.QORA).add(this.amount).add(this.fee));
 
 		// Update recipient's balance
-		this.recipient.setConfirmedBalance(connection, Asset.QORA, this.recipient.getConfirmedBalance(Asset.QORA).subtract(this.amount));
+		this.recipient.setConfirmedBalance(connection, Asset.QORA, this.recipient.getConfirmedBalance(connection, Asset.QORA).subtract(this.amount));
 
 		// Update sender's reference
 		this.sender.setLastReference(connection, this.reference);
@@ -230,7 +233,7 @@ public class PaymentTransaction extends Transaction {
 		 * If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own (which would have changed
 		 * their last reference) thus this is their first reference so remove it.
 		 */
-		if (Arrays.equals(this.recipient.getLastReference(), this.signature))
+		if (Arrays.equals(this.recipient.getLastReference(connection), this.signature))
 			this.recipient.setLastReference(connection, null);
 	}
 

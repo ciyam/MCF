@@ -65,8 +65,8 @@ public class BlockChain {
 
 			// Add QORA asset.
 			// NOTE: Asset's transaction reference is Genesis Block's generator signature which doesn't exist as a transaction!
-			Asset qoraAsset = new Asset(Asset.QORA, genesisBlock.getGenerator(), "Qora", "This is the simulated Qora asset.", 10_000_000_000L, true,
-					genesisBlock.getGeneratorSignature());
+			Asset qoraAsset = new Asset(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.", 10_000_000_000L,
+					true, genesisBlock.getGeneratorSignature());
 			qoraAsset.save(connection);
 		}
 	}

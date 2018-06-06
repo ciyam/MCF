@@ -1,5 +1,6 @@
 package utils;
 
+import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -38,6 +39,21 @@ public class Serialization {
 		byte[] bytes = new byte[Transaction.CREATOR_LENGTH];
 		byteBuffer.get(bytes);
 		return new PublicKeyAccount(bytes);
+	}
+
+	public static String deserializeSizedString(ByteBuffer byteBuffer, int maxSize) throws ParseException {
+		int size = byteBuffer.getInt();
+		if (size > maxSize || size > byteBuffer.remaining())
+			throw new ParseException("Serialized string too long");
+
+		byte[] bytes = new byte[size];
+		byteBuffer.get(bytes);
+
+		try {
+			return new String(bytes, "UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			throw new ParseException("UTF-8 charset unsupported during string deserialization");
+		}
 	}
 
 }

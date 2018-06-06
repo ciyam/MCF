@@ -49,8 +49,8 @@ public abstract class Transaction {
 
 	// Validation results
 	public enum ValidationResult {
-		OK(1), INVALID_ADDRESS(2), NEGATIVE_AMOUNT(3), NEGATIVE_FEE(4), NO_BALANCE(5), INVALID_REFERENCE(6), INVALID_DATA_LENGTH(27), ASSET_DOES_NOT_EXIST(
-				29), NOT_YET_RELEASED(1000);
+		OK(1), INVALID_ADDRESS(2), NEGATIVE_AMOUNT(3), NEGATIVE_FEE(4), NO_BALANCE(5), INVALID_REFERENCE(6), INVALID_NAME_LENGTH(7), INVALID_DESCRIPTION_LENGTH(
+				18), INVALID_DATA_LENGTH(27), INVALID_QUANTITY(28), ASSET_DOES_NOT_EXIST(29), ASSET_ALREADY_EXISTS(43), NOT_YET_RELEASED(1000);
 
 		public final int value;
 
@@ -258,7 +258,7 @@ public abstract class Transaction {
 	protected void delete(Connection connection) throws SQLException {
 		// NOTE: The corresponding row in sub-table is deleted automatically by the database thanks to "ON DELETE CASCADE" in the sub-table's FOREIGN KEY
 		// definition.
-		DB.checkedExecute("DELETE FROM Transactions WHERE signature = ?", this.signature);
+		DB.checkedExecute(connection, "DELETE FROM Transactions WHERE signature = ?", this.signature);
 	}
 
 	// Navigation

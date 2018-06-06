@@ -221,8 +221,8 @@ public class GenesisTransaction extends Transaction {
 	public void orphan(Connection connection) throws SQLException {
 		this.delete(connection);
 
-		// Set recipient's balance
-		this.recipient.setConfirmedBalance(connection, Asset.QORA, BigDecimal.ZERO);
+		// Reset recipient's balance
+		this.recipient.deleteBalance(connection, Asset.QORA);
 
 		// Set recipient's reference
 		recipient.setLastReference(connection, null);

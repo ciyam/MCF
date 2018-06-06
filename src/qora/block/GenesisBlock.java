@@ -290,20 +290,25 @@ public class GenesisBlock extends Block {
 			// Passing expected size to ByteArrayOutputStream avoids reallocation when adding more bytes than default 32.
 			// See below for explanation of some of the values used to calculated expected size.
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + 64 + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH);
+
 			/*
 			 * NOTE: Historic code had genesis block using Longs.toByteArray() compared to standard block's Ints.toByteArray. The subsequent
 			 * Bytes.ensureCapacity(versionBytes, 0, 4) did not truncate versionBytes back to 4 bytes either. This means 8 bytes were used even though
 			 * VERSION_LENGTH is set to 4. Correcting this historic bug will break genesis block signatures!
 			 */
 			bytes.write(Longs.toByteArray(GENESIS_BLOCK_VERSION));
+
 			/*
 			 * NOTE: Historic code had the reference expanded to only 64 bytes whereas standard block references are 128 bytes. Correcting this historic bug
 			 * will break genesis block signatures!
 			 */
 			bytes.write(Bytes.ensureCapacity(GENESIS_REFERENCE, 64, 0));
+
 			bytes.write(Longs.toByteArray(GENESIS_GENERATING_BALANCE.longValue()));
-			// NOTE: Genesis account's public key is only 8 bytes, not the usual 32.
-			bytes.write(GENESIS_GENERATOR.getPublicKey());
+
+			// NOTE: Genesis account's public key is only 8 bytes, not the usual 32, so we have to pad.
+			bytes.write(Bytes.ensureCapacity(GENESIS_GENERATOR.getPublicKey(), 32, 0));
+
 			return bytes.toByteArray();
 		} catch (IOException e) {
 			throw new RuntimeException(e);

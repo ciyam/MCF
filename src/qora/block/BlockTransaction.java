@@ -4,8 +4,6 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.json.simple.JSONObject;
-
 import database.DB;
 import database.NoDataFoundException;
 import database.SaveHelper;
@@ -126,14 +124,5 @@ public class BlockTransaction {
 	public Transaction getTransaction() throws SQLException {
 		return TransactionFactory.fromSignature(this.transactionSignature);
 	}
-
-	// Converters
-
-	public JSONObject toJSON() {
-		// TODO
-		return null;
-	}
-
-	// Processing
 
 }

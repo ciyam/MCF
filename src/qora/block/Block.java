@@ -120,6 +120,7 @@ public class Block {
 	public static final int MESSAGE_RELEASE_HEIGHT = 99000;
 	public static final int AT_BLOCK_HEIGHT_RELEASE = 99000;
 	public static final long POWFIX_RELEASE_TIMESTAMP = 1456426800000L; // Block Version 3 // 2016-02-25T19:00:00+00:00
+	public static final long ASSETS_RELEASE_TIMESTAMP = 0L; // From Qora epoch
 
 	// Constructors
 
@@ -741,10 +742,11 @@ public class Block {
 	}
 
 	/**
-	 * Returns whether Block is valid. Expected to be called within SQL Transaction.
+	 * Returns whether Block is valid using passed connection.
 	 * <p>
-	 * Performs various tests like checking for parent block, correct block timestamp, version, generating balance, etc.<br>
-	 * Also checks block's transactions using an HSQLDB "SAVEPOINT" and hence needs to be called within an ongoing SQL Transaction.
+	 * Performs various tests like checking for parent block, correct block timestamp, version, generating balance, etc.
+	 * <p>
+	 * Checks block's transactions using an HSQLDB "SAVEPOINT" and hence needs to be called within an ongoing SQL Transaction.
 	 * 
 	 * @param connection
 	 * @return true if block is valid, false otherwise.
@@ -795,9 +797,6 @@ public class Block {
 
 		// Check transactions
 		DB.createSavepoint(connection, "BLOCK_TRANSACTIONS");
-		// XXX: we might need to catch SQLExceptions and not rollback which could cause a new exception?
-		// OR: catch, attempt to rollback and then re-throw caught exception?
-		// OR: don't catch, attempt to rollback, catch exception during rollback then return false?
 		try {
 			for (Transaction transaction : this.getTransactions()) {
 				// GenesisTransactions are not allowed (GenesisBlock overrides isValid() to allow them)
@@ -823,7 +822,14 @@ public class Block {
 			}
 		} finally {
 			// Revert back to savepoint
-			DB.rollbackToSavepoint(connection, "BLOCK_TRANSACTIONS");
+			try {
+				DB.rollbackToSavepoint(connection, "BLOCK_TRANSACTIONS");
+			} catch (SQLException e) {
+				/*
+				 * Rollback failure most likely due to prior SQLException, so catch rollback's SQLException and discard. A "return false" in try-block will
+				 * still return false, prior SQLException propagates to caller and successful completion of try-block continues on after rollback.
+				 */
+			}
 		}
 
 		// Block is valid
