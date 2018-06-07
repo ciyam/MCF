@@ -13,14 +13,14 @@ public class GenesisTransaction extends Transaction {
 
 	// Constructors
 
-	public GenesisTransaction(String recipient, BigDecimal amount, long timestamp, byte[] signature) {
+	public GenesisTransaction(Account recipient, BigDecimal amount, long timestamp, byte[] signature) {
 		super(TransactionType.GENESIS, BigDecimal.ZERO, new GenesisAccount(), timestamp, signature);
 
-		this.recipient = new Account(recipient);
+		this.recipient = recipient;
 		this.amount = amount;
 	}
 
-	public GenesisTransaction(String recipient, BigDecimal amount, long timestamp) {
+	public GenesisTransaction(Account recipient, BigDecimal amount, long timestamp) {
 		this(recipient, amount, timestamp, null);
 	}
 
