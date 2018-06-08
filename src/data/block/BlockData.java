@@ -2,7 +2,7 @@ package data.block;
 
 import java.math.BigDecimal;
 
-public interface IBlockData {
+public interface BlockData {
 	public int getVersion();
 	public byte[] getReference();
 	public int getTransactionCount();

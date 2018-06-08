@@ -12,4 +12,8 @@ public abstract class RepositoryManager {
 		return repository.transactionRepository;
 	}
 
+	public static BlockRepository getBlockRepository() {
+		return repository.blockRepository;
+	}
+
 }

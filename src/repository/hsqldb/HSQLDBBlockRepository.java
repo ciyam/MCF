@@ -1,4 +1,4 @@
-package data.repository;
+package repository.hsqldb;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
@@ -7,11 +7,13 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 
 import data.block.Block;
-import data.block.IBlockData;
+import data.block.BlockData;
 import database.DB;
 import qora.account.PublicKeyAccount;
+import repository.BlockRepository;
+import repository.DataException;
 
-public class HSQLDBRepository implements IRepository
+public class HSQLDBBlockRepository implements BlockRepository
 {
 	protected static final int TRANSACTIONS_SIGNATURE_LENGTH = 64;
 	protected static final int GENERATOR_SIGNATURE_LENGTH = 64;
@@ -20,19 +22,29 @@ public class HSQLDBRepository implements IRepository
 	private static final String BLOCK_DB_COLUMNS = "version, reference, transaction_count, total_fees, "
 			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, AT_data, AT_fees";
 
-	public IBlockData getBlockBySignature(byte[] signature) throws SQLException
+	public BlockData fromSignature(byte[] signature) throws DataException
 	{		
-		ResultSet rs = DB.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature);
+		ResultSet rs;
+		try {
+			rs = DB.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature);
+		} catch (SQLException e) {
+			throw new DataException("Error loading data from DB", e);
+		}
 		return getBlockFromResultSet(rs);
 	}
 
-	public IBlockData getBlockByHeight(int height) throws SQLException
+	public BlockData fromHeight(int height) throws DataException
 	{		
-		ResultSet rs = DB.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", height);
+		ResultSet rs;
+		try {
+			rs = DB.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", height);
+		} catch (SQLException e) {
+			throw new DataException("Error loading data from DB", e);
+		}
 		return getBlockFromResultSet(rs);
 	}
 
-	private IBlockData getBlockFromResultSet(ResultSet rs) throws SQLException {
+	private BlockData getBlockFromResultSet(ResultSet rs) throws DataException {
 		int version = rs.getInt(1);
 		byte[] reference = DB.getResultSetBytes(rs.getBinaryStream(2), REFERENCE_LENGTH);
 		int transactionCount = rs.getInt(3);

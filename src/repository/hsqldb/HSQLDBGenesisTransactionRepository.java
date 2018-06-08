@@ -10,7 +10,7 @@ import data.transaction.GenesisTransaction;
 import data.transaction.Transaction;
 import database.DB;
 
-public class HSQLDBGenesisTransaction extends HSQLDBTransaction {
+public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionRepository {
 
 	Transaction fromBase(byte[] signature, byte[] reference, PublicKeyAccount creator, long timestamp, BigDecimal fee) {
 		try {

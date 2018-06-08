@@ -6,19 +6,19 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import data.block.IBlockData;
-import data.repository.HSQLDBRepository;
-import data.repository.IRepository;
+import data.block.BlockData;
 import database.DB;
 import database.NoDataFoundException;
 import qora.account.PublicKeyAccount;
 import qora.transaction.Transaction;
 import qora.transaction.TransactionFactory;
+import repository.BlockRepository;
+import repository.hsqldb.HSQLDBBlockRepository;
 
 public class BlockFactory {
 
 	// XXX repository should be pushed here from the root entry, no need to know the repository type
-	private static IRepository repository = new HSQLDBRepository();
+	private static BlockRepository repository = new HSQLDBBlockRepository();
 	
 	/**
 	 * Load Block from DB using block signature.
@@ -52,7 +52,7 @@ public class BlockFactory {
 			return GenesisBlock.getInstance();
 
 		try {
-			IBlockData data = repository.getBlockByHeight(height);
+			BlockData data = repository.fromHeight(height);
 	
 			// TODO fill this list from TransactionFactory
 			List<Transaction> transactions = new ArrayList<Transaction>();

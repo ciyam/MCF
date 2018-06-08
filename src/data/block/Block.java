@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 import qora.account.PublicKeyAccount;
 
-public class Block implements IBlockData {
+public class Block implements BlockData {
 	private int version;
 	private byte[] reference;
 	private int transactionCount;
