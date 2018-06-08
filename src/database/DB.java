@@ -8,11 +8,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Savepoint;
-import java.util.Arrays;
 
 import org.hsqldb.jdbc.JDBCPool;
-
-import com.google.common.primitives.Bytes;
 
 /**
  * Helper methods for common database actions.
@@ -148,20 +145,20 @@ public abstract class DB {
 	}
 
 	/**
-	 * Convert InputStream, from ResultSet.getBinaryStream(), into byte[] of set length.
+	 * Convert InputStream, from ResultSet.getBinaryStream(), into byte[].
 	 * 
 	 * @param inputStream
-	 * @param length
-	 * @return byte[length]
+	 * @return byte[]
 	 */
-	public static byte[] getResultSetBytes(InputStream inputStream, int length) {
+	public static byte[] getResultSetBytes(InputStream inputStream) {
 		// inputStream could be null if database's column's value is null
 		if (inputStream == null)
 			return null;
 
-		byte[] result = new byte[length];
-
 		try {
+			int length = inputStream.available();
+			byte[] result = new byte[length];
+
 			if (inputStream.read(result) == length)
 				return result;
 		} catch (IOException e) {
@@ -169,38 +166,6 @@ public abstract class DB {
 		}
 
 		return null;
-	}
-
-	/**
-	 * Convert InputStream, from ResultSet.getBinaryStream(), into byte[] of unknown length.
-	 * 
-	 * @param inputStream
-	 * @return byte[]
-	 */
-	public static byte[] getResultSetBytes(InputStream inputStream) {
-		final int BYTE_BUFFER_LENGTH = 1024;
-
-		// inputStream could be null if database's column's value is null
-		if (inputStream == null)
-			return null;
-
-		byte[] result = new byte[0];
-
-		while (true) {
-			try {
-				byte[] buffer = new byte[BYTE_BUFFER_LENGTH];
-				int length = inputStream.read(buffer);
-				if (length == -1)
-					break;
-
-				result = Bytes.concat(result, Arrays.copyOf(buffer, length));
-			} catch (IOException e) {
-				// No more bytes
-				break;
-			}
-		}
-
-		return result;
 	}
 
 	/**

@@ -1,9 +1,11 @@
 package repository;
 
-public interface Repository {
+public abstract class Repository {
 
-	// public void save();
+	protected TransactionRepository transactionRepository;
 
-	// public void delete();
+	public TransactionRepository getTransactionRepository() {
+		return this.transactionRepository;
+	}
 
 }

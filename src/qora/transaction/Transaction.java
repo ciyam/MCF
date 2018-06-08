@@ -21,6 +21,8 @@ import qora.account.PublicKeyAccount;
 import qora.block.Block;
 import qora.block.BlockChain;
 import qora.block.BlockTransaction;
+import repository.Repository;
+import repository.RepositoryManager;
 import settings.Settings;
 
 import utils.Base58;
@@ -289,7 +291,8 @@ public abstract class Transaction {
 		if (this.reference == null)
 			return null;
 
-		return TransactionFactory.fromSignature(this.reference);
+		// return TransactionFactory.fromSignature(this.reference);
+		// return RepositoryManager.getTransactionRepository().fromSignature(this.reference);
 	}
 
 	/**

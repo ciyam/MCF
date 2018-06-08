@@ -11,31 +11,56 @@ import data.transaction.Transaction.TransactionType;
 import repository.TransactionRepository;
 
 public class HSQLDBTransaction implements TransactionRepository {
-	
-	private static final int REFERENCE_LENGTH = 64;
-	
+
+	private HSQLDBGenesisTransaction genesisTransactionRepository;
+
+	public HSQLDBTransaction() {
+		genesisTransactionRepository = new HSQLDBGenesisTransaction();
+	}
+
 	public Transaction fromSignature(byte[] signature) {
 		try {
 			ResultSet rs = DB.checkedExecute("SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
 			if (rs == null)
 				return null;
-	
+
 			TransactionType type = TransactionType.valueOf(rs.getInt(1));
-			byte[] reference = DB.getResultSetBytes(rs.getBinaryStream(1), REFERENCE_LENGTH);
-			// Note: can't use CREATOR_LENGTH in case we encounter Genesis Account's short, 8-byte public key
-			PublicKeyAccount creator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(2)));
-			long timestamp = rs.getTimestamp(3).getTime();
-			BigDecimal fee = rs.getBigDecimal(4).setScale(8);
-			
-			switch (type) {
-				case GENESIS:
-					return new HSQLDBGenesisTransaction().fromSignature(signature, reference, creator, timestamp, fee);
-	
-				default:
-					return null;
-			}
+			byte[] reference = DB.getResultSetBytes(rs.getBinaryStream(2));
+			PublicKeyAccount creator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(3)));
+			long timestamp = rs.getTimestamp(4).getTime();
+			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
+
+			return this.fromBase(type, signature, reference, creator, timestamp, fee);
 		} catch (SQLException e) {
 			return null;
+		}
+	}
+
+	public Transaction fromReference(byte[] reference) {
+		try {
+			ResultSet rs = DB.checkedExecute("SELECT type, signature, creator, creation, fee FROM Transactions WHERE reference = ?", reference);
+			if (rs == null)
+				return null;
+
+			TransactionType type = TransactionType.valueOf(rs.getInt(1));
+			byte[] signature = DB.getResultSetBytes(rs.getBinaryStream(2));
+			PublicKeyAccount creator = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(3)));
+			long timestamp = rs.getTimestamp(4).getTime();
+			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
+
+			return this.fromBase(type, signature, reference, creator, timestamp, fee);
+		} catch (SQLException e) {
+			return null;
+		}
+	}
+
+	private Transaction fromBase(TransactionType type, byte[] signature, byte[] reference, PublicKeyAccount creator, long timestamp, BigDecimal fee) {
+		switch (type) {
+			case GENESIS:
+				return this.genesisTransactionRepository.fromBase(signature, reference, creator, timestamp, fee);
+
+			default:
+				return null;
 		}
 	}
 
