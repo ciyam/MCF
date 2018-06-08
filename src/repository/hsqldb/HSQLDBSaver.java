@@ -1,4 +1,4 @@
-package database;
+package repository.hsqldb;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
@@ -6,6 +6,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import database.DB;
 
 /**
  * Database helper for building, and executing, INSERT INTO ... ON DUPLICATE KEY UPDATE ... statements.
@@ -17,7 +19,7 @@ import java.util.List;
  * {@code helper.execute(); }<br>
  *
  */
-public class SaveHelper {
+public class HSQLDBSaver {
 
 	private String table;
 
@@ -29,7 +31,7 @@ public class SaveHelper {
 	 * 
 	 * @param table
 	 */
-	public SaveHelper(String table) {
+	public HSQLDBSaver(String table) {
 		this.table = table;
 	}
 
@@ -40,7 +42,7 @@ public class SaveHelper {
 	 * @param value
 	 * @return the same SaveHelper object
 	 */
-	public SaveHelper bind(String column, Object value) {
+	public HSQLDBSaver bind(String column, Object value) {
 		columns.add(column);
 		objects.add(value);
 		return this;

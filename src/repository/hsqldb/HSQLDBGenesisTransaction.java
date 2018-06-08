@@ -12,7 +12,7 @@ import database.DB;
 
 public class HSQLDBGenesisTransaction extends HSQLDBTransaction {
 
-	protected Transaction fromBase(byte[] signature, byte[] reference, PublicKeyAccount creator, long timestamp, BigDecimal fee) {
+	Transaction fromBase(byte[] signature, byte[] reference, PublicKeyAccount creator, long timestamp, BigDecimal fee) {
 		try {
 			ResultSet rs = DB.checkedExecute("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
 			if (rs == null)

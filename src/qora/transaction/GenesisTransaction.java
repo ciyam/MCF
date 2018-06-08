@@ -16,17 +16,17 @@ import com.google.common.primitives.Longs;
 
 import database.DB;
 import database.NoDataFoundException;
-import database.SaveHelper;
 import qora.account.Account;
 import qora.account.GenesisAccount;
 import qora.account.PrivateKeyAccount;
 import qora.assets.Asset;
 import qora.crypto.Crypto;
+import repository.hsqldb.HSQLDBSaver;
+import transform.TransformationException;
 import utils.Base58;
-import utils.ParseException;
 import utils.Serialization;
 
-public class GenesisTransaction extends Transaction {
+public class GenesisTransaction extends TransactionHandler {
 
 	// Properties
 	private Account recipient;
@@ -105,16 +105,16 @@ public class GenesisTransaction extends Transaction {
 	public void save() throws SQLException {
 		super.save();
 
-		SaveHelper saveHelper = new SaveHelper("GenesisTransactions");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("GenesisTransactions");
 		saveHelper.bind("signature", this.signature).bind("recipient", this.recipient.getAddress()).bind("amount", this.amount);
 		saveHelper.execute();
 	}
 
 	// Converters
 
-	protected static Transaction parse(ByteBuffer byteBuffer) throws ParseException {
+	protected static TransactionHandler parse(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new ParseException("Byte data too short for GenesisTransaction");
+			throw new TransformationException("Byte data too short for GenesisTransaction");
 
 		long timestamp = byteBuffer.getLong();
 		String recipient = Serialization.deserializeRecipient(byteBuffer);

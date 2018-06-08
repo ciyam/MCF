@@ -5,7 +5,7 @@ import java.math.BigInteger;
 import java.util.List;
 
 import qora.account.Account;
-import utils.ParseException;
+import transform.TransformationException;
 
 public class Order implements Comparable<Order> {
 
@@ -109,7 +109,7 @@ public class Order implements Comparable<Order> {
 
 	// Converters
 
-	public static Order parse(byte[] data) throws ParseException {
+	public static Order parse(byte[] data) throws TransformationException {
 		// TODO
 		return null;
 	}
@@ -133,7 +133,7 @@ public class Order implements Comparable<Order> {
 	public Order copy() {
 		try {
 			return parse(this.toBytes());
-		} catch (ParseException e) {
+		} catch (TransformationException e) {
 			return null;
 		}
 	}

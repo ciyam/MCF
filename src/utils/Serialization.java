@@ -6,7 +6,8 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
 import qora.account.PublicKeyAccount;
-import qora.transaction.Transaction;
+import qora.transaction.TransactionHandler;
+import transform.TransformationException;
 
 public class Serialization {
 
@@ -30,21 +31,21 @@ public class Serialization {
 	}
 
 	public static String deserializeRecipient(ByteBuffer byteBuffer) {
-		byte[] bytes = new byte[Transaction.RECIPIENT_LENGTH];
+		byte[] bytes = new byte[TransactionHandler.RECIPIENT_LENGTH];
 		byteBuffer.get(bytes);
 		return Base58.encode(bytes);
 	}
 
 	public static PublicKeyAccount deserializePublicKey(ByteBuffer byteBuffer) {
-		byte[] bytes = new byte[Transaction.CREATOR_LENGTH];
+		byte[] bytes = new byte[TransactionHandler.CREATOR_LENGTH];
 		byteBuffer.get(bytes);
 		return new PublicKeyAccount(bytes);
 	}
 
-	public static String deserializeSizedString(ByteBuffer byteBuffer, int maxSize) throws ParseException {
+	public static String deserializeSizedString(ByteBuffer byteBuffer, int maxSize) throws TransformationException {
 		int size = byteBuffer.getInt();
 		if (size > maxSize || size > byteBuffer.remaining())
-			throw new ParseException("Serialized string too long");
+			throw new TransformationException("Serialized string too long");
 
 		byte[] bytes = new byte[size];
 		byteBuffer.get(bytes);
@@ -52,7 +53,7 @@ public class Serialization {
 		try {
 			return new String(bytes, "UTF-8");
 		} catch (UnsupportedEncodingException e) {
-			throw new ParseException("UTF-8 charset unsupported during string deserialization");
+			throw new TransformationException("UTF-8 charset unsupported during string deserialization");
 		}
 	}
 

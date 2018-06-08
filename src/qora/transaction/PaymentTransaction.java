@@ -16,16 +16,16 @@ import com.google.common.primitives.Longs;
 
 import database.DB;
 import database.NoDataFoundException;
-import database.SaveHelper;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
 import qora.crypto.Crypto;
+import repository.hsqldb.HSQLDBSaver;
+import transform.TransformationException;
 import utils.Base58;
-import utils.ParseException;
 import utils.Serialization;
 
-public class PaymentTransaction extends Transaction {
+public class PaymentTransaction extends TransactionHandler {
 
 	// Properties
 	private PublicKeyAccount sender;
@@ -113,7 +113,7 @@ public class PaymentTransaction extends Transaction {
 	public void save() throws SQLException {
 		super.save();
 
-		SaveHelper saveHelper = new SaveHelper("PaymentTransactions");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("PaymentTransactions");
 		saveHelper.bind("signature", this.signature).bind("sender", this.sender.getPublicKey()).bind("recipient", this.recipient.getAddress()).bind("amount",
 				this.amount);
 		saveHelper.execute();
@@ -121,9 +121,9 @@ public class PaymentTransaction extends Transaction {
 
 	// Converters
 
-	protected static Transaction parse(ByteBuffer byteBuffer) throws ParseException {
+	protected static TransactionHandler parse(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new ParseException("Byte data too short for PaymentTransaction");
+			throw new TransformationException("Byte data too short for PaymentTransaction");
 
 		long timestamp = byteBuffer.getLong();
 

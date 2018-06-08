@@ -2,10 +2,11 @@ package data.transaction;
 
 import java.math.BigDecimal;
 import java.util.Map;
-import static java.util.Arrays.stream;
-import static java.util.stream.Collectors.toMap;
 
 import data.account.PublicKeyAccount;
+
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
 
 public abstract class Transaction {
 

@@ -17,18 +17,18 @@ import com.google.common.primitives.Longs;
 
 import database.DB;
 import database.NoDataFoundException;
-import database.SaveHelper;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
 import qora.block.Block;
 import qora.block.BlockChain;
 import qora.crypto.Crypto;
+import repository.hsqldb.HSQLDBSaver;
+import transform.TransformationException;
 import utils.Base58;
-import utils.ParseException;
 import utils.Serialization;
 
-public class MessageTransaction extends Transaction {
+public class MessageTransaction extends TransactionHandler {
 
 	// Properties
 	protected int version;
@@ -60,7 +60,7 @@ public class MessageTransaction extends Transaction {
 			boolean isEncrypted, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.MESSAGE, fee, sender, timestamp, reference, signature);
 
-		this.version = Transaction.getVersionByTimestamp(this.timestamp);
+		this.version = TransactionHandler.getVersionByTimestamp(this.timestamp);
 		this.sender = sender;
 		this.recipient = new Account(recipient);
 
@@ -165,7 +165,7 @@ public class MessageTransaction extends Transaction {
 	public void save() throws SQLException {
 		super.save();
 
-		SaveHelper saveHelper = new SaveHelper("MessageTransactions");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("MessageTransactions");
 		saveHelper.bind("signature", this.signature).bind("version", this.version).bind("sender", this.sender.getPublicKey())
 				.bind("recipient", this.recipient.getAddress()).bind("is_text", this.isText).bind("is_encrypted", this.isEncrypted).bind("amount", this.amount)
 				.bind("asset_id", this.assetId).bind("data", this.data);
@@ -174,18 +174,18 @@ public class MessageTransaction extends Transaction {
 
 	// Converters
 
-	protected static Transaction parse(ByteBuffer byteBuffer) throws ParseException {
+	protected static TransactionHandler parse(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TIMESTAMP_LENGTH)
-			throw new ParseException("Byte data too short for MessageTransaction");
+			throw new TransformationException("Byte data too short for MessageTransaction");
 
 		long timestamp = byteBuffer.getLong();
-		int version = Transaction.getVersionByTimestamp(timestamp);
+		int version = TransactionHandler.getVersionByTimestamp(timestamp);
 
 		int minimumRemaining = version == 1 ? TYPELESS_DATALESS_LENGTH_V1 : TYPELESS_DATALESS_LENGTH_V3;
 		minimumRemaining -= TIMESTAMP_LENGTH; // Already read above
 
 		if (byteBuffer.remaining() < minimumRemaining)
-			throw new ParseException("Byte data too short for MessageTransaction");
+			throw new TransformationException("Byte data too short for MessageTransaction");
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -204,7 +204,7 @@ public class MessageTransaction extends Transaction {
 		int dataSize = byteBuffer.getInt(0);
 		// Don't allow invalid dataSize here to avoid run-time issues
 		if (dataSize > MAX_DATA_SIZE)
-			throw new ParseException("MessageTransaction data size too large");
+			throw new TransformationException("MessageTransaction data size too large");
 
 		byte[] data = new byte[dataSize];
 		byteBuffer.get(data);
@@ -277,7 +277,7 @@ public class MessageTransaction extends Transaction {
 		// Lowest cost checks first
 
 		// Are message transactions even allowed at this point?
-		if (this.version != Transaction.getVersionByTimestamp(this.timestamp))
+		if (this.version != TransactionHandler.getVersionByTimestamp(this.timestamp))
 			return ValidationResult.NOT_YET_RELEASED;
 
 		if (BlockChain.getHeight() < Block.MESSAGE_RELEASE_HEIGHT)

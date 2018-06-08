@@ -16,18 +16,18 @@ import com.google.common.primitives.Longs;
 
 import database.DB;
 import database.NoDataFoundException;
-import database.SaveHelper;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
 import qora.block.Block;
 import qora.crypto.Crypto;
+import repository.hsqldb.HSQLDBSaver;
+import transform.TransformationException;
 import utils.Base58;
 import utils.NTP;
-import utils.ParseException;
 import utils.Serialization;
 
-public class IssueAssetTransaction extends Transaction {
+public class IssueAssetTransaction extends TransactionHandler {
 
 	// Properties
 	private PublicKeyAccount issuer;
@@ -186,7 +186,7 @@ public class IssueAssetTransaction extends Transaction {
 	public void save() throws SQLException {
 		super.save();
 
-		SaveHelper saveHelper = new SaveHelper("IssueAssetTransactions");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("IssueAssetTransactions");
 		saveHelper.bind("signature", this.signature).bind("creator", this.creator.getPublicKey()).bind("asset_name", this.assetName)
 				.bind("description", this.description).bind("quantity", this.quantity).bind("is_divisible", this.isDivisible).bind("asset_id", this.assetId);
 		saveHelper.execute();
@@ -194,9 +194,9 @@ public class IssueAssetTransaction extends Transaction {
 
 	// Converters
 
-	protected static Transaction parse(ByteBuffer byteBuffer) throws ParseException {
+	protected static TransactionHandler parse(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new ParseException("Byte data too short for IssueAssetTransaction");
+			throw new TransformationException("Byte data too short for IssueAssetTransaction");
 
 		long timestamp = byteBuffer.getLong();
 
@@ -211,7 +211,7 @@ public class IssueAssetTransaction extends Transaction {
 
 		// Still need to make sure there are enough bytes left for remaining fields
 		if (byteBuffer.remaining() < QUANTITY_LENGTH + IS_DIVISIBLE_LENGTH + SIGNATURE_LENGTH)
-			throw new ParseException("Byte data too short for IssueAssetTransaction");
+			throw new TransformationException("Byte data too short for IssueAssetTransaction");
 
 		long quantity = byteBuffer.getLong();
 		boolean isDivisible = byteBuffer.get() != 0;

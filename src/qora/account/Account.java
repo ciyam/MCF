@@ -5,7 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import database.DB;
-import database.SaveHelper;
+import repository.hsqldb.HSQLDBSaver;
 
 public class Account {
 
@@ -48,7 +48,7 @@ public class Account {
 	}
 
 	public void setConfirmedBalance(long assetId, BigDecimal balance) throws SQLException {
-		SaveHelper saveHelper = new SaveHelper("AccountBalances");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountBalances");
 		saveHelper.bind("account", this.getAddress()).bind("asset_id", assetId).bind("balance", balance);
 		saveHelper.execute();
 	}
@@ -81,7 +81,7 @@ public class Account {
 	 * @throws SQLException
 	 */
 	public void setLastReference(byte[] reference) throws SQLException {
-		SaveHelper saveHelper = new SaveHelper("Accounts");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 		saveHelper.bind("account", this.getAddress()).bind("reference", reference);
 		saveHelper.execute();
 	}

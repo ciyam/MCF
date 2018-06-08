@@ -24,7 +24,6 @@ import com.google.common.primitives.Longs;
 
 import database.DB;
 import database.NoDataFoundException;
-import database.SaveHelper;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
@@ -32,11 +31,12 @@ import qora.assets.Order;
 import qora.assets.Trade;
 import qora.transaction.CreateOrderTransaction;
 import qora.transaction.GenesisTransaction;
-import qora.transaction.Transaction;
-import qora.transaction.TransactionFactory;
+import qora.transaction.TransactionHandler;
+import repository.hsqldb.HSQLDBSaver;
+import qora.transaction.TransactionHandler;
+import transform.TransformationException;
 import utils.Base58;
 import utils.NTP;
-import utils.ParseException;
 import utils.Serialization;
 
 /*
@@ -84,7 +84,7 @@ public class Block {
 	protected BigDecimal atFees;
 
 	// Other properties
-	protected List<Transaction> transactions;
+	protected List<TransactionHandler> transactions;
 	protected BigDecimal cachedNextGeneratingBalance;
 
 	// Property lengths for serialisation
@@ -136,7 +136,7 @@ public class Block {
 		this.height = 0;
 
 		this.transactionCount = 0;
-		this.transactions = new ArrayList<Transaction>();
+		this.transactions = new ArrayList<TransactionHandler>();
 		this.transactionsSignature = null;
 		this.totalFees = BigDecimal.ZERO.setScale(8);
 
@@ -148,7 +148,7 @@ public class Block {
 
 	// For instantiating a block that was previously serialized
 	protected Block(int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PublicKeyAccount generator, byte[] generatorSignature,
-			byte[] transactionsSignature, byte[] atBytes, BigDecimal atFees, List<Transaction> transactions) {
+			byte[] transactionsSignature, byte[] atBytes, BigDecimal atFees, List<TransactionHandler> transactions) {
 		this(version, reference, timestamp, generatingBalance, generator, atBytes, atFees);
 
 		this.generatorSignature = generatorSignature;
@@ -158,7 +158,7 @@ public class Block {
 		this.transactions = transactions;
 
 		// Add transactions' fees to totalFees
-		for (Transaction transaction : this.transactions)
+		for (TransactionHandler transaction : this.transactions)
 			this.totalFees = this.totalFees.add(transaction.getFee());
 	}
 
@@ -236,7 +236,7 @@ public class Block {
 		if (this.transactions == null || this.transactions.isEmpty())
 			return blockLength;
 
-		for (Transaction transaction : this.transactions)
+		for (TransactionHandler transaction : this.transactions)
 			blockLength += TRANSACTION_SIZE_LENGTH + transaction.getDataLength();
 
 		return blockLength;
@@ -321,13 +321,13 @@ public class Block {
 	 * @return
 	 * @throws SQLException
 	 */
-	public List<Transaction> getTransactions() throws SQLException {
+	public List<TransactionHandler> getTransactions() throws SQLException {
 		// Already loaded?
 		if (this.transactions != null)
 			return this.transactions;
 
 		// Allocate cache for results
-		this.transactions = new ArrayList<Transaction>();
+		this.transactions = new ArrayList<TransactionHandler>();
 
 		ResultSet rs = DB.checkedExecute("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ?", this.getSignature());
 		if (rs == null)
@@ -335,7 +335,7 @@ public class Block {
 
 		// NB: do-while loop because DB.checkedExecute() implicitly calls ResultSet.next() for us
 		do {
-			byte[] transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Transaction.SIGNATURE_LENGTH);
+			byte[] transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), TransactionHandler.SIGNATURE_LENGTH);
 			this.transactions.add(TransactionFactory.fromSignature(transactionSignature));
 
 			// No need to update totalFees as this will be loaded via the Blocks table
@@ -407,7 +407,7 @@ public class Block {
 	}
 
 	protected void save() throws SQLException {
-		SaveHelper saveHelper = new SaveHelper("Blocks");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Blocks");
 
 		saveHelper.bind("signature", this.getSignature()).bind("version", this.version).bind("reference", this.reference)
 				.bind("transaction_count", this.transactionCount).bind("total_fees", this.totalFees).bind("transactions_signature", this.transactionsSignature)
@@ -479,11 +479,11 @@ public class Block {
 		JSONArray transactionsJson = new JSONArray();
 		boolean tradesHappened = false;
 
-		for (Transaction transaction : this.getTransactions()) {
+		for (TransactionHandler transaction : this.getTransactions()) {
 			transactionsJson.add(transaction.toJSON());
 
 			// If this is an asset CreateOrderTransaction then check to see if any trades happened
-			if (transaction.getType() == Transaction.TransactionType.CREATE_ASSET_ORDER) {
+			if (transaction.getType() == Transaction.TransactionHandler.CREATE_ASSET_ORDER) {
 				CreateOrderTransaction orderTransaction = (CreateOrderTransaction) transaction;
 				Order order = orderTransaction.getOrder();
 				List<Trade> trades = order.getTrades();
@@ -541,7 +541,7 @@ public class Block {
 			// Transactions
 			bytes.write(Ints.toByteArray(this.transactionCount));
 
-			for (Transaction transaction : this.getTransactions()) {
+			for (TransactionHandler transaction : this.getTransactions()) {
 				bytes.write(Ints.toByteArray(transaction.getDataLength()));
 				bytes.write(transaction.toBytes());
 			}
@@ -552,19 +552,19 @@ public class Block {
 		}
 	}
 
-	public static Block parse(byte[] data) throws ParseException {
+	public static Block parse(byte[] data) throws TransformationException {
 		if (data == null)
 			return null;
 
 		if (data.length < BASE_LENGTH)
-			throw new ParseException("Byte data too short for Block");
+			throw new TransformationException("Byte data too short for Block");
 
 		ByteBuffer byteBuffer = ByteBuffer.wrap(data);
 
 		int version = byteBuffer.getInt();
 
 		if (version >= 2 && data.length < BASE_LENGTH + AT_LENGTH)
-			throw new ParseException("Byte data too short for V2+ Block");
+			throw new TransformationException("Byte data too short for V2+ Block");
 
 		long timestamp = byteBuffer.getLong();
 
@@ -585,7 +585,7 @@ public class Block {
 			int atBytesLength = byteBuffer.getInt();
 
 			if (atBytesLength > MAX_BLOCK_BYTES)
-				throw new ParseException("Byte data too long for Block's AT info");
+				throw new TransformationException("Byte data too long for Block's AT info");
 
 			atBytes = new byte[atBytesLength];
 			byteBuffer.get(atBytes);
@@ -596,26 +596,26 @@ public class Block {
 		int transactionCount = byteBuffer.getInt();
 
 		// Parse transactions now, compared to deferred parsing in Gen1, so we can throw ParseException if need be
-		List<Transaction> transactions = new ArrayList<Transaction>();
+		List<TransactionHandler> transactions = new ArrayList<TransactionHandler>();
 		for (int t = 0; t < transactionCount; ++t) {
 			if (byteBuffer.remaining() < TRANSACTION_SIZE_LENGTH)
-				throw new ParseException("Byte data too short for Block Transaction length");
+				throw new TransformationException("Byte data too short for Block Transaction length");
 
 			int transactionLength = byteBuffer.getInt();
 			if (byteBuffer.remaining() < transactionLength)
-				throw new ParseException("Byte data too short for Block Transaction");
+				throw new TransformationException("Byte data too short for Block Transaction");
 			if (transactionLength > MAX_BLOCK_BYTES)
-				throw new ParseException("Byte data too long for Block Transaction");
+				throw new TransformationException("Byte data too long for Block Transaction");
 
 			byte[] transactionBytes = new byte[transactionLength];
 			byteBuffer.get(transactionBytes);
 
-			Transaction transaction = Transaction.parse(transactionBytes);
+			TransactionHandler transaction = TransactionHandler.parse(transactionBytes);
 			transactions.add(transaction);
 		}
 
 		if (byteBuffer.hasRemaining())
-			throw new ParseException("Excess byte data found after parsing Block");
+			throw new TransformationException("Excess byte data found after parsing Block");
 
 		return new Block(version, reference, timestamp, generatingBalance, generator, generatorSignature, transactionsSignature, atBytes, atFees, transactions);
 	}
@@ -634,7 +634,7 @@ public class Block {
 	 * @throws IllegalStateException
 	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
 	 */
-	public boolean addTransaction(Transaction transaction) {
+	public boolean addTransaction(TransactionHandler transaction) {
 		// Can't add to transactions if we haven't loaded existing ones yet
 		if (this.transactions == null)
 			throw new IllegalStateException("Attempted to add transaction to partially loaded database Block");
@@ -710,12 +710,12 @@ public class Block {
 	}
 
 	private byte[] getBytesForTransactionsSignature() {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + this.transactionCount * Transaction.SIGNATURE_LENGTH);
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + this.transactionCount * TransactionHandler.SIGNATURE_LENGTH);
 
 		try {
 			bytes.write(this.generatorSignature);
 
-			for (Transaction transaction : this.getTransactions()) {
+			for (TransactionHandler transaction : this.getTransactions()) {
 				if (!transaction.isSignatureValid())
 					return null;
 
@@ -796,7 +796,7 @@ public class Block {
 		// Check transactions
 		Savepoint savepoint = DB.createSavepoint("BLOCK_TRANSACTIONS");
 		try {
-			for (Transaction transaction : this.getTransactions()) {
+			for (TransactionHandler transaction : this.getTransactions()) {
 				// GenesisTransactions are not allowed (GenesisBlock overrides isValid() to allow them)
 				if (transaction instanceof GenesisTransaction)
 					return false;
@@ -807,7 +807,7 @@ public class Block {
 
 				// Check transaction is even valid
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
-				if (transaction.isValid() != Transaction.ValidationResult.OK)
+				if (transaction.isValid() != TransactionHandler.ValidationResult.OK)
 					return false;
 
 				// Process transaction to make sure other transactions validate properly
@@ -836,8 +836,8 @@ public class Block {
 
 	public void process() throws SQLException {
 		// Process transactions (we'll link them to this block after saving the block itself)
-		List<Transaction> transactions = this.getTransactions();
-		for (Transaction transaction : transactions)
+		List<TransactionHandler> transactions = this.getTransactions();
+		for (TransactionHandler transaction : transactions)
 			transaction.process();
 
 		// If fees are non-zero then add fees to generator's balance
@@ -856,7 +856,7 @@ public class Block {
 
 		// Link transactions to this block, thus removing them from unconfirmed transactions list.
 		for (int sequence = 0; sequence < transactions.size(); ++sequence) {
-			Transaction transaction = transactions.get(sequence);
+			TransactionHandler transaction = transactions.get(sequence);
 
 			// Link transaction to this block
 			BlockTransaction blockTransaction = new BlockTransaction(this.getSignature(), sequence, transaction.getSignature());

@@ -8,8 +8,8 @@ import org.junit.Test;
 
 import qora.block.BlockChain;
 import qora.transaction.PaymentTransaction;
-import qora.transaction.Transaction;
-import qora.transaction.TransactionFactory;
+import qora.transaction.TransactionHandler;
+import qora.transaction.TransactionHandler;
 import utils.Base58;
 
 public class load extends common {
@@ -40,7 +40,7 @@ public class load extends common {
 		byte[] signature = Base58.decode(signature58);
 
 		while (true) {
-			Transaction transaction = TransactionFactory.fromSignature(signature);
+			TransactionHandler transaction = TransactionFactory.fromSignature(signature);
 			if (transaction == null)
 				break;
 

@@ -31,7 +31,7 @@ import com.google.common.io.CharStreams;
 
 import database.DB;
 import qora.block.BlockChain;
-import qora.transaction.Transaction;
+import qora.transaction.TransactionHandler;
 import utils.Base58;
 
 public class migrate extends common {
@@ -561,7 +561,7 @@ public class migrate extends common {
 						}
 
 						messagePStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						messagePStmt.setInt(2, Transaction.getVersionByTimestamp(transactionTimestamp));
+						messagePStmt.setInt(2, TransactionHandler.getVersionByTimestamp(transactionTimestamp));
 						messagePStmt.setBinaryStream(3, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						messagePStmt.setString(4, (String) transaction.get("recipient"));
 						messagePStmt.setBoolean(5, isText);

@@ -15,12 +15,12 @@ import com.google.common.primitives.Longs;
 
 import database.DB;
 import database.NoDataFoundException;
-import database.SaveHelper;
 import qora.account.PublicKeyAccount;
 import qora.assets.Order;
-import utils.ParseException;
+import repository.hsqldb.HSQLDBSaver;
+import transform.TransformationException;
 
-public class CreateOrderTransaction extends Transaction {
+public class CreateOrderTransaction extends TransactionHandler {
 
 	// Properties
 	private Order order;
@@ -100,7 +100,7 @@ public class CreateOrderTransaction extends Transaction {
 	public void save() throws SQLException {
 		super.save();
 
-		SaveHelper saveHelper = new SaveHelper("CreateAssetOrderTransactions");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("CreateAssetOrderTransactions");
 		saveHelper.bind("signature", this.signature).bind("creator", this.creator.getPublicKey()).bind("have_asset_id", this.order.getHaveAssetId())
 				.bind("amount", this.order.getAmount()).bind("want_asset_id", this.order.getWantAssetId()).bind("price", this.order.getPrice());
 		saveHelper.execute();
@@ -108,9 +108,9 @@ public class CreateOrderTransaction extends Transaction {
 
 	// Converters
 
-	protected static Transaction parse(ByteBuffer byteBuffer) throws ParseException {
+	protected static TransactionHandler parse(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new ParseException("Byte data too short for CreateOrderTransaction");
+			throw new TransformationException("Byte data too short for CreateOrderTransaction");
 
 		// TODO
 		return null;

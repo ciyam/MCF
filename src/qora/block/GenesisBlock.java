@@ -14,7 +14,7 @@ import com.google.common.primitives.Longs;
 import qora.account.GenesisAccount;
 import qora.crypto.Crypto;
 import qora.transaction.GenesisTransaction;
-import qora.transaction.Transaction;
+import qora.transaction.TransactionHandler;
 
 public class GenesisBlock extends Block {
 
@@ -31,7 +31,7 @@ public class GenesisBlock extends Block {
 	// Constructors
 	protected GenesisBlock() {
 		super(GENESIS_BLOCK_VERSION, GENESIS_REFERENCE, GENESIS_TIMESTAMP, GENESIS_GENERATING_BALANCE, GENESIS_GENERATOR, GENESIS_GENERATOR_SIGNATURE,
-				GENESIS_TRANSACTIONS_SIGNATURE, null, null, new ArrayList<Transaction>());
+				GENESIS_TRANSACTIONS_SIGNATURE, null, null, new ArrayList<TransactionHandler>());
 
 		this.height = 1;
 
@@ -233,7 +233,7 @@ public class GenesisBlock extends Block {
 	// Processing
 
 	@Override
-	public boolean addTransaction(Transaction transaction) {
+	public boolean addTransaction(TransactionHandler transaction) {
 		// The genesis block has a fixed set of transactions so always refuse.
 		return false;
 	}
@@ -334,8 +334,8 @@ public class GenesisBlock extends Block {
 			return false;
 
 		// Validate transactions
-		for (Transaction transaction : this.getTransactions())
-			if (transaction.isValid() != Transaction.ValidationResult.OK)
+		for (TransactionHandler transaction : this.getTransactions())
+			if (transaction.isValid() != TransactionHandler.ValidationResult.OK)
 				return false;
 
 		return true;

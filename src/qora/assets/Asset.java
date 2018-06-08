@@ -5,9 +5,9 @@ import java.sql.SQLException;
 
 import database.DB;
 import database.NoDataFoundException;
-import database.SaveHelper;
 import qora.account.Account;
-import qora.transaction.Transaction;
+import qora.transaction.TransactionHandler;
+import repository.hsqldb.HSQLDBSaver;
 
 /*
  * TODO:
@@ -91,7 +91,7 @@ public class Asset {
 		this.description = rs.getString(3);
 		this.quantity = rs.getLong(4);
 		this.isDivisible = rs.getBoolean(5);
-		this.reference = DB.getResultSetBytes(rs.getBinaryStream(6), Transaction.REFERENCE_LENGTH);
+		this.reference = DB.getResultSetBytes(rs.getBinaryStream(6), TransactionHandler.REFERENCE_LENGTH);
 	}
 
 	public static Asset fromAssetId(long assetId) throws SQLException {
@@ -103,7 +103,7 @@ public class Asset {
 	}
 
 	public void save() throws SQLException {
-		SaveHelper saveHelper = new SaveHelper("Assets");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Assets");
 		saveHelper.bind("asset_id", this.assetId).bind("owner", this.owner.getAddress()).bind("asset_name", this.name).bind("description", this.description)
 				.bind("quantity", this.quantity).bind("is_divisible", this.isDivisible).bind("reference", this.reference);
 		saveHelper.execute();
