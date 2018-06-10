@@ -68,6 +68,10 @@ public abstract class DB {
 		return local.get();
 	}
 
+	public static Connection getPoolConnection() throws SQLException {
+		return connectionPool.getConnection();
+	}
+	
 	public static void releaseConnection() {
 		Connection connection = local.get();
 		if (connection != null)
@@ -179,7 +183,12 @@ public abstract class DB {
 	 * @throws SQLException
 	 */
 	public static ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
-		PreparedStatement preparedStatement = DB.getConnection().prepareStatement(sql);
+		Connection connection = DB.getConnection();
+		return checkedExecute(connection, sql, objects);
+	}
+
+	public static ResultSet checkedExecute(Connection connection, String sql, Object... objects) throws SQLException {
+		PreparedStatement preparedStatement = connection.prepareStatement(sql);
 
 		for (int i = 0; i < objects.length; ++i)
 			// Special treatment for BigDecimals so that they retain their "scale",

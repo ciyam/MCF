@@ -1,6 +1,7 @@
 package repository.hsqldb;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -14,15 +15,17 @@ import repository.TransactionRepository;
 
 public class HSQLDBTransactionRepository implements TransactionRepository {
 
+	protected HSQLDBRepository repository;
 	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
 
-	public HSQLDBTransactionRepository() {
-		genesisTransactionRepository = new HSQLDBGenesisTransactionRepository();
+	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
+		this.repository = repository;
+		genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
 	}
 
 	public Transaction fromSignature(byte[] signature) {
 		try {
-			ResultSet rs = DB.checkedExecute("SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
+			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
 			if (rs == null)
 				return null;
 
@@ -40,7 +43,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	public Transaction fromReference(byte[] reference) {
 		try {
-			ResultSet rs = DB.checkedExecute("SELECT type, signature, creator, creation, fee FROM Transactions WHERE reference = ?", reference);
+			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT type, signature, creator, creation, fee FROM Transactions WHERE reference = ?", reference);
 			if (rs == null)
 				return null;
 
@@ -74,7 +77,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		// in one go?
 		try {
-			ResultSet rs = DB.checkedExecute("SELECT height from BlockTransactions JOIN Blocks ON Blocks.signature = BlockTransactions.block_signature WHERE transaction_signature = ? LIMIT 1", signature);
+			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT height from BlockTransactions JOIN Blocks ON Blocks.signature = BlockTransactions.block_signature WHERE transaction_signature = ? LIMIT 1", signature);
 			if (rs == null)
 				return 0;
 			
@@ -92,7 +95,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		// Fetch block signature (if any)
 		try {
-			ResultSet rs = DB.checkedExecute("SELECT block_signature from BlockTransactions WHERE transaction_signature = ? LIMIT 1", signature);
+			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT block_signature from BlockTransactions WHERE transaction_signature = ? LIMIT 1", signature);
 			if (rs == null)
 				return null;
 			
@@ -114,7 +117,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				.bind("creator", transaction.getCreator().getPublicKey()).bind("creation", new Timestamp(transaction.getTimestamp())).bind("fee", transaction.getFee())
 				.bind("milestone_block", null);
 		try {
-			saver.execute();
+			saver.execute(repository.connection);
 		} catch (SQLException e) {
 			// XXX do what?
 		}
@@ -125,7 +128,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		// NOTE: The corresponding row in sub-table is deleted automatically by the database thanks to "ON DELETE CASCADE" in the sub-table's FOREIGN KEY
 		// definition.
 		try {
-			DB.checkedExecute("DELETE FROM Transactions WHERE signature = ?", transaction.getSignature());
+			DB.checkedExecute(repository.connection, "DELETE FROM Transactions WHERE signature = ?", transaction.getSignature());
 		} catch (SQLException e) {
 			// XXX do what?
 		}

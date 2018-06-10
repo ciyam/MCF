@@ -1,6 +1,7 @@
 package repository.hsqldb;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -55,9 +56,13 @@ public class HSQLDBSaver {
 	 * @throws SQLException
 	 */
 	public boolean execute() throws SQLException {
-		String sql = this.formatInsertWithPlaceholders();
+		Connection connection = DB.getConnection();
+		return execute(connection);
+	}
 
-		PreparedStatement preparedStatement = DB.getConnection().prepareStatement(sql);
+	public boolean execute(Connection connection) throws SQLException {
+		String sql = this.formatInsertWithPlaceholders();
+		PreparedStatement preparedStatement = connection.prepareStatement(sql);
 
 		this.bindValues(preparedStatement);
 

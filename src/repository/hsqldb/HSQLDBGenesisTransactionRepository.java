@@ -12,9 +12,13 @@ import database.DB;
 
 public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionRepository {
 
+	public HSQLDBGenesisTransactionRepository(HSQLDBRepository repository) {
+		super(repository);
+	}
+
 	Transaction fromBase(byte[] signature, byte[] reference, PublicKeyAccount creator, long timestamp, BigDecimal fee) {
 		try {
-			ResultSet rs = DB.checkedExecute("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
+			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
 			if (rs == null)
 				return null;
 
