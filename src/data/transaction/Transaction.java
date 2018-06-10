@@ -11,6 +11,8 @@ import static java.util.stream.Collectors.toMap;
 public abstract class Transaction {
 
 	// Transaction types
+	// TODO Transaction types are semantic and should go into the business logic layer.
+	// No need to know the meaning of the integer value in data layer
 	public enum TransactionType {
 		GENESIS(1), PAYMENT(2), REGISTER_NAME(3), UPDATE_NAME(4), SELL_NAME(5), CANCEL_SELL_NAME(6), BUY_NAME(7), CREATE_POLL(8), VOTE_ON_POLL(9), ARBITRARY(
 				10), ISSUE_ASSET(11), TRANSFER_ASSET(12), CREATE_ASSET_ORDER(13), CANCEL_ASSET_ORDER(14), MULTIPAYMENT(15), DEPLOY_AT(16), MESSAGE(17);
@@ -29,7 +31,8 @@ public abstract class Transaction {
 	}
 
 	// Properties shared with all transaction types
-	protected TransactionType type;
+	protected TransactionType type;	
+	// TODO PublicKeyAccount is a separate data entity, so here should only be a key to reference it 
 	protected PublicKeyAccount creator;
 	protected long timestamp;
 	protected byte[] reference;

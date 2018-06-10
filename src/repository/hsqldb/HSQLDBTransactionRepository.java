@@ -12,12 +12,12 @@ import database.DB;
 import qora.block.Block;
 import repository.TransactionRepository;
 
-public class HSQLDBTransaction implements TransactionRepository {
+public class HSQLDBTransactionRepository implements TransactionRepository {
 
-	private HSQLDBGenesisTransaction genesisTransactionRepository;
+	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
 
-	public HSQLDBTransaction() {
-		genesisTransactionRepository = new HSQLDBGenesisTransaction();
+	public HSQLDBTransactionRepository() {
+		genesisTransactionRepository = new HSQLDBGenesisTransactionRepository();
 	}
 
 	public Transaction fromSignature(byte[] signature) {

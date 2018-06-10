@@ -5,7 +5,7 @@ import repository.Repository;
 public class HSQLDBRepository extends Repository {
 
 	public HSQLDBRepository() {
-		this.transactionRepository = new HSQLDBTransaction();
+		this.transactionRepository = new HSQLDBTransactionRepository();
 	}
 
 }
