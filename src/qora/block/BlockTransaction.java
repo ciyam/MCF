@@ -5,9 +5,8 @@ import java.sql.SQLException;
 
 import database.DB;
 import database.NoDataFoundException;
-import qora.transaction.TransactionHandler;
+import qora.transaction.Transaction;
 import repository.hsqldb.HSQLDBSaver;
-import qora.transaction.TransactionHandler;
 
 public class BlockTransaction {
 
@@ -50,7 +49,7 @@ public class BlockTransaction {
 
 		this.blockSignature = blockSignature;
 		this.sequence = sequence;
-		this.transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1), TransactionHandler.SIGNATURE_LENGTH);
+		this.transactionSignature = DB.getResultSetBytes(rs.getBinaryStream(1));
 	}
 
 	protected BlockTransaction(byte[] transactionSignature) throws SQLException {
@@ -58,7 +57,7 @@ public class BlockTransaction {
 		if (rs == null)
 			throw new NoDataFoundException();
 
-		this.blockSignature = DB.getResultSetBytes(rs.getBinaryStream(1), Block.BLOCK_SIGNATURE_LENGTH);
+		this.blockSignature = DB.getResultSetBytes(rs.getBinaryStream(1));
 		this.sequence = rs.getInt(2);
 		this.transactionSignature = transactionSignature;
 	}
@@ -118,8 +117,10 @@ public class BlockTransaction {
 	 * @return Transaction, or null if not found (which should never happen)
 	 * @throws SQLException
 	 */
-	public TransactionHandler getTransaction() throws SQLException {
-		return TransactionFactory.fromSignature(this.transactionSignature);
+	public Transaction getTransaction() throws SQLException {
+		// XXX 
+		// return TransactionFactory.fromSignature(this.transactionSignature);
+		return null;
 	}
 
 }

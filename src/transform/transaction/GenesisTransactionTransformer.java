@@ -10,9 +10,8 @@ import org.json.simple.JSONObject;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
-import data.transaction.Transaction;
-import data.account.Account;
-import data.transaction.GenesisTransaction;
+import data.transaction.TransactionData;
+import data.transaction.GenesisTransactionData;
 import transform.TransformationException;
 import utils.Base58;
 import utils.Serialization;
@@ -25,30 +24,30 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 	// Note that Genesis transactions don't require reference, fee or signature:
 	private static final int TYPELESS_LENGTH = TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
 
-	static Transaction fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
+	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
 			throw new TransformationException("Byte data too short for GenesisTransaction");
 
 		long timestamp = byteBuffer.getLong();
-		Account recipient = new Account(Serialization.deserializeRecipient(byteBuffer));
+		String recipient = Serialization.deserializeRecipient(byteBuffer);
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
-		return new GenesisTransaction(recipient, amount, timestamp);
+		return new GenesisTransactionData(recipient, amount, timestamp);
 	}
 
-	public static int getDataLength(Transaction baseTransaction) throws TransformationException {
+	public static int getDataLength(TransactionData baseTransaction) throws TransformationException {
 		return TYPE_LENGTH + TYPELESS_LENGTH;
 	}
 
-	public static byte[] toBytes(Transaction baseTransaction) throws TransformationException {
+	public static byte[] toBytes(TransactionData baseTransaction) throws TransformationException {
 		try {
-			GenesisTransaction transaction = (GenesisTransaction) baseTransaction;
+			GenesisTransactionData transaction = (GenesisTransactionData) baseTransaction;
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
 			bytes.write(Ints.toByteArray(transaction.getType().value));
 			bytes.write(Longs.toByteArray(transaction.getTimestamp()));
-			bytes.write(Base58.decode(transaction.getRecipient().getAddress()));
+			bytes.write(Base58.decode(transaction.getRecipient()));
 			bytes.write(Serialization.serializeBigDecimal(transaction.getAmount()));
 
 			return bytes.toByteArray();
@@ -58,13 +57,13 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 	}
 
 	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(Transaction baseTransaction) throws TransformationException {
+	public static JSONObject toJSON(TransactionData baseTransaction) throws TransformationException {
 		JSONObject json = TransactionTransformer.getBaseJSON(baseTransaction);
 
 		try {
-			GenesisTransaction transaction = (GenesisTransaction) baseTransaction;
+			GenesisTransactionData transaction = (GenesisTransactionData) baseTransaction;
 
-			json.put("recipient", transaction.getRecipient().getAddress());
+			json.put("recipient", transaction.getRecipient());
 			json.put("amount", transaction.getAmount().toPlainString());
 		} catch (ClassCastException e) {
 			throw new TransformationException(e);

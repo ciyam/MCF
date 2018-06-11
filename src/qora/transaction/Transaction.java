@@ -7,25 +7,36 @@ import java.util.Map;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
-import org.json.simple.JSONObject;
-
-import data.transaction.Transaction;
-import database.DB;
-import database.NoDataFoundException;
+import data.block.BlockData;
+import data.transaction.TransactionData;
 import qora.account.PrivateKeyAccount;
-import qora.account.PublicKeyAccount;
 import qora.block.Block;
 import qora.block.BlockChain;
-import qora.block.BlockTransaction;
-import repository.Repository;
 import repository.RepositoryManager;
 import settings.Settings;
 import transform.TransformationException;
 import transform.Transformer;
 import transform.transaction.TransactionTransformer;
-import utils.Base58;
 
-public abstract class TransactionHandler {
+public abstract class Transaction {
+
+	// Transaction types
+	public enum TransactionType {
+		GENESIS(1), PAYMENT(2), REGISTER_NAME(3), UPDATE_NAME(4), SELL_NAME(5), CANCEL_SELL_NAME(6), BUY_NAME(7), CREATE_POLL(8), VOTE_ON_POLL(9), ARBITRARY(
+				10), ISSUE_ASSET(11), TRANSFER_ASSET(12), CREATE_ASSET_ORDER(13), CANCEL_ASSET_ORDER(14), MULTIPAYMENT(15), DEPLOY_AT(16), MESSAGE(17);
+
+		public final int value;
+
+		private final static Map<Integer, TransactionType> map = stream(TransactionType.values()).collect(toMap(type -> type.value, type -> type));
+
+		TransactionType(int value) {
+			this.value = value;
+		}
+
+		public static TransactionType valueOf(int value) {
+			return map.get(value);
+		}
+	}
 
 	// Validation results
 	public enum ValidationResult {
@@ -52,30 +63,40 @@ public abstract class TransactionHandler {
 	protected static final BigDecimal maxBytePerFee = BigDecimal.valueOf(Settings.getInstance().getMaxBytePerFee());
 	protected static final BigDecimal minFeePerByte = BigDecimal.ONE.divide(maxBytePerFee, MathContext.DECIMAL32);
 
-	private Transaction transaction;
+	protected TransactionData transactionData;
 	
 	// Constructors
 
-	public TransactionHandler(Transaction transaction) {
-		this.transaction = transaction;
+	public static Transaction fromData(TransactionData transactionData) {
+		switch (transactionData.getType()) {
+			case GENESIS:
+				return new GenesisTransaction(transactionData);
+				
+			default:
+				return null;
+		}
 	}
 
+	// Getters / Setters
+	
+	public TransactionData getTransactionData() {
+		return this.transactionData;
+	}
+	
 	// More information
-	
-	
 
 	public long getDeadline() {
 		// 24 hour deadline to include transaction in a block
-		return this.transaction.getTimestamp() + (24 * 60 * 60 * 1000);
+		return this.transactionData.getTimestamp() + (24 * 60 * 60 * 1000);
 	}
 
 	public boolean hasMinimumFee() {
-		return this.transaction.getFee().compareTo(MINIMUM_FEE) >= 0;
+		return this.transactionData.getFee().compareTo(MINIMUM_FEE) >= 0;
 	}
 
 	public BigDecimal feePerByte() {
 		try {
-			return this.transaction.getFee().divide(new BigDecimal(TransactionTransformer.getDataLength(this.transaction)), MathContext.DECIMAL32);
+			return this.transactionData.getFee().divide(new BigDecimal(TransactionTransformer.getDataLength(this.transactionData)), MathContext.DECIMAL32);
 		} catch (TransformationException e) {
 			throw new IllegalStateException("Unable to get transaction byte length?");
 		}
@@ -87,7 +108,7 @@ public abstract class TransactionHandler {
 
 	public BigDecimal calcRecommendedFee() {
 		try {
-			BigDecimal recommendedFee = BigDecimal.valueOf(TransactionTransformer.getDataLength(this.transaction)).divide(maxBytePerFee, MathContext.DECIMAL32).setScale(8);
+			BigDecimal recommendedFee = BigDecimal.valueOf(TransactionTransformer.getDataLength(this.transactionData)).divide(maxBytePerFee, MathContext.DECIMAL32).setScale(8);
 	
 			// security margin
 			recommendedFee = recommendedFee.add(new BigDecimal("0.0000001"));
@@ -118,7 +139,7 @@ public abstract class TransactionHandler {
 	 * @return height, or 0 if not in blockchain (i.e. unconfirmed)
 	 */
 	public int getHeight() {
-		return RepositoryManager.getTransactionRepository().getHeight(this.transaction);
+		return RepositoryManager.getTransactionRepository().getHeight(this.transactionData);
 	}
 
 	/**
@@ -132,6 +153,9 @@ public abstract class TransactionHandler {
 			return 0;
 
 		int blockChainHeight = BlockChain.getHeight();
+		if (blockChainHeight == 0)
+			return 0;
+		
 		return blockChainHeight - ourHeight + 1;
 	}
 
@@ -142,8 +166,8 @@ public abstract class TransactionHandler {
 	 * 
 	 * @return Block, or null if transaction is not in a Block
 	 */
-	public Block getBlock() {
-		return RepositoryManager.getTransactionRepository().toBlock(this.transaction);
+	public BlockData getBlock() {
+		return RepositoryManager.getTransactionRepository().toBlock(this.transactionData);
 	}
 
 	/**
@@ -151,8 +175,8 @@ public abstract class TransactionHandler {
 	 * 
 	 * @return Transaction, or null if no parent found (which should not happen)
 	 */
-	public Transaction getParent() {
-		byte[] reference = this.transaction.getReference();
+	public TransactionData getParent() {
+		byte[] reference = this.transactionData.getReference();
 		if (reference == null)
 			return null;
 
@@ -164,8 +188,8 @@ public abstract class TransactionHandler {
 	 * 
 	 * @return Transaction, or null if no child found
 	 */
-	public Transaction getChild() {
-		byte[] signature = this.transaction.getSignature();
+	public TransactionData getChild() {
+		byte[] signature = this.transactionData.getSignature();
 		if (signature == null)
 			return null;
 
@@ -181,7 +205,7 @@ public abstract class TransactionHandler {
 	 */
 	private byte[] toBytesLessSignature() {
 		try {
-			byte[] bytes = TransactionTransformer.toBytes(this.transaction);
+			byte[] bytes = TransactionTransformer.toBytes(this.transactionData);
 			return Arrays.copyOf(bytes, bytes.length - Transformer.SIGNATURE_LENGTH);
 		} catch (TransformationException e) {
 			// XXX this isn't good
@@ -196,7 +220,7 @@ public abstract class TransactionHandler {
 	}
 
 	public boolean isSignatureValid() {
-		byte[] signature = this.transaction.getSignature();
+		byte[] signature = this.transactionData.getSignature();
 		if (signature == null)
 			return false;
 

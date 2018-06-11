@@ -6,16 +6,7 @@ import java.sql.SQLException;
 import database.DB;
 import database.NoDataFoundException;
 import qora.account.Account;
-import qora.transaction.TransactionHandler;
 import repository.hsqldb.HSQLDBSaver;
-
-/*
- * TODO:
- * Probably need to standardize on using assetId or assetKey for the long value, and plain "asset" for the java object.
- * Thus in the database the primary key column could be called "asset_id".
- * In the Order object, we'd pass longs to variables with names like "haveAssetId" and use getters like "getHaveAssetId"
- * which frees up other method names like "getHaveAsset" to return a java Asset object. 
- */
 
 public class Asset {
 
@@ -91,7 +82,7 @@ public class Asset {
 		this.description = rs.getString(3);
 		this.quantity = rs.getLong(4);
 		this.isDivisible = rs.getBoolean(5);
-		this.reference = DB.getResultSetBytes(rs.getBinaryStream(6), TransactionHandler.REFERENCE_LENGTH);
+		this.reference = DB.getResultSetBytes(rs.getBinaryStream(6));
 	}
 
 	public static Asset fromAssetId(long assetId) throws SQLException {

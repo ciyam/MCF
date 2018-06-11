@@ -87,14 +87,17 @@ public class BlockChain {
 	 * Return highest block height from DB.
 	 * 
 	 * @return height, or 0 if there are no blocks in DB (not very likely).
-	 * @throws SQLException
 	 */
-	public static int getHeight() throws SQLException {
-		ResultSet rs = DB.checkedExecute("SELECT MAX(height) FROM Blocks");
-		if (rs == null)
-			return 0;
+	public static int getHeight() {
+		try {
+			ResultSet rs = DB.checkedExecute("SELECT MAX(height) FROM Blocks");
+			if (rs == null)
+				return 0;
 
-		return rs.getInt(1);
+			return rs.getInt(1);
+		} catch (SQLException e) {
+			return 0;
+		}
 	}
 
 	/**

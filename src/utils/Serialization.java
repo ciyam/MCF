@@ -6,8 +6,8 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
 import qora.account.PublicKeyAccount;
-import qora.transaction.TransactionHandler;
 import transform.TransformationException;
+import transform.Transformer;
 
 public class Serialization {
 
@@ -31,15 +31,15 @@ public class Serialization {
 	}
 
 	public static String deserializeRecipient(ByteBuffer byteBuffer) {
-		byte[] bytes = new byte[TransactionHandler.RECIPIENT_LENGTH];
+		byte[] bytes = new byte[Transformer.ADDRESS_LENGTH];
 		byteBuffer.get(bytes);
 		return Base58.encode(bytes);
 	}
 
-	public static PublicKeyAccount deserializePublicKey(ByteBuffer byteBuffer) {
-		byte[] bytes = new byte[TransactionHandler.CREATOR_LENGTH];
+	public static byte[] deserializePublicKey(ByteBuffer byteBuffer) {
+		byte[] bytes = new byte[Transformer.PUBLIC_KEY_LENGTH];
 		byteBuffer.get(bytes);
-		return new PublicKeyAccount(bytes);
+		return bytes;
 	}
 
 	public static String deserializeSizedString(ByteBuffer byteBuffer, int maxSize) throws TransformationException {
