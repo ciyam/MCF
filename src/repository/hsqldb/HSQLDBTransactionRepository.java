@@ -1,7 +1,6 @@
 package repository.hsqldb;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -9,9 +8,7 @@ import java.sql.Timestamp;
 import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.transaction.Transaction.TransactionType;
-import database.DB;
 import repository.DataException;
-import repository.RepositoryManager;
 import repository.TransactionRepository;
 
 public class HSQLDBTransactionRepository implements TransactionRepository {
@@ -26,13 +23,13 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	public TransactionData fromSignature(byte[] signature) {
 		try {
-			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
+			ResultSet rs = this.repository.checkedExecute("SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
 			if (rs == null)
 				return null;
 
 			TransactionType type = TransactionType.valueOf(rs.getInt(1));
-			byte[] reference = DB.getResultSetBytes(rs.getBinaryStream(2));
-			byte[] creator = DB.getResultSetBytes(rs.getBinaryStream(3));
+			byte[] reference = this.repository.getResultSetBytes(rs.getBinaryStream(2));
+			byte[] creator = this.repository.getResultSetBytes(rs.getBinaryStream(3));
 			long timestamp = rs.getTimestamp(4).getTime();
 			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
 
@@ -44,13 +41,13 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	public TransactionData fromReference(byte[] reference) {
 		try {
-			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT type, signature, creator, creation, fee FROM Transactions WHERE reference = ?", reference);
+			ResultSet rs = this.repository.checkedExecute("SELECT type, signature, creator, creation, fee FROM Transactions WHERE reference = ?", reference);
 			if (rs == null)
 				return null;
 
 			TransactionType type = TransactionType.valueOf(rs.getInt(1));
-			byte[] signature = DB.getResultSetBytes(rs.getBinaryStream(2));
-			byte[] creator = DB.getResultSetBytes(rs.getBinaryStream(3));
+			byte[] signature = this.repository.getResultSetBytes(rs.getBinaryStream(2));
+			byte[] creator = this.repository.getResultSetBytes(rs.getBinaryStream(3));
 			long timestamp = rs.getTimestamp(4).getTime();
 			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
 
@@ -78,7 +75,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		// in one go?
 		try {
-			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT height from BlockTransactions JOIN Blocks ON Blocks.signature = BlockTransactions.block_signature WHERE transaction_signature = ? LIMIT 1", signature);
+			ResultSet rs = this.repository.checkedExecute(
+					"SELECT height from BlockTransactions JOIN Blocks ON Blocks.signature = BlockTransactions.block_signature WHERE transaction_signature = ? LIMIT 1",
+					signature);
 
 			if (rs == null)
 				return 0;
@@ -97,13 +96,13 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		// Fetch block signature (if any)
 		try {
-			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT block_signature from BlockTransactions WHERE transaction_signature = ? LIMIT 1", signature);
+			ResultSet rs = this.repository.checkedExecute("SELECT block_signature from BlockTransactions WHERE transaction_signature = ? LIMIT 1", signature);
 			if (rs == null)
 				return null;
 
-			byte[] blockSignature = DB.getResultSetBytes(rs.getBinaryStream(1));
+			byte[] blockSignature = this.repository.getResultSetBytes(rs.getBinaryStream(1));
 
-			return RepositoryManager.getBlockRepository().fromSignature(blockSignature);
+			return this.repository.getBlockRepository().fromSignature(blockSignature);
 		} catch (SQLException | DataException e) {
 			return null;
 		}
@@ -113,23 +112,23 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	public void save(TransactionData transactionData) throws DataException {
 		HSQLDBSaver saver = new HSQLDBSaver("Transactions");
 		saver.bind("signature", transactionData.getSignature()).bind("reference", transactionData.getReference()).bind("type", transactionData.getType().value)
-				.bind("creator", transactionData.getCreatorPublicKey()).bind("creation", new Timestamp(transactionData.getTimestamp())).bind("fee", transactionData.getFee())
-				.bind("milestone_block", null);
+				.bind("creator", transactionData.getCreatorPublicKey()).bind("creation", new Timestamp(transactionData.getTimestamp()))
+				.bind("fee", transactionData.getFee()).bind("milestone_block", null);
 		try {
-			saver.execute(repository.connection);
+			saver.execute(this.repository.connection);
 		} catch (SQLException e) {
 			throw new DataException(e);
 		}
 	}
 
 	@Override
-	public void delete(TransactionData transactionData) {
+	public void delete(TransactionData transactionData) throws DataException {
 		// NOTE: The corresponding row in sub-table is deleted automatically by the database thanks to "ON DELETE CASCADE" in the sub-table's FOREIGN KEY
 		// definition.
 		try {
-			DB.checkedExecute(repository.connection, "DELETE FROM Transactions WHERE signature = ?", transaction.getSignature());
+			this.repository.checkedExecute("DELETE FROM Transactions WHERE signature = ?", transactionData.getSignature());
 		} catch (SQLException e) {
-			// XXX do what?
+			throw new DataException(e);
 		}
 	}
 

@@ -8,8 +8,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import database.DB;
-
 /**
  * Database helper for building, and executing, INSERT INTO ... ON DUPLICATE KEY UPDATE ... statements.
  * <p>
@@ -51,15 +49,11 @@ public class HSQLDBSaver {
 
 	/**
 	 * Build PreparedStatement using bound column-value pairs then execute it.
-	 * 
+	 *
+	 * @param connection
 	 * @return the result from {@link PreparedStatement#execute()}
 	 * @throws SQLException
 	 */
-	public boolean execute() throws SQLException {
-		Connection connection = DB.getConnection();
-		return execute(connection);
-	}
-
 	public boolean execute(Connection connection) throws SQLException {
 		String sql = this.formatInsertWithPlaceholders();
 		PreparedStatement preparedStatement = connection.prepareStatement(sql);

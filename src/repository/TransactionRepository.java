@@ -9,12 +9,12 @@ public interface TransactionRepository {
 
 	public TransactionData fromReference(byte[] reference);
 
-	public int getHeight(TransactionData transaction);
+	public int getHeight(TransactionData transactionData);
 	
-	public BlockData toBlock(TransactionData transaction);
+	public BlockData toBlock(TransactionData transactionData);
 	
-	public void save(TransactionData transaction) throws DataException;
+	public void save(TransactionData transactionData) throws DataException;
 
-	public void delete(TransactionData transaction) throws DataException;
+	public void delete(TransactionData transactionData) throws DataException;
 
 }

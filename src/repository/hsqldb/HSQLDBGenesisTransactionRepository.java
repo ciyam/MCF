@@ -6,7 +6,6 @@ import java.sql.SQLException;
 
 import data.transaction.GenesisTransactionData;
 import data.transaction.TransactionData;
-import database.DB;
 import repository.DataException;
 
 public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionRepository {
@@ -17,7 +16,7 @@ public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionReposit
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creator, long timestamp, BigDecimal fee) {
 		try {
-			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
+			ResultSet rs = this.repository.checkedExecute("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
 			if (rs == null)
 				return null;
 
@@ -39,7 +38,7 @@ public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionReposit
 		HSQLDBSaver saveHelper = new HSQLDBSaver("GenesisTransactions");
 		saveHelper.bind("signature", genesisTransaction.getSignature()).bind("recipient", genesisTransaction.getRecipient()).bind("amount", genesisTransaction.getAmount());
 		try {
-			saveHelper.execute();
+			saveHelper.execute(this.repository.connection);
 		} catch (SQLException e) {
 			throw new DataException(e);
 		}

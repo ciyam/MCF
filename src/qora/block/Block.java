@@ -1,49 +1,28 @@
 package qora.block;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Savepoint;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-
-import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 
 import data.block.BlockData;
+import data.block.BlockTransactionData;
 import data.transaction.TransactionData;
-import database.DB;
-import database.NoDataFoundException;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
-import qora.assets.Order;
-import qora.assets.Trade;
-import qora.transaction.CreateOrderTransaction;
 import qora.transaction.GenesisTransaction;
 import qora.transaction.Transaction;
 import repository.BlockRepository;
 import repository.DataException;
-import repository.RepositoryManager;
-import repository.hsqldb.HSQLDBSaver;
+import repository.Repository;
 import transform.TransformationException;
 import transform.block.BlockTransformer;
 import transform.transaction.TransactionTransformer;
-import utils.Base58;
 import utils.NTP;
-import utils.Serialization;
 
 /*
  * Typical use-case scenarios:
@@ -70,6 +49,7 @@ import utils.Serialization;
 public class Block {
 
 	// Properties
+	private Repository repository;
 	private BlockData blockData;
 	private PublicKeyAccount generator;
 	
@@ -96,7 +76,8 @@ public class Block {
 
 	// Constructors
 
-	public Block(BlockData blockData) {
+	public Block(Repository repository, BlockData blockData) {
+		this.repository = repository;
 		this.blockData = blockData;
 		this.generator = new PublicKeyAccount(blockData.getGeneratorPublicKey());
 	}
@@ -159,7 +140,7 @@ public class Block {
 
 		// Navigate back to first block in previous interval:
 		// XXX: why can't we simply load using block height?
-		BlockRepository blockRepo = RepositoryManager.getBlockRepository();
+		BlockRepository blockRepo = this.repository.getBlockRepository();
 		BlockData firstBlock = this.blockData;
 		
 		try {
@@ -212,7 +193,7 @@ public class Block {
 			return this.transactions;
 
 		// Allocate cache for results
-		List<TransactionData> transactionsData = RepositoryManager.getBlockRepository().getTransactionsFromSignature(this.blockData.getSignature());
+		List<TransactionData> transactionsData = this.repository.getBlockRepository().getTransactionsFromSignature(this.blockData.getSignature());
 
 		// The number of transactions fetched from repository should correspond with Block's transactionCount
 		if (transactionsData.size() != this.blockData.getTransactionCount())
@@ -348,11 +329,11 @@ public class Block {
 		if (this.blockData.getReference() == null)
 			return false;
 
-		BlockData parentBlockData = RepositoryManager.getBlockRepository().fromSignature(this.blockData.getReference());
+		BlockData parentBlockData = this.repository.getBlockRepository().fromSignature(this.blockData.getReference());
 		if (parentBlockData == null)
 			return false;
 
-		Block parentBlock = new Block(parentBlockData);
+		Block parentBlock = new Block(this.repository, parentBlockData);
 		
 		// Check timestamp is valid, i.e. later than parent timestamp and not in the future, within ~500ms margin
 		if (this.blockData.getTimestamp() < parentBlockData.getTimestamp() || this.blockData.getTimestamp() - BLOCK_TIMESTAMP_MARGIN > NTP.getTime())
@@ -387,7 +368,6 @@ public class Block {
 		}
 
 		// Check transactions
-		Savepoint savepoint = DB.createSavepoint("BLOCK_TRANSACTIONS");
 		try {
 			for (Transaction transaction : this.getTransactions()) {
 				// GenesisTransactions are not allowed (GenesisBlock overrides isValid() to allow them)
@@ -395,7 +375,8 @@ public class Block {
 					return false;
 
 				// Check timestamp and deadline
-				if (transaction.getTransactionData().getTimestamp() > this.blockData.getTimestamp() || transaction.getDeadline() <= this.blockData.getTimestamp())
+				if (transaction.getTransactionData().getTimestamp() > this.blockData.getTimestamp()
+						|| transaction.getDeadline() <= this.blockData.getTimestamp())
 					return false;
 
 				// Check transaction is even valid
@@ -416,11 +397,11 @@ public class Block {
 		} finally {
 			// Revert back to savepoint
 			try {
-				DB.rollbackToSavepoint(savepoint);
-			} catch (SQLException e) {
+				this.repository.discardChanges();
+			} catch (DataException e) {
 				/*
-				 * Rollback failure most likely due to prior SQLException, so catch rollback's SQLException and discard. A "return false" in try-block will
-				 * still return false, prior SQLException propagates to caller and successful completion of try-block continues on after rollback.
+				 * Rollback failure most likely due to prior DataException, so catch rollback's DataException and discard. A "return false" in try-block will
+				 * still return false, prior DataException propagates to caller and successful completion of try-block continues on after rollback.
 				 */
 			}
 		}
@@ -442,20 +423,20 @@ public class Block {
 
 		// Link block into blockchain by fetching signature of highest block and setting that as our reference
 		int blockchainHeight = BlockChain.getHeight();
-		BlockData latestBlockData = RepositoryManager.getBlockRepository().fromHeight(blockchainHeight);
+		BlockData latestBlockData = this.repository.getBlockRepository().fromHeight(blockchainHeight);
 		if (latestBlockData != null)
 			this.blockData.setReference(latestBlockData.getSignature());
 
 		this.blockData.setHeight(blockchainHeight + 1);
-		RepositoryManager.getBlockRepository().save(this.blockData);
+		this.repository.getBlockRepository().save(this.blockData);
 
 		// Link transactions to this block, thus removing them from unconfirmed transactions list.
 		for (int sequence = 0; sequence < transactions.size(); ++sequence) {
 			Transaction transaction = transactions.get(sequence);
 
 			// Link transaction to this block
-			BlockTransaction blockTransaction = new BlockTransaction(this.getSignature(), sequence, transaction.getTransactionData().getSignature());
-			blockTransaction.save();
+			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence, transaction.getTransactionData().getSignature());
+			this.repository.getBlockTransactionRepository().save(blockTransactionData);
 		}
 	}
 

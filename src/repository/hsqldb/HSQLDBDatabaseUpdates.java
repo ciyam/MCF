@@ -1,19 +1,20 @@
-package database;
+package repository.hsqldb;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-public class DatabaseUpdates {
+public class HSQLDBDatabaseUpdates {
 
 	/**
 	 * Apply any incremental changes to database schema.
 	 * 
 	 * @throws SQLException
 	 */
-	public static void updateDatabase() throws SQLException {
-		while (databaseUpdating())
-			incrementDatabaseVersion();
+	public static void updateDatabase(Connection connection) throws SQLException {
+		while (databaseUpdating(connection))
+			incrementDatabaseVersion(connection);
 	}
 
 	/**
@@ -21,8 +22,8 @@ public class DatabaseUpdates {
 	 * 
 	 * @throws SQLException
 	 */
-	private static void incrementDatabaseVersion() throws SQLException {
-		DB.getConnection().createStatement().execute("UPDATE DatabaseInfo SET version = version + 1");
+	private static void incrementDatabaseVersion(Connection connection) throws SQLException {
+		connection.createStatement().execute("UPDATE DatabaseInfo SET version = version + 1");
 	}
 
 	/**
@@ -31,11 +32,11 @@ public class DatabaseUpdates {
 	 * @return int, 0 if no schema yet
 	 * @throws SQLException
 	 */
-	private static int fetchDatabaseVersion() throws SQLException {
+	private static int fetchDatabaseVersion(Connection connection) throws SQLException {
 		int databaseVersion = 0;
 
 		try {
-			Statement stmt = DB.getConnection().createStatement();
+			Statement stmt = connection.createStatement();
 			if (stmt.execute("SELECT version FROM DatabaseInfo")) {
 				ResultSet rs = stmt.getResultSet();
 
@@ -55,10 +56,10 @@ public class DatabaseUpdates {
 	 * @return true - if a schema update happened, false otherwise
 	 * @throws SQLException
 	 */
-	private static boolean databaseUpdating() throws SQLException {
-		int databaseVersion = fetchDatabaseVersion();
+	private static boolean databaseUpdating(Connection connection) throws SQLException {
+		int databaseVersion = fetchDatabaseVersion(connection);
 
-		Statement stmt = DB.getConnection().createStatement();
+		Statement stmt = connection.createStatement();
 
 		/*
 		 * Try not to add too many constraints as much of these checks will be performed during transaction validation. Also some constraints might be too harsh

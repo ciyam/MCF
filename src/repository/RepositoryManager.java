@@ -2,18 +2,14 @@ package repository;
 
 public abstract class RepositoryManager {
 
-	private static Repository repository;
+	private static RepositoryFactory repositoryFactory;
 
-	public static void setRepository(Repository newRepository) {
-		repository = newRepository;
+	public static void setRepositoryFactory(RepositoryFactory newRepositoryFactory) {
+		repositoryFactory = newRepositoryFactory;
 	}
 
-	public static TransactionRepository getTransactionRepository() {
-		return repository.transactionRepository;
-	}
-
-	public static BlockRepository getBlockRepository() {
-		return repository.blockRepository;
+	public static Repository getRepository() throws DataException {
+		return repositoryFactory.getRepository();
 	}
 
 }

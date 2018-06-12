@@ -1,19 +1,17 @@
 package repository;
 
-public abstract class Repository {
+public interface Repository {
 
-	protected TransactionRepository transactionRepository;
-	protected BlockRepository blockRepository;
+	public BlockRepository getBlockRepository();
 
-	public abstract void saveChanges() throws DataException ;
-	public abstract void discardChanges() throws DataException ;
-	public abstract void close() throws DataException ;
-	
-	public TransactionRepository getTransactionRepository() {
-		return this.transactionRepository;
-	}
+	public BlockTransactionRepository getBlockTransactionRepository();
 
-	public BlockRepository getBlockRepository() {
-		return this.blockRepository;
-	}
+	public TransactionRepository getTransactionRepository();
+
+	public void saveChanges() throws DataException;
+
+	public void discardChanges() throws DataException;
+
+	public void close() throws DataException;
+
 }
