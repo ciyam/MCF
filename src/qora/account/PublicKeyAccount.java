@@ -8,8 +8,9 @@ public class PublicKeyAccount extends Account {
 	protected byte[] publicKey;
 
 	public PublicKeyAccount(byte[] publicKey) {
+		super(Crypto.toAddress(publicKey));
+
 		this.publicKey = publicKey;
-		this.address = Crypto.toAddress(this.publicKey);
 	}
 
 	protected PublicKeyAccount() {

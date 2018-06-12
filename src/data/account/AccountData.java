@@ -1,6 +1,6 @@
 package data.account;
 
-public class Account {
+public class AccountData {
 
 	// Properties
 	protected String address;
@@ -8,10 +8,10 @@ public class Account {
 
 	// Constructors
 
-	protected Account() {
+	protected AccountData() {
 	}
 
-	public Account(String address) {
+	public AccountData(String address) {
 		this.address = address;
 	}
 
@@ -33,10 +33,10 @@ public class Account {
 
 	@Override
 	public boolean equals(Object b) {
-		if (!(b instanceof Account))
+		if (!(b instanceof AccountData))
 			return false;
 
-		return this.getAddress().equals(((Account) b).getAddress());
+		return this.getAddress().equals(((AccountData) b).getAddress());
 	}
 
 	@Override

@@ -4,8 +4,8 @@ import java.nio.ByteBuffer;
 
 import org.json.simple.JSONObject;
 
-import data.transaction.Transaction;
-import data.transaction.Transaction.TransactionType;
+import data.transaction.TransactionData;
+import qora.transaction.Transaction.TransactionType;
 import transform.TransformationException;
 import transform.Transformer;
 import utils.Base58;
@@ -14,7 +14,7 @@ public class TransactionTransformer extends Transformer {
 
 	protected static final int TYPE_LENGTH = INT_LENGTH;
 
-	public static Transaction fromBytes(byte[] bytes) throws TransformationException {
+	public static TransactionData fromBytes(byte[] bytes) throws TransformationException {
 		if (bytes == null)
 			return null;
 
@@ -36,7 +36,7 @@ public class TransactionTransformer extends Transformer {
 		}
 	}
 
-	public static int getDataLength(Transaction transaction) throws TransformationException {
+	public static int getDataLength(TransactionData transaction) throws TransformationException {
 		switch (transaction.getType()) {
 			case GENESIS:
 				return GenesisTransactionTransformer.getDataLength(transaction);
@@ -46,7 +46,7 @@ public class TransactionTransformer extends Transformer {
 		}
 	}
 
-	public static byte[] toBytes(Transaction transaction) throws TransformationException {
+	public static byte[] toBytes(TransactionData transaction) throws TransformationException {
 		switch (transaction.getType()) {
 			case GENESIS:
 				return GenesisTransactionTransformer.toBytes(transaction);
@@ -56,7 +56,7 @@ public class TransactionTransformer extends Transformer {
 		}
 	}
 
-	public static JSONObject toJSON(Transaction transaction) throws TransformationException {
+	public static JSONObject toJSON(TransactionData transaction) throws TransformationException {
 		switch (transaction.getType()) {
 			case GENESIS:
 				return GenesisTransactionTransformer.toJSON(transaction);
@@ -67,7 +67,7 @@ public class TransactionTransformer extends Transformer {
 	}
 
 	@SuppressWarnings("unchecked")
-	static JSONObject getBaseJSON(Transaction transaction) {
+	static JSONObject getBaseJSON(TransactionData transaction) {
 		JSONObject json = new JSONObject();
 
 		json.put("type", transaction.getType().value);

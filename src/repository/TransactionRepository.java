@@ -1,20 +1,20 @@
 package repository;
 
-import data.transaction.Transaction;
-import qora.block.Block;
+import data.transaction.TransactionData;
+import data.block.BlockData;
 
 public interface TransactionRepository {
 
-	public Transaction fromSignature(byte[] signature);
+	public TransactionData fromSignature(byte[] signature);
 
-	public Transaction fromReference(byte[] reference);
+	public TransactionData fromReference(byte[] reference);
 
-	public int getHeight(Transaction transaction);
+	public int getHeight(TransactionData transaction);
 	
-	public Block toBlock(Transaction transaction);
+	public BlockData toBlock(TransactionData transaction);
 	
-	public void save(Transaction transaction);
+	public void save(TransactionData transaction) throws DataException;
 
-	public void delete(Transaction transaction);
+	public void delete(TransactionData transaction) throws DataException;
 
 }
