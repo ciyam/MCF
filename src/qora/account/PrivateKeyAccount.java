@@ -1,7 +1,9 @@
 package qora.account;
 
+import data.account.AccountData;
 import qora.crypto.Crypto;
 import qora.crypto.Ed25519;
+import repository.Repository;
 import utils.Pair;
 
 public class PrivateKeyAccount extends PublicKeyAccount {
@@ -15,11 +17,12 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 	 * @param seed
 	 *            byte[32] used to create private/public key pair
 	 */
-	public PrivateKeyAccount(byte[] seed) {
+	public PrivateKeyAccount(Repository repository, byte[] seed) {
+		this.repository = repository;
 		this.seed = seed;
 		this.keyPair = Ed25519.createKeyPair(seed);
 		this.publicKey = keyPair.getB();
-		this.address = Crypto.toAddress(this.publicKey);
+		this.accountData = new AccountData(Crypto.toAddress(this.publicKey));
 	}
 
 	public byte[] getSeed() {

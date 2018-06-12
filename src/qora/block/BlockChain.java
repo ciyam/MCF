@@ -1,11 +1,14 @@
 package qora.block;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import database.DB;
+import data.block.BlockData;
 import qora.assets.Asset;
+import repository.BlockRepository;
+import repository.DataException;
+import repository.Repository;
+import repository.RepositoryManager;
 
 /**
  * Class representing the blockchain as a whole.
@@ -35,69 +38,43 @@ public class BlockChain {
 	 * 
 	 * @throws SQLException
 	 */
-	public static void validate() throws SQLException {
+	public static void validate() throws DataException {
 		// Check first block is Genesis Block
 		if (!isGenesisBlockValid())
 			rebuildBlockchain();
 	}
 
-	private static boolean isGenesisBlockValid() throws SQLException {
-		int blockchainHeight = getHeight();
+	private static boolean isGenesisBlockValid() throws DataException {
+		BlockRepository blockRepository = RepositoryManager.getRepository().getBlockRepository();
+
+		int blockchainHeight = blockRepository.getBlockchainHeight();
 		if (blockchainHeight < 1)
 			return false;
 
-		Block block = Block.fromHeight(1);
-		if (block == null)
+		BlockData blockData = blockRepository.fromHeight(1);
+		if (blockData == null)
 			return false;
 
-		return GenesisBlock.isGenesisBlock(block);
+		return GenesisBlock.isGenesisBlock(blockData);
 	}
 
-	private static void rebuildBlockchain() throws SQLException {
-		// (Re)build database
-		DB.rebuild();
+	private static void rebuildBlockchain() throws DataException {
+		// (Re)build repository
+		Repository repository = RepositoryManager.getRepository();
+		repository.rebuild();
 
 		// Add Genesis Block
-		GenesisBlock genesisBlock = GenesisBlock.getInstance();
+		GenesisBlock genesisBlock = new GenesisBlock(repository);
 		genesisBlock.process();
 
 		// Add QORA asset.
 		// NOTE: Asset's transaction reference is Genesis Block's generator signature which doesn't exist as a transaction!
+		// TODO construct Asset(repository, AssetData) then .save()?
 		Asset qoraAsset = new Asset(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.", 10_000_000_000L, true,
-				genesisBlock.getGeneratorSignature());
+				genesisBlock.getBlockData().getGeneratorSignature());
 		qoraAsset.save();
-	}
 
-	/**
-	 * Return block height from DB using signature.
-	 * 
-	 * @param signature
-	 * @return height, or 0 if block not found.
-	 * @throws SQLException
-	 */
-	public static int getBlockHeightFromSignature(byte[] signature) throws SQLException {
-		ResultSet rs = DB.checkedExecute("SELECT height FROM Blocks WHERE signature = ?", signature);
-		if (rs == null)
-			return 0;
-
-		return rs.getInt(1);
-	}
-
-	/**
-	 * Return highest block height from DB.
-	 * 
-	 * @return height, or 0 if there are no blocks in DB (not very likely).
-	 */
-	public static int getHeight() {
-		try {
-			ResultSet rs = DB.checkedExecute("SELECT MAX(height) FROM Blocks");
-			if (rs == null)
-				return 0;
-
-			return rs.getInt(1);
-		} catch (SQLException e) {
-			return 0;
-		}
+		repository.saveChanges();
 	}
 
 	/**

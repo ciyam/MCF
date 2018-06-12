@@ -69,6 +69,10 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
+	@Override
+	public void rebuild() throws DataException {
+	}
+
 	/**
 	 * Convert InputStream, from ResultSet.getBinaryStream(), into byte[].
 	 * 

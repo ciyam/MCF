@@ -210,7 +210,7 @@ public class BlockTransformer extends Transformer {
 		json.put("version", blockData.getVersion());
 		json.put("timestamp", blockData.getTimestamp());
 		json.put("generatingBalance", blockData.getGeneratingBalance());
-		json.put("generator", new PublicKeyAccount(blockData.getGeneratorPublicKey()).getAddress());
+		json.put("generator", PublicKeyAccount.getAddress(blockData.getGeneratorPublicKey()));
 		json.put("generatorPublicKey", Base58.encode(blockData.getGeneratorPublicKey()));
 		json.put("fee", blockData.getTotalFees().toPlainString());
 		json.put("transactionsSignature", Base58.encode(blockData.getTransactionsSignature()));

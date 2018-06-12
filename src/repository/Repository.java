@@ -14,4 +14,6 @@ public interface Repository {
 
 	public void close() throws DataException;
 
+	public void rebuild() throws DataException;
+
 }

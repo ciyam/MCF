@@ -12,6 +12,7 @@ import data.transaction.TransactionData;
 import qora.account.PrivateKeyAccount;
 import qora.block.Block;
 import qora.block.BlockChain;
+import repository.Repository;
 import repository.RepositoryManager;
 import settings.Settings;
 import transform.TransformationException;
@@ -63,26 +64,27 @@ public abstract class Transaction {
 	protected static final BigDecimal maxBytePerFee = BigDecimal.valueOf(Settings.getInstance().getMaxBytePerFee());
 	protected static final BigDecimal minFeePerByte = BigDecimal.ONE.divide(maxBytePerFee, MathContext.DECIMAL32);
 
+	// Properties
 	protected TransactionData transactionData;
-	
+
 	// Constructors
 
 	public static Transaction fromData(TransactionData transactionData) {
 		switch (transactionData.getType()) {
 			case GENESIS:
 				return new GenesisTransaction(transactionData);
-				
+
 			default:
 				return null;
 		}
 	}
 
 	// Getters / Setters
-	
+
 	public TransactionData getTransactionData() {
 		return this.transactionData;
 	}
-	
+
 	// More information
 
 	public long getDeadline() {
@@ -108,17 +110,18 @@ public abstract class Transaction {
 
 	public BigDecimal calcRecommendedFee() {
 		try {
-			BigDecimal recommendedFee = BigDecimal.valueOf(TransactionTransformer.getDataLength(this.transactionData)).divide(maxBytePerFee, MathContext.DECIMAL32).setScale(8);
-	
+			BigDecimal recommendedFee = BigDecimal.valueOf(TransactionTransformer.getDataLength(this.transactionData))
+					.divide(maxBytePerFee, MathContext.DECIMAL32).setScale(8);
+
 			// security margin
 			recommendedFee = recommendedFee.add(new BigDecimal("0.0000001"));
-	
+
 			if (recommendedFee.compareTo(MINIMUM_FEE) <= 0) {
 				recommendedFee = MINIMUM_FEE;
 			} else {
 				recommendedFee = recommendedFee.setScale(0, BigDecimal.ROUND_UP);
 			}
-	
+
 			return recommendedFee.setScale(8);
 		} catch (TransformationException e) {
 			throw new IllegalStateException("Unable to get transaction byte length?");
@@ -139,7 +142,7 @@ public abstract class Transaction {
 	 * @return height, or 0 if not in blockchain (i.e. unconfirmed)
 	 */
 	public int getHeight() {
-		return RepositoryManager.getTransactionRepository().getHeight(this.transactionData);
+		return RepositoryManager.getRepository().getTransactionRepository().getHeight(this.transactionData);
 	}
 
 	/**
@@ -148,14 +151,14 @@ public abstract class Transaction {
 	 * @return confirmation count, or 0 if not in blockchain (i.e. unconfirmed)
 	 */
 	public int getConfirmations() {
-		int ourHeight = this.getHeight();
+		int ourHeight = getHeight();
 		if (ourHeight == 0)
 			return 0;
 
 		int blockChainHeight = BlockChain.getHeight();
 		if (blockChainHeight == 0)
 			return 0;
-		
+
 		return blockChainHeight - ourHeight + 1;
 	}
 

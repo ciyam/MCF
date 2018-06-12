@@ -49,10 +49,10 @@ import utils.NTP;
 public class Block {
 
 	// Properties
-	private Repository repository;
-	private BlockData blockData;
-	private PublicKeyAccount generator;
-	
+	protected Repository repository;
+	protected BlockData blockData;
+	protected PublicKeyAccount generator;
+
 	// Other properties
 	protected List<Transaction> transactions;
 	protected BigDecimal cachedNextGeneratingBalance;
@@ -76,16 +76,20 @@ public class Block {
 
 	// Constructors
 
-	public Block(Repository repository, BlockData blockData) {
+	public Block(Repository repository, BlockData blockData) throws DataException {
 		this.repository = repository;
 		this.blockData = blockData;
-		this.generator = new PublicKeyAccount(blockData.getGeneratorPublicKey());
+		this.generator = new PublicKeyAccount(repository, blockData.getGeneratorPublicKey());
 	}
 
 	// Getters/setters
 
 	public BlockData getBlockData() {
 		return this.blockData;
+	}
+
+	public PublicKeyAccount getGenerator() {
+		return this.generator;
 	}
 
 	// More information
@@ -142,7 +146,7 @@ public class Block {
 		// XXX: why can't we simply load using block height?
 		BlockRepository blockRepo = this.repository.getBlockRepository();
 		BlockData firstBlock = this.blockData;
-		
+
 		try {
 			for (int i = 1; firstBlock != null && i < BLOCK_RETARGET_INTERVAL; ++i)
 				firstBlock = blockRepo.fromSignature(firstBlock.getReference());
@@ -200,10 +204,10 @@ public class Block {
 			throw new IllegalStateException("Block's transactions from repository do not match block's transaction count");
 
 		this.transactions = new ArrayList<Transaction>();
-		
+
 		for (TransactionData transactionData : transactionsData)
 			this.transactions.add(Transaction.fromData(transactionData));
-		
+
 		return this.transactions;
 	}
 
@@ -294,7 +298,6 @@ public class Block {
 		}
 	}
 
-
 	public boolean isSignatureValid() {
 		try {
 			// Check generator's signature first
@@ -320,7 +323,7 @@ public class Block {
 	 * 
 	 * @return true if block is valid, false otherwise.
 	 * @throws SQLException
-	 * @throws DataException 
+	 * @throws DataException
 	 */
 	public boolean isValid() throws SQLException, DataException {
 		// TODO
@@ -334,7 +337,7 @@ public class Block {
 			return false;
 
 		Block parentBlock = new Block(this.repository, parentBlockData);
-		
+
 		// Check timestamp is valid, i.e. later than parent timestamp and not in the future, within ~500ms margin
 		if (this.blockData.getTimestamp() < parentBlockData.getTimestamp() || this.blockData.getTimestamp() - BLOCK_TIMESTAMP_MARGIN > NTP.getTime())
 			return false;
@@ -410,7 +413,7 @@ public class Block {
 		return true;
 	}
 
-	public void process() throws DataException, SQLException {
+	public void process() throws DataException {
 		// Process transactions (we'll link them to this block after saving the block itself)
 		List<Transaction> transactions = this.getTransactions();
 		for (Transaction transaction : transactions)
@@ -422,7 +425,7 @@ public class Block {
 			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFee));
 
 		// Link block into blockchain by fetching signature of highest block and setting that as our reference
-		int blockchainHeight = BlockChain.getHeight();
+		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
 		BlockData latestBlockData = this.repository.getBlockRepository().fromHeight(blockchainHeight);
 		if (latestBlockData != null)
 			this.blockData.setReference(latestBlockData.getSignature());
@@ -435,7 +438,8 @@ public class Block {
 			Transaction transaction = transactions.get(sequence);
 
 			// Link transaction to this block
-			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence, transaction.getTransactionData().getSignature());
+			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence,
+					transaction.getTransactionData().getSignature());
 			this.repository.getBlockRepository().save(blockTransactionData);
 		}
 	}

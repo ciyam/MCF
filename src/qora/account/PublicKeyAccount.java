@@ -2,13 +2,15 @@ package qora.account;
 
 import qora.crypto.Crypto;
 import qora.crypto.Ed25519;
+import repository.DataException;
+import repository.Repository;
 
 public class PublicKeyAccount extends Account {
 
 	protected byte[] publicKey;
 
-	public PublicKeyAccount(byte[] publicKey) {
-		super(Crypto.toAddress(publicKey));
+	public PublicKeyAccount(Repository repository, byte[] publicKey) throws DataException {
+		super(repository, Crypto.toAddress(publicKey));
 
 		this.publicKey = publicKey;
 	}
@@ -26,6 +28,10 @@ public class PublicKeyAccount extends Account {
 		} catch (Exception e) {
 			return false;
 		}
+	}
+
+	public static String getAddress(byte[] publicKey) {
+		return Crypto.toAddress(publicKey);
 	}
 
 }

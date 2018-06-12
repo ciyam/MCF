@@ -14,6 +14,22 @@ public interface BlockRepository {
 
 	public BlockData fromHeight(int height) throws DataException;
 
+	/**
+	 * Return height of block in blockchain using block's signature.
+	 * 
+	 * @param signature
+	 * @return height, or 0 if not found in blockchain.
+	 * @throws DataException
+	 */
+	public int getHeightFromSignature(byte[] signature) throws DataException;
+
+	/**
+	 * Return highest block height from DB.
+	 * 
+	 * @return height, or 0 if there are no blocks in DB (not very likely).
+	 */
+	public int getBlockchainHeight() throws DataException;
+
 	public List<TransactionData> getTransactionsFromSignature(byte[] signature) throws DataException;
 
 	public void save(BlockData blockData) throws DataException;

@@ -25,6 +25,31 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		this.repository = repository;
 	}
 
+	private BlockData getBlockFromResultSet(ResultSet rs) throws DataException {
+		if (rs == null)
+			return null;
+
+		try {
+			int version = rs.getInt(1);
+			byte[] reference = this.repository.getResultSetBytes(rs.getBinaryStream(2));
+			int transactionCount = rs.getInt(3);
+			BigDecimal totalFees = rs.getBigDecimal(4);
+			byte[] transactionsSignature = this.repository.getResultSetBytes(rs.getBinaryStream(5));
+			int height = rs.getInt(6);
+			long timestamp = rs.getTimestamp(7).getTime();
+			BigDecimal generatingBalance = rs.getBigDecimal(8);
+			byte[] generatorPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(9));
+			byte[] generatorSignature = this.repository.getResultSetBytes(rs.getBinaryStream(10));
+			byte[] atBytes = this.repository.getResultSetBytes(rs.getBinaryStream(11));
+			BigDecimal atFees = rs.getBigDecimal(12);
+
+			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+					generatorPublicKey, generatorSignature, atBytes, atFees);
+		} catch (SQLException e) {
+			throw new DataException("Error extracting data from result set", e);
+		}
+	}
+
 	public BlockData fromSignature(byte[] signature) throws DataException {
 		try {
 			ResultSet rs = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature);
@@ -52,28 +77,27 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		}
 	}
 
-	private BlockData getBlockFromResultSet(ResultSet rs) throws DataException {
-		if (rs == null)
-			return null;
-
+	public int getHeightFromSignature(byte[] signature) throws DataException {
 		try {
-			int version = rs.getInt(1);
-			byte[] reference = this.repository.getResultSetBytes(rs.getBinaryStream(2));
-			int transactionCount = rs.getInt(3);
-			BigDecimal totalFees = rs.getBigDecimal(4);
-			byte[] transactionsSignature = this.repository.getResultSetBytes(rs.getBinaryStream(5));
-			int height = rs.getInt(6);
-			long timestamp = rs.getTimestamp(7).getTime();
-			BigDecimal generatingBalance = rs.getBigDecimal(8);
-			byte[] generatorPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(9));
-			byte[] generatorSignature = this.repository.getResultSetBytes(rs.getBinaryStream(10));
-			byte[] atBytes = this.repository.getResultSetBytes(rs.getBinaryStream(11));
-			BigDecimal atFees = rs.getBigDecimal(12);
+			ResultSet rs = this.repository.checkedExecute("SELECT height FROM Blocks WHERE signature = ?", signature);
+			if (rs == null)
+				return 0;
 
-			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-					generatorPublicKey, generatorSignature, atBytes, atFees);
+			return rs.getInt(1);
 		} catch (SQLException e) {
-			throw new DataException("Error extracting data from result set", e);
+			throw new DataException("Error obtaining block height from repository", e);
+		}
+	}
+
+	public int getBlockchainHeight() throws DataException {
+		try {
+			ResultSet rs = this.repository.checkedExecute("SELECT MAX(height) FROM Blocks");
+			if (rs == null)
+				return 0;
+
+			return rs.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Error obtaining blockchain height from repository", e);
 		}
 	}
 

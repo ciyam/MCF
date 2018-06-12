@@ -19,9 +19,7 @@ public class Account {
 
 	public Account(Repository repository, String address) throws DataException {
 		this.repository = repository;
-		this.accountData = this.repository.getAccountRepository().getAccount(address);
-		if (this.accountData == null)
-			this.accountData = new AccountData(address);
+		this.accountData = new AccountData(address);
 	}
 
 	public String getAddress() {
