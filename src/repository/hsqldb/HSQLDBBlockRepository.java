@@ -23,9 +23,15 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	private static final String BLOCK_DB_COLUMNS = "version, reference, transaction_count, total_fees, "
 			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, AT_data, AT_fees";
 
-	public BlockData fromSignature(byte[] signature) throws DataException {
+	protected HSQLDBRepository repository;
+	
+	public HSQLDBBlockRepository(HSQLDBRepository repository) {
+		this.repository = repository;
+	}
+
+  public BlockData fromSignature(byte[] signature) throws DataException {
 		try {
-			ResultSet rs = DB.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature);
+			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature);
 			return getBlockFromResultSet(rs);
 		} catch (SQLException e) {
 			throw new DataException("Error loading data from DB", e);
@@ -34,7 +40,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	public BlockData fromReference(byte[] reference) throws DataException {
 		try {
-			ResultSet rs = DB.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE reference = ?", reference);
+			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", height);
 			return getBlockFromResultSet(rs);
 		} catch (SQLException e) {
 			throw new DataException("Error loading data from DB", e);
@@ -43,7 +49,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	public BlockData fromHeight(int height) throws DataException {
 		try {
-			ResultSet rs = DB.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", height);
+			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", height);
 			return getBlockFromResultSet(rs);
 		} catch (SQLException e) {
 			throw new DataException("Error loading data from DB", e);
@@ -67,11 +73,11 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			byte[] generatorSignature = DB.getResultSetBytes(rs.getBinaryStream(10));
 			byte[] atBytes = DB.getResultSetBytes(rs.getBinaryStream(11));
 			BigDecimal atFees = rs.getBigDecimal(12);
-
+	
 			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance, generatorPublicKey,
 					generatorSignature, atBytes, atFees);
-		} catch (SQLException e) {
-			throw new DataException(e);
+		} catch(SQLException e) {
+			throw new DataException("Error extracting data from result set", e);
 		}
 	}
 

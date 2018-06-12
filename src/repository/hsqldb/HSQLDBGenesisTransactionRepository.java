@@ -11,9 +11,13 @@ import repository.DataException;
 
 public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionRepository {
 
+	public HSQLDBGenesisTransactionRepository(HSQLDBRepository repository) {
+		super(repository);
+	}
+
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creator, long timestamp, BigDecimal fee) {
 		try {
-			ResultSet rs = DB.checkedExecute("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
+			ResultSet rs = DB.checkedExecute(repository.connection, "SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
 			if (rs == null)
 				return null;
 
