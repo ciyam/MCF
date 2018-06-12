@@ -2,9 +2,9 @@ package repository;
 
 public interface Repository {
 
-	public BlockRepository getBlockRepository();
+	public AccountRepository getAccountRepository();
 
-	public BlockTransactionRepository getBlockTransactionRepository();
+	public BlockRepository getBlockRepository();
 
 	public TransactionRepository getTransactionRepository();
 

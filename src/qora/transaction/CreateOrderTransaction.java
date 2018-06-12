@@ -20,7 +20,7 @@ import qora.assets.Order;
 import repository.hsqldb.HSQLDBSaver;
 import transform.TransformationException;
 
-public class CreateOrderTransaction extends TransactionHandler {
+public class CreateOrderTransaction extends Transaction {
 
 	// Properties
 	private Order order;

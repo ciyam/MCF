@@ -8,11 +8,13 @@ public class AccountData {
 
 	// Constructors
 
-	protected AccountData() {
+	public AccountData(String address, byte[] reference) {
+		this.address = address;
+		this.reference = reference;
 	}
 
 	public AccountData(String address) {
-		this.address = address;
+		this(address, null);
 	}
 
 	// Getters/Setters

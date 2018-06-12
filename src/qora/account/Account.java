@@ -1,35 +1,31 @@
 package qora.account;
 
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 
-import database.DB;
-import repository.hsqldb.HSQLDBSaver;
+import data.account.AccountBalanceData;
+import data.account.AccountData;
+import repository.DataException;
+import repository.Repository;
 
 public class Account {
 
 	public static final int ADDRESS_LENGTH = 25;
 
-	protected String address;
+	protected Repository repository;
+	protected AccountData accountData;
 
 	protected Account() {
 	}
 
-	public Account(String address) {
-		this.address = address;
+	public Account(Repository repository, String address) throws DataException {
+		this.repository = repository;
+		this.accountData = this.repository.getAccountRepository().getAccount(address);
+		if (this.accountData == null)
+			this.accountData = new AccountData(address);
 	}
 
 	public String getAddress() {
-		return this.address;
-	}
-
-	@Override
-	public boolean equals(Object b) {
-		if (!(b instanceof Account))
-			return false;
-
-		return this.getAddress().equals(((Account) b).getAddress());
+		return this.accountData.getAddress();
 	}
 
 	// Balance manipulations - assetId is 0 for QORA
@@ -39,22 +35,21 @@ public class Account {
 		return null;
 	}
 
-	public BigDecimal getConfirmedBalance(long assetId) throws SQLException {
-		ResultSet resultSet = DB.checkedExecute("SELECT balance FROM AccountBalances WHERE account = ? and asset_id = ?", this.getAddress(), assetId);
-		if (resultSet == null)
+	public BigDecimal getConfirmedBalance(long assetId) throws DataException {
+		AccountBalanceData accountBalanceData = this.repository.getAccountRepository().getBalance(this.accountData.getAddress(), assetId);
+		if (accountBalanceData == null)
 			return BigDecimal.ZERO.setScale(8);
 
-		return resultSet.getBigDecimal(1);
+		return accountBalanceData.getBalance();
 	}
 
-	public void setConfirmedBalance(long assetId, BigDecimal balance) throws SQLException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountBalances");
-		saveHelper.bind("account", this.getAddress()).bind("asset_id", assetId).bind("balance", balance);
-		saveHelper.execute();
+	public void setConfirmedBalance(long assetId, BigDecimal balance) throws DataException {
+		AccountBalanceData accountBalanceData = new AccountBalanceData(this.accountData.getAddress(), assetId, balance); 
+		this.repository.getAccountRepository().save(accountBalanceData);
 	}
 
-	public void deleteBalance(long assetId) throws SQLException {
-		DB.checkedExecute("DELETE FROM AccountBalances WHERE account = ? and asset_id = ?", this.getAddress(), assetId);
+	public void deleteBalance(long assetId) throws DataException {
+		this.repository.getAccountRepository().delete(this.accountData.getAddress(), assetId);
 	}
 
 	// Reference manipulations
@@ -63,14 +58,14 @@ public class Account {
 	 * Fetch last reference for account.
 	 * 
 	 * @return byte[] reference, or null if no reference or account not found.
-	 * @throws SQLException
+	 * @throws DataException
 	 */
-	public byte[] getLastReference() throws SQLException {
-		ResultSet resultSet = DB.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", this.getAddress());
-		if (resultSet == null)
+	public byte[] getLastReference() throws DataException {
+		AccountData accountData = this.repository.getAccountRepository().getAccount(this.accountData.getAddress());
+		if (accountData == null)
 			return null;
 
-		return DB.getResultSetBytes(resultSet.getBinaryStream(1));
+		return accountData.getReference();
 	}
 
 	/**
@@ -78,12 +73,10 @@ public class Account {
 	 * 
 	 * @param reference
 	 *            -- null allowed
-	 * @throws SQLException
+	 * @throws DataException 
 	 */
-	public void setLastReference(byte[] reference) throws SQLException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
-		saveHelper.bind("account", this.getAddress()).bind("reference", reference);
-		saveHelper.execute();
+	public void setLastReference(byte[] reference) throws DataException {
+		this.repository.getAccountRepository().save(accountData);
 	}
 
 }

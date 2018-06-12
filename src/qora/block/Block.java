@@ -231,7 +231,7 @@ public class Block {
 
 		// Check there is space in block
 		try {
-			if (BlockTransformer.getDataLength(this.blockData) + TransactionTransformer.getDataLength(transactionData) > MAX_BLOCK_BYTES)
+			if (BlockTransformer.getDataLength(this) + TransactionTransformer.getDataLength(transactionData) > MAX_BLOCK_BYTES)
 				return false;
 		} catch (TransformationException e) {
 			return false;
@@ -436,7 +436,7 @@ public class Block {
 
 			// Link transaction to this block
 			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence, transaction.getTransactionData().getSignature());
-			this.repository.getBlockTransactionRepository().save(blockTransactionData);
+			this.repository.getBlockRepository().save(blockTransactionData);
 		}
 	}
 

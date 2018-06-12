@@ -3,6 +3,7 @@ package repository;
 import java.util.List;
 
 import data.block.BlockData;
+import data.block.BlockTransactionData;
 import data.transaction.TransactionData;
 
 public interface BlockRepository {
@@ -16,5 +17,7 @@ public interface BlockRepository {
 	public List<TransactionData> getTransactionsFromSignature(byte[] signature) throws DataException;
 
 	public void save(BlockData blockData) throws DataException;
+
+	public void save(BlockTransactionData blockTransactionData) throws DataException;
 
 }

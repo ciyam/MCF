@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import data.block.BlockData;
+import data.block.BlockTransactionData;
 import data.transaction.TransactionData;
 import repository.BlockRepository;
 import repository.DataException;
@@ -112,6 +113,18 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			saveHelper.execute(this.repository.connection);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save Block into repository", e);
+		}
+	}
+
+	public void save(BlockTransactionData blockTransactionData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("BlockTransactions");
+		saveHelper.bind("block_signature", blockTransactionData.getBlockSignature()).bind("sequence", blockTransactionData.getSequence())
+				.bind("transaction_signature", blockTransactionData.getTransactionSignature());
+
+		try {
+			saveHelper.execute(this.repository.connection);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save BlockTransaction into repository", e);
 		}
 	}
 

@@ -19,13 +19,17 @@ import com.google.common.primitives.Longs;
 import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
+import qora.assets.Order;
+import qora.assets.Trade;
 import qora.block.Block;
+import qora.transaction.CreateOrderTransaction;
 import qora.transaction.Transaction;
 import repository.DataException;
 import transform.TransformationException;
 import transform.Transformer;
 import transform.transaction.TransactionTransformer;
 import utils.Base58;
+import utils.Pair;
 import utils.Serialization;
 
 public class BlockTransformer extends Transformer {
@@ -48,7 +52,14 @@ public class BlockTransformer extends Transformer {
 	protected static final int AT_FEES_LENGTH = LONG_LENGTH;
 	protected static final int AT_LENGTH = AT_FEES_LENGTH + AT_BYTES_LENGTH;
 
-	public static BlockData fromBytes(byte[] bytes) throws TransformationException {
+	/**
+	 * Extract block data and transaction data from serialized bytes.
+	 * 
+	 * @param bytes
+	 * @return BlockData and a List of transactions.
+	 * @throws TransformationException
+	 */
+	public static Pair<BlockData, List<TransactionData>> fromBytes(byte[] bytes) throws TransformationException {
 		if (bytes == null)
 			return null;
 
@@ -91,8 +102,9 @@ public class BlockTransformer extends Transformer {
 
 		int transactionCount = byteBuffer.getInt();
 
-		// Parse transactions now, compared to deferred parsing in Gen1, so we can throw ParseException if need be
+		// Parse transactions now, compared to deferred parsing in Gen1, so we can throw ParseException if need be.
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
+		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
 		for (int t = 0; t < transactionCount; ++t) {
 			if (byteBuffer.remaining() < TRANSACTION_SIZE_LENGTH)
 				throw new TransformationException("Byte data too short for Block Transaction length");
@@ -106,41 +118,50 @@ public class BlockTransformer extends Transformer {
 			byte[] transactionBytes = new byte[transactionLength];
 			byteBuffer.get(transactionBytes);
 
-			TransactionData transaction = TransactionTransformer.fromBytes(transactionBytes);
-			transactions.add(transaction);
+			TransactionData transactionData = TransactionTransformer.fromBytes(transactionBytes);
+			transactions.add(transactionData);
+			
+			totalFees.add(transactionData.getFee());
 		}
 
 		if (byteBuffer.hasRemaining())
 			throw new TransformationException("Excess byte data found after parsing Block");
 
-		// XXX Can't return a simple BlockData object because it doesn't support holding the transactions
-		// return new BlockData(version, reference, timestamp, generatingBalance, generatorPublicKey, generatorSignature, transactionsSignature, atBytes, atFees, transactions);
-		return null;
+		// XXX we don't know height!
+		int height = 0;
+		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance, generatorPublicKey, generatorSignature, 
+				atBytes, atFees);
+
+		return new Pair<BlockData, List<TransactionData>>(blockData, transactions);
 	}
 
-	public static int getDataLength(BlockData blockData) throws TransformationException {
-		// TODO
+	public static int getDataLength(Block block) throws TransformationException {
+		BlockData blockData = block.getBlockData();
 		int blockLength = BASE_LENGTH;
 
 		if (blockData.getVersion() >= 2 && blockData.getAtBytes() != null)
 			blockLength += AT_FEES_LENGTH + AT_BYTES_LENGTH + blockData.getAtBytes().length;
 
-		/*
-		 *  XXX Where do the transactions come from? A param? Do we pass a Block instead of BlockData?
-		// Short cut for no transactions
-		if (block.getTransactions() == null || block.getTransactions().isEmpty())
-			return blockLength;
+		try {
+			// Short cut for no transactions
+			List<Transaction> transactions = block.getTransactions();
+			if (transactions == null || transactions.isEmpty())
+				return blockLength;
 
-		for (TransactionData transaction : this.transactions)
-			blockLength += TRANSACTION_SIZE_LENGTH + transaction.getDataLength();
-		*/
+			for (Transaction transaction : transactions)
+				blockLength += TRANSACTION_SIZE_LENGTH + TransactionTransformer.getDataLength(transaction.getTransactionData());
+		} catch (DataException e) {
+			throw new TransformationException("Unable to determine serialized block length", e);
+		}
 
 		return blockLength;
 	}
 
-	public static byte[] toBytes(BlockData blockData) throws TransformationException {
+	public static byte[] toBytes(Block block) throws TransformationException {
+		BlockData blockData = block.getBlockData();
+
 		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(getDataLength(blockData));
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(getDataLength(block));
 
 			bytes.write(Ints.toByteArray(blockData.getVersion()));
 			bytes.write(Longs.toByteArray(blockData.getTimestamp()));
@@ -168,22 +189,22 @@ public class BlockTransformer extends Transformer {
 			// Transactions
 			bytes.write(Ints.toByteArray(blockData.getTransactionCount()));
 
-			/*
-			 *  XXX Where do the transactions come from? A param? Do we pass a Block instead of BlockData?
-			for (TransactionData transaction : blockData.getTransactions()) {
-				bytes.write(Ints.toByteArray(transaction.getDataLength()));
-				bytes.write(transaction.toBytes());
+			for (Transaction transaction : block.getTransactions()) {
+				TransactionData transactionData = transaction.getTransactionData();
+				bytes.write(Ints.toByteArray(TransactionTransformer.getDataLength(transactionData)));
+				bytes.write(TransactionTransformer.toBytes(transactionData));
 			}
-			*/
 
 			return bytes.toByteArray();
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+		} catch (IOException | DataException e) {
+			throw new TransformationException("Unable to serialize block", e);
 		}
 	}
 
 	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(BlockData blockData) throws TransformationException {
+	public static JSONObject toJSON(Block block) throws TransformationException {
+		BlockData blockData = block.getBlockData();
+
 		JSONObject json = new JSONObject();
 
 		json.put("version", blockData.getVersion());
@@ -205,31 +226,31 @@ public class BlockTransformer extends Transformer {
 		JSONArray transactionsJson = new JSONArray();
 		boolean tradesHappened = false;
 
-		/*
-		 *  XXX Where do the transactions come from? A param? Do we pass a Block instead of BlockData?
-		for (TransactionData transaction : blockData.getTransactions()) {
-			transactionsJson.add(transaction.toJSON());
+		try {
+			for (Transaction transaction : block.getTransactions()) {
+				transactionsJson.add(TransactionTransformer.toJSON(transaction.getTransactionData()));
 
-			// If this is an asset CreateOrderTransaction then check to see if any trades happened
-			if (transaction.getType() == Transaction.TransactionType.CREATE_ASSET_ORDER) {
-				CreateOrderTransaction orderTransaction = (CreateOrderTransaction) transaction;
-				Order order = orderTransaction.getOrder();
-				List<Trade> trades = order.getTrades();
+				// If this is an asset CreateOrderTransaction then check to see if any trades happened
+				if (transaction.getTransactionData().getType() == Transaction.TransactionType.CREATE_ASSET_ORDER) {
+					CreateOrderTransaction orderTransaction = (CreateOrderTransaction) transaction;
+					Order order = orderTransaction.getOrder();
+					List<Trade> trades = order.getTrades();
 
-				// Filter out trades with timestamps that don't match order transaction's timestamp
-				trades.removeIf((Trade trade) -> trade.getTimestamp() != order.getTimestamp());
+					// Filter out trades with timestamps that don't match order transaction's timestamp
+					trades.removeIf((Trade trade) -> trade.getTimestamp() != order.getTimestamp());
 
-				// Any trades left?
-				if (!trades.isEmpty()) {
-					tradesHappened = true;
-
-					// No need to check any further
-					break;
+					// Any trades left?
+					if (!trades.isEmpty()) {
+						tradesHappened = true;
+						// No need to check any further
+						break;
+					}
 				}
 			}
+		} catch (DataException e) {
+			throw new TransformationException("Unable to transform block into JSON", e);
 		}
 		json.put("transactions", transactionsJson);
-		*/
 
 		// Add asset trade activity flag
 		json.put("assetTrades", tradesHappened);
@@ -262,7 +283,8 @@ public class BlockTransformer extends Transformer {
 	}
 
 	public static byte[] getBytesForTransactionsSignature(Block block) throws TransformationException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + block.getBlockData().getTransactionCount() * TransactionTransformer.SIGNATURE_LENGTH);
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream(
+				GENERATOR_SIGNATURE_LENGTH + block.getBlockData().getTransactionCount() * TransactionTransformer.SIGNATURE_LENGTH);
 
 		try {
 			bytes.write(block.getBlockData().getGeneratorSignature());
@@ -279,5 +301,5 @@ public class BlockTransformer extends Transformer {
 			throw new TransformationException(e);
 		}
 	}
-	
+
 }

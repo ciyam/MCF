@@ -8,8 +8,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import repository.AccountRepository;
 import repository.BlockRepository;
-import repository.BlockTransactionRepository;
 import repository.DataException;
 import repository.Repository;
 import repository.TransactionRepository;
@@ -24,13 +24,13 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
-	public BlockRepository getBlockRepository() {
-		return new HSQLDBBlockRepository(this);
+	public AccountRepository getAccountRepository() {
+		return new HSQLDBAccountRepository(this);
 	}
 
 	@Override
-	public BlockTransactionRepository getBlockTransactionRepository() {
-		return new HSQLDBBlockTransactionRepository(this);
+	public BlockRepository getBlockRepository() {
+		return new HSQLDBBlockRepository(this);
 	}
 
 	@Override
