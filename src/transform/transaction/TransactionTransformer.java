@@ -42,6 +42,9 @@ public class TransactionTransformer extends Transformer {
 			case CREATE_ASSET_ORDER:
 				return CreateOrderTransactionTransformer.fromByteBuffer(byteBuffer);
 
+			case MESSAGE:
+				return MessageTransactionTransformer.fromByteBuffer(byteBuffer);
+
 			default:
 				throw new TransformationException("Unsupported transaction type");
 		}
@@ -60,6 +63,9 @@ public class TransactionTransformer extends Transformer {
 
 			case CREATE_ASSET_ORDER:
 				return CreateOrderTransactionTransformer.getDataLength(transactionData);
+
+			case MESSAGE:
+				return MessageTransactionTransformer.getDataLength(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type");
@@ -80,6 +86,9 @@ public class TransactionTransformer extends Transformer {
 			case CREATE_ASSET_ORDER:
 				return CreateOrderTransactionTransformer.toBytes(transactionData);
 
+			case MESSAGE:
+				return MessageTransactionTransformer.toBytes(transactionData);
+
 			default:
 				throw new TransformationException("Unsupported transaction type");
 		}
@@ -98,6 +107,9 @@ public class TransactionTransformer extends Transformer {
 
 			case CREATE_ASSET_ORDER:
 				return CreateOrderTransactionTransformer.toJSON(transaction);
+
+			case MESSAGE:
+				return MessageTransactionTransformer.toJSON(transaction);
 
 			default:
 				throw new TransformationException("Unsupported transaction type");

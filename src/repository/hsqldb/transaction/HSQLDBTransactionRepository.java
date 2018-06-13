@@ -20,6 +20,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBPaymentTransactionRepository paymentTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
 	private HSQLDBCreateOrderTransactionRepository createOrderTransactionRepository;
+	private HSQLDBMessageTransactionRepository messageTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
@@ -27,6 +28,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.paymentTransactionRepository = new HSQLDBPaymentTransactionRepository(repository);
 		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
 		this.createOrderTransactionRepository = new HSQLDBCreateOrderTransactionRepository(repository);
+		this.messageTransactionRepository = new HSQLDBMessageTransactionRepository(repository);
 	}
 
 	public TransactionData fromSignature(byte[] signature) throws DataException {
@@ -79,6 +81,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case CREATE_ASSET_ORDER:
 				return this.createOrderTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case MESSAGE:
+				return this.messageTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			default:
 				return null;

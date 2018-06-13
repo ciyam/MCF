@@ -89,6 +89,9 @@ public abstract class Transaction {
 			case CREATE_ASSET_ORDER:
 				return new CreateOrderTransaction(repository, transactionData);
 
+			case MESSAGE:
+				return new MessageTransaction(repository, transactionData);
+
 			default:
 				return null;
 		}
