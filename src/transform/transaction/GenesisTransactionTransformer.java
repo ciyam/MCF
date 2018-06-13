@@ -21,6 +21,7 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 	// Property lengths
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
 	private static final int AMOUNT_LENGTH = LONG_LENGTH;
+
 	// Note that Genesis transactions don't require reference, fee or signature:
 	private static final int TYPELESS_LENGTH = TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
 

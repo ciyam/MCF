@@ -15,22 +15,37 @@ import transform.Transformer;
 public class Serialization {
 
 	/**
+	 * Convert BigDecimal, unscaled, to byte[] then prepend with zero bytes to specified length.
+	 * 
+	 * @param amount
+	 * @param length
+	 * @return byte[8]
+	 */
+	public static byte[] serializeBigDecimal(BigDecimal amount, int length) {
+		byte[] amountBytes = amount.unscaledValue().toByteArray();
+		byte[] output = new byte[length];
+		System.arraycopy(amountBytes, 0, output, length - amountBytes.length, amountBytes.length);
+		return output;
+	}
+
+	/**
 	 * Convert BigDecimal, unscaled, to byte[] then prepend with zero bytes to fixed length of 8.
 	 * 
 	 * @param amount
 	 * @return byte[8]
 	 */
 	public static byte[] serializeBigDecimal(BigDecimal amount) {
-		byte[] amountBytes = amount.unscaledValue().toByteArray();
-		byte[] output = new byte[8];
-		System.arraycopy(amountBytes, 0, output, 8 - amountBytes.length, amountBytes.length);
-		return output;
+		return serializeBigDecimal(amount, 8);
+	}
+
+	public static BigDecimal deserializeBigDecimal(ByteBuffer byteBuffer, int length) {
+		byte[] bytes = new byte[length];
+		byteBuffer.get(bytes);
+		return new BigDecimal(new BigInteger(bytes), 8);
 	}
 
 	public static BigDecimal deserializeBigDecimal(ByteBuffer byteBuffer) {
-		byte[] bytes = new byte[8];
-		byteBuffer.get(bytes);
-		return new BigDecimal(new BigInteger(bytes), 8);
+		return Serialization.deserializeBigDecimal(byteBuffer, 8);
 	}
 
 	public static String deserializeRecipient(ByteBuffer byteBuffer) {

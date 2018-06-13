@@ -27,6 +27,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int QUANTITY_LENGTH = LONG_LENGTH;
 	private static final int IS_DIVISIBLE_LENGTH = BOOLEAN_LENGTH;
+
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + ISSUER_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH
 			+ QUANTITY_LENGTH + IS_DIVISIBLE_LENGTH;
 
@@ -36,14 +37,14 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransformationException("Byte data too short for GenesisTransaction");
+			throw new TransformationException("Byte data too short for IssueAssetTransaction");
 
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
 
-		byte[] issuer = Serialization.deserializePublicKey(byteBuffer);
+		byte[] issuerPublicKey = Serialization.deserializePublicKey(byteBuffer);
 		String owner = Serialization.deserializeRecipient(byteBuffer);
 
 		String assetName = Serialization.deserializeSizedString(byteBuffer, MAX_NAME_SIZE);
@@ -61,7 +62,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new IssueAssetTransactionData(issuer, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference, signature);
+		return new IssueAssetTransactionData(issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -79,6 +80,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 			bytes.write(Ints.toByteArray(issueAssetTransactionData.getType().value));
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getTimestamp()));
 			bytes.write(issueAssetTransactionData.getReference());
+
 			bytes.write(issueAssetTransactionData.getIssuerPublicKey());
 			bytes.write(Base58.decode(issueAssetTransactionData.getOwner()));
 

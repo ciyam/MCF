@@ -18,11 +18,13 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	protected HSQLDBRepository repository;
 	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
+	private HSQLDBCreateOrderTransactionRepository createOrderTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
-		genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
-		issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
+		this.genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
+		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
+		this.createOrderTransactionRepository = new HSQLDBCreateOrderTransactionRepository(repository);
 	}
 
 	public TransactionData fromSignature(byte[] signature) throws DataException {
@@ -61,14 +63,17 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
-	private TransactionData fromBase(TransactionType type, byte[] signature, byte[] reference, byte[] creator, long timestamp, BigDecimal fee)
+	private TransactionData fromBase(TransactionType type, byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee)
 			throws DataException {
 		switch (type) {
 			case GENESIS:
-				return this.genesisTransactionRepository.fromBase(signature, reference, creator, timestamp, fee);
+				return this.genesisTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case ISSUE_ASSET:
-				return this.issueAssetTransactionRepository.fromBase(signature, reference, creator, timestamp, fee);
+				return this.issueAssetTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case CREATE_ASSET_ORDER:
+				return this.createOrderTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			default:
 				return null;

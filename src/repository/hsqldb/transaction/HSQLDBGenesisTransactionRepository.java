@@ -16,7 +16,7 @@ public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionReposit
 		super(repository);
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creator, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
 		try {
 			ResultSet rs = this.repository.checkedExecute("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
 			if (rs == null)

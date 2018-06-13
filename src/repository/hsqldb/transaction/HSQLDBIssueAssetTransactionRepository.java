@@ -16,7 +16,7 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 		super(repository);
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creator, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
 		try {
 			ResultSet rs = this.repository.checkedExecute(
 					"SELECT issuer, owner, asset_name, description, quantity, is_divisible, asset_id FROM IssueAssetTransactions WHERE signature = ?",
