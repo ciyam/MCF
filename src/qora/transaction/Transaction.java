@@ -80,8 +80,14 @@ public abstract class Transaction {
 			case GENESIS:
 				return new GenesisTransaction(repository, transactionData);
 
+			case PAYMENT:
+				return new PaymentTransaction(repository, transactionData);
+
 			case ISSUE_ASSET:
 				return new IssueAssetTransaction(repository, transactionData);
+
+			case CREATE_ASSET_ORDER:
+				return new CreateOrderTransaction(repository, transactionData);
 
 			default:
 				return null;
@@ -224,7 +230,7 @@ public abstract class Transaction {
 			return Arrays.copyOf(bytes, bytes.length - Transformer.SIGNATURE_LENGTH);
 		} catch (TransformationException e) {
 			// XXX this isn't good
-			return null;
+			throw new RuntimeException("Unable to transform transaction to signature-less byte array", e);
 		}
 	}
 

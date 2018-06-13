@@ -33,6 +33,9 @@ public class TransactionTransformer extends Transformer {
 			case GENESIS:
 				return GenesisTransactionTransformer.fromByteBuffer(byteBuffer);
 
+			case PAYMENT:
+				return PaymentTransactionTransformer.fromByteBuffer(byteBuffer);
+
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.fromByteBuffer(byteBuffer);
 
@@ -48,6 +51,9 @@ public class TransactionTransformer extends Transformer {
 		switch (transactionData.getType()) {
 			case GENESIS:
 				return GenesisTransactionTransformer.getDataLength(transactionData);
+
+			case PAYMENT:
+				return PaymentTransactionTransformer.getDataLength(transactionData);
 
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.getDataLength(transactionData);
@@ -65,6 +71,9 @@ public class TransactionTransformer extends Transformer {
 			case GENESIS:
 				return GenesisTransactionTransformer.toBytes(transactionData);
 
+			case PAYMENT:
+				return PaymentTransactionTransformer.toBytes(transactionData);
+
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.toBytes(transactionData);
 
@@ -80,6 +89,9 @@ public class TransactionTransformer extends Transformer {
 		switch (transaction.getType()) {
 			case GENESIS:
 				return GenesisTransactionTransformer.toJSON(transaction);
+
+			case PAYMENT:
+				return PaymentTransactionTransformer.toJSON(transaction);
 
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.toJSON(transaction);

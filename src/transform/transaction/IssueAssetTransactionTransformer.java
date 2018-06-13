@@ -90,6 +90,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getQuantity()));
 			bytes.write((byte) (issueAssetTransactionData.getIsDivisible() ? 1 : 0));
 
+			Serialization.serializeBigDecimal(issueAssetTransactionData.getFee());
 			bytes.write(issueAssetTransactionData.getSignature());
 
 			return bytes.toByteArray();

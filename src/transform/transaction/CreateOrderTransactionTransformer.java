@@ -72,6 +72,7 @@ public class CreateOrderTransactionTransformer extends TransactionTransformer {
 			Serialization.serializeBigDecimal(createOrderTransactionData.getAmount(), AMOUNT_LENGTH);
 			Serialization.serializeBigDecimal(createOrderTransactionData.getPrice(), AMOUNT_LENGTH);
 
+			Serialization.serializeBigDecimal(createOrderTransactionData.getFee());
 			bytes.write(createOrderTransactionData.getSignature());
 
 			return bytes.toByteArray();

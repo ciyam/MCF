@@ -1,0 +1,99 @@
+package transform.transaction;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+
+import org.json.simple.JSONObject;
+
+import com.google.common.hash.HashCode;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
+
+import data.transaction.TransactionData;
+import qora.account.PublicKeyAccount;
+import data.transaction.PaymentTransactionData;
+import transform.TransformationException;
+import utils.Base58;
+import utils.Serialization;
+
+public class PaymentTransactionTransformer extends TransactionTransformer {
+
+	// Property lengths
+	private static final int SENDER_LENGTH = PUBLIC_KEY_LENGTH;
+	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
+	private static final int AMOUNT_LENGTH = 8;
+
+	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
+
+	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
+		if (byteBuffer.remaining() < TYPELESS_LENGTH)
+			throw new TransformationException("Byte data too short for PaymentTransaction");
+
+		long timestamp = byteBuffer.getLong();
+
+		byte[] reference = new byte[REFERENCE_LENGTH];
+		byteBuffer.get(reference);
+
+		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
+		String recipient = Serialization.deserializeRecipient(byteBuffer);
+		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
+
+		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
+
+		byte[] signature = new byte[SIGNATURE_LENGTH];
+		byteBuffer.get(signature);
+
+		return new PaymentTransactionData(senderPublicKey, recipient, amount, fee, timestamp, reference, signature);
+	}
+
+	public static int getDataLength(TransactionData transactionData) throws TransformationException {
+		return TYPE_LENGTH + TYPELESS_LENGTH;
+	}
+
+	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
+		try {
+			PaymentTransactionData paymentTransactionData = (PaymentTransactionData) transactionData;
+
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+			bytes.write(Ints.toByteArray(paymentTransactionData.getType().value));
+			bytes.write(Longs.toByteArray(paymentTransactionData.getTimestamp()));
+			bytes.write(paymentTransactionData.getReference());
+
+			bytes.write(paymentTransactionData.getSenderPublicKey());
+			bytes.write(Base58.decode(paymentTransactionData.getRecipient()));
+
+			Serialization.serializeBigDecimal(paymentTransactionData.getAmount());
+
+			Serialization.serializeBigDecimal(paymentTransactionData.getFee());
+			bytes.write(paymentTransactionData.getSignature());
+
+			return bytes.toByteArray();
+		} catch (IOException | ClassCastException e) {
+			throw new TransformationException(e);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
+		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
+
+		try {
+			PaymentTransactionData paymentTransactionData = (PaymentTransactionData) transactionData;
+
+			byte[] senderPublicKey = paymentTransactionData.getSenderPublicKey();
+
+			json.put("sender", PublicKeyAccount.getAddress(senderPublicKey));
+			json.put("senderPublicKey", HashCode.fromBytes(senderPublicKey).toString());
+			json.put("recipient", paymentTransactionData.getRecipient());
+			json.put("amount", paymentTransactionData.getAmount().toPlainString());
+		} catch (ClassCastException e) {
+			throw new TransformationException(e);
+		}
+
+		return json;
+	}
+
+}

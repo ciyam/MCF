@@ -1,239 +1,103 @@
 package qora.transaction;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
 
-import org.json.simple.JSONObject;
-
-import com.google.common.hash.HashCode;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
-
-import database.DB;
-import database.NoDataFoundException;
+import data.transaction.PaymentTransactionData;
+import data.transaction.TransactionData;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
 import qora.crypto.Crypto;
-import repository.hsqldb.HSQLDBSaver;
-import transform.TransformationException;
-import utils.Base58;
-import utils.Serialization;
+import repository.DataException;
+import repository.Repository;
 
-public class PaymentTransaction extends TransactionHandler {
-
-	// Properties
-	private PublicKeyAccount sender;
-	private Account recipient;
-	private BigDecimal amount;
-
-	// Property lengths
-	private static final int SENDER_LENGTH = 32;
-	private static final int AMOUNT_LENGTH = 8;
-	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
+public class PaymentTransaction extends Transaction {
 
 	// Constructors
 
-	public PaymentTransaction(PublicKeyAccount sender, String recipient, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference,
-			byte[] signature) {
-		super(TransactionType.PAYMENT, fee, sender, timestamp, reference, signature);
-
-		this.sender = sender;
-		this.recipient = new Account(recipient);
-		this.amount = amount;
-	}
-
-	public PaymentTransaction(PublicKeyAccount sender, String recipient, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference) {
-		this(sender, recipient, amount, fee, timestamp, reference, null);
-	}
-
-	// Getters/Setters
-
-	public PublicKeyAccount getSender() {
-		return this.sender;
-	}
-
-	public Account getRecipient() {
-		return this.recipient;
-	}
-
-	public BigDecimal getAmount() {
-		return this.amount;
-	}
-
-	// More information
-
-	public int getDataLength() {
-		return TYPE_LENGTH + TYPELESS_LENGTH;
-	}
-
-	// Load/Save
-
-	/**
-	 * Construct PaymentTransaction from DB using signature.
-	 * 
-	 * @param signature
-	 * @throws NoDataFoundException
-	 *             if no matching row found
-	 * @throws SQLException
-	 */
-	protected PaymentTransaction(byte[] signature) throws SQLException {
-		super(TransactionType.PAYMENT, signature);
-
-		ResultSet rs = DB.checkedExecute("SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature);
-		if (rs == null)
-			throw new NoDataFoundException();
-
-		this.sender = new PublicKeyAccount(DB.getResultSetBytes(rs.getBinaryStream(1), CREATOR_LENGTH));
-		this.recipient = new Account(rs.getString(2));
-		this.amount = rs.getBigDecimal(3).setScale(8);
-	}
-
-	/**
-	 * Load PaymentTransaction from DB using signature.
-	 * 
-	 * @param signature
-	 * @return PaymentTransaction, or null if not found
-	 * @throws SQLException
-	 */
-	public static PaymentTransaction fromSignature(byte[] signature) throws SQLException {
-		try {
-			return new PaymentTransaction(signature);
-		} catch (NoDataFoundException e) {
-			return null;
-		}
-	}
-
-	@Override
-	public void save() throws SQLException {
-		super.save();
-
-		HSQLDBSaver saveHelper = new HSQLDBSaver("PaymentTransactions");
-		saveHelper.bind("signature", this.signature).bind("sender", this.sender.getPublicKey()).bind("recipient", this.recipient.getAddress()).bind("amount",
-				this.amount);
-		saveHelper.execute();
-	}
-
-	// Converters
-
-	protected static TransactionHandler parse(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransformationException("Byte data too short for PaymentTransaction");
-
-		long timestamp = byteBuffer.getLong();
-
-		byte[] reference = new byte[REFERENCE_LENGTH];
-		byteBuffer.get(reference);
-
-		PublicKeyAccount sender = Serialization.deserializePublicKey(byteBuffer);
-		String recipient = Serialization.deserializeRecipient(byteBuffer);
-		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
-		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
-
-		byte[] signature = new byte[SIGNATURE_LENGTH];
-		byteBuffer.get(signature);
-
-		return new PaymentTransaction(sender, recipient, amount, fee, timestamp, reference, signature);
-	}
-
-	@SuppressWarnings("unchecked")
-	@Override
-	public JSONObject toJSON() throws SQLException {
-		JSONObject json = getBaseJSON();
-
-		json.put("sender", this.sender.getAddress());
-		json.put("senderPublicKey", HashCode.fromBytes(this.sender.getPublicKey()).toString());
-		json.put("recipient", this.recipient.getAddress());
-		json.put("amount", this.amount.toPlainString());
-
-		return json;
-	}
-
-	public byte[] toBytes() {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(getDataLength());
-			bytes.write(Ints.toByteArray(this.type.value));
-			bytes.write(Longs.toByteArray(this.timestamp));
-			bytes.write(this.reference);
-			bytes.write(this.sender.getPublicKey());
-			bytes.write(Base58.decode(this.recipient.getAddress()));
-			bytes.write(Serialization.serializeBigDecimal(this.amount));
-			bytes.write(Serialization.serializeBigDecimal(this.fee));
-			bytes.write(this.signature);
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		}
+	public PaymentTransaction(Repository repository, TransactionData transactionData) {
+		super(repository, transactionData);
 	}
 
 	// Processing
 
-	public ValidationResult isValid() throws SQLException {
+	public ValidationResult isValid() throws DataException {
 		// Lowest cost checks first
 
+		PaymentTransactionData paymentTransactionData = (PaymentTransactionData) this.transactionData;
+
 		// Check recipient is a valid address
-		if (!Crypto.isValidAddress(this.recipient.getAddress()))
+		if (!Crypto.isValidAddress(paymentTransactionData.getRecipient()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check amount is positive
-		if (this.amount.compareTo(BigDecimal.ZERO) <= 0)
+		if (paymentTransactionData.getAmount().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check fee is positive
-		if (this.fee.compareTo(BigDecimal.ZERO) <= 0)
+		if (paymentTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		if (!Arrays.equals(this.sender.getLastReference(), this.reference))
+		Account sender = new PublicKeyAccount(repository, paymentTransactionData.getSenderPublicKey());
+		if (!Arrays.equals(sender.getLastReference(), paymentTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check sender has enough funds
-		if (this.sender.getConfirmedBalance(Asset.QORA).compareTo(this.amount.add(this.fee)) == -1)
+		if (sender.getConfirmedBalance(Asset.QORA).compareTo(paymentTransactionData.getAmount().add(paymentTransactionData.getFee())) == -1)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
 	}
 
-	public void process() throws SQLException {
-		this.save();
+	public void process() throws DataException {
+		PaymentTransactionData paymentTransactionData = (PaymentTransactionData) this.transactionData;
+
+		// Save this transaction itself
+		this.repository.getTransactionRepository().save(this.transactionData);
 
 		// Update sender's balance
-		this.sender.setConfirmedBalance(Asset.QORA, this.sender.getConfirmedBalance(Asset.QORA).subtract(this.amount).subtract(this.fee));
+		Account sender = new PublicKeyAccount(repository, paymentTransactionData.getSenderPublicKey());
+		sender.setConfirmedBalance(Asset.QORA,
+				sender.getConfirmedBalance(Asset.QORA).subtract(paymentTransactionData.getAmount()).subtract(paymentTransactionData.getFee()));
 
 		// Update recipient's balance
-		this.recipient.setConfirmedBalance(Asset.QORA, this.recipient.getConfirmedBalance(Asset.QORA).add(this.amount));
+		Account recipient = new Account(repository, paymentTransactionData.getRecipient());
+		recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).add(paymentTransactionData.getAmount()));
 
 		// Update sender's reference
-		this.sender.setLastReference(this.signature);
+		sender.setLastReference(paymentTransactionData.getSignature());
 
 		// If recipient has no reference yet, then this is their starting reference
-		if (this.recipient.getLastReference() == null)
-			this.recipient.setLastReference(this.signature);
+		if (recipient.getLastReference() == null)
+			recipient.setLastReference(paymentTransactionData.getSignature());
 	}
 
-	public void orphan() throws SQLException {
-		this.delete();
+	public void orphan() throws DataException {
+		PaymentTransactionData paymentTransactionData = (PaymentTransactionData) this.transactionData;
+
+		// Delete this transaction
+		this.repository.getTransactionRepository().delete(this.transactionData);
 
 		// Update sender's balance
-		this.sender.setConfirmedBalance(Asset.QORA, this.sender.getConfirmedBalance(Asset.QORA).add(this.amount).add(this.fee));
+		Account sender = new PublicKeyAccount(repository, paymentTransactionData.getSenderPublicKey());
+		sender.setConfirmedBalance(Asset.QORA,
+				sender.getConfirmedBalance(Asset.QORA).add(paymentTransactionData.getAmount()).add(paymentTransactionData.getFee()));
 
 		// Update recipient's balance
-		this.recipient.setConfirmedBalance(Asset.QORA, this.recipient.getConfirmedBalance(Asset.QORA).subtract(this.amount));
+		Account recipient = new Account(repository, paymentTransactionData.getRecipient());
+		recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).subtract(paymentTransactionData.getAmount()));
 
 		// Update sender's reference
-		this.sender.setLastReference(this.reference);
+		sender.setLastReference(paymentTransactionData.getReference());
 
 		/*
 		 * If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own (which would have changed
 		 * their last reference) thus this is their first reference so remove it.
 		 */
-		if (Arrays.equals(this.recipient.getLastReference(), this.signature))
-			this.recipient.setLastReference(null);
+		if (Arrays.equals(recipient.getLastReference(), paymentTransactionData.getSignature()))
+			recipient.setLastReference(null);
 	}
 
 }

@@ -17,12 +17,14 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	protected HSQLDBRepository repository;
 	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
+	private HSQLDBPaymentTransactionRepository paymentTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
 	private HSQLDBCreateOrderTransactionRepository createOrderTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
 		this.genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
+		this.paymentTransactionRepository = new HSQLDBPaymentTransactionRepository(repository);
 		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
 		this.createOrderTransactionRepository = new HSQLDBCreateOrderTransactionRepository(repository);
 	}
@@ -68,6 +70,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		switch (type) {
 			case GENESIS:
 				return this.genesisTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case PAYMENT:
+				return this.paymentTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case ISSUE_ASSET:
 				return this.issueAssetTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
