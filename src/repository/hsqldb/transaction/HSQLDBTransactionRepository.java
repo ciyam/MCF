@@ -31,6 +31,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.messageTransactionRepository = new HSQLDBMessageTransactionRepository(repository);
 	}
 
+	protected HSQLDBTransactionRepository() {
+	}
+
 	public TransactionData fromSignature(byte[] signature) throws DataException {
 		try {
 			ResultSet rs = this.repository.checkedExecute("SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);

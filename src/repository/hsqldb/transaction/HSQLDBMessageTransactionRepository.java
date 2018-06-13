@@ -13,7 +13,7 @@ import repository.hsqldb.HSQLDBSaver;
 public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionRepository {
 
 	public HSQLDBMessageTransactionRepository(HSQLDBRepository repository) {
-		super(repository);
+		this.repository = repository;
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {

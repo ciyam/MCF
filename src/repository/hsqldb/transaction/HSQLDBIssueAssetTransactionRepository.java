@@ -13,7 +13,7 @@ import repository.hsqldb.HSQLDBSaver;
 public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepository {
 
 	public HSQLDBIssueAssetTransactionRepository(HSQLDBRepository repository) {
-		super(repository);
+		this.repository = repository;
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
