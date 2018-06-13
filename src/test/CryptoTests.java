@@ -8,7 +8,7 @@ import com.google.common.hash.HashCode;
 
 import qora.crypto.Crypto;
 
-public class crypto {
+public class CryptoTests {
 
 	@Test
 	public void testCryptoDigest() {

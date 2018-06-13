@@ -5,7 +5,7 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 import qora.block.Block;
 
-public class exceptions {
+public class ExceptionTests {
 
 	/**
 	 * Proof of concept for block processing throwing transaction-related SQLException rather than savepoint-rollback-related SQLException.

@@ -1,5 +1,3 @@
-package test;
-
 import static org.junit.Assert.*;
 
 import java.io.BufferedReader;
@@ -24,24 +22,25 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 import org.json.simple.parser.ParseException;
-import org.junit.Test;
 
 import com.google.common.hash.HashCode;
 import com.google.common.io.CharStreams;
 
-import database.DB;
-import qora.block.BlockChain;
-import qora.transaction.TransactionHandler;
+import qora.transaction.Transaction;
+import repository.BlockRepository;
+import repository.DataException;
+import repository.Repository;
+import repository.RepositoryManager;
 import utils.Base58;
 
-public class migrate extends common {
+public class migrate {
 
 	private static final String GENESIS_ADDRESS = "QfGMeDQQUQePMpAmfLBJzgqyrM35RWxHGD";
 	private static final byte[] GENESIS_PUBLICKEY = new byte[] { 1, 1, 1, 1, 1, 1, 1, 1 };
 
 	private static Map<String, byte[]> publicKeyByAddress = new HashMap<String, byte[]>();
 
-	public Object fetchBlockJSON(int height) throws IOException {
+	public static Object fetchBlockJSON(int height) throws IOException {
 		InputStream is;
 
 		try {
@@ -60,7 +59,7 @@ public class migrate extends common {
 		}
 	}
 
-	public byte[] addressToPublicKey(String address) throws IOException {
+	public static byte[] addressToPublicKey(String address) throws IOException {
 		byte[] cachedPublicKey = publicKeyByAddress.get(address);
 		if (cachedPublicKey != null)
 			return cachedPublicKey;
@@ -78,7 +77,7 @@ public class migrate extends common {
 		}
 	}
 
-	public String formatWithPlaceholders(String... columns) {
+	public static String formatWithPlaceholders(String... columns) {
 		String[] placeholders = new String[columns.length];
 		Arrays.setAll(placeholders, (int i) -> "?");
 
@@ -91,14 +90,18 @@ public class migrate extends common {
 		return output.toString();
 	}
 
-	@Test
-	public void testMigration() throws SQLException, IOException {
+	public static void main(String args[]) throws SQLException, DataException, IOException {
 		// Genesis public key
 		publicKeyByAddress.put(GENESIS_ADDRESS, GENESIS_PUBLICKEY);
 		// Some other public keys for addresses that have never created a transaction
 		publicKeyByAddress.put("QcDLhirHkSbR4TLYeShLzHw61B8UGTFusk", Base58.decode("HP58uWRBae654ze6ysmdyGv3qaDrr9BEk6cHv4WuiF7d"));
 
-		Connection c = DB.getConnection();
+		// TODO convert to repository
+		Connection c = null;
+
+		test.Common.setRepository();
+		Repository repository = RepositoryManager.getRepository();
+		BlockRepository blockRepository = repository.getBlockRepository();
 
 		PreparedStatement blocksPStmt = c
 				.prepareStatement("INSERT INTO Blocks " + formatWithPlaceholders("signature", "version", "reference", "transaction_count", "total_fees",
@@ -150,7 +153,7 @@ public class migrate extends common {
 		PreparedStatement blockTxPStmt = c
 				.prepareStatement("INSERT INTO BlockTransactions " + formatWithPlaceholders("block_signature", "sequence", "transaction_signature"));
 
-		int height = BlockChain.getHeight() + 1;
+		int height = blockRepository.getBlockchainHeight() + 1;
 		byte[] milestone_block = null;
 		System.out.println("Starting migration from block height " + height);
 
@@ -163,8 +166,6 @@ public class migrate extends common {
 				System.out.println("Height: " + height + ", public key map size: " + publicKeyByAddress.size());
 
 			JSONArray transactions = (JSONArray) json.get("transactions");
-
-			DB.startTransaction();
 
 			// Blocks:
 			// signature, version, reference, transaction_count, total_fees, transactions_signature, height, generation, generating_balance, generator,
@@ -561,7 +562,7 @@ public class migrate extends common {
 						}
 
 						messagePStmt.setBinaryStream(1, new ByteArrayInputStream(txSignature));
-						messagePStmt.setInt(2, TransactionHandler.getVersionByTimestamp(transactionTimestamp));
+						messagePStmt.setInt(2, Transaction.getVersionByTimestamp(transactionTimestamp));
 						messagePStmt.setBinaryStream(3, new ByteArrayInputStream(addressToPublicKey((String) transaction.get("creator"))));
 						messagePStmt.setString(4, (String) transaction.get("recipient"));
 						messagePStmt.setBoolean(5, isText);
@@ -590,7 +591,7 @@ public class migrate extends common {
 				blockTxPStmt.execute();
 				blockTxPStmt.clearParameters();
 
-				DB.commit();
+				repository.saveChanges();
 			}
 
 			// new milestone block every 500 blocks?
@@ -600,7 +601,7 @@ public class migrate extends common {
 			++height;
 		}
 
-		System.out.println("Migration finished with new blockchain height " + BlockChain.getHeight());
+		System.out.println("Migration finished with new blockchain height " + blockRepository.getBlockchainHeight());
 	}
 
 }

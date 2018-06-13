@@ -82,6 +82,15 @@ public class Block {
 		this.generator = new PublicKeyAccount(repository, blockData.getGeneratorPublicKey());
 	}
 
+	// For creating a new block
+	public Block(Repository repository, int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PrivateKeyAccount generator,
+			byte[] atBytes, BigDecimal atFees) {
+		this.repository = repository;
+		this.generator = generator;
+		this.blockData = new BlockData(version, reference, 0, BigDecimal.ZERO.setScale(8), null, 0, timestamp, generatingBalance, generator.getPublicKey(),
+				null, atBytes, atFees);
+	}
+
 	// Getters/setters
 
 	public BlockData getBlockData() {
