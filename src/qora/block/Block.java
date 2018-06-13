@@ -89,6 +89,8 @@ public class Block {
 		this.generator = generator;
 		this.blockData = new BlockData(version, reference, 0, BigDecimal.ZERO.setScale(8), null, 0, timestamp, generatingBalance, generator.getPublicKey(),
 				null, atBytes, atFees);
+
+		this.transactions = new ArrayList<Transaction>();
 	}
 
 	// Getters/setters

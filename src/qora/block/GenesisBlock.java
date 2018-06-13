@@ -3,6 +3,7 @@ package qora.block;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import com.google.common.primitives.Bytes;
@@ -31,6 +32,8 @@ public class GenesisBlock extends Block {
 	public GenesisBlock(Repository repository) throws DataException {
 		super(repository, new BlockData(GENESIS_BLOCK_VERSION, GENESIS_REFERENCE, 0, BigDecimal.ZERO.setScale(8), GENESIS_TRANSACTIONS_SIGNATURE, 1,
 				GENESIS_TIMESTAMP, GENESIS_GENERATING_BALANCE, GENESIS_GENERATOR_PUBLIC_KEY, GENESIS_GENERATOR_SIGNATURE, null, null));
+
+		this.transactions = new ArrayList<Transaction>();
 
 		// Genesis transactions
 		addGenesisTransaction("QUD9y7NZqTtNwvSAUfewd7zKUGoVivVnTW", "7032468.191");

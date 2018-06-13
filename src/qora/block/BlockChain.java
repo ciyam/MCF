@@ -46,35 +46,38 @@ public class BlockChain {
 	}
 
 	private static boolean isGenesisBlockValid() throws DataException {
-		BlockRepository blockRepository = RepositoryManager.getRepository().getBlockRepository();
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockRepository blockRepository = repository.getBlockRepository();
 
-		int blockchainHeight = blockRepository.getBlockchainHeight();
-		if (blockchainHeight < 1)
-			return false;
+			int blockchainHeight = blockRepository.getBlockchainHeight();
+			if (blockchainHeight < 1)
+				return false;
 
-		BlockData blockData = blockRepository.fromHeight(1);
-		if (blockData == null)
-			return false;
+			BlockData blockData = blockRepository.fromHeight(1);
+			if (blockData == null)
+				return false;
 
-		return GenesisBlock.isGenesisBlock(blockData);
+			return GenesisBlock.isGenesisBlock(blockData);
+		}
 	}
 
 	private static void rebuildBlockchain() throws DataException {
 		// (Re)build repository
-		Repository repository = RepositoryManager.getRepository();
-		repository.rebuild();
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			repository.rebuild();
 
-		// Add Genesis Block
-		GenesisBlock genesisBlock = new GenesisBlock(repository);
-		genesisBlock.process();
+			// Add Genesis Block
+			GenesisBlock genesisBlock = new GenesisBlock(repository);
+			genesisBlock.process();
 
-		// Add QORA asset.
-		// NOTE: Asset's transaction reference is Genesis Block's generator signature which doesn't exist as a transaction!
-		AssetData qoraAssetData = new AssetData(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.", 10_000_000_000L, true,
-				genesisBlock.getBlockData().getGeneratorSignature());
-		repository.getAssetRepository().save(qoraAssetData);
+			// Add QORA asset.
+			// NOTE: Asset's transaction reference is Genesis Block's generator signature which doesn't exist as a transaction!
+			AssetData qoraAssetData = new AssetData(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.",
+					10_000_000_000L, true, genesisBlock.getBlockData().getGeneratorSignature());
+			repository.getAssetRepository().save(qoraAssetData);
 
-		repository.saveChanges();
+			repository.saveChanges();
+		}
 	}
 
 	/**

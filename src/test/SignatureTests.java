@@ -22,13 +22,15 @@ public class SignatureTests extends Common {
 	public void testGenesisBlockSignature() throws DataException {
 		String expected58 = "6pHMBFif7jXFG654joT8GPaymau1fMtaxacRyqSrnAwQMQDvqRuLpHpfFyqX4gWVvj4pF1mwQhFgqWAvjVvPJUjmBZQvL751dM9cEcQBTaUcxtNLuWZCVUAtbnWN9f7FsLppHhkPbxwpoodL3UJYRGt3EZrG17mhv1RJbmq8j6rr7Mk";
 
-		Repository repository = RepositoryManager.getRepository();
-		GenesisBlock block = new GenesisBlock(repository);
-		BlockData blockData = block.getBlockData();
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			GenesisBlock block = new GenesisBlock(repository);
+			BlockData blockData = block.getBlockData();
 
-		System.out.println("Generator: " + block.getGenerator().getAddress() + ", generator signature: " + Base58.encode(blockData.getGeneratorSignature()));
+			System.out
+					.println("Generator: " + block.getGenerator().getAddress() + ", generator signature: " + Base58.encode(blockData.getGeneratorSignature()));
 
-		assertEquals(expected58, Base58.encode(block.getSignature()));
+			assertEquals(expected58, Base58.encode(block.getSignature()));
+		}
 	}
 
 	@Test
@@ -42,20 +44,21 @@ public class SignatureTests extends Common {
 
 		BigDecimal generatingBalance = BigDecimal.valueOf(10_000_000L).setScale(8);
 
-		Repository repository = RepositoryManager.getRepository();
-		PrivateKeyAccount generator = new PrivateKeyAccount(repository,
-				new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount generator = new PrivateKeyAccount(repository,
+					new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
 
-		byte[] atBytes = null;
+			byte[] atBytes = null;
 
-		BigDecimal atFees = null;
+			BigDecimal atFees = null;
 
-		Block block = new Block(repository, version, reference, timestamp, generatingBalance, generator, atBytes, atFees);
+			Block block = new Block(repository, version, reference, timestamp, generatingBalance, generator, atBytes, atFees);
 
-		block.calcGeneratorSignature();
-		block.calcTransactionsSignature();
+			block.calcGeneratorSignature();
+			block.calcTransactionsSignature();
 
-		assertTrue(block.isSignatureValid());
+			assertTrue(block.isSignatureValid());
+		}
 	}
 
 }

@@ -1,6 +1,6 @@
 package repository;
 
-public interface Repository {
+public interface Repository extends AutoCloseable {
 
 	public AccountRepository getAccountRepository();
 

@@ -25,25 +25,26 @@ public class TransactionTests extends Common {
 
 	@Test
 	public void testGenesisSerialization() throws TransformationException, DataException {
-		Repository repository = RepositoryManager.getRepository();
-		GenesisBlock block = new GenesisBlock(repository);
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			GenesisBlock block = new GenesisBlock(repository);
 
-		GenesisTransaction transaction = (GenesisTransaction) block.getTransactions().get(1);
-		assertNotNull(transaction);
+			GenesisTransaction transaction = (GenesisTransaction) block.getTransactions().get(1);
+			assertNotNull(transaction);
 
-		GenesisTransactionData genesisTransactionData = (GenesisTransactionData) transaction.getTransactionData();
+			GenesisTransactionData genesisTransactionData = (GenesisTransactionData) transaction.getTransactionData();
 
-		System.out.println(genesisTransactionData.getTimestamp() + ": " + genesisTransactionData.getRecipient() + " received "
-				+ genesisTransactionData.getAmount().toPlainString());
+			System.out.println(genesisTransactionData.getTimestamp() + ": " + genesisTransactionData.getRecipient() + " received "
+					+ genesisTransactionData.getAmount().toPlainString());
 
-		byte[] bytes = TransactionTransformer.toBytes(genesisTransactionData);
+			byte[] bytes = TransactionTransformer.toBytes(genesisTransactionData);
 
-		GenesisTransactionData parsedTransactionData = (GenesisTransactionData) TransactionTransformer.fromBytes(bytes);
+			GenesisTransactionData parsedTransactionData = (GenesisTransactionData) TransactionTransformer.fromBytes(bytes);
 
-		System.out.println(parsedTransactionData.getTimestamp() + ": " + parsedTransactionData.getRecipient() + " received "
-				+ parsedTransactionData.getAmount().toPlainString());
+			System.out.println(parsedTransactionData.getTimestamp() + ": " + parsedTransactionData.getRecipient() + " received "
+					+ parsedTransactionData.getAmount().toPlainString());
 
-		assertTrue(Arrays.equals(genesisTransactionData.getSignature(), parsedTransactionData.getSignature()));
+			assertTrue(Arrays.equals(genesisTransactionData.getSignature(), parsedTransactionData.getSignature()));
+		}
 	}
 
 	private void testGenericSerialization(TransactionData transactionData) throws TransformationException {
@@ -60,21 +61,21 @@ public class TransactionTests extends Common {
 
 	@Test
 	public void testPaymentSerialization() throws TransformationException, DataException {
-		Repository repository = RepositoryManager.getRepository();
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Block 949 has lots of varied transactions
+			// Blocks 390 & 754 have only payment transactions
+			BlockData blockData = repository.getBlockRepository().fromHeight(754);
+			assertNotNull("Block 754 is required for this test", blockData);
 
-		// Block 949 has lots of varied transactions
-		// Blocks 390 & 754 have only payment transactions
-		BlockData blockData = repository.getBlockRepository().fromHeight(754);
-		assertNotNull("Block 754 is required for this test", blockData);
+			Block block = new Block(repository, blockData);
+			assertTrue(block.isSignatureValid());
 
-		Block block = new Block(repository, blockData);
-		assertTrue(block.isSignatureValid());
+			List<Transaction> transactions = block.getTransactions();
+			assertNotNull(transactions);
 
-		List<Transaction> transactions = block.getTransactions();
-		assertNotNull(transactions);
-
-		for (Transaction transaction : transactions)
-			testGenericSerialization(transaction.getTransactionData());
+			for (Transaction transaction : transactions)
+				testGenericSerialization(transaction.getTransactionData());
+		}
 	}
 
 	@Test

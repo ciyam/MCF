@@ -12,8 +12,9 @@ public class RepositoryTests extends Common {
 
 	@Test
 	public void testGetRepository() throws DataException {
-		Repository repository = RepositoryManager.getRepository();
-		assertNotNull(repository);
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			assertNotNull(repository);
+		}
 	}
 
 	@Test
@@ -25,19 +26,24 @@ public class RepositoryTests extends Common {
 			repositories[i] = RepositoryManager.getRepository();
 			assertNotNull(repositories[i]);
 		}
+
+		for (int i = 0; i < n_instances; ++i) {
+			repositories[i].close();
+			repositories[i] = null;
+		}
 	}
 
 	@Test
-	public void testAccessAfterCommit() throws DataException {
+	public void testAccessAfterClose() throws DataException {
 		Repository repository = RepositoryManager.getRepository();
 		assertNotNull(repository);
 
-		repository.saveChanges();
+		repository.close();
 
 		try {
 			repository.discardChanges();
 			fail();
-		} catch (DataException e) {
+		} catch (NullPointerException | DataException e) {
 		}
 	}
 
