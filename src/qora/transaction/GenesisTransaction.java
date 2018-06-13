@@ -9,13 +9,16 @@ import data.transaction.GenesisTransactionData;
 import data.transaction.TransactionData;
 import qora.account.PrivateKeyAccount;
 import qora.crypto.Crypto;
+import repository.Repository;
 import transform.TransformationException;
 import transform.transaction.TransactionTransformer;
 
 public class GenesisTransaction extends Transaction {
 
-	public GenesisTransaction(TransactionData transactionData) {
-		this.transactionData = transactionData;
+	// Constructors
+
+	public GenesisTransaction(Repository repository, TransactionData transactionData) {
+		super(repository, transactionData);
 	}
 
 	// Processing
@@ -68,14 +71,14 @@ public class GenesisTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() {
-		GenesisTransactionData genesisTransaction = (GenesisTransactionData) this.transactionData;
+		GenesisTransactionData genesisTransactionData = (GenesisTransactionData) this.transactionData;
 
 		// Check amount is zero or positive
-		if (genesisTransaction.getAmount().compareTo(BigDecimal.ZERO) == -1)
+		if (genesisTransactionData.getAmount().compareTo(BigDecimal.ZERO) == -1)
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check recipient address is valid
-		if (!Crypto.isValidAddress(genesisTransaction.getRecipient()))
+		if (!Crypto.isValidAddress(genesisTransactionData.getRecipient()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		return ValidationResult.OK;

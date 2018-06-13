@@ -1,7 +1,6 @@
 package repository.hsqldb;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -15,7 +14,7 @@ import java.util.List;
  * <p>
  * {@code SaveHelper helper = new SaveHelper("TableName"); }<br>
  * {@code helper.bind("column_name", someColumnValue).bind("column2", columnValue2); }<br>
- * {@code helper.execute(); }<br>
+ * {@code helper.execute(repository); }<br>
  *
  */
 public class HSQLDBSaver {
@@ -49,14 +48,17 @@ public class HSQLDBSaver {
 
 	/**
 	 * Build PreparedStatement using bound column-value pairs then execute it.
+	 * 
+	 * @param repository
+	 *            TODO
+	 * @param repository
 	 *
-	 * @param connection
 	 * @return the result from {@link PreparedStatement#execute()}
 	 * @throws SQLException
 	 */
-	public boolean execute(Connection connection) throws SQLException {
+	public boolean execute(HSQLDBRepository repository) throws SQLException {
 		String sql = this.formatInsertWithPlaceholders();
-		PreparedStatement preparedStatement = connection.prepareStatement(sql);
+		PreparedStatement preparedStatement = repository.connection.prepareStatement(sql);
 
 		this.bindValues(preparedStatement);
 

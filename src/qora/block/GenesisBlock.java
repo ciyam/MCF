@@ -195,8 +195,8 @@ public class GenesisBlock extends Block {
 	}
 
 	private void addGenesisTransaction(String recipient, String amount) {
-		this.transactions
-				.add(Transaction.fromData(new GenesisTransactionData(recipient, new BigDecimal(amount).setScale(8), this.getBlockData().getTimestamp())));
+		this.transactions.add(Transaction.fromData(this.repository,
+				new GenesisTransactionData(recipient, new BigDecimal(amount).setScale(8), this.getBlockData().getTimestamp())));
 		this.blockData.setTransactionCount(this.blockData.getTransactionCount() + 1);
 	}
 

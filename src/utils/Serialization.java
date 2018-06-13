@@ -1,9 +1,13 @@
 package utils;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+
+import com.google.common.primitives.Ints;
 
 import transform.TransformationException;
 import transform.Transformer;
@@ -39,6 +43,11 @@ public class Serialization {
 		byte[] bytes = new byte[Transformer.PUBLIC_KEY_LENGTH];
 		byteBuffer.get(bytes);
 		return bytes;
+	}
+
+	public static void serializeSizedString(ByteArrayOutputStream bytes, String string) throws UnsupportedEncodingException, IOException {
+		bytes.write(Ints.toByteArray(string.length()));
+		bytes.write(string.getBytes("UTF-8"));
 	}
 
 	public static String deserializeSizedString(ByteBuffer byteBuffer, int maxSize) throws TransformationException {

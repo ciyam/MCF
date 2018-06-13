@@ -34,7 +34,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		saveHelper.bind("account", accountData.getAddress()).bind("reference", accountData.getReference());
 
 		try {
-			saveHelper.execute(this.repository.connection);
+			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account info into repository", e);
 		}
@@ -60,7 +60,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				accountBalanceData.getBalance());
 
 		try {
-			saveHelper.execute(this.repository.connection);
+			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account balance into repository", e);
 		}

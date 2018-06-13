@@ -3,6 +3,7 @@ package qora.block;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 
+import data.assets.AssetData;
 import data.block.BlockData;
 import qora.assets.Asset;
 import repository.BlockRepository;
@@ -69,10 +70,9 @@ public class BlockChain {
 
 		// Add QORA asset.
 		// NOTE: Asset's transaction reference is Genesis Block's generator signature which doesn't exist as a transaction!
-		// TODO construct Asset(repository, AssetData) then .save()?
-		Asset qoraAsset = new Asset(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.", 10_000_000_000L, true,
+		AssetData qoraAssetData = new AssetData(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.", 10_000_000_000L, true,
 				genesisBlock.getBlockData().getGeneratorSignature());
-		qoraAsset.save();
+		repository.getAssetRepository().save(qoraAssetData);
 
 		repository.saveChanges();
 	}

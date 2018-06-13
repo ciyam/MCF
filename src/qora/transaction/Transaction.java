@@ -10,8 +10,10 @@ import static java.util.stream.Collectors.toMap;
 import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.account.PrivateKeyAccount;
+import qora.account.PublicKeyAccount;
 import qora.block.Block;
 import qora.block.BlockChain;
+import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
 import settings.Settings;
@@ -65,14 +67,23 @@ public abstract class Transaction {
 	protected static final BigDecimal minFeePerByte = BigDecimal.ONE.divide(maxBytePerFee, MathContext.DECIMAL32);
 
 	// Properties
+	protected Repository repository;
 	protected TransactionData transactionData;
 
 	// Constructors
 
-	public static Transaction fromData(TransactionData transactionData) {
+	protected Transaction(Repository repository, TransactionData transactionData) {
+		this.repository = repository;
+		this.transactionData = transactionData;
+	}
+
+	public static Transaction fromData(Repository repository, TransactionData transactionData) {
 		switch (transactionData.getType()) {
 			case GENESIS:
-				return new GenesisTransaction(transactionData);
+				return new GenesisTransaction(repository, transactionData);
+
+			case ISSUE_ASSET:
+				return new IssueAssetTransaction(repository, transactionData);
 
 			default:
 				return null;
@@ -142,20 +153,21 @@ public abstract class Transaction {
 	 * @return height, or 0 if not in blockchain (i.e. unconfirmed)
 	 */
 	public int getHeight() {
-		return RepositoryManager.getRepository().getTransactionRepository().getHeight(this.transactionData);
+		return this.repository.getTransactionRepository().getHeight(this.transactionData);
 	}
 
 	/**
 	 * Get number of confirmations for this transaction.
 	 * 
 	 * @return confirmation count, or 0 if not in blockchain (i.e. unconfirmed)
+	 * @throws DataException
 	 */
-	public int getConfirmations() {
+	public int getConfirmations() throws DataException {
 		int ourHeight = getHeight();
 		if (ourHeight == 0)
 			return 0;
 
-		int blockChainHeight = BlockChain.getHeight();
+		int blockChainHeight = this.repository.getBlockRepository().getBlockchainHeight();
 		if (blockChainHeight == 0)
 			return 0;
 
@@ -170,33 +182,35 @@ public abstract class Transaction {
 	 * @return Block, or null if transaction is not in a Block
 	 */
 	public BlockData getBlock() {
-		return RepositoryManager.getTransactionRepository().toBlock(this.transactionData);
+		return this.repository.getTransactionRepository().toBlock(this.transactionData);
 	}
 
 	/**
 	 * Load parent Transaction from DB via this transaction's reference.
 	 * 
 	 * @return Transaction, or null if no parent found (which should not happen)
+	 * @throws DataException
 	 */
-	public TransactionData getParent() {
+	public TransactionData getParent() throws DataException {
 		byte[] reference = this.transactionData.getReference();
 		if (reference == null)
 			return null;
 
-		return RepositoryManager.getTransactionRepository().fromSignature(reference);
+		return this.repository.getTransactionRepository().fromSignature(reference);
 	}
 
 	/**
 	 * Load child Transaction from DB, if any.
 	 * 
 	 * @return Transaction, or null if no child found
+	 * @throws DataException
 	 */
-	public TransactionData getChild() {
+	public TransactionData getChild() throws DataException {
 		byte[] signature = this.transactionData.getSignature();
 		if (signature == null)
 			return null;
 
-		return RepositoryManager.getTransactionRepository().fromSignature(signature);
+		return this.repository.getTransactionRepository().fromSignature(signature);
 	}
 
 	/**
@@ -227,8 +241,7 @@ public abstract class Transaction {
 		if (signature == null)
 			return false;
 
-		// XXX: return this.transaction.getCreator().verify(signature, this.toBytesLessSignature());
-		return false;
+		return PublicKeyAccount.verify(this.transactionData.getCreatorPublicKey(), signature, this.toBytesLessSignature());
 	}
 
 	/**
@@ -236,30 +249,28 @@ public abstract class Transaction {
 	 * <p>
 	 * Checks if transaction can have {@link TransactionHandler#process()} called.
 	 * <p>
-	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process()}.
-	 * <p>
 	 * Transactions that have already been processed will return false.
 	 * 
 	 * @return true if transaction can be processed, false otherwise
 	 */
-	public abstract ValidationResult isValid();
+	public abstract ValidationResult isValid() throws DataException;
 
 	/**
 	 * Actually process a transaction, updating the blockchain.
 	 * <p>
 	 * Processes transaction, updating balances, references, assets, etc. as appropriate.
-	 * <p>
-	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process()}.
+	 * 
+	 * @throws DataException
 	 */
-	public abstract void process();
+	public abstract void process() throws DataException;
 
 	/**
 	 * Undo transaction, updating the blockchain.
 	 * <p>
 	 * Undoes transaction, updating balances, references, assets, etc. as appropriate.
-	 * <p>
-	 * Expected to be called within an ongoing SQL Transaction, typically by {@link Block#process()}.
+	 * 
+	 * @throws DataException
 	 */
-	public abstract void orphan();
+	public abstract void orphan() throws DataException;
 
 }

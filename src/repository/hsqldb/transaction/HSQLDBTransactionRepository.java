@@ -1,4 +1,4 @@
-package repository.hsqldb;
+package repository.hsqldb.transaction;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -10,18 +10,22 @@ import data.transaction.TransactionData;
 import qora.transaction.Transaction.TransactionType;
 import repository.DataException;
 import repository.TransactionRepository;
+import repository.hsqldb.HSQLDBRepository;
+import repository.hsqldb.HSQLDBSaver;
 
 public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	protected HSQLDBRepository repository;
 	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
+	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
 		genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
+		issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
 	}
 
-	public TransactionData fromSignature(byte[] signature) {
+	public TransactionData fromSignature(byte[] signature) throws DataException {
 		try {
 			ResultSet rs = this.repository.checkedExecute("SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
 			if (rs == null)
@@ -35,11 +39,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			return this.fromBase(type, signature, reference, creator, timestamp, fee);
 		} catch (SQLException e) {
-			return null;
+			throw new DataException("Unable to fetch transaction from repository", e);
 		}
 	}
 
-	public TransactionData fromReference(byte[] reference) {
+	public TransactionData fromReference(byte[] reference) throws DataException {
 		try {
 			ResultSet rs = this.repository.checkedExecute("SELECT type, signature, creator, creation, fee FROM Transactions WHERE reference = ?", reference);
 			if (rs == null)
@@ -53,14 +57,18 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			return this.fromBase(type, signature, reference, creator, timestamp, fee);
 		} catch (SQLException e) {
-			return null;
+			throw new DataException("Unable to fetch transaction from repository", e);
 		}
 	}
 
-	private TransactionData fromBase(TransactionType type, byte[] signature, byte[] reference, byte[] creator, long timestamp, BigDecimal fee) {
+	private TransactionData fromBase(TransactionType type, byte[] signature, byte[] reference, byte[] creator, long timestamp, BigDecimal fee)
+			throws DataException {
 		switch (type) {
 			case GENESIS:
 				return this.genesisTransactionRepository.fromBase(signature, reference, creator, timestamp, fee);
+
+			case ISSUE_ASSET:
+				return this.issueAssetTransactionRepository.fromBase(signature, reference, creator, timestamp, fee);
 
 			default:
 				return null;
@@ -115,7 +123,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				.bind("creator", transactionData.getCreatorPublicKey()).bind("creation", new Timestamp(transactionData.getTimestamp()))
 				.bind("fee", transactionData.getFee()).bind("milestone_block", null);
 		try {
-			saver.execute(this.repository.connection);
+			saver.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException(e);
 		}

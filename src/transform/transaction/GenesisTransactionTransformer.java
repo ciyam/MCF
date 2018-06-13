@@ -35,20 +35,20 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 		return new GenesisTransactionData(recipient, amount, timestamp);
 	}
 
-	public static int getDataLength(TransactionData baseTransaction) throws TransformationException {
+	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		return TYPE_LENGTH + TYPELESS_LENGTH;
 	}
 
-	public static byte[] toBytes(TransactionData baseTransaction) throws TransformationException {
+	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
 		try {
-			GenesisTransactionData transaction = (GenesisTransactionData) baseTransaction;
+			GenesisTransactionData genesisTransactionData = (GenesisTransactionData) transactionData;
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(transaction.getType().value));
-			bytes.write(Longs.toByteArray(transaction.getTimestamp()));
-			bytes.write(Base58.decode(transaction.getRecipient()));
-			bytes.write(Serialization.serializeBigDecimal(transaction.getAmount()));
+			bytes.write(Ints.toByteArray(genesisTransactionData.getType().value));
+			bytes.write(Longs.toByteArray(genesisTransactionData.getTimestamp()));
+			bytes.write(Base58.decode(genesisTransactionData.getRecipient()));
+			bytes.write(Serialization.serializeBigDecimal(genesisTransactionData.getAmount()));
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {
@@ -57,14 +57,14 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 	}
 
 	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData baseTransaction) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(baseTransaction);
+	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
+		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
 
 		try {
-			GenesisTransactionData transaction = (GenesisTransactionData) baseTransaction;
+			GenesisTransactionData genesisTransactionData = (GenesisTransactionData) transactionData;
 
-			json.put("recipient", transaction.getRecipient());
-			json.put("amount", transaction.getAmount().toPlainString());
+			json.put("recipient", genesisTransactionData.getRecipient());
+			json.put("amount", genesisTransactionData.getAmount().toPlainString());
 		} catch (ClassCastException e) {
 			throw new TransformationException(e);
 		}

@@ -134,7 +134,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				.bind("AT_data", blockData.getAtBytes()).bind("AT_fees", blockData.getAtFees());
 
 		try {
-			saveHelper.execute(this.repository.connection);
+			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save Block into repository", e);
 		}
@@ -146,7 +146,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				.bind("transaction_signature", blockTransactionData.getTransactionSignature());
 
 		try {
-			saveHelper.execute(this.repository.connection);
+			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save BlockTransaction into repository", e);
 		}

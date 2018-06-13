@@ -9,10 +9,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import repository.AccountRepository;
+import repository.AssetRepository;
 import repository.BlockRepository;
 import repository.DataException;
 import repository.Repository;
 import repository.TransactionRepository;
+import repository.hsqldb.transaction.HSQLDBTransactionRepository;
 
 public class HSQLDBRepository implements Repository {
 
@@ -26,6 +28,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public AccountRepository getAccountRepository() {
 		return new HSQLDBAccountRepository(this);
+	}
+
+	@Override
+	public AssetRepository getAssetRepository() {
+		return new HSQLDBAssetRepository(this);
 	}
 
 	@Override
@@ -79,7 +86,7 @@ public class HSQLDBRepository implements Repository {
 	 * @param inputStream
 	 * @return byte[]
 	 */
-	byte[] getResultSetBytes(InputStream inputStream) {
+	public byte[] getResultSetBytes(InputStream inputStream) {
 		// inputStream could be null if database's column's value is null
 		if (inputStream == null)
 			return null;
@@ -107,7 +114,7 @@ public class HSQLDBRepository implements Repository {
 	 * @return ResultSet, or null if there are no found rows
 	 * @throws SQLException
 	 */
-	ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
+	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
 
 		for (int i = 0; i < objects.length; ++i)
@@ -130,7 +137,7 @@ public class HSQLDBRepository implements Repository {
 	 * @return ResultSet, or null if there are no found rows
 	 * @throws SQLException
 	 */
-	ResultSet checkedExecute(PreparedStatement preparedStatement) throws SQLException {
+	public ResultSet checkedExecute(PreparedStatement preparedStatement) throws SQLException {
 		if (!preparedStatement.execute())
 			throw new SQLException("Fetching from database produced no results");
 
@@ -154,7 +161,7 @@ public class HSQLDBRepository implements Repository {
 	 * @return Long
 	 * @throws SQLException
 	 */
-	Long callIdentity() throws SQLException {
+	public Long callIdentity() throws SQLException {
 		PreparedStatement preparedStatement = this.connection.prepareStatement("CALL IDENTITY()");
 		ResultSet resultSet = this.checkedExecute(preparedStatement);
 		if (resultSet == null)
@@ -180,7 +187,7 @@ public class HSQLDBRepository implements Repository {
 	 * @return true if matching row found in database, false otherwise
 	 * @throws SQLException
 	 */
-	boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
+	public boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.connection
 				.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " ORDER BY NULL LIMIT 1");
 		ResultSet resultSet = this.checkedExecute(preparedStatement);

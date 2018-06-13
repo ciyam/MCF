@@ -13,6 +13,8 @@ import utils.Base58;
 public class TransactionTransformer extends Transformer {
 
 	protected static final int TYPE_LENGTH = INT_LENGTH;
+	protected static final int REFERENCE_LENGTH = SIGNATURE_LENGTH;
+	protected static final int BASE_TYPELESS_LENGTH = TYPE_LENGTH + TIMESTAMP_LENGTH + REFERENCE_LENGTH + SIGNATURE_LENGTH;
 
 	public static TransactionData fromBytes(byte[] bytes) throws TransformationException {
 		if (bytes == null)
@@ -31,25 +33,34 @@ public class TransactionTransformer extends Transformer {
 			case GENESIS:
 				return GenesisTransactionTransformer.fromByteBuffer(byteBuffer);
 
+			case ISSUE_ASSET:
+				return IssueAssetTransactionTransformer.fromByteBuffer(byteBuffer);
+
 			default:
 				return null;
 		}
 	}
 
-	public static int getDataLength(TransactionData transaction) throws TransformationException {
-		switch (transaction.getType()) {
+	public static int getDataLength(TransactionData transactionData) throws TransformationException {
+		switch (transactionData.getType()) {
 			case GENESIS:
-				return GenesisTransactionTransformer.getDataLength(transaction);
+				return GenesisTransactionTransformer.getDataLength(transactionData);
+
+			case ISSUE_ASSET:
+				return IssueAssetTransactionTransformer.getDataLength(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type");
 		}
 	}
 
-	public static byte[] toBytes(TransactionData transaction) throws TransformationException {
-		switch (transaction.getType()) {
+	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
+		switch (transactionData.getType()) {
 			case GENESIS:
-				return GenesisTransactionTransformer.toBytes(transaction);
+				return GenesisTransactionTransformer.toBytes(transactionData);
+
+			case ISSUE_ASSET:
+				return IssueAssetTransactionTransformer.toBytes(transactionData);
 
 			default:
 				return null;

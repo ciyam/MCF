@@ -4,6 +4,8 @@ public interface Repository {
 
 	public AccountRepository getAccountRepository();
 
+	public AssetRepository getAssetRepository();
+
 	public BlockRepository getBlockRepository();
 
 	public TransactionRepository getTransactionRepository();

@@ -206,7 +206,7 @@ public class Block {
 		this.transactions = new ArrayList<Transaction>();
 
 		for (TransactionData transactionData : transactionsData)
-			this.transactions.add(Transaction.fromData(transactionData));
+			this.transactions.add(Transaction.fromData(this.repository, transactionData));
 
 		return this.transactions;
 	}
@@ -242,7 +242,7 @@ public class Block {
 		}
 
 		// Add to block
-		this.transactions.add(Transaction.fromData(transactionData));
+		this.transactions.add(Transaction.fromData(this.repository, transactionData));
 
 		// Update transaction count
 		this.blockData.setTransactionCount(this.blockData.getTransactionCount() + 1);
