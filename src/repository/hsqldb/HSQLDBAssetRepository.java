@@ -1,9 +1,11 @@
 package repository.hsqldb;
 
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import data.assets.AssetData;
+import data.assets.OrderData;
 import repository.AssetRepository;
 import repository.DataException;
 
@@ -14,6 +16,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	public HSQLDBAssetRepository(HSQLDBRepository repository) {
 		this.repository = repository;
 	}
+
+	// Assets
 
 	public AssetData fromAssetId(long assetId) throws DataException {
 		try {
@@ -72,6 +76,29 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			this.repository.checkedExecute("DELETE FROM Assets WHERE assetId = ?", assetId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete asset from repository", e);
+		}
+	}
+
+	// Orders
+
+	public OrderData fromOrderId(byte[] orderId) throws DataException {
+		try {
+			ResultSet resultSet = this.repository.checkedExecute(
+					"SELECT creator, have_asset_id, want_asset_id, amount, fulfilled, price, timestamp FROM AssetOrders WHERE asset_order_id = ?", orderId);
+			if (resultSet == null)
+				return null;
+
+			byte[] creatorPublicKey = this.repository.getResultSetBytes(resultSet.getBinaryStream(1));
+			long haveAssetId = resultSet.getLong(2);
+			long wantAssetId = resultSet.getLong(3);
+			BigDecimal amount = resultSet.getBigDecimal(4);
+			BigDecimal fulfilled = resultSet.getBigDecimal(5);
+			BigDecimal price = resultSet.getBigDecimal(6);
+			long timestamp = resultSet.getTimestamp(7).getTime();
+
+			return new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch order from repository", e);
 		}
 	}
 

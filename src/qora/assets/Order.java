@@ -1,93 +1,39 @@
 package qora.assets;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.List;
 
-import qora.account.Account;
-import transform.TransformationException;
+import data.assets.OrderData;
+import repository.DataException;
+import repository.Repository;
 
-public class Order implements Comparable<Order> {
+public class Order {
 
 	// Properties
-	private BigInteger id;
-	private Account creator;
-	private long haveAssetId;
-	private long wantAssetId;
-	private BigDecimal amount;
-	private BigDecimal price;
-	private long timestamp;
-
-	// Other properties
-	private BigDecimal fulfilled;
+	private Repository repository;
+	private OrderData orderData;
 
 	// Constructors
 
-	public Order(BigInteger id, Account creator, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, long timestamp) {
-		this.id = id;
-		this.creator = creator;
-		this.haveAssetId = haveAssetId;
-		this.wantAssetId = wantAssetId;
-		this.amount = amount;
-		this.price = price;
-		this.timestamp = timestamp;
-
-		this.fulfilled = BigDecimal.ZERO.setScale(8);
+	public Order(Repository repository, OrderData orderData) {
+		this.repository = repository;
+		this.orderData = orderData;
 	}
 
-	public Order(BigInteger id, Account creator, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal price,
-			long timestamp) {
-		this(id, creator, haveAssetId, wantAssetId, amount, price, timestamp);
+	// Getters/Setters
 
-		this.fulfilled = fulfilled;
-	}
-
-	// Getters/setters
-
-	public BigInteger getId() {
-		return this.id;
-	}
-
-	public Account getCreator() {
-		return this.creator;
-	}
-
-	public long getHaveAssetId() {
-		return this.haveAssetId;
-	}
-
-	public long getWantAssetId() {
-		return this.wantAssetId;
-	}
-
-	public BigDecimal getAmount() {
-		return this.amount;
-	}
-
-	public BigDecimal getPrice() {
-		return this.price;
-	}
-
-	public long getTimestamp() {
-		return this.timestamp;
-	}
-
-	public BigDecimal getFulfilled() {
-		return this.fulfilled;
-	}
-
-	public void setFulfilled(BigDecimal fulfilled) {
-		this.fulfilled = fulfilled;
+	public OrderData getOrderData() {
+		return this.orderData;
 	}
 
 	// More information
 
 	public BigDecimal getAmountLeft() {
-		return this.amount.subtract(this.fulfilled);
+		return this.orderData.getAmount().subtract(this.orderData.getFulfilled());
 	}
 
 	public boolean isFulfilled() {
-		return this.fulfilled.compareTo(this.amount) == 0;
+		return this.orderData.getFulfilled().compareTo(this.orderData.getAmount()) == 0;
 	}
 
 	// TODO
@@ -95,8 +41,6 @@ public class Order implements Comparable<Order> {
 
 	// TODO
 	// public boolean isConfirmed() {}
-
-	// Load/Save/Delete
 
 	// Navigation
 
@@ -107,35 +51,14 @@ public class Order implements Comparable<Order> {
 		return null;
 	}
 
-	// Converters
-
-	public static Order parse(byte[] data) throws TransformationException {
-		// TODO
-		return null;
-	}
-
-	public byte[] toBytes() {
-		// TODO
-
-		return null;
-	}
-
 	// Processing
 
-	// Other
-
-	@Override
-	public int compareTo(Order order) {
-		// Compare using prices
-		return this.price.compareTo(order.getPrice());
+	public void process() throws DataException {
+		// TODO
 	}
 
-	public Order copy() {
-		try {
-			return parse(this.toBytes());
-		} catch (TransformationException e) {
-			return null;
-		}
+	public void orphan() throws DataException {
+		// TODO
 	}
 
 }

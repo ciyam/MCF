@@ -18,8 +18,8 @@ public class HSQLDBCreateOrderTransactionRepository extends HSQLDBTransactionRep
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
 		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT have_asset_id, amount, want_asset_id, price FROM CreateOrderTransactions WHERE signature = ?",
-					signature);
+			ResultSet rs = this.repository.checkedExecute(
+					"SELECT have_asset_id, amount, want_asset_id, price FROM CreateAssetOrderTransactions WHERE signature = ?", signature);
 			if (rs == null)
 				return null;
 
@@ -41,7 +41,8 @@ public class HSQLDBCreateOrderTransactionRepository extends HSQLDBTransactionRep
 		HSQLDBSaver saveHelper = new HSQLDBSaver("CreateAssetOrderTransactions");
 
 		saveHelper.bind("signature", createOrderTransactionData.getSignature()).bind("creator", createOrderTransactionData.getCreatorPublicKey())
-				.bind("have_asset_id", createOrderTransactionData.getHaveAssetId()).bind("amount", createOrderTransactionData.getAmount());
+				.bind("have_asset_id", createOrderTransactionData.getHaveAssetId()).bind("amount", createOrderTransactionData.getAmount())
+				.bind("want_asset_id", createOrderTransactionData.getWantAssetId()).bind("price", createOrderTransactionData.getPrice());
 
 		try {
 			saveHelper.execute(this.repository);

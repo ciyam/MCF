@@ -237,7 +237,7 @@ public class BlockTransformer extends Transformer {
 					List<Trade> trades = order.getTrades();
 
 					// Filter out trades with timestamps that don't match order transaction's timestamp
-					trades.removeIf((Trade trade) -> trade.getTimestamp() != order.getTimestamp());
+					trades.removeIf((Trade trade) -> trade.getTimestamp() != order.getOrderData().getTimestamp());
 
 					// Any trades left?
 					if (!trades.isEmpty()) {

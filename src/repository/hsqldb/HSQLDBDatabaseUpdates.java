@@ -90,7 +90,7 @@ public class HSQLDBDatabaseUpdates {
 				stmt.execute("CREATE TYPE DataHash AS VARCHAR(100)");
 				stmt.execute("CREATE TYPE AssetID AS BIGINT");
 				stmt.execute("CREATE TYPE AssetName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
-				stmt.execute("CREATE TYPE AssetOrderID AS VARCHAR(100)");
+				stmt.execute("CREATE TYPE AssetOrderID AS VARBINARY(64)");
 				stmt.execute("CREATE TYPE ATName AS VARCHAR(200) COLLATE SQL_TEXT_UCC");
 				stmt.execute("CREATE TYPE ATType AS VARCHAR(200) COLLATE SQL_TEXT_UCC");
 				break;
@@ -227,7 +227,7 @@ public class HSQLDBDatabaseUpdates {
 			case 15:
 				// Transfer Asset Transactions
 				stmt.execute("CREATE TABLE TransferAssetTransactions (signature Signature, sender QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, "
-						+ "asset_id AssetID NOT NULL, amount QoraAmount NOT NULL, "
+						+ "asset_id AssetID NOT NULL, amount QoraAmount NOT NULL,"
 						+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				break;
 
@@ -241,7 +241,7 @@ public class HSQLDBDatabaseUpdates {
 			case 17:
 				// Cancel Asset Order Transactions
 				stmt.execute("CREATE TABLE CancelAssetOrderTransactions (signature Signature, creator QoraPublicKey NOT NULL, "
-						+ "asset_order AssetOrderID NOT NULL, "
+						+ "asset_order_id AssetOrderID NOT NULL, "
 						+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				break;
 
@@ -280,6 +280,16 @@ public class HSQLDBDatabaseUpdates {
 				stmt.execute("CREATE TABLE Accounts (account QoraAddress, reference Signature, PRIMARY KEY (account))");
 				stmt.execute(
 						"CREATE TABLE AccountBalances (account QoraAddress, asset_id AssetID, balance QoraAmount NOT NULL, PRIMARY KEY (account, asset_id))");
+				break;
+
+			case 23:
+				// Asset Orders
+				stmt.execute(
+						"CREATE TABLE AssetOrders (asset_order_id AssetOrderID, creator QoraPublicKey NOT NULL, have_asset_id AssetID NOT NULL, want_asset_id AssetID NOT NULL, "
+								+ "amount QoraAmount NOT NULL, fulfilled QoraAmount NOT NULL, price QoraAmount NOT NULL, ordered TIMESTAMP NOT NULL, "
+								+ "PRIMARY KEY (asset_order_id))");
+				stmt.execute("CREATE INDEX AssetOrderHaveIndex on AssetOrders (have_asset_id)");
+				stmt.execute("CREATE INDEX AssetOrderWantIndex on AssetOrders (want_asset_id)");
 				break;
 
 			default:
