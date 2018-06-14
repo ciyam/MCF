@@ -15,13 +15,12 @@ public class Common {
 	@BeforeClass
 	public static void setRepository() throws DataException {
 		RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
-
 		RepositoryManager.setRepositoryFactory(repositoryFactory);
 	}
 
 	@AfterClass
 	public static void closeRepository() throws DataException {
-		// Currently a no-op?
+		RepositoryManager.closeRepositoryFactory();
 	}
 
 }

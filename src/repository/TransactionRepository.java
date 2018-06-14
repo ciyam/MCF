@@ -11,7 +11,7 @@ public interface TransactionRepository {
 
 	public int getHeight(TransactionData transactionData);
 
-	public BlockData toBlock(TransactionData transactionData);
+	public BlockData toBlock(TransactionData transactionData) throws DataException;
 
 	public void save(TransactionData transactionData) throws DataException;
 

@@ -1,6 +1,7 @@
 package repository.hsqldb;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 
 import org.hsqldb.jdbc.JDBCPool;
@@ -18,11 +19,11 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		// one-time initialization goes in here
 		this.connectionUrl = connectionUrl;
 
-		connectionPool = new JDBCPool();
-		connectionPool.setUrl(this.connectionUrl);
+		this.connectionPool = new JDBCPool();
+		this.connectionPool.setUrl(this.connectionUrl);
 
 		// Perform DB updates?
-		try (final Connection connection = connectionPool.getConnection()) {
+		try (final Connection connection = this.connectionPool.getConnection()) {
 			HSQLDBDatabaseUpdates.updateDatabase(connection);
 		} catch (SQLException e) {
 			throw new DataException("Repository initialization error", e);
@@ -45,6 +46,20 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		connection.setAutoCommit(false);
 
 		return connection;
+	}
+
+	public void close() throws DataException {
+		try {
+			// Close all existing connections immediately
+			this.connectionPool.close(0);
+
+			// Now that all connections are closed, create a dedicated connection to shut down repository
+			Connection connection = DriverManager.getConnection(this.connectionUrl);
+			connection.createStatement().execute("SHUTDOWN");
+			connection.close();
+		} catch (SQLException e) {
+			throw new DataException("Error during repository shutdown", e);
+		}
 	}
 
 }

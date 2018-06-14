@@ -41,8 +41,6 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 
 	@Override
 	public void save(TransactionData transactionData) throws DataException {
-		super.save(transactionData);
-
 		MessageTransactionData messageTransactionData = (MessageTransactionData) transactionData;
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("MessageTransactions");

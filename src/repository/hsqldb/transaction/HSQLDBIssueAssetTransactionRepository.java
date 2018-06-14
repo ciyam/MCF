@@ -41,8 +41,6 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 
 	@Override
 	public void save(TransactionData transactionData) throws DataException {
-		super.save(transactionData);
-
 		IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("IssueAssetTransactions");

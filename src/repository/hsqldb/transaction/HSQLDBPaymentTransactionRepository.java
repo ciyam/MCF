@@ -34,8 +34,6 @@ public class HSQLDBPaymentTransactionRepository extends HSQLDBTransactionReposit
 
 	@Override
 	public void save(TransactionData transactionData) throws DataException {
-		super.save(transactionData);
-
 		PaymentTransactionData paymentTransactionData = (PaymentTransactionData) transactionData;
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("PaymentTransactions");

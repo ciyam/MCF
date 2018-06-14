@@ -28,7 +28,7 @@ public class BlockTests extends Common {
 			assertNotNull(block);
 			assertTrue(block.isSignatureValid());
 			// only true if blockchain is empty
-			// assertTrue(block.isValid(connection));
+			// assertTrue(block.isValid());
 
 			List<Transaction> transactions = block.getTransactions();
 			assertNotNull(transactions);

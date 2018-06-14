@@ -36,8 +36,6 @@ public class HSQLDBCreateOrderTransactionRepository extends HSQLDBTransactionRep
 
 	@Override
 	public void save(TransactionData transactionData) throws DataException {
-		super.save(transactionData);
-
 		CreateOrderTransactionData createOrderTransactionData = (CreateOrderTransactionData) transactionData;
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("CreateAssetOrderTransactions");

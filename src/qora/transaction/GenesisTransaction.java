@@ -7,8 +7,11 @@ import com.google.common.primitives.Bytes;
 
 import data.transaction.GenesisTransactionData;
 import data.transaction.TransactionData;
+import qora.account.Account;
 import qora.account.PrivateKeyAccount;
+import qora.assets.Asset;
 import qora.crypto.Crypto;
+import repository.DataException;
 import repository.Repository;
 import transform.TransformationException;
 import transform.transaction.TransactionTransformer;
@@ -88,31 +91,33 @@ public class GenesisTransaction extends Transaction {
 	}
 
 	@Override
-	public void process() {
-		// TODO
-		// this.save();
+	public void process() throws DataException {
+		GenesisTransactionData genesisTransactionData = (GenesisTransactionData) this.transactionData;
 
-		// Set recipient's balance
-		// TODO
-		// this.recipient.setConfirmedBalance(Asset.QORA, this.amount);
+		// Save this transaction itself
+		this.repository.getTransactionRepository().save(this.transactionData);
 
-		// Set recipient's reference
-		// TODO
-		// recipient.setLastReference(this.signature);
+		// Update recipient's balance
+		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
+		recipient.setConfirmedBalance(Asset.QORA, genesisTransactionData.getAmount());
+
+		// Set recipient's starting reference
+		recipient.setLastReference(genesisTransactionData.getSignature());
 	}
 
 	@Override
-	public void orphan() {
-		// TODO
-		// this.delete();
+	public void orphan() throws DataException {
+		GenesisTransactionData genesisTransactionData = (GenesisTransactionData) this.transactionData;
 
-		// Reset recipient's balance
-		// TODO
-		// this.recipient.deleteBalance(Asset.QORA);
+		// Delete this transaction
+		this.repository.getTransactionRepository().delete(this.transactionData);
 
-		// Set recipient's reference
-		// TODO
-		// recipient.setLastReference(null);
+		// Delete recipient's balance
+		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
+		recipient.deleteBalance(Asset.QORA);
+
+		// Delete recipient's last reference
+		recipient.setLastReference(null);
 	}
 
 }

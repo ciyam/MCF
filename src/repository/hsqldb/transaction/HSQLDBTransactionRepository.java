@@ -42,11 +42,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			TransactionType type = TransactionType.valueOf(rs.getInt(1));
 			byte[] reference = this.repository.getResultSetBytes(rs.getBinaryStream(2));
-			byte[] creator = this.repository.getResultSetBytes(rs.getBinaryStream(3));
+			byte[] creatorPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(3));
 			long timestamp = rs.getTimestamp(4).getTime();
 			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
 
-			return this.fromBase(type, signature, reference, creator, timestamp, fee);
+			return this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
 		}
@@ -60,11 +60,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			TransactionType type = TransactionType.valueOf(rs.getInt(1));
 			byte[] signature = this.repository.getResultSetBytes(rs.getBinaryStream(2));
-			byte[] creator = this.repository.getResultSetBytes(rs.getBinaryStream(3));
+			byte[] creatorPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(3));
 			long timestamp = rs.getTimestamp(4).getTime();
 			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
 
-			return this.fromBase(type, signature, reference, creator, timestamp, fee);
+			return this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
 		}
@@ -115,7 +115,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public BlockData toBlock(TransactionData transactionData) {
+	public BlockData toBlock(TransactionData transactionData) throws DataException {
 		byte[] signature = transactionData.getSignature();
 		if (signature == null)
 			return null;
@@ -130,7 +130,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			return this.repository.getBlockRepository().fromSignature(blockSignature);
 		} catch (SQLException | DataException e) {
-			return null;
+			throw new DataException("Unable to fetch transaction's block from repository", e);
 		}
 	}
 
@@ -145,6 +145,32 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		} catch (SQLException e) {
 			throw new DataException(e);
 		}
+
+		// Now call transaction-type-specific save() method
+		switch (transactionData.getType()) {
+			case GENESIS:
+				this.genesisTransactionRepository.save(transactionData);
+				break;
+
+			case PAYMENT:
+				this.paymentTransactionRepository.save(transactionData);
+				break;
+
+			case ISSUE_ASSET:
+				this.issueAssetTransactionRepository.save(transactionData);
+				break;
+
+			case CREATE_ASSET_ORDER:
+				this.createOrderTransactionRepository.save(transactionData);
+				break;
+
+			case MESSAGE:
+				this.messageTransactionRepository.save(transactionData);
+				break;
+
+			default:
+				throw new DataException("Unsupported transaction type during save into repository");
+		}
 	}
 
 	@Override
@@ -154,7 +180,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		try {
 			this.repository.checkedExecute("DELETE FROM Transactions WHERE signature = ?", transactionData.getSignature());
 		} catch (SQLException e) {
-			throw new DataException(e);
+			throw new DataException("Unable to delete transaction from repository", e);
 		}
 	}
 

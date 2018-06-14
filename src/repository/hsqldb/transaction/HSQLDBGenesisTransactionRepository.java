@@ -33,8 +33,6 @@ public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionReposit
 
 	@Override
 	public void save(TransactionData transactionData) throws DataException {
-		super.save(transactionData);
-
 		GenesisTransactionData genesisTransactionData = (GenesisTransactionData) transactionData;
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("GenesisTransactions");

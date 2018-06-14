@@ -187,8 +187,9 @@ public abstract class Transaction {
 	 * Load encapsulating Block from DB, if any
 	 * 
 	 * @return Block, or null if transaction is not in a Block
+	 * @throws DataException
 	 */
-	public BlockData getBlock() {
+	public BlockData getBlock() throws DataException {
 		return this.repository.getTransactionRepository().toBlock(this.transactionData);
 	}
 
