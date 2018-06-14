@@ -48,8 +48,9 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(Ints.toByteArray(genesisTransactionData.getType().value));
 			bytes.write(Longs.toByteArray(genesisTransactionData.getTimestamp()));
+
 			bytes.write(Base58.decode(genesisTransactionData.getRecipient()));
-			bytes.write(Serialization.serializeBigDecimal(genesisTransactionData.getAmount()));
+			Serialization.serializeBigDecimal(bytes, genesisTransactionData.getAmount());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

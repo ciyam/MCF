@@ -15,7 +15,7 @@ public class GenesisTransactionData extends TransactionData {
 
 	public GenesisTransactionData(String recipient, BigDecimal amount, long timestamp, byte[] signature) {
 		// Zero fee
-		super(TransactionType.GENESIS, BigDecimal.ZERO, GenesisAccount.PUBLIC_KEY, timestamp, signature);
+		super(TransactionType.GENESIS, BigDecimal.ZERO, GenesisAccount.PUBLIC_KEY, timestamp, null, signature);
 
 		this.recipient = recipient;
 		this.amount = amount;

@@ -91,9 +91,9 @@ public class BlockTests extends Common {
 			TransactionData transactionData = repository.getTransactionRepository().fromSignature(transactions.get(0).getTransactionData().getSignature());
 			assertNotNull(transactionData);
 
-			assertEquals(Transaction.TransactionType.GENESIS, transactionData.getType());
-			assertTrue(transactionData.getFee().compareTo(BigDecimal.ZERO) == 0);
-			assertNull(transactionData.getReference());
+			assertEquals(Transaction.TransactionType.PAYMENT, transactionData.getType());
+			assertFalse(transactionData.getFee().compareTo(BigDecimal.ZERO) == 0);
+			assertNotNull(transactionData.getReference());
 
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 			assertNotNull(transaction);

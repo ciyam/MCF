@@ -120,7 +120,7 @@ public class BlockTransformer extends Transformer {
 
 			TransactionData transactionData = TransactionTransformer.fromBytes(transactionBytes);
 			transactions.add(transactionData);
-			
+
 			totalFees.add(transactionData.getFee());
 		}
 
@@ -129,8 +129,8 @@ public class BlockTransformer extends Transformer {
 
 		// XXX we don't know height!
 		int height = 0;
-		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance, generatorPublicKey, generatorSignature, 
-				atBytes, atFees);
+		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+				generatorPublicKey, generatorSignature, atBytes, atFees);
 
 		return new Pair<BlockData, List<TransactionData>>(blockData, transactions);
 	}

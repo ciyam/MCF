@@ -19,6 +19,9 @@ public class GenesisTransaction extends Transaction {
 
 	public GenesisTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
+
+		if (this.transactionData.getSignature() == null)
+			this.transactionData.setSignature(this.calcSignature());
 	}
 
 	// Processing

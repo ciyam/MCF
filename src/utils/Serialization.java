@@ -17,25 +17,27 @@ public class Serialization {
 	/**
 	 * Convert BigDecimal, unscaled, to byte[] then prepend with zero bytes to specified length.
 	 * 
+	 * @param ByteArrayOutputStream
 	 * @param amount
 	 * @param length
-	 * @return byte[8]
+	 * @throws IOException
 	 */
-	public static byte[] serializeBigDecimal(BigDecimal amount, int length) {
+	public static void serializeBigDecimal(ByteArrayOutputStream bytes, BigDecimal amount, int length) throws IOException {
 		byte[] amountBytes = amount.unscaledValue().toByteArray();
 		byte[] output = new byte[length];
 		System.arraycopy(amountBytes, 0, output, length - amountBytes.length, amountBytes.length);
-		return output;
+		bytes.write(output);
 	}
 
 	/**
 	 * Convert BigDecimal, unscaled, to byte[] then prepend with zero bytes to fixed length of 8.
 	 * 
+	 * @param ByteArrayOutputStream
 	 * @param amount
-	 * @return byte[8]
+	 * @throws IOException
 	 */
-	public static byte[] serializeBigDecimal(BigDecimal amount) {
-		return serializeBigDecimal(amount, 8);
+	public static void serializeBigDecimal(ByteArrayOutputStream bytes, BigDecimal amount) throws IOException {
+		serializeBigDecimal(bytes, amount, 8);
 	}
 
 	public static BigDecimal deserializeBigDecimal(ByteBuffer byteBuffer, int length) {

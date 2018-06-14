@@ -43,7 +43,14 @@ public class TransactionTests extends Common {
 			System.out.println(parsedTransactionData.getTimestamp() + ": " + parsedTransactionData.getRecipient() + " received "
 					+ parsedTransactionData.getAmount().toPlainString());
 
-			assertTrue(Arrays.equals(genesisTransactionData.getSignature(), parsedTransactionData.getSignature()));
+			/*
+			 * NOTE: parsedTransactionData.getSignature() will be null as no signature is present in serialized bytes and calculating the signature is performed
+			 * by GenesisTransaction, not GenesisTransactionData
+			 */
+			// Not applicable: assertTrue(Arrays.equals(genesisTransactionData.getSignature(), parsedTransactionData.getSignature()));
+
+			GenesisTransaction parsedTransaction = new GenesisTransaction(repository, parsedTransactionData);
+			assertTrue(Arrays.equals(genesisTransactionData.getSignature(), parsedTransaction.getTransactionData().getSignature()));
 		}
 	}
 
@@ -68,7 +75,6 @@ public class TransactionTests extends Common {
 			assertNotNull("Block 754 is required for this test", blockData);
 
 			Block block = new Block(repository, blockData);
-			assertTrue(block.isSignatureValid());
 
 			List<Transaction> transactions = block.getTransactions();
 			assertNotNull(transactions);

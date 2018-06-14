@@ -21,7 +21,7 @@ public class CreateOrderTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
-	private static final int AMOUNT_LENGTH = 12;
+	private static final int AMOUNT_LENGTH = 12; // Not standard BIG_DECIMAL_LENGTH
 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + (ASSET_ID_LENGTH + AMOUNT_LENGTH) * 2;
 
@@ -65,14 +65,12 @@ public class CreateOrderTransactionTransformer extends TransactionTransformer {
 			bytes.write(createOrderTransactionData.getReference());
 
 			bytes.write(createOrderTransactionData.getCreatorPublicKey());
-
 			bytes.write(Longs.toByteArray(createOrderTransactionData.getHaveAssetId()));
 			bytes.write(Longs.toByteArray(createOrderTransactionData.getWantAssetId()));
+			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getAmount(), AMOUNT_LENGTH);
+			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getPrice(), AMOUNT_LENGTH);
 
-			Serialization.serializeBigDecimal(createOrderTransactionData.getAmount(), AMOUNT_LENGTH);
-			Serialization.serializeBigDecimal(createOrderTransactionData.getPrice(), AMOUNT_LENGTH);
-
-			Serialization.serializeBigDecimal(createOrderTransactionData.getFee());
+			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getFee());
 			bytes.write(createOrderTransactionData.getSignature());
 
 			return bytes.toByteArray();

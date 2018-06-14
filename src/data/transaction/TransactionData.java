@@ -55,4 +55,8 @@ public abstract class TransactionData {
 		return this.signature;
 	}
 
+	public void setSignature(byte[] signature) {
+		this.signature = signature;
+	}
+
 }

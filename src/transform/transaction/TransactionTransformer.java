@@ -14,7 +14,8 @@ public class TransactionTransformer extends Transformer {
 
 	protected static final int TYPE_LENGTH = INT_LENGTH;
 	protected static final int REFERENCE_LENGTH = SIGNATURE_LENGTH;
-	protected static final int BASE_TYPELESS_LENGTH = TYPE_LENGTH + TIMESTAMP_LENGTH + REFERENCE_LENGTH + SIGNATURE_LENGTH;
+	protected static final int FEE_LENGTH = BIG_DECIMAL_LENGTH;
+	protected static final int BASE_TYPELESS_LENGTH = TIMESTAMP_LENGTH + REFERENCE_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
 
 	public static TransactionData fromBytes(byte[] bytes) throws TransformationException {
 		if (bytes == null)

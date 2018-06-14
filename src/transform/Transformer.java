@@ -5,6 +5,7 @@ public abstract class Transformer {
 	public static final int BOOLEAN_LENGTH = 4;
 	public static final int INT_LENGTH = 4;
 	public static final int LONG_LENGTH = 8;
+	public static final int BIG_DECIMAL_LENGTH = 8;
 
 	// Raw, not Base58-encoded
 	public static final int ADDRESS_LENGTH = 25;

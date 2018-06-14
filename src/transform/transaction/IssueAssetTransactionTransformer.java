@@ -83,14 +83,12 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(issueAssetTransactionData.getIssuerPublicKey());
 			bytes.write(Base58.decode(issueAssetTransactionData.getOwner()));
-
 			Serialization.serializeSizedString(bytes, issueAssetTransactionData.getAssetName());
 			Serialization.serializeSizedString(bytes, issueAssetTransactionData.getDescription());
-
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getQuantity()));
 			bytes.write((byte) (issueAssetTransactionData.getIsDivisible() ? 1 : 0));
 
-			Serialization.serializeBigDecimal(issueAssetTransactionData.getFee());
+			Serialization.serializeBigDecimal(bytes, issueAssetTransactionData.getFee());
 			bytes.write(issueAssetTransactionData.getSignature());
 
 			return bytes.toByteArray();

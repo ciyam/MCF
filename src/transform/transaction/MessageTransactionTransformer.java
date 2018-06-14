@@ -26,7 +26,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 	// Property lengths
 	private static final int SENDER_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
-	private static final int AMOUNT_LENGTH = 8;
+	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
 	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 	private static final int IS_TEXT_LENGTH = BOOLEAN_LENGTH;
@@ -112,15 +112,13 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 			if (messageTransactionData.getVersion() != 1)
 				bytes.write(Longs.toByteArray(messageTransactionData.getAssetId()));
 
-			bytes.write(Serialization.serializeBigDecimal(messageTransactionData.getAmount()));
-
+			Serialization.serializeBigDecimal(bytes, messageTransactionData.getAmount());
 			bytes.write(Ints.toByteArray(messageTransactionData.getData().length));
 			bytes.write(messageTransactionData.getData());
-
 			bytes.write((byte) (messageTransactionData.getIsEncrypted() ? 1 : 0));
 			bytes.write((byte) (messageTransactionData.getIsText() ? 1 : 0));
 
-			bytes.write(Serialization.serializeBigDecimal(messageTransactionData.getFee()));
+			Serialization.serializeBigDecimal(bytes, messageTransactionData.getFee());
 			bytes.write(messageTransactionData.getSignature());
 
 			return bytes.toByteArray();

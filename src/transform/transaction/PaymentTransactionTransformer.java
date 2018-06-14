@@ -23,7 +23,7 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 	// Property lengths
 	private static final int SENDER_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
-	private static final int AMOUNT_LENGTH = 8;
+	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
 
@@ -64,10 +64,9 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(paymentTransactionData.getSenderPublicKey());
 			bytes.write(Base58.decode(paymentTransactionData.getRecipient()));
+			Serialization.serializeBigDecimal(bytes, paymentTransactionData.getAmount());
 
-			Serialization.serializeBigDecimal(paymentTransactionData.getAmount());
-
-			Serialization.serializeBigDecimal(paymentTransactionData.getFee());
+			Serialization.serializeBigDecimal(bytes, paymentTransactionData.getFee());
 			bytes.write(paymentTransactionData.getSignature());
 
 			return bytes.toByteArray();
