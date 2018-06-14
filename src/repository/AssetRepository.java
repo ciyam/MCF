@@ -21,4 +21,8 @@ public interface AssetRepository {
 
 	public OrderData fromOrderId(byte[] orderId) throws DataException;
 
+	public void save(OrderData orderData) throws DataException;
+
+	public void delete(byte[] orderId) throws DataException;
+
 }

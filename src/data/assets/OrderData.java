@@ -12,9 +12,10 @@ public class OrderData implements Comparable<OrderData> {
 	private BigDecimal fulfilled;
 	private BigDecimal price;
 	private long timestamp;
+	private boolean isClosed;
 
 	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal price,
-			long timestamp) {
+			long timestamp, boolean isClosed) {
 		this.orderId = orderId;
 		this.creatorPublicKey = creatorPublicKey;
 		this.haveAssetId = haveAssetId;
@@ -23,10 +24,11 @@ public class OrderData implements Comparable<OrderData> {
 		this.fulfilled = fulfilled;
 		this.price = price;
 		this.timestamp = timestamp;
+		this.isClosed = isClosed;
 	}
 
 	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, long timestamp) {
-		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, BigDecimal.ZERO.setScale(8), price, timestamp);
+		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, BigDecimal.ZERO.setScale(8), price, timestamp, false);
 	}
 
 	public byte[] getOrderId() {
@@ -63,6 +65,14 @@ public class OrderData implements Comparable<OrderData> {
 
 	public long getTimestamp() {
 		return this.timestamp;
+	}
+
+	public boolean getIsClosed() {
+		return this.isClosed;
+	}
+
+	public void setIsClosed(boolean isClosed) {
+		this.isClosed = isClosed;
 	}
 
 	@Override

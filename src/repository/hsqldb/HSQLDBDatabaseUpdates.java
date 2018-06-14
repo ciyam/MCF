@@ -286,10 +286,10 @@ public class HSQLDBDatabaseUpdates {
 				// Asset Orders
 				stmt.execute(
 						"CREATE TABLE AssetOrders (asset_order_id AssetOrderID, creator QoraPublicKey NOT NULL, have_asset_id AssetID NOT NULL, want_asset_id AssetID NOT NULL, "
-								+ "amount QoraAmount NOT NULL, fulfilled QoraAmount NOT NULL, price QoraAmount NOT NULL, ordered TIMESTAMP NOT NULL, "
+								+ "amount QoraAmount NOT NULL, fulfilled QoraAmount NOT NULL, price QoraAmount NOT NULL, ordered TIMESTAMP NOT NULL, is_closed BOOLEAN NOT NULL, "
 								+ "PRIMARY KEY (asset_order_id))");
-				stmt.execute("CREATE INDEX AssetOrderHaveIndex on AssetOrders (have_asset_id)");
-				stmt.execute("CREATE INDEX AssetOrderWantIndex on AssetOrders (want_asset_id)");
+				stmt.execute("CREATE INDEX AssetOrderHaveIndex on AssetOrders (have_asset_id, is_closed)");
+				stmt.execute("CREATE INDEX AssetOrderWantIndex on AssetOrders (want_asset_id, is_closed)");
 				break;
 
 			default:

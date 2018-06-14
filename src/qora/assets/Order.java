@@ -54,10 +54,25 @@ public class Order {
 	// Processing
 
 	public void process() throws DataException {
+		this.repository.getAssetRepository().save(this.orderData);
+
 		// TODO
 	}
 
 	public void orphan() throws DataException {
+		// TODO
+
+		this.repository.getAssetRepository().delete(this.orderData.getOrderId());
+	}
+
+	// This is CancelOrderTransactions so that an Order can no longer trade
+	public void cancel() throws DataException {
+		this.orderData.setIsClosed(true);
+		this.repository.getAssetRepository().save(this.orderData);
+	}
+
+	// Opposite of cancel() above for use during orphaning
+	public void reopen() throws DataException {
 		// TODO
 	}
 

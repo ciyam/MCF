@@ -84,7 +84,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	public OrderData fromOrderId(byte[] orderId) throws DataException {
 		try {
 			ResultSet resultSet = this.repository.checkedExecute(
-					"SELECT creator, have_asset_id, want_asset_id, amount, fulfilled, price, timestamp FROM AssetOrders WHERE asset_order_id = ?", orderId);
+					"SELECT creator, have_asset_id, want_asset_id, amount, fulfilled, price, timestamp, is_closed FROM AssetOrders WHERE asset_order_id = ?",
+					orderId);
 			if (resultSet == null)
 				return null;
 
@@ -95,10 +96,32 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			BigDecimal fulfilled = resultSet.getBigDecimal(5);
 			BigDecimal price = resultSet.getBigDecimal(6);
 			long timestamp = resultSet.getTimestamp(7).getTime();
+			boolean isClosed = resultSet.getBoolean(8);
 
-			return new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp);
+			return new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed);
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch order from repository", e);
+			throw new DataException("Unable to fetch asset order from repository", e);
+		}
+	}
+
+	public void save(OrderData orderData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("AssetOrders");
+		saveHelper.bind("asset_order_id", orderData.getOrderId()).bind("creator", orderData.getCreatorPublicKey())
+				.bind("have_asset_id", orderData.getHaveAssetId()).bind("want_asset_id", orderData.getWantAssetId()).bind("amount", orderData.getAmount())
+				.bind("fulfilled", orderData.getFulfilled()).bind("price", orderData.getPrice()).bind("isClosed", orderData.getIsClosed());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save asset order into repository", e);
+		}
+	}
+
+	public void delete(byte[] orderId) throws DataException {
+		try {
+			this.repository.checkedExecute("DELETE FROM AssetOrders WHERE orderId = ?", orderId);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete asset order from repository", e);
 		}
 	}
 
