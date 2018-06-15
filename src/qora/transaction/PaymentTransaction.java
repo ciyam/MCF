@@ -1,6 +1,9 @@
 package qora.transaction;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import data.PaymentData;
 import data.transaction.PaymentTransactionData;
@@ -14,22 +17,62 @@ import repository.Repository;
 
 public class PaymentTransaction extends Transaction {
 
+	// Properties
+	private PaymentTransactionData paymentTransactionData;
+
 	// Constructors
 
 	public PaymentTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
+
+		this.paymentTransactionData = (PaymentTransactionData) this.transactionData;
+	}
+
+	// More information
+
+	public List<Account> getRecipientAccounts() throws DataException {
+		return Collections.singletonList(new Account(this.repository, paymentTransactionData.getRecipient()));
+	}
+
+	public boolean isInvolved(Account account) throws DataException {
+		String address = account.getAddress();
+
+		if (address.equals(this.getSender().getAddress()))
+			return true;
+
+		if (address.equals(paymentTransactionData.getRecipient()))
+			return true;
+
+		return false;
+	}
+
+	public BigDecimal getAmount(Account account) throws DataException {
+		String address = account.getAddress();
+		BigDecimal amount = BigDecimal.ZERO.setScale(8);
+		String senderAddress = this.getSender().getAddress();
+
+		if (address.equals(senderAddress))
+			amount = amount.subtract(this.transactionData.getFee()).subtract(paymentTransactionData.getAmount());
+
+		if (address.equals(paymentTransactionData.getRecipient()))
+			amount = amount.add(paymentTransactionData.getAmount());
+
+		return amount;
+	}
+
+	// Navigation
+
+	public Account getSender() throws DataException {
+		return new PublicKeyAccount(this.repository, this.paymentTransactionData.getSenderPublicKey());
 	}
 
 	// Processing
 
 	private PaymentData getPaymentData() {
-		PaymentTransactionData paymentTransactionData = (PaymentTransactionData) this.transactionData;
 		return new PaymentData(paymentTransactionData.getRecipient(), Asset.QORA, paymentTransactionData.getAmount());
 	}
 
 	public ValidationResult isValid() throws DataException {
-		PaymentTransactionData paymentTransactionData = (PaymentTransactionData) this.transactionData;
-
 		// Check reference is correct
 		Account sender = new PublicKeyAccount(repository, paymentTransactionData.getSenderPublicKey());
 		if (!Arrays.equals(sender.getLastReference(), paymentTransactionData.getReference()))
@@ -40,8 +83,6 @@ public class PaymentTransaction extends Transaction {
 	}
 
 	public void process() throws DataException {
-		PaymentTransactionData paymentTransactionData = (PaymentTransactionData) this.transactionData;
-
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
@@ -51,8 +92,6 @@ public class PaymentTransaction extends Transaction {
 	}
 
 	public void orphan() throws DataException {
-		PaymentTransactionData paymentTransactionData = (PaymentTransactionData) this.transactionData;
-
 		// Delete this transaction
 		this.repository.getTransactionRepository().delete(this.transactionData);
 

@@ -3,15 +3,17 @@ package qora.transaction;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
 import data.block.BlockData;
 import data.transaction.TransactionData;
+import qora.account.Account;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
-import qora.block.Block;
+import qora.block.BlockChain;
 import repository.DataException;
 import repository.Repository;
 import settings.Settings;
@@ -149,7 +151,7 @@ public abstract class Transaction {
 	}
 
 	public static int getVersionByTimestamp(long timestamp) {
-		if (timestamp < Block.POWFIX_RELEASE_TIMESTAMP) {
+		if (timestamp < BlockChain.POWFIX_RELEASE_TIMESTAMP) {
 			return 1;
 		} else {
 			return 3;
@@ -183,12 +185,53 @@ public abstract class Transaction {
 		return blockChainHeight - ourHeight + 1;
 	}
 
+	/**
+	 * Returns a list of recipient accounts for this transaction.
+	 * 
+	 * @return list of recipients accounts, or empty list if none
+	 * @throws DataException
+	 */
+	public abstract List<Account> getRecipientAccounts() throws DataException;
+
+	/**
+	 * Returns whether passed account is an involved party in this transaction.
+	 * <p>
+	 * Account could be sender, or any one of the potential recipients.
+	 * 
+	 * @param account
+	 * @return true if account is involved, false otherwise
+	 * @throws DataException
+	 */
+	public abstract boolean isInvolved(Account account) throws DataException;
+
+	/**
+	 * Returns amount of QORA lost/gained by passed account due to this transaction.
+	 * <p>
+	 * Amounts "lost", e.g. sent by sender and fees, are returned as negative values.<br>
+	 * Amounts "gained", e.g. QORA sent to recipient, are returned as positive values.
+	 * 
+	 * @param account
+	 * @return Amount of QORA lost/gained by account, or BigDecimal.ZERO otherwise
+	 * @throws DataException
+	 */
+	public abstract BigDecimal getAmount(Account account) throws DataException;
+
 	// Navigation
 
 	/**
-	 * Load encapsulating Block from DB, if any
+	 * Return transaction's "creator" account.
 	 * 
-	 * @return Block, or null if transaction is not in a Block
+	 * @return creator
+	 * @throws DataException
+	 */
+	protected Account getCreator() throws DataException {
+		return new PublicKeyAccount(this.repository, this.transactionData.getCreatorPublicKey());
+	}
+
+	/**
+	 * Load encapsulating block's data from repository, if any
+	 * 
+	 * @return BlockData, or null if transaction is not in a Block
 	 * @throws DataException
 	 */
 	public BlockData getBlock() throws DataException {
@@ -196,9 +239,9 @@ public abstract class Transaction {
 	}
 
 	/**
-	 * Load parent Transaction from DB via this transaction's reference.
+	 * Load parent's transaction data from repository via this transaction's reference.
 	 * 
-	 * @return Transaction, or null if no parent found (which should not happen)
+	 * @return Parent's TransactionData, or null if no parent found (which should not happen)
 	 * @throws DataException
 	 */
 	public TransactionData getParent() throws DataException {
@@ -210,9 +253,9 @@ public abstract class Transaction {
 	}
 
 	/**
-	 * Load child Transaction from DB, if any.
+	 * Load child's transaction data from repository, if any.
 	 * 
-	 * @return Transaction, or null if no child found
+	 * @return Child's TransactionData, or null if no child found
 	 * @throws DataException
 	 */
 	public TransactionData getChild() throws DataException {
@@ -220,7 +263,7 @@ public abstract class Transaction {
 		if (signature == null)
 			return null;
 
-		return this.repository.getTransactionRepository().fromSignature(signature);
+		return this.repository.getTransactionRepository().fromReference(signature);
 	}
 
 	/**
@@ -233,6 +276,10 @@ public abstract class Transaction {
 	private byte[] toBytesLessSignature() {
 		try {
 			byte[] bytes = TransactionTransformer.toBytes(this.transactionData);
+
+			if (this.transactionData.getSignature() == null)
+				return bytes;
+
 			return Arrays.copyOf(bytes, bytes.length - Transformer.SIGNATURE_LENGTH);
 		} catch (TransformationException e) {
 			// XXX this isn't good
@@ -242,8 +289,8 @@ public abstract class Transaction {
 
 	// Processing
 
-	public byte[] calcSignature(PrivateKeyAccount signer) {
-		return signer.sign(this.toBytesLessSignature());
+	public void calcSignature(PrivateKeyAccount signer) {
+		this.transactionData.setSignature(signer.sign(this.toBytesLessSignature()));
 	}
 
 	public boolean isSignatureValid() {

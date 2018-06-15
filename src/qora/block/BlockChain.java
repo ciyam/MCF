@@ -26,6 +26,10 @@ public class BlockChain {
 	 */
 	public static final BigDecimal MAX_BALANCE = BigDecimal.valueOf(10_000_000_000L).setScale(8);
 	/**
+	 * Number of blocks between recalculating block's generating balance.
+	 */
+	public static final int BLOCK_RETARGET_INTERVAL = 10;
+	/**
 	 * Minimum target time between blocks, in seconds.
 	 */
 	public static final long MIN_BLOCK_TIME = 60;
@@ -33,6 +37,17 @@ public class BlockChain {
 	 * Maximum target time between blocks, in seconds.
 	 */
 	public static final long MAX_BLOCK_TIME = 300;
+	/**
+	 * Maximum acceptable timestamp disagreement offset in milliseconds.
+	 */
+	public static final long BLOCK_TIMESTAMP_MARGIN = 500L;
+
+	// Various release timestamps / block heights
+	public static final int MESSAGE_RELEASE_HEIGHT = 99000;
+	public static final int AT_BLOCK_HEIGHT_RELEASE = 99000;
+	public static final long POWFIX_RELEASE_TIMESTAMP = 1456426800000L; // Block Version 3 // 2016-02-25T19:00:00+00:00
+	public static final long ASSETS_RELEASE_TIMESTAMP = 0L; // From Qora epoch
+
 
 	/**
 	 * Some sort start-up/initialization/checking method.

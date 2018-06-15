@@ -12,7 +12,17 @@ public class Crypto {
 	public static final byte ADDRESS_VERSION = 58;
 	public static final byte AT_ADDRESS_VERSION = 23;
 
+	/**
+	 * Returns 32-byte SHA-256 digest of message passed in input.
+	 * 
+	 * @param input
+	 *            variable-length byte[] message
+	 * @return byte[32] digest, or null if SHA-256 algorithm can't be accessed
+	 */
 	public static byte[] digest(byte[] input) {
+		if (input == null)
+			return null;
+
 		try {
 			// SHA2-256
 			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
@@ -22,8 +32,14 @@ public class Crypto {
 		}
 	}
 
+	/**
+	 * Returns 32-byte digest of two rounds of SHA-256 on message passed in input.
+	 * 
+	 * @param input
+	 *            variable-length byte[] message
+	 * @return byte[32] digest, or null if SHA-256 algorithm can't be accessed
+	 */
 	public static byte[] doubleDigest(byte[] input) {
-		// Two rounds of SHA2-256
 		return digest(digest(input));
 	}
 

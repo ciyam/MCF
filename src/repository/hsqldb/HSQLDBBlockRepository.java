@@ -101,6 +101,10 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		}
 	}
 
+	public BlockData getLastBlock() throws DataException {
+		return fromHeight(getBlockchainHeight());
+	}
+
 	public List<TransactionData> getTransactionsFromSignature(byte[] signature) throws DataException {
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 

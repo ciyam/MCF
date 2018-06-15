@@ -1,7 +1,9 @@
 package qora.transaction;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import data.assets.AssetData;
 import data.assets.OrderData;
@@ -11,7 +13,7 @@ import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
 import qora.assets.Order;
-import qora.block.Block;
+import qora.block.BlockChain;
 import repository.AssetRepository;
 import repository.DataException;
 import repository.Repository;
@@ -19,11 +21,33 @@ import repository.Repository;
 public class CreateOrderTransaction extends Transaction {
 
 	// Properties
+	private CreateOrderTransactionData createOrderTransactionData;
 
 	// Constructors
 
 	public CreateOrderTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
+
+		this.createOrderTransactionData = (CreateOrderTransactionData) this.transactionData;
+	}
+
+	// More information
+
+	public List<Account> getRecipientAccounts() {
+		return new ArrayList<Account>();
+	}
+
+	public boolean isInvolved(Account account) throws DataException {
+		return account.getAddress().equals(this.getCreator().getAddress());
+	}
+
+	public BigDecimal getAmount(Account account) throws DataException {
+		BigDecimal amount = BigDecimal.ZERO.setScale(8);
+
+		if (account.getAddress().equals(this.getCreator().getAddress()))
+			amount = amount.subtract(this.transactionData.getFee());
+
+		return amount;
 	}
 
 	// Navigation
@@ -37,7 +61,6 @@ public class CreateOrderTransaction extends Transaction {
 	// Processing
 
 	public ValidationResult isValid() throws DataException {
-		CreateOrderTransactionData createOrderTransactionData = (CreateOrderTransactionData) this.transactionData;
 		long haveAssetId = createOrderTransactionData.getHaveAssetId();
 		long wantAssetId = createOrderTransactionData.getWantAssetId();
 
@@ -88,7 +111,7 @@ public class CreateOrderTransaction extends Transaction {
 
 			// Check creator has enough funds for fee in QORA
 			// NOTE: in Gen1 pre-POWFIX-RELEASE transactions didn't have this check
-			if (createOrderTransactionData.getTimestamp() >= Block.POWFIX_RELEASE_TIMESTAMP
+			if (createOrderTransactionData.getTimestamp() >= BlockChain.POWFIX_RELEASE_TIMESTAMP
 					&& creator.getConfirmedBalance(Asset.QORA).compareTo(createOrderTransactionData.getFee()) == -1)
 				return ValidationResult.NO_BALANCE;
 		}
@@ -106,7 +129,6 @@ public class CreateOrderTransaction extends Transaction {
 	}
 
 	public void process() throws DataException {
-		CreateOrderTransactionData createOrderTransactionData = (CreateOrderTransactionData) this.transactionData;
 		Account creator = new PublicKeyAccount(this.repository, createOrderTransactionData.getCreatorPublicKey());
 
 		// Update creator's balance due to fee
@@ -130,7 +152,6 @@ public class CreateOrderTransaction extends Transaction {
 	}
 
 	public void orphan() throws DataException {
-		CreateOrderTransactionData createOrderTransactionData = (CreateOrderTransactionData) this.transactionData;
 		Account creator = new PublicKeyAccount(this.repository, createOrderTransactionData.getCreatorPublicKey());
 
 		// Update creator's balance due to fee

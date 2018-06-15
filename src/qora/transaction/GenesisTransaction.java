@@ -2,6 +2,8 @@ package qora.transaction;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import com.google.common.primitives.Bytes;
 
@@ -18,6 +20,9 @@ import transform.transaction.TransactionTransformer;
 
 public class GenesisTransaction extends Transaction {
 
+	// Properties
+	private GenesisTransactionData genesisTransactionData;
+
 	// Constructors
 
 	public GenesisTransaction(Repository repository, TransactionData transactionData) {
@@ -25,6 +30,38 @@ public class GenesisTransaction extends Transaction {
 
 		if (this.transactionData.getSignature() == null)
 			this.transactionData.setSignature(this.calcSignature());
+
+		this.genesisTransactionData = (GenesisTransactionData) this.transactionData;
+	}
+
+	// More information
+
+	public List<Account> getRecipientAccounts() throws DataException {
+		return Collections.singletonList(new Account(this.repository, genesisTransactionData.getRecipient()));
+	}
+
+	public boolean isInvolved(Account account) throws DataException {
+		String address = account.getAddress();
+
+		if (address.equals(this.getCreator().getAddress()))
+			return true;
+
+		if (address.equals(genesisTransactionData.getRecipient()))
+			return true;
+
+		return false;
+	}
+
+	public BigDecimal getAmount(Account account) throws DataException {
+		String address = account.getAddress();
+		BigDecimal amount = BigDecimal.ZERO.setScale(8);
+
+		// NOTE: genesis transactions have no fee, so no need to test against creator as sender
+
+		if (address.equals(genesisTransactionData.getRecipient()))
+			amount = amount.add(genesisTransactionData.getAmount());
+
+		return amount;
 	}
 
 	// Processing
@@ -39,7 +76,7 @@ public class GenesisTransaction extends Transaction {
 	 * @throws IllegalStateException
 	 */
 	@Override
-	public byte[] calcSignature(PrivateKeyAccount signer) {
+	public void calcSignature(PrivateKeyAccount signer) {
 		throw new IllegalStateException("There is no private key for genesis transactions");
 	}
 
@@ -77,8 +114,6 @@ public class GenesisTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() {
-		GenesisTransactionData genesisTransactionData = (GenesisTransactionData) this.transactionData;
-
 		// Check amount is zero or positive
 		if (genesisTransactionData.getAmount().compareTo(BigDecimal.ZERO) == -1)
 			return ValidationResult.NEGATIVE_AMOUNT;
@@ -92,8 +127,6 @@ public class GenesisTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		GenesisTransactionData genesisTransactionData = (GenesisTransactionData) this.transactionData;
-
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
@@ -107,8 +140,6 @@ public class GenesisTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		GenesisTransactionData genesisTransactionData = (GenesisTransactionData) this.transactionData;
-
 		// Delete this transaction
 		this.repository.getTransactionRepository().delete(this.transactionData);
 

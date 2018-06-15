@@ -24,11 +24,19 @@ public interface BlockRepository {
 	public int getHeightFromSignature(byte[] signature) throws DataException;
 
 	/**
-	 * Return highest block height from DB.
+	 * Return highest block height from repository.
 	 * 
 	 * @return height, or 0 if there are no blocks in DB (not very likely).
 	 */
 	public int getBlockchainHeight() throws DataException;
+
+	/**
+	 * Return highest block in blockchain.
+	 * 
+	 * @return highest block's data
+	 * @throws DataException
+	 */
+	public BlockData getLastBlock() throws DataException;
 
 	public List<TransactionData> getTransactionsFromSignature(byte[] signature) throws DataException;
 

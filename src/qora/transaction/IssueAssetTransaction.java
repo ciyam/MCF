@@ -2,6 +2,8 @@ package qora.transaction;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import data.assets.AssetData;
 import data.transaction.IssueAssetTransactionData;
@@ -9,7 +11,7 @@ import data.transaction.TransactionData;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
-import qora.block.Block;
+import qora.block.BlockChain;
 import qora.crypto.Crypto;
 import repository.DataException;
 import repository.Repository;
@@ -18,21 +20,62 @@ import utils.NTP;
 
 public class IssueAssetTransaction extends Transaction {
 
+	// Properties
+	private IssueAssetTransactionData issueAssetTransactionData;
+
 	// Constructors
 
 	public IssueAssetTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
+
+		this.issueAssetTransactionData = (IssueAssetTransactionData) this.transactionData;
+	}
+
+	// More information
+
+	public List<Account> getRecipientAccounts() throws DataException {
+		return Collections.singletonList(getOwner());
+	}
+
+	public boolean isInvolved(Account account) throws DataException {
+		String address = account.getAddress();
+
+		if (address.equals(this.getIssuer().getAddress()))
+			return true;
+
+		if (address.equals(this.getOwner().getAddress()))
+			return true;
+
+		return false;
+	}
+
+	public BigDecimal getAmount(Account account) throws DataException {
+		String address = account.getAddress();
+		BigDecimal amount = BigDecimal.ZERO.setScale(8);
+
+		if (address.equals(this.getIssuer().getAddress()))
+			amount = amount.subtract(this.transactionData.getFee());
+
+		// NOTE: we're only interested in QORA amounts, and genesis account issued QORA so no need to check owner
+
+		return amount;
+	}
+
+	// Navigation
+
+	public Account getIssuer() throws DataException {
+		return new PublicKeyAccount(this.repository, this.issueAssetTransactionData.getIssuerPublicKey());
+	}
+
+	public Account getOwner() throws DataException {
+		return new Account(this.repository, this.issueAssetTransactionData.getOwner());
 	}
 
 	// Processing
 
 	public ValidationResult isValid() throws DataException {
-		// Lowest cost checks first
-
-		IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) this.transactionData;
-
 		// Are IssueAssetTransactions even allowed at this point?
-		if (NTP.getTime() < Block.ASSETS_RELEASE_TIMESTAMP)
+		if (NTP.getTime() < BlockChain.ASSETS_RELEASE_TIMESTAMP)
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check owner address is valid
@@ -76,8 +119,6 @@ public class IssueAssetTransaction extends Transaction {
 	}
 
 	public void process() throws DataException {
-		IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) this.transactionData;
-
 		// Issue asset
 		AssetData assetData = new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(),
 				issueAssetTransactionData.getDescription(), issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(),
@@ -103,8 +144,6 @@ public class IssueAssetTransaction extends Transaction {
 	}
 
 	public void orphan() throws DataException {
-		IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) this.transactionData;
-
 		// Remove asset from owner
 		Account owner = new Account(this.repository, issueAssetTransactionData.getOwner());
 		owner.deleteBalance(issueAssetTransactionData.getAssetId());

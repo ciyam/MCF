@@ -67,7 +67,9 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 			Serialization.serializeBigDecimal(bytes, paymentTransactionData.getAmount());
 
 			Serialization.serializeBigDecimal(bytes, paymentTransactionData.getFee());
-			bytes.write(paymentTransactionData.getSignature());
+
+			if (paymentTransactionData.getSignature() != null)
+				bytes.write(paymentTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

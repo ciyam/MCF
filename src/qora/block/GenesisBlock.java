@@ -289,17 +289,17 @@ public class GenesisBlock extends Block {
 	}
 
 	@Override
-	public boolean isValid() throws DataException {
+	public ValidationResult isValid() throws DataException {
 		// Check there is no other block in DB
 		if (this.repository.getBlockRepository().getBlockchainHeight() != 0)
-			return false;
+			return ValidationResult.BLOCKCHAIN_NOT_EMPTY;
 
 		// Validate transactions
 		for (Transaction transaction : this.getTransactions())
 			if (transaction.isValid() != Transaction.ValidationResult.OK)
-				return false;
+				return ValidationResult.TRANSACTION_INVALID;
 
-		return true;
+		return ValidationResult.OK;
 	}
 
 }

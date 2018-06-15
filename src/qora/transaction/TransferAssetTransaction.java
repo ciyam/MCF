@@ -1,29 +1,81 @@
 package qora.transaction;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import data.PaymentData;
 import data.transaction.TransactionData;
 import data.transaction.TransferAssetTransactionData;
 import utils.NTP;
+import qora.account.Account;
 import qora.account.PublicKeyAccount;
-import qora.block.Block;
+import qora.assets.Asset;
+import qora.block.BlockChain;
 import qora.payment.Payment;
 import repository.DataException;
 import repository.Repository;
 
 public class TransferAssetTransaction extends Transaction {
 
+	// Properties
+	private TransferAssetTransactionData transferAssetTransactionData;
+
 	// Constructors
 
 	public TransferAssetTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
+
+		this.transferAssetTransactionData = (TransferAssetTransactionData) this.transactionData;
+	}
+
+	// More information
+
+	public List<Account> getRecipientAccounts() throws DataException {
+		return Collections.singletonList(new Account(this.repository, transferAssetTransactionData.getRecipient()));
+	}
+
+	public boolean isInvolved(Account account) throws DataException {
+		String address = account.getAddress();
+
+		if (address.equals(this.getSender().getAddress()))
+			return true;
+
+		if (address.equals(transferAssetTransactionData.getRecipient()))
+			return true;
+
+		return false;
+	}
+
+	public BigDecimal getAmount(Account account) throws DataException {
+		String address = account.getAddress();
+		BigDecimal amount = BigDecimal.ZERO.setScale(8);
+		String senderAddress = this.getSender().getAddress();
+
+		if (address.equals(senderAddress))
+			amount = amount.subtract(this.transactionData.getFee());
+
+		// We're only interested in QORA amounts
+		if (transferAssetTransactionData.getAssetId() == Asset.QORA) {
+			if (address.equals(transferAssetTransactionData.getRecipient()))
+				amount = amount.add(transferAssetTransactionData.getAmount());
+			else if (address.equals(senderAddress))
+				amount = amount.subtract(transferAssetTransactionData.getAmount());
+		}
+
+		return amount;
+	}
+
+	// Navigation
+
+	public Account getSender() throws DataException {
+		return new PublicKeyAccount(this.repository, this.transferAssetTransactionData.getSenderPublicKey());
 	}
 
 	// Processing
 
 	private PaymentData getPaymentData() {
-		TransferAssetTransactionData transferAssetTransactionData = (TransferAssetTransactionData) this.transactionData;
 		return new PaymentData(transferAssetTransactionData.getRecipient(), transferAssetTransactionData.getAssetId(),
 				transferAssetTransactionData.getAmount());
 	}
@@ -33,7 +85,7 @@ public class TransferAssetTransaction extends Transaction {
 		TransferAssetTransactionData transferAssetTransactionData = (TransferAssetTransactionData) this.transactionData;
 
 		// Are IssueAssetTransactions even allowed at this point?
-		if (NTP.getTime() < Block.ASSETS_RELEASE_TIMESTAMP)
+		if (NTP.getTime() < BlockChain.ASSETS_RELEASE_TIMESTAMP)
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check reference is correct
@@ -45,8 +97,6 @@ public class TransferAssetTransaction extends Transaction {
 		// Wrap asset transfer as a payment and delegate final payment checks to Payment class
 		return new Payment(this.repository).isValid(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee());
 	}
-
-	// PROCESS/ORPHAN
 
 	@Override
 	public void process() throws DataException {

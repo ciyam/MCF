@@ -1,7 +1,9 @@
 package qora.transaction;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import data.assets.OrderData;
 import data.transaction.CancelOrderTransactionData;
@@ -17,17 +19,40 @@ import repository.Repository;
 
 public class CancelOrderTransaction extends Transaction {
 
+	// Properties
+	private CancelOrderTransactionData cancelOrderTransactionData;
+
 	// Constructors
 
 	public CancelOrderTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
+
+		this.cancelOrderTransactionData = (CancelOrderTransactionData) this.transactionData;
+	}
+
+	// More information
+
+	public List<Account> getRecipientAccounts() {
+		return new ArrayList<Account>();
+	}
+
+	public boolean isInvolved(Account account) throws DataException {
+		return account.getAddress().equals(this.getCreator().getAddress());
+	}
+
+	public BigDecimal getAmount(Account account) throws DataException {
+		BigDecimal amount = BigDecimal.ZERO.setScale(8);
+
+		if (account.getAddress().equals(this.getCreator().getAddress()))
+			amount = amount.subtract(this.transactionData.getFee());
+
+		return amount;
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		CancelOrderTransactionData cancelOrderTransactionData = (CancelOrderTransactionData) this.transactionData;
 		AssetRepository assetRepository = this.repository.getAssetRepository();
 
 		// Check fee is positive
@@ -62,11 +87,8 @@ public class CancelOrderTransaction extends Transaction {
 		return ValidationResult.OK;
 	}
 
-	// PROCESS/ORPHAN
-
 	@Override
 	public void process() throws DataException {
-		CancelOrderTransactionData cancelOrderTransactionData = (CancelOrderTransactionData) this.transactionData;
 		Account creator = new PublicKeyAccount(this.repository, cancelOrderTransactionData.getCreatorPublicKey());
 
 		// Save this transaction itself
@@ -89,7 +111,6 @@ public class CancelOrderTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		CancelOrderTransactionData cancelOrderTransactionData = (CancelOrderTransactionData) this.transactionData;
 		Account creator = new PublicKeyAccount(this.repository, cancelOrderTransactionData.getCreatorPublicKey());
 
 		// Save this transaction itself

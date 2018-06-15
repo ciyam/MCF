@@ -12,6 +12,7 @@ import org.junit.Test;
 import data.transaction.TransactionData;
 import qora.account.Account;
 import qora.assets.Asset;
+import qora.block.Block;
 import qora.block.GenesisBlock;
 import qora.transaction.Transaction;
 import repository.DataException;
@@ -46,7 +47,7 @@ public class GenesisTests {
 			assertNotNull(block);
 			assertTrue(block.isSignatureValid());
 			// Note: only true if blockchain is empty
-			assertTrue(block.isValid());
+			assertEquals(Block.ValidationResult.OK, block.isValid());
 
 			List<Transaction> transactions = block.getTransactions();
 			assertNotNull(transactions);

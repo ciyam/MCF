@@ -59,8 +59,12 @@ public class Payment {
 			if (!Crypto.isValidAddress(paymentData.getRecipient()))
 				return ValidationResult.INVALID_ADDRESS;
 
-			// Check asset amount is integer if asset is not divisible
 			AssetData assetData = assetRepository.fromAssetId(paymentData.getAssetId());
+			// Check asset even exists
+			if (assetData == null)
+				return ValidationResult.ASSET_DOES_NOT_EXIST;
+
+			// Check asset amount is integer if asset is not divisible
 			if (!assetData.getIsDivisible() && paymentData.getAmount().stripTrailingZeros().scale() > 0)
 				return ValidationResult.INVALID_AMOUNT;
 

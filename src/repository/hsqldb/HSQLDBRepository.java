@@ -7,6 +7,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 import repository.AccountRepository;
 import repository.AssetRepository;
@@ -18,7 +19,7 @@ import repository.hsqldb.transaction.HSQLDBTransactionRepository;
 
 public class HSQLDBRepository implements Repository {
 
-	Connection connection;
+	protected Connection connection;
 
 	// NB: no visibility modifier so only callable from within same package
 	HSQLDBRepository(Connection connection) {
@@ -68,11 +69,25 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public void close() throws DataException {
 		try {
+			// Diagnostic check for uncommitted changes
+			Statement stmt = this.connection.createStatement();
+			if (!stmt.execute("SELECT transaction, transaction_size FROM information_schema.system_sessions")) // TRANSACTION_SIZE() broken?
+				throw new DataException("Unable to check repository status during close");
+
+			ResultSet rs = stmt.getResultSet();
+			if (rs == null || !rs.next())
+				throw new DataException("Unable to check repository status during close");
+
+			boolean inTransaction = rs.getBoolean(1);
+			int transactionCount = rs.getInt(2);
+			if (inTransaction && transactionCount != 0)
+				System.out.println("Uncommitted changes (" + transactionCount + ") during repository close");
+
 			// give connection back to the pool
 			this.connection.close();
 			this.connection = null;
 		} catch (SQLException e) {
-			throw new DataException("close error", e);
+			throw new DataException("Error while closing repository", e);
 		}
 	}
 
@@ -171,7 +186,7 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	/**
-	 * Efficiently query database for existing of matching row.
+	 * Efficiently query database for existence of matching row.
 	 * <p>
 	 * {@code whereClause} is SQL "WHERE" clause containing "?" placeholders suitable for use with PreparedStatements.
 	 * <p>
@@ -179,7 +194,7 @@ public class HSQLDBRepository implements Repository {
 	 * <p>
 	 * {@code String manufacturer = "Lamborghini";}<br>
 	 * {@code int maxMileage = 100_000;}<br>
-	 * {@code boolean isAvailable = DB.exists("Cars", "manufacturer = ? AND mileage <= ?", manufacturer, maxMileage);}
+	 * {@code boolean isAvailable = exists("Cars", "manufacturer = ? AND mileage <= ?", manufacturer, maxMileage);}
 	 * 
 	 * @param tableName
 	 * @param whereClause

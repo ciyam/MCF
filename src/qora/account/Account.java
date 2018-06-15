@@ -4,6 +4,12 @@ import java.math.BigDecimal;
 
 import data.account.AccountBalanceData;
 import data.account.AccountData;
+import data.block.BlockData;
+import qora.assets.Asset;
+import qora.block.Block;
+import qora.block.BlockChain;
+import qora.transaction.Transaction;
+import repository.BlockRepository;
 import repository.DataException;
 import repository.Repository;
 
@@ -26,6 +32,52 @@ public class Account {
 		return this.accountData.getAddress();
 	}
 
+	// More information
+
+	/**
+	 * Calculate current generating balance for this account.
+	 * <p>
+	 * This is the current confirmed balance minus amounts received in the last <code>BlockChain.BLOCK_RETARGET_INTERVAL</code> blocks.
+	 * 
+	 * @throws DataException
+	 */
+	public BigDecimal getGeneratingBalance() throws DataException {
+		BigDecimal balance = this.getConfirmedBalance(Asset.QORA);
+
+		BlockRepository blockRepository = this.repository.getBlockRepository();
+		BlockData blockData = blockRepository.getLastBlock();
+
+		for (int i = 1; i < BlockChain.BLOCK_RETARGET_INTERVAL && blockData != null && blockData.getHeight() > 1; ++i) {
+			Block block = new Block(this.repository, blockData);
+
+			for (Transaction transaction : block.getTransactions()) {
+				if (transaction.isInvolved(this)) {
+					final BigDecimal amount = transaction.getAmount(this);
+
+					// Subtract positive amounts only
+					if (amount.compareTo(BigDecimal.ZERO) > 0)
+						balance = balance.subtract(amount);
+				}
+			}
+
+			// TODO
+			/*
+			 * LinkedHashMap<Tuple2<Integer, Integer>, AT_Transaction> atTxs = db.getATTransactionMap().getATTransactions(block.getHeight(db));
+			 * Iterator<AT_Transaction> iter = atTxs.values().iterator(); while (iter.hasNext()) { AT_Transaction key = iter.next();
+			 * 
+			 * if (key.getRecipient().equals(this.getAddress())) balance = balance.subtract(BigDecimal.valueOf(key.getAmount(), 8)); }
+			 */
+
+			blockData = block.getParent();
+		}
+
+		// Do not go below 0
+		// XXX: How would this even be possible?
+		balance = balance.max(BigDecimal.ZERO);
+
+		return balance;
+	}
+
 	// Balance manipulations - assetId is 0 for QORA
 
 	public BigDecimal getBalance(long assetId, int confirmations) {
@@ -42,7 +94,7 @@ public class Account {
 	}
 
 	public void setConfirmedBalance(long assetId, BigDecimal balance) throws DataException {
-		AccountBalanceData accountBalanceData = new AccountBalanceData(this.accountData.getAddress(), assetId, balance); 
+		AccountBalanceData accountBalanceData = new AccountBalanceData(this.accountData.getAddress(), assetId, balance);
 		this.repository.getAccountRepository().save(accountBalanceData);
 	}
 
@@ -71,7 +123,7 @@ public class Account {
 	 * 
 	 * @param reference
 	 *            -- null allowed
-	 * @throws DataException 
+	 * @throws DataException
 	 */
 	public void setLastReference(byte[] reference) throws DataException {
 		this.repository.getAccountRepository().save(accountData);

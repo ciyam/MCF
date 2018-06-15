@@ -1,19 +1,27 @@
 package qora.block;
 
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
+
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.primitives.Bytes;
 
 import data.block.BlockData;
 import data.block.BlockTransactionData;
 import data.transaction.TransactionData;
+import qora.account.Account;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
+import qora.crypto.Crypto;
 import qora.transaction.GenesisTransaction;
 import qora.transaction.Transaction;
 import repository.BlockRepository;
@@ -48,6 +56,25 @@ import utils.NTP;
 
 public class Block {
 
+	// Validation results
+	public enum ValidationResult {
+		OK(1), REFERENCE_MISSING(10), PARENT_DOES_NOT_EXIST(11), BLOCKCHAIN_NOT_EMPTY(12), TIMESTAMP_OLDER_THAN_PARENT(20), TIMESTAMP_IN_FUTURE(
+				21), TIMESTAMP_MS_INCORRECT(22), VERSION_INCORRECT(30), FEATURE_NOT_YET_RELEASED(31), GENERATING_BALANCE_INCORRECT(40), GENERATOR_NOT_ACCEPTED(
+						41), GENESIS_TRANSACTIONS_INVALID(50), TRANSACTION_TIMESTAMP_INVALID(51), TRANSACTION_INVALID(52), TRANSACTION_PROCESSING_FAILED(53);
+
+		public final int value;
+
+		private final static Map<Integer, ValidationResult> map = stream(ValidationResult.values()).collect(toMap(result -> result.value, result -> result));
+
+		ValidationResult(int value) {
+			this.value = value;
+		}
+
+		public static ValidationResult valueOf(int value) {
+			return map.get(value);
+		}
+	}
+
 	// Properties
 	protected Repository repository;
 	protected BlockData blockData;
@@ -59,20 +86,6 @@ public class Block {
 
 	// Other useful constants
 	public static final int MAX_BLOCK_BYTES = 1048576;
-	/**
-	 * Number of blocks between recalculating block's generating balance.
-	 */
-	private static final int BLOCK_RETARGET_INTERVAL = 10;
-	/**
-	 * Maximum acceptable timestamp disagreement offset in milliseconds.
-	 */
-	private static final long BLOCK_TIMESTAMP_MARGIN = 500L;
-
-	// Various release timestamps / block heights
-	public static final int MESSAGE_RELEASE_HEIGHT = 99000;
-	public static final int AT_BLOCK_HEIGHT_RELEASE = 99000;
-	public static final long POWFIX_RELEASE_TIMESTAMP = 1456426800000L; // Block Version 3 // 2016-02-25T19:00:00+00:00
-	public static final long ASSETS_RELEASE_TIMESTAMP = 0L; // From Qora epoch
 
 	// Constructors
 
@@ -82,13 +95,33 @@ public class Block {
 		this.generator = new PublicKeyAccount(repository, blockData.getGeneratorPublicKey());
 	}
 
-	// For creating a new block
+	// For creating a new block?
 	public Block(Repository repository, int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PrivateKeyAccount generator,
 			byte[] atBytes, BigDecimal atFees) {
 		this.repository = repository;
 		this.generator = generator;
+
 		this.blockData = new BlockData(version, reference, 0, BigDecimal.ZERO.setScale(8), null, 0, timestamp, generatingBalance, generator.getPublicKey(),
 				null, atBytes, atFees);
+
+		this.transactions = new ArrayList<Transaction>();
+	}
+
+	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount generator, byte[] atBytes, BigDecimal atFees) throws DataException {
+		this.repository = repository;
+		this.generator = generator;
+
+		Block parentBlock = new Block(repository, parentBlockData);
+
+		int version = parentBlock.getNextBlockVersion();
+		byte[] reference = parentBlockData.getSignature();
+		long timestamp = parentBlock.calcNextBlockTimestamp(generator);
+		BigDecimal generatingBalance = parentBlock.calcNextBlockGeneratingBalance();
+
+		this.blockData = new BlockData(version, reference, 0, BigDecimal.ZERO.setScale(8), null, 0, timestamp, generatingBalance, generator.getPublicKey(),
+				null, atBytes, atFees);
+
+		calcGeneratorSignature();
 
 		this.transactions = new ArrayList<Transaction>();
 	}
@@ -123,9 +156,9 @@ public class Block {
 	 * @return 1, 2 or 3
 	 */
 	public int getNextBlockVersion() {
-		if (this.blockData.getHeight() < AT_BLOCK_HEIGHT_RELEASE)
+		if (this.blockData.getHeight() < BlockChain.AT_BLOCK_HEIGHT_RELEASE)
 			return 1;
-		else if (this.blockData.getTimestamp() < POWFIX_RELEASE_TIMESTAMP)
+		else if (this.blockData.getTimestamp() < BlockChain.POWFIX_RELEASE_TIMESTAMP)
 			return 2;
 		else
 			return 3;
@@ -140,11 +173,14 @@ public class Block {
 	 * Within this interval, the generating balance stays the same so the current block's generating balance will be returned.
 	 * 
 	 * @return next block's generating balance
-	 * @throws SQLException
+	 * @throws DataException
 	 */
-	public BigDecimal getNextBlockGeneratingBalance() throws SQLException {
+	public BigDecimal calcNextBlockGeneratingBalance() throws DataException {
+		if (this.blockData.getHeight() == 0)
+			throw new IllegalStateException("Block height is unset");
+
 		// This block not at the start of an interval?
-		if (this.blockData.getHeight() % BLOCK_RETARGET_INTERVAL != 0)
+		if (this.blockData.getHeight() % BlockChain.BLOCK_RETARGET_INTERVAL != 0)
 			return this.blockData.getGeneratingBalance();
 
 		// Return cached calculation if we have one
@@ -159,7 +195,7 @@ public class Block {
 		BlockData firstBlock = this.blockData;
 
 		try {
-			for (int i = 1; firstBlock != null && i < BLOCK_RETARGET_INTERVAL; ++i)
+			for (int i = 1; firstBlock != null && i < BlockChain.BLOCK_RETARGET_INTERVAL; ++i)
 				firstBlock = blockRepo.fromSignature(firstBlock.getReference());
 		} catch (DataException e) {
 			firstBlock = null;
@@ -173,7 +209,7 @@ public class Block {
 		long previousGeneratingTime = this.blockData.getTimestamp() - firstBlock.getTimestamp();
 
 		// Calculate expected forging time (in ms) for a whole interval based on this block's generating balance.
-		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance()) * BLOCK_RETARGET_INTERVAL * 1000;
+		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance()) * BlockChain.BLOCK_RETARGET_INTERVAL * 1000;
 
 		// Finally, scale generating balance such that faster than expected previous intervals produce larger generating balances.
 		BigDecimal multiplier = BigDecimal.valueOf((double) expectedGeneratingTime / (double) previousGeneratingTime);
@@ -182,8 +218,13 @@ public class Block {
 		return this.cachedNextGeneratingBalance;
 	}
 
+	public static long calcBaseTarget(BigDecimal generatingBalance) {
+		generatingBalance = BlockChain.minMaxBalance(generatingBalance);
+		return generatingBalance.longValue() * calcForgingDelay(generatingBalance);
+	}
+
 	/**
-	 * Return expected forging delay, in seconds, since previous block based on block's generating balance.
+	 * Return expected forging delay, in seconds, since previous block based on passed generating balance.
 	 */
 	public static long calcForgingDelay(BigDecimal generatingBalance) {
 		generatingBalance = BlockChain.minMaxBalance(generatingBalance);
@@ -192,6 +233,60 @@ public class Block {
 		long actualBlockTime = (long) (BlockChain.MIN_BLOCK_TIME + ((BlockChain.MAX_BLOCK_TIME - BlockChain.MIN_BLOCK_TIME) * (1 - percentageOfTotal)));
 
 		return actualBlockTime;
+	}
+
+	private BigInteger calcGeneratorsTarget(Account nextBlockGenerator) throws DataException {
+		// Start with 32-byte maximum integer representing all possible correct "guesses"
+		// Where a "correct guess" is an integer greater than the threshold represented by calcBlockHash()
+		byte[] targetBytes = new byte[32];
+		Arrays.fill(targetBytes, Byte.MAX_VALUE);
+		BigInteger target = new BigInteger(1, targetBytes);
+
+		// Divide by next block's base target
+		// So if next block requires a higher generating balance then there are fewer remaining "correct guesses"
+		BigInteger baseTarget = BigInteger.valueOf(calcBaseTarget(calcNextBlockGeneratingBalance()));
+		target = target.divide(baseTarget);
+
+		// Multiply by account's generating balance
+		// So the greater the account's generating balance then the greater the remaining "correct guesses"
+		target = target.multiply(nextBlockGenerator.getGeneratingBalance().toBigInteger());
+
+		return target;
+	}
+
+	private BigInteger calcBlockHash() {
+		byte[] hashData;
+
+		if (this.blockData.getVersion() < 3)
+			hashData = this.blockData.getSignature();
+		else
+			hashData = Bytes.concat(this.blockData.getSignature(), generator.getPublicKey());
+
+		// Calculate 32-byte hash as pseudo-random, but deterministic, integer (unique to this generator for v3+ blocks)
+		byte[] hash = Crypto.digest(hashData);
+
+		// Convert hash to BigInteger form
+		return new BigInteger(1, hash);
+	}
+
+	private long calcNextBlockTimestamp(Account nextBlockGenerator) throws DataException {
+		BigInteger hashValue = calcBlockHash();
+		BigInteger target = calcGeneratorsTarget(nextBlockGenerator);
+
+		// If target is zero then generator has no balance so return longest value
+		if (target.compareTo(BigInteger.ZERO) == 0)
+			return Long.MAX_VALUE;
+
+		// Use ratio of "correct guesses" to calculate minimum delay until this generator can forge a block
+		BigInteger seconds = hashValue.divide(target).add(BigInteger.ONE);
+
+		// Calculate next block timestamp using delay
+		BigInteger timestamp = seconds.multiply(BigInteger.valueOf(1000)).add(BigInteger.valueOf(this.blockData.getTimestamp()));
+
+		// Limit timestamp to maximum long value
+		timestamp = timestamp.min(BigInteger.valueOf(Long.MAX_VALUE));
+
+		return timestamp.longValue();
 	}
 
 	/**
@@ -222,6 +317,36 @@ public class Block {
 		return this.transactions;
 	}
 
+	// Navigation
+
+	/**
+	 * Load parent block's data from repository via this block's reference.
+	 * 
+	 * @return parent's BlockData, or null if no parent found
+	 * @throws DataException
+	 */
+	public BlockData getParent() throws DataException {
+		byte[] reference = this.blockData.getReference();
+		if (reference == null)
+			return null;
+
+		return this.repository.getBlockRepository().fromSignature(reference);
+	}
+
+	/**
+	 * Load child block's data from repository via this block's signature.
+	 * 
+	 * @return child's BlockData, or null if no parent found
+	 * @throws DataException
+	 */
+	public BlockData getChild() throws DataException {
+		byte[] signature = this.blockData.getSignature();
+		if (signature == null)
+			return null;
+
+		return this.repository.getBlockRepository().fromReference(signature);
+	}
+
 	// Processing
 
 	/**
@@ -244,6 +369,9 @@ public class Block {
 		if (!(this.generator instanceof PrivateKeyAccount))
 			throw new IllegalStateException("Block's generator has no private key");
 
+		if (this.blockData.getGeneratorSignature() == null)
+			throw new IllegalStateException("Cannot calculate transactions signature as block has no generator signature");
+
 		// Check there is space in block
 		try {
 			if (BlockTransformer.getDataLength(this) + TransactionTransformer.getDataLength(transactionData) > MAX_BLOCK_BYTES)
@@ -261,7 +389,6 @@ public class Block {
 		// Update totalFees
 		this.blockData.setTotalFees(this.blockData.getTotalFees().add(transactionData.getFee()));
 
-		// Update transactions signature
 		calcTransactionsSignature();
 
 		return true;
@@ -277,7 +404,7 @@ public class Block {
 	 * @throws RuntimeException
 	 *             if somehow the generator signature cannot be calculated
 	 */
-	public void calcGeneratorSignature() {
+	protected void calcGeneratorSignature() {
 		if (!(this.generator instanceof PrivateKeyAccount))
 			throw new IllegalStateException("Block's generator has no private key");
 
@@ -298,7 +425,7 @@ public class Block {
 	 * @throws RuntimeException
 	 *             if somehow the transactions signature cannot be calculated
 	 */
-	public void calcTransactionsSignature() {
+	protected void calcTransactionsSignature() {
 		if (!(this.generator instanceof PrivateKeyAccount))
 			throw new IllegalStateException("Block's generator has no private key");
 
@@ -307,6 +434,13 @@ public class Block {
 		} catch (TransformationException e) {
 			throw new RuntimeException("Unable to calculate block's transactions signature", e);
 		}
+	}
+
+	public void sign() {
+		this.calcGeneratorSignature();
+		this.calcTransactionsSignature();
+
+		this.blockData.setSignature(this.getSignature());
 	}
 
 	public boolean isSignatureValid() {
@@ -336,39 +470,59 @@ public class Block {
 	 * @throws SQLException
 	 * @throws DataException
 	 */
-	public boolean isValid() throws SQLException, DataException {
+	public ValidationResult isValid() throws DataException {
 		// TODO
 
-		// Check parent blocks exists
+		// Check parent block exists
 		if (this.blockData.getReference() == null)
-			return false;
+			return ValidationResult.REFERENCE_MISSING;
 
 		BlockData parentBlockData = this.repository.getBlockRepository().fromSignature(this.blockData.getReference());
 		if (parentBlockData == null)
-			return false;
+			return ValidationResult.PARENT_DOES_NOT_EXIST;
 
 		Block parentBlock = new Block(this.repository, parentBlockData);
 
-		// Check timestamp is valid, i.e. later than parent timestamp and not in the future, within ~500ms margin
-		if (this.blockData.getTimestamp() < parentBlockData.getTimestamp() || this.blockData.getTimestamp() - BLOCK_TIMESTAMP_MARGIN > NTP.getTime())
-			return false;
+		// Check timestamp is newer than parent timestamp
+		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp()
+				|| this.blockData.getTimestamp() - BlockChain.BLOCK_TIMESTAMP_MARGIN > NTP.getTime())
+			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
+
+		// Check timestamp is not in the future (within configurable ~500ms margin)
+		if (this.blockData.getTimestamp() - BlockChain.BLOCK_TIMESTAMP_MARGIN > NTP.getTime())
+			return ValidationResult.TIMESTAMP_IN_FUTURE;
 
 		// Legacy gen1 test: check timestamp ms is the same as parent timestamp ms?
 		if (this.blockData.getTimestamp() % 1000 != parentBlockData.getTimestamp() % 1000)
-			return false;
+			return ValidationResult.TIMESTAMP_MS_INCORRECT;
 
 		// Check block version
 		if (this.blockData.getVersion() != parentBlock.getNextBlockVersion())
-			return false;
+			return ValidationResult.VERSION_INCORRECT;
 		if (this.blockData.getVersion() < 2 && (this.blockData.getAtBytes() != null || this.blockData.getAtFees() != null))
-			return false;
+			return ValidationResult.FEATURE_NOT_YET_RELEASED;
 
 		// Check generating balance
-		if (this.blockData.getGeneratingBalance() != parentBlock.getNextBlockGeneratingBalance())
-			return false;
+		if (this.blockData.getGeneratingBalance() != parentBlock.calcNextBlockGeneratingBalance())
+			return ValidationResult.GENERATING_BALANCE_INCORRECT;
 
-		// Check generator's proof of stake against block's generating balance
-		// TODO
+		// Check generator is allowed to forge this block at this time
+		BigInteger hashValue = parentBlock.calcBlockHash();
+		BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
+
+		// Multiply target by guesses
+		long guesses = (this.blockData.getTimestamp() - parentBlockData.getTimestamp()) / 1000;
+		BigInteger lowerTarget = target.multiply(BigInteger.valueOf(guesses - 1));
+		target = target.multiply(BigInteger.valueOf(guesses));
+
+		// Generator's target must exceed block's hashValue threshold
+		if (hashValue.compareTo(target) >= 0)
+			return ValidationResult.GENERATOR_NOT_ACCEPTED;
+
+		// XXX Odd gen1 test: "CHECK IF FIRST BLOCK OF USER"
+		// Is the comment wrong and this each second elapsed allows generator to test a new "target" window against hashValue?
+		if (hashValue.compareTo(lowerTarget) < 0)
+			return ValidationResult.GENERATOR_NOT_ACCEPTED;
 
 		// Check CIYAM AT
 		if (this.blockData.getAtBytes() != null && this.blockData.getAtBytes().length > 0) {
@@ -386,28 +540,28 @@ public class Block {
 			for (Transaction transaction : this.getTransactions()) {
 				// GenesisTransactions are not allowed (GenesisBlock overrides isValid() to allow them)
 				if (transaction instanceof GenesisTransaction)
-					return false;
+					return ValidationResult.GENESIS_TRANSACTIONS_INVALID;
 
 				// Check timestamp and deadline
 				if (transaction.getTransactionData().getTimestamp() > this.blockData.getTimestamp()
 						|| transaction.getDeadline() <= this.blockData.getTimestamp())
-					return false;
+					return ValidationResult.TRANSACTION_TIMESTAMP_INVALID;
 
 				// Check transaction is even valid
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
 				if (transaction.isValid() != Transaction.ValidationResult.OK)
-					return false;
+					return ValidationResult.TRANSACTION_INVALID;
 
 				// Process transaction to make sure other transactions validate properly
 				try {
 					transaction.process();
 				} catch (Exception e) {
 					// LOGGER.error("Exception during transaction processing, tx " + Base58.encode(transaction.getSignature()), e);
-					return false;
+					return ValidationResult.TRANSACTION_PROCESSING_FAILED;
 				}
 			}
 		} catch (DataException e) {
-			return false;
+			return ValidationResult.TRANSACTION_TIMESTAMP_INVALID;
 		} finally {
 			// Revert back to savepoint
 			try {
@@ -421,7 +575,7 @@ public class Block {
 		}
 
 		// Block is valid
-		return true;
+		return ValidationResult.OK;
 	}
 
 	public void process() throws DataException {

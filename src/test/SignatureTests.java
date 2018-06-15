@@ -53,9 +53,7 @@ public class SignatureTests extends Common {
 			BigDecimal atFees = null;
 
 			Block block = new Block(repository, version, reference, timestamp, generatingBalance, generator, atBytes, atFees);
-
-			block.calcGeneratorSignature();
-			block.calcTransactionsSignature();
+			block.sign();
 
 			assertTrue(block.isSignatureValid());
 		}

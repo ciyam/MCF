@@ -69,6 +69,10 @@ public class BlockData {
 		return this.signature;
 	}
 
+	public void setSignature(byte[] signature) {
+		this.signature = signature;
+	}
+
 	public int getVersion() {
 		return this.version;
 	}

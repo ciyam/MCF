@@ -1,6 +1,9 @@
 package qora.transaction;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import data.PaymentData;
 import data.transaction.MessageTransactionData;
@@ -8,35 +11,86 @@ import data.transaction.TransactionData;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
-import qora.block.Block;
+import qora.block.BlockChain;
 import qora.payment.Payment;
 import repository.DataException;
 import repository.Repository;
 
 public class MessageTransaction extends Transaction {
 
+	// Properties
+	private MessageTransactionData messageTransactionData;
+
+	// Useful constants
 	private static final int MAX_DATA_SIZE = 4000;
 
 	// Constructors
+
 	public MessageTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
+
+		this.messageTransactionData = (MessageTransactionData) this.transactionData;
+	}
+
+	// More information
+
+	public List<Account> getRecipientAccounts() throws DataException {
+		return Collections.singletonList(new Account(this.repository, messageTransactionData.getRecipient()));
+	}
+
+	public boolean isInvolved(Account account) throws DataException {
+		String address = account.getAddress();
+
+		if (address.equals(this.getSender().getAddress()))
+			return true;
+
+		if (address.equals(messageTransactionData.getRecipient()))
+			return true;
+
+		return false;
+	}
+
+	public BigDecimal getAmount(Account account) throws DataException {
+		String address = account.getAddress();
+		BigDecimal amount = BigDecimal.ZERO.setScale(8);
+		String senderAddress = this.getSender().getAddress();
+
+		if (address.equals(senderAddress))
+			amount = amount.subtract(this.transactionData.getFee());
+
+		// We're only interested in QORA
+		if (messageTransactionData.getAssetId() == Asset.QORA) {
+			if (address.equals(messageTransactionData.getRecipient()))
+				amount = amount.add(messageTransactionData.getAmount());
+			else if (address.equals(senderAddress))
+				amount = amount.subtract(messageTransactionData.getAmount());
+		}
+
+		return amount;
+	}
+
+	// Navigation
+
+	public Account getSender() throws DataException {
+		return new PublicKeyAccount(this.repository, this.messageTransactionData.getSenderPublicKey());
+	}
+
+	public Account getRecipient() throws DataException {
+		return new Account(this.repository, this.messageTransactionData.getRecipient());
 	}
 
 	// Processing
 
 	private PaymentData getPaymentData() {
-		MessageTransactionData messageTransactionData = (MessageTransactionData) this.transactionData;
 		return new PaymentData(messageTransactionData.getRecipient(), Asset.QORA, messageTransactionData.getAmount());
 	}
 
 	public ValidationResult isValid() throws DataException {
-		MessageTransactionData messageTransactionData = (MessageTransactionData) this.transactionData;
-
 		// Are message transactions even allowed at this point?
 		if (messageTransactionData.getVersion() != MessageTransaction.getVersionByTimestamp(messageTransactionData.getTimestamp()))
 			return ValidationResult.NOT_YET_RELEASED;
 
-		if (this.repository.getBlockRepository().getBlockchainHeight() < Block.MESSAGE_RELEASE_HEIGHT)
+		if (this.repository.getBlockRepository().getBlockchainHeight() < BlockChain.MESSAGE_RELEASE_HEIGHT)
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check data length
@@ -57,8 +111,6 @@ public class MessageTransaction extends Transaction {
 	}
 
 	public void process() throws DataException {
-		MessageTransactionData messageTransactionData = (MessageTransactionData) this.transactionData;
-
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
@@ -68,8 +120,6 @@ public class MessageTransaction extends Transaction {
 	}
 
 	public void orphan() throws DataException {
-		MessageTransactionData messageTransactionData = (MessageTransactionData) this.transactionData;
-
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(this.transactionData);
 
