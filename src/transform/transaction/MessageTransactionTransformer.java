@@ -37,9 +37,6 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 	private static final int TYPELESS_DATALESS_LENGTH_V3 = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + ASSET_ID_LENGTH + AMOUNT_LENGTH
 			+ DATA_SIZE_LENGTH + IS_TEXT_LENGTH + IS_ENCRYPTED_LENGTH;
 
-	// Other property lengths
-	private static final int MAX_DATA_SIZE = 4000;
-
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_DATALESS_LENGTH_V1)
 			throw new TransformationException("Byte data too short for MessageTransaction");
@@ -69,11 +66,15 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 		int dataSize = byteBuffer.getInt(0);
 		// Don't allow invalid dataSize here to avoid run-time issues
-		if (dataSize > MAX_DATA_SIZE)
+		if (dataSize > MessageTransaction.MAX_DATA_SIZE)
 			throw new TransformationException("MessageTransaction data size too large");
 
 		byte[] data = new byte[dataSize];
 		byteBuffer.get(data);
+
+		// Still need to make sure there are enough bytes left for remaining fields
+		if (byteBuffer.remaining() < IS_ENCRYPTED_LENGTH + IS_TEXT_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH)
+			throw new TransformationException("Byte data too short for MessageTransaction");
 
 		boolean isEncrypted = byteBuffer.get() != 0;
 		boolean isText = byteBuffer.get() != 0;

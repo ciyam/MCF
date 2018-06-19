@@ -21,8 +21,8 @@ public class MessageTransaction extends Transaction {
 	// Properties
 	private MessageTransactionData messageTransactionData;
 
-	// Useful constants
-	private static final int MAX_DATA_SIZE = 4000;
+	// Other useful constants
+	public static final int MAX_DATA_SIZE = 4000;
 
 	// Constructors
 

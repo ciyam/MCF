@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import data.assets.AssetData;
 import data.transaction.IssueAssetTransactionData;
 import data.transaction.TransactionData;
 import qora.account.Account;
@@ -15,13 +14,15 @@ import qora.block.BlockChain;
 import qora.crypto.Crypto;
 import repository.DataException;
 import repository.Repository;
-import transform.transaction.IssueAssetTransactionTransformer;
-import utils.NTP;
 
 public class IssueAssetTransaction extends Transaction {
 
 	// Properties
 	private IssueAssetTransactionData issueAssetTransactionData;
+
+	// Other useful constants
+	public static final int MAX_NAME_SIZE = 400;
+	public static final int MAX_DESCRIPTION_SIZE = 4000;
 
 	// Constructors
 
@@ -75,7 +76,8 @@ public class IssueAssetTransaction extends Transaction {
 
 	public ValidationResult isValid() throws DataException {
 		// Are IssueAssetTransactions even allowed at this point?
-		if (NTP.getTime() < BlockChain.ASSETS_RELEASE_TIMESTAMP)
+		// XXX In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used?
+		if (this.issueAssetTransactionData.getTimestamp() < BlockChain.ASSETS_RELEASE_TIMESTAMP)
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check owner address is valid
@@ -83,13 +85,12 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check name size bounds
-		if (issueAssetTransactionData.getAssetName().length() < 1
-				|| issueAssetTransactionData.getAssetName().length() > IssueAssetTransactionTransformer.MAX_NAME_SIZE)
+		if (issueAssetTransactionData.getAssetName().length() < 1 || issueAssetTransactionData.getAssetName().length() > IssueAssetTransaction.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check description size bounds
 		if (issueAssetTransactionData.getDescription().length() < 1
-				|| issueAssetTransactionData.getDescription().length() > IssueAssetTransactionTransformer.MAX_DESCRIPTION_SIZE)
+				|| issueAssetTransactionData.getDescription().length() > IssueAssetTransaction.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
 		// Check quantity - either 10 billion or if that's not enough: a billion billion!
@@ -120,13 +121,11 @@ public class IssueAssetTransaction extends Transaction {
 
 	public void process() throws DataException {
 		// Issue asset
-		AssetData assetData = new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(),
-				issueAssetTransactionData.getDescription(), issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(),
-				issueAssetTransactionData.getReference());
-		this.repository.getAssetRepository().save(assetData);
+		Asset asset = new Asset(this.repository, issueAssetTransactionData);
+		asset.issue();
 
 		// Note newly assigned asset ID in our transaction record
-		issueAssetTransactionData.setAssetId(assetData.getAssetId());
+		issueAssetTransactionData.setAssetId(asset.getAssetData().getAssetId());
 
 		// Save this transaction, now with corresponding assetId
 		this.repository.getTransactionRepository().save(issueAssetTransactionData);
@@ -148,8 +147,9 @@ public class IssueAssetTransaction extends Transaction {
 		Account owner = new Account(this.repository, issueAssetTransactionData.getOwner());
 		owner.deleteBalance(issueAssetTransactionData.getAssetId());
 
-		// Unissue asset
-		this.repository.getAssetRepository().delete(issueAssetTransactionData.getAssetId());
+		// Issue asset
+		Asset asset = new Asset(this.repository, issueAssetTransactionData.getAssetId());
+		asset.deissue();
 
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(issueAssetTransactionData);

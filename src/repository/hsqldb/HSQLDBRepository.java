@@ -15,6 +15,7 @@ import repository.BlockRepository;
 import repository.DataException;
 import repository.Repository;
 import repository.TransactionRepository;
+import repository.VotingRepository;
 import repository.hsqldb.transaction.HSQLDBTransactionRepository;
 
 public class HSQLDBRepository implements Repository {
@@ -44,6 +45,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public TransactionRepository getTransactionRepository() {
 		return new HSQLDBTransactionRepository(this);
+	}
+
+	@Override
+	public VotingRepository getVotingRepository() {
+		return new HSQLDBVotingRepository(this);
 	}
 
 	@Override

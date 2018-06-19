@@ -183,8 +183,8 @@ public class HSQLDBDatabaseUpdates {
 
 			case 10:
 				// Create Poll Transactions
-				stmt.execute("CREATE TABLE CreatePollTransactions (signature Signature, creator QoraPublicKey NOT NULL, poll PollName NOT NULL, "
-						+ "description VARCHAR(4000) NOT NULL, "
+				stmt.execute("CREATE TABLE CreatePollTransactions (signature Signature, creator QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
+						+ "poll PollName NOT NULL, description VARCHAR(4000) NOT NULL, "
 						+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				// Poll options. NB: option is implicitly NON NULL and UNIQUE due to being part of compound primary key
 				stmt.execute("CREATE TABLE CreatePollTransactionOptions (signature Signature, option PollOption, "
@@ -270,7 +270,7 @@ public class HSQLDBDatabaseUpdates {
 			case 21:
 				// Assets (including QORA coin itself)
 				stmt.execute(
-						"CREATE TABLE Assets (asset_id AssetID IDENTITY, owner QoraPublicKey NOT NULL, asset_name AssetName NOT NULL, description VARCHAR(4000) NOT NULL, "
+						"CREATE TABLE Assets (asset_id AssetID IDENTITY, owner QoraAddress NOT NULL, asset_name AssetName NOT NULL, description VARCHAR(4000) NOT NULL, "
 								+ "quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, reference Signature NOT NULL)");
 				stmt.execute("CREATE INDEX AssetNameIndex on Assets (asset_name)");
 				break;

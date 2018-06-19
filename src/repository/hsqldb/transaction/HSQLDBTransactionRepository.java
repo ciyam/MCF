@@ -21,6 +21,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	protected HSQLDBRepository repository;
 	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
 	private HSQLDBPaymentTransactionRepository paymentTransactionRepository;
+	private HSQLDBCreatePollTransactionRepository createPollTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
 	private HSQLDBTransferAssetTransactionRepository transferAssetTransactionRepository;
 	private HSQLDBCreateOrderTransactionRepository createOrderTransactionRepository;
@@ -32,6 +33,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.repository = repository;
 		this.genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
 		this.paymentTransactionRepository = new HSQLDBPaymentTransactionRepository(repository);
+		this.createPollTransactionRepository = new HSQLDBCreatePollTransactionRepository(repository);
 		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
 		this.transferAssetTransactionRepository = new HSQLDBTransferAssetTransactionRepository(repository);
 		this.createOrderTransactionRepository = new HSQLDBCreateOrderTransactionRepository(repository);
@@ -87,6 +89,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case PAYMENT:
 				return this.paymentTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case CREATE_POLL:
+				return this.createPollTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case ISSUE_ASSET:
 				return this.issueAssetTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
@@ -210,6 +215,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				this.paymentTransactionRepository.save(transactionData);
 				break;
 
+			case CREATE_POLL:
+				this.createPollTransactionRepository.save(transactionData);
+				break;
+
 			case ISSUE_ASSET:
 				this.issueAssetTransactionRepository.save(transactionData);
 				break;
@@ -224,9 +233,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case CANCEL_ASSET_ORDER:
 				this.cancelOrderTransactionRepository.save(transactionData);
+				break;
 
 			case MULTIPAYMENT:
 				this.multiPaymentTransactionRepository.save(transactionData);
+				break;
 
 			case MESSAGE:
 				this.messageTransactionRepository.save(transactionData);

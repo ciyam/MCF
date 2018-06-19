@@ -10,6 +10,8 @@ public interface Repository extends AutoCloseable {
 
 	public TransactionRepository getTransactionRepository();
 
+	public VotingRepository getVotingRepository();
+
 	public void saveChanges() throws DataException;
 
 	public void discardChanges() throws DataException;

@@ -47,7 +47,7 @@ public class BlockChain {
 	public static final int AT_BLOCK_HEIGHT_RELEASE = 99000;
 	public static final long POWFIX_RELEASE_TIMESTAMP = 1456426800000L; // Block Version 3 // 2016-02-25T19:00:00+00:00
 	public static final long ASSETS_RELEASE_TIMESTAMP = 0L; // From Qora epoch
-
+	public static final long VOTING_RELEASE_TIMESTAMP = 1403715600000L; // 2014-06-25T17:00:00+00:00
 
 	/**
 	 * Some sort start-up/initialization/checking method.

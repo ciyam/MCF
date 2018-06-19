@@ -13,6 +13,7 @@ import com.google.common.primitives.Longs;
 
 import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
+import qora.transaction.IssueAssetTransaction;
 import data.transaction.IssueAssetTransactionData;
 import transform.TransformationException;
 import utils.Base58;
@@ -31,10 +32,6 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + ISSUER_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH
 			+ QUANTITY_LENGTH + IS_DIVISIBLE_LENGTH;
 
-	// Other useful lengths
-	public static final int MAX_NAME_SIZE = 400;
-	public static final int MAX_DESCRIPTION_SIZE = 4000;
-
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
 			throw new TransformationException("Byte data too short for IssueAssetTransaction");
@@ -47,11 +44,11 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		byte[] issuerPublicKey = Serialization.deserializePublicKey(byteBuffer);
 		String owner = Serialization.deserializeRecipient(byteBuffer);
 
-		String assetName = Serialization.deserializeSizedString(byteBuffer, MAX_NAME_SIZE);
-		String description = Serialization.deserializeSizedString(byteBuffer, MAX_DESCRIPTION_SIZE);
+		String assetName = Serialization.deserializeSizedString(byteBuffer, IssueAssetTransaction.MAX_NAME_SIZE);
+		String description = Serialization.deserializeSizedString(byteBuffer, IssueAssetTransaction.MAX_DESCRIPTION_SIZE);
 
 		// Still need to make sure there are enough bytes left for remaining fields
-		if (byteBuffer.remaining() < QUANTITY_LENGTH + IS_DIVISIBLE_LENGTH + SIGNATURE_LENGTH)
+		if (byteBuffer.remaining() < QUANTITY_LENGTH + IS_DIVISIBLE_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH)
 			throw new TransformationException("Byte data too short for IssueAssetTransaction");
 
 		long quantity = byteBuffer.getLong();

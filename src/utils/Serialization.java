@@ -68,9 +68,15 @@ public class Serialization {
 	}
 
 	public static String deserializeSizedString(ByteBuffer byteBuffer, int maxSize) throws TransformationException {
+		if (byteBuffer.remaining() < Transformer.INT_LENGTH)
+			throw new TransformationException("Byte data too short for serialized string size");
+
 		int size = byteBuffer.getInt();
-		if (size > maxSize || size > byteBuffer.remaining())
+		if (size > maxSize)
 			throw new TransformationException("Serialized string too long");
+
+		if (size > byteBuffer.remaining())
+			throw new TransformationException("Byte data too short for serialized string");
 
 		byte[] bytes = new byte[size];
 		byteBuffer.get(bytes);
