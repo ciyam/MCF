@@ -32,7 +32,7 @@ public class NavigationTests extends Common {
 			assertNotNull("Transaction data not loaded from repository", transactionData);
 			assertEquals("Transaction data not PAYMENT type", TransactionType.PAYMENT, transactionData.getType());
 
-			BlockData blockData = transactionRepository.toBlock(transactionData);
+			BlockData blockData = transactionRepository.getBlockDataFromSignature(signature);
 			assertNotNull("Block 49778 not loaded from database", blockData);
 
 			System.out.println("Block " + blockData.getHeight() + ", signature: " + Base58.encode(blockData.getSignature()));

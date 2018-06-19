@@ -201,7 +201,7 @@ public class HSQLDBDatabaseUpdates {
 
 			case 12:
 				// Arbitrary/Multi-payment Transaction Payments
-				stmt.execute("CREATE TABLE SharedTransactionPayments (signature Signature, recipient QoraPublicKey NOT NULL, "
+				stmt.execute("CREATE TABLE SharedTransactionPayments (signature Signature, recipient QoraAddress NOT NULL, "
 						+ "amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, "
 						+ "PRIMARY KEY (signature, recipient, asset_id), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				break;

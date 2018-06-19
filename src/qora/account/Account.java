@@ -60,7 +60,7 @@ public class Account {
 				}
 			}
 
-			// TODO
+			// TODO - CIYAM AT support needed
 			/*
 			 * LinkedHashMap<Tuple2<Integer, Integer>, AT_Transaction> atTxs = db.getATTransactionMap().getATTransactions(block.getHeight(db));
 			 * Iterator<AT_Transaction> iter = atTxs.values().iterator(); while (iter.hasNext()) { AT_Transaction key = iter.next();
@@ -80,9 +80,41 @@ public class Account {
 
 	// Balance manipulations - assetId is 0 for QORA
 
-	public BigDecimal getBalance(long assetId, int confirmations) {
-		// TODO
-		return null;
+	public BigDecimal getBalance(long assetId, int confirmations) throws DataException {
+		// Simple case: we only need balance with 1 confirmation
+		if (confirmations == 1)
+			return this.getConfirmedBalance(assetId);
+
+		/*
+		 * For a balance with more confirmations work back from last block, undoing transactions involving this account, until we have processed required number
+		 * of blocks.
+		 */
+		BlockRepository blockRepository = this.repository.getBlockRepository();
+		BigDecimal balance = this.getConfirmedBalance(assetId);
+		BlockData blockData = blockRepository.getLastBlock();
+
+		// Note: "blockData.getHeight() > 1" to make sure we don't examine genesis block
+		for (int i = 1; i < confirmations && blockData != null && blockData.getHeight() > 1; ++i) {
+			Block block = new Block(this.repository, blockData);
+
+			for (Transaction transaction : block.getTransactions())
+				if (transaction.isInvolved(this))
+					balance = balance.subtract(transaction.getAmount(this));
+
+			// TODO - CIYAM AT support
+			/*
+			 * // Also check AT transactions for amounts received to this account LinkedHashMap<Tuple2<Integer, Integer>, AT_Transaction> atTxs =
+			 * db.getATTransactionMap().getATTransactions(block.getHeight(db)); Iterator<AT_Transaction> iter = atTxs.values().iterator(); while
+			 * (iter.hasNext()) { AT_Transaction key = iter.next();
+			 * 
+			 * if (key.getRecipient().equals(this.getAddress())) balance = balance.subtract(BigDecimal.valueOf(key.getAmount(), 8)); }
+			 */
+
+			blockData = block.getParent();
+		}
+
+		// Return balance
+		return balance;
 	}
 
 	public BigDecimal getConfirmedBalance(long assetId) throws DataException {

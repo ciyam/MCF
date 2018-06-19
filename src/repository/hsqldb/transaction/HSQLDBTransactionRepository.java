@@ -4,7 +4,10 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 
+import data.PaymentData;
 import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.transaction.Transaction.TransactionType;
@@ -19,7 +22,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
 	private HSQLDBPaymentTransactionRepository paymentTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
+	private HSQLDBTransferAssetTransactionRepository transferAssetTransactionRepository;
 	private HSQLDBCreateOrderTransactionRepository createOrderTransactionRepository;
+	private HSQLDBCancelOrderTransactionRepository cancelOrderTransactionRepository;
+	private HSQLDBMultiPaymentTransactionRepository multiPaymentTransactionRepository;
 	private HSQLDBMessageTransactionRepository messageTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
@@ -27,7 +33,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
 		this.paymentTransactionRepository = new HSQLDBPaymentTransactionRepository(repository);
 		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
+		this.transferAssetTransactionRepository = new HSQLDBTransferAssetTransactionRepository(repository);
 		this.createOrderTransactionRepository = new HSQLDBCreateOrderTransactionRepository(repository);
+		this.cancelOrderTransactionRepository = new HSQLDBCancelOrderTransactionRepository(repository);
+		this.multiPaymentTransactionRepository = new HSQLDBMultiPaymentTransactionRepository(repository);
 		this.messageTransactionRepository = new HSQLDBMessageTransactionRepository(repository);
 	}
 
@@ -82,8 +91,17 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			case ISSUE_ASSET:
 				return this.issueAssetTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
+			case TRANSFER_ASSET:
+				return this.transferAssetTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
 			case CREATE_ASSET_ORDER:
 				return this.createOrderTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case CANCEL_ASSET_ORDER:
+				return this.cancelOrderTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case MULTIPAYMENT:
+				return this.multiPaymentTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case MESSAGE:
 				return this.messageTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
@@ -93,9 +111,46 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
+	protected List<PaymentData> getPaymentsFromSignature(byte[] signature) throws DataException {
+		try {
+			ResultSet rs = this.repository.checkedExecute("SELECT recipient, amount, asset_id FROM SharedTransactionPayments WHERE signature = ?", signature);
+			if (rs == null)
+				return null;
+
+			List<PaymentData> payments = new ArrayList<PaymentData>();
+
+			// NOTE: do-while because checkedExecute() above has already called rs.next() for us
+			do {
+				String recipient = rs.getString(1);
+				BigDecimal amount = rs.getBigDecimal(2);
+				long assetId = rs.getLong(3);
+
+				payments.add(new PaymentData(recipient, assetId, amount));
+			} while (rs.next());
+
+			return payments;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch payments from repository", e);
+		}
+	}
+
+	protected void savePayments(byte[] signature, List<PaymentData> payments) throws DataException {
+		for (PaymentData paymentData : payments) {
+			HSQLDBSaver saver = new HSQLDBSaver("SharedTransactionPayments");
+
+			saver.bind("signature", signature).bind("recipient", paymentData.getRecipient()).bind("amount", paymentData.getAmount()).bind("asset_id",
+					paymentData.getAssetId());
+
+			try {
+				saver.execute(this.repository);
+			} catch (SQLException e) {
+				throw new DataException("Unable to save payment into repository", e);
+			}
+		}
+	}
+
 	@Override
-	public int getHeight(TransactionData transactionData) {
-		byte[] signature = transactionData.getSignature();
+	public int getHeightFromSignature(byte[] signature) throws DataException {
 		if (signature == null)
 			return 0;
 
@@ -110,13 +165,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			return rs.getInt(1);
 		} catch (SQLException e) {
-			return 0;
+			throw new DataException("Unable to fetch transaction's height from repository", e);
 		}
 	}
 
 	@Override
-	public BlockData toBlock(TransactionData transactionData) throws DataException {
-		byte[] signature = transactionData.getSignature();
+	public BlockData getBlockDataFromSignature(byte[] signature) throws DataException {
 		if (signature == null)
 			return null;
 
@@ -143,7 +197,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		try {
 			saver.execute(this.repository);
 		} catch (SQLException e) {
-			throw new DataException(e);
+			throw new DataException("Unable to save transaction into repository", e);
 		}
 
 		// Now call transaction-type-specific save() method
@@ -160,9 +214,19 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				this.issueAssetTransactionRepository.save(transactionData);
 				break;
 
+			case TRANSFER_ASSET:
+				this.transferAssetTransactionRepository.save(transactionData);
+				break;
+
 			case CREATE_ASSET_ORDER:
 				this.createOrderTransactionRepository.save(transactionData);
 				break;
+
+			case CANCEL_ASSET_ORDER:
+				this.cancelOrderTransactionRepository.save(transactionData);
+
+			case MULTIPAYMENT:
+				this.multiPaymentTransactionRepository.save(transactionData);
 
 			case MESSAGE:
 				this.messageTransactionRepository.save(transactionData);

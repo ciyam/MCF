@@ -5,7 +5,6 @@ import static java.util.stream.Collectors.toMap;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -609,8 +608,47 @@ public class Block {
 		}
 	}
 
-	public void orphan(Connection connection) {
+	public void orphan() throws DataException {
 		// TODO
+
+		// Orphan block's CIYAM ATs
+		orphanAutomatedTransactions();
+
+		// Orphan transactions in reverse order, and unlink them from this block
+		List<Transaction> transactions = this.getTransactions();
+		for (int sequence = transactions.size() - 1; sequence >= 0; --sequence) {
+			Transaction transaction = transactions.get(sequence);
+			transaction.orphan();
+
+			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence,
+					transaction.getTransactionData().getSignature());
+			this.repository.getBlockRepository().delete(blockTransactionData);
+		}
+
+		// If fees are non-zero then remove fees from generator's balance
+		BigDecimal blockFee = this.blockData.getTotalFees();
+		if (blockFee.compareTo(BigDecimal.ZERO) == 1)
+			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(blockFee));
+
+		// Delete block from blockchain
+		this.repository.getBlockRepository().delete(this.blockData);
+	}
+
+	public void orphanAutomatedTransactions() throws DataException {
+		// TODO - CIYAM AT support
+		/*
+		 * LinkedHashMap< Tuple2<Integer, Integer> , AT_Transaction > atTxs = DBSet.getInstance().getATTransactionMap().getATTransactions(this.getHeight(db));
+		 * 
+		 * Iterator<AT_Transaction> iter = atTxs.values().iterator();
+		 * 
+		 * while ( iter.hasNext() ) { AT_Transaction key = iter.next(); Long amount = key.getAmount(); if (key.getRecipientId() != null &&
+		 * !Arrays.equals(key.getRecipientId(), new byte[ AT_Constants.AT_ID_SIZE ]) && !key.getRecipient().equalsIgnoreCase("1") ) { Account recipient = new
+		 * Account( key.getRecipient() ); recipient.setConfirmedBalance( recipient.getConfirmedBalance( db ).subtract( BigDecimal.valueOf( amount, 8 ) ) , db );
+		 * if ( Arrays.equals(recipient.getLastReference(db),new byte[64])) { recipient.removeReference(db); } } Account sender = new Account( key.getSender()
+		 * ); sender.setConfirmedBalance( sender.getConfirmedBalance( db ).add( BigDecimal.valueOf( amount, 8 ) ) , db );
+		 * 
+		 * }
+		 */
 	}
 
 }

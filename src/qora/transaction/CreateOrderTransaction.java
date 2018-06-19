@@ -52,10 +52,10 @@ public class CreateOrderTransaction extends Transaction {
 
 	// Navigation
 
-	public Order getOrder() {
-		// TODO Something like:
-		// return this.repository.getAssetRepository().getOrder(this.transactionData);
-		return null;
+	public Order getOrder() throws DataException {
+		// orderId is the transaction signature
+		OrderData orderData = this.repository.getAssetRepository().fromOrderId(this.createOrderTransactionData.getSignature());
+		return new Order(this.repository, orderData);
 	}
 
 	// Processing

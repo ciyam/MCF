@@ -144,6 +144,14 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		}
 	}
 
+	public void delete(BlockData blockData) throws DataException {
+		try {
+			this.repository.checkedExecute("DELETE FROM Blocks WHERE signature = ?", blockData.getSignature());
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete Block from repository", e);
+		}
+	}
+
 	public void save(BlockTransactionData blockTransactionData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("BlockTransactions");
 		saveHelper.bind("block_signature", blockTransactionData.getBlockSignature()).bind("sequence", blockTransactionData.getSequence())
@@ -153,6 +161,15 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save BlockTransaction into repository", e);
+		}
+	}
+
+	public void delete(BlockTransactionData blockTransactionData) throws DataException {
+		try {
+			this.repository.checkedExecute("DELETE FROM BlockTransactions WHERE block_signature = ? AND sequence = ? AND transaction_signature = ?",
+					blockTransactionData.getBlockSignature(), blockTransactionData.getSequence(), blockTransactionData.getTransactionSignature());
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete BlockTransaction from repository", e);
 		}
 	}
 

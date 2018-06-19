@@ -90,8 +90,17 @@ public abstract class Transaction {
 			case ISSUE_ASSET:
 				return new IssueAssetTransaction(repository, transactionData);
 
+			case TRANSFER_ASSET:
+				return new TransferAssetTransaction(repository, transactionData);
+
 			case CREATE_ASSET_ORDER:
 				return new CreateOrderTransaction(repository, transactionData);
+
+			case CANCEL_ASSET_ORDER:
+				return new CancelOrderTransaction(repository, transactionData);
+
+			case MULTIPAYMENT:
+				return new MultiPaymentTransaction(repository, transactionData);
 
 			case MESSAGE:
 				return new MessageTransaction(repository, transactionData);
@@ -150,6 +159,12 @@ public abstract class Transaction {
 		}
 	}
 
+	/**
+	 * Return the transaction version number that should be used, based on passed timestamp.
+	 * 
+	 * @param timestamp
+	 * @return transaction version number, likely 1 or 3
+	 */
 	public static int getVersionByTimestamp(long timestamp) {
 		if (timestamp < BlockChain.POWFIX_RELEASE_TIMESTAMP) {
 			return 1;
@@ -162,9 +177,10 @@ public abstract class Transaction {
 	 * Get block height for this transaction in the blockchain.
 	 * 
 	 * @return height, or 0 if not in blockchain (i.e. unconfirmed)
+	 * @throws DataException
 	 */
-	public int getHeight() {
-		return this.repository.getTransactionRepository().getHeight(this.transactionData);
+	public int getHeight() throws DataException {
+		return this.repository.getTransactionRepository().getHeightFromSignature(this.transactionData.getSignature());
 	}
 
 	/**
@@ -235,7 +251,7 @@ public abstract class Transaction {
 	 * @throws DataException
 	 */
 	public BlockData getBlock() throws DataException {
-		return this.repository.getTransactionRepository().toBlock(this.transactionData);
+		return this.repository.getTransactionRepository().getBlockDataFromSignature(this.transactionData.getSignature());
 	}
 
 	/**
@@ -282,7 +298,6 @@ public abstract class Transaction {
 
 			return Arrays.copyOf(bytes, bytes.length - Transformer.SIGNATURE_LENGTH);
 		} catch (TransformationException e) {
-			// XXX this isn't good
 			throw new RuntimeException("Unable to transform transaction to signature-less byte array", e);
 		}
 	}

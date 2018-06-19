@@ -29,7 +29,6 @@ import repository.Repository;
 import repository.RepositoryFactory;
 import repository.RepositoryManager;
 import repository.hsqldb.HSQLDBRepositoryFactory;
-import utils.NTP;
 
 // Don't extend Common as we want to use an in-memory database
 public class TransactionTests {

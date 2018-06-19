@@ -40,8 +40,17 @@ public class TransactionTransformer extends Transformer {
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.fromByteBuffer(byteBuffer);
 
+			case TRANSFER_ASSET:
+				return TransferAssetTransactionTransformer.fromByteBuffer(byteBuffer);
+
 			case CREATE_ASSET_ORDER:
 				return CreateOrderTransactionTransformer.fromByteBuffer(byteBuffer);
+
+			case CANCEL_ASSET_ORDER:
+				return CancelOrderTransactionTransformer.fromByteBuffer(byteBuffer);
+
+			case MULTIPAYMENT:
+				return MultiPaymentTransactionTransformer.fromByteBuffer(byteBuffer);
 
 			case MESSAGE:
 				return MessageTransactionTransformer.fromByteBuffer(byteBuffer);
@@ -62,8 +71,17 @@ public class TransactionTransformer extends Transformer {
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.getDataLength(transactionData);
 
+			case TRANSFER_ASSET:
+				return TransferAssetTransactionTransformer.getDataLength(transactionData);
+
 			case CREATE_ASSET_ORDER:
 				return CreateOrderTransactionTransformer.getDataLength(transactionData);
+
+			case CANCEL_ASSET_ORDER:
+				return CancelOrderTransactionTransformer.getDataLength(transactionData);
+
+			case MULTIPAYMENT:
+				return MultiPaymentTransactionTransformer.getDataLength(transactionData);
 
 			case MESSAGE:
 				return MessageTransactionTransformer.getDataLength(transactionData);
@@ -84,8 +102,17 @@ public class TransactionTransformer extends Transformer {
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.toBytes(transactionData);
 
+			case TRANSFER_ASSET:
+				return TransferAssetTransactionTransformer.toBytes(transactionData);
+
 			case CREATE_ASSET_ORDER:
 				return CreateOrderTransactionTransformer.toBytes(transactionData);
+
+			case CANCEL_ASSET_ORDER:
+				return CancelOrderTransactionTransformer.toBytes(transactionData);
+
+			case MULTIPAYMENT:
+				return MultiPaymentTransactionTransformer.toBytes(transactionData);
 
 			case MESSAGE:
 				return MessageTransactionTransformer.toBytes(transactionData);
@@ -95,22 +122,31 @@ public class TransactionTransformer extends Transformer {
 		}
 	}
 
-	public static JSONObject toJSON(TransactionData transaction) throws TransformationException {
-		switch (transaction.getType()) {
+	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
+		switch (transactionData.getType()) {
 			case GENESIS:
-				return GenesisTransactionTransformer.toJSON(transaction);
+				return GenesisTransactionTransformer.toJSON(transactionData);
 
 			case PAYMENT:
-				return PaymentTransactionTransformer.toJSON(transaction);
+				return PaymentTransactionTransformer.toJSON(transactionData);
 
 			case ISSUE_ASSET:
-				return IssueAssetTransactionTransformer.toJSON(transaction);
+				return IssueAssetTransactionTransformer.toJSON(transactionData);
+
+			case TRANSFER_ASSET:
+				return TransferAssetTransactionTransformer.toJSON(transactionData);
 
 			case CREATE_ASSET_ORDER:
-				return CreateOrderTransactionTransformer.toJSON(transaction);
+				return CreateOrderTransactionTransformer.toJSON(transactionData);
+
+			case CANCEL_ASSET_ORDER:
+				return CancelOrderTransactionTransformer.toJSON(transactionData);
+
+			case MULTIPAYMENT:
+				return MultiPaymentTransactionTransformer.toJSON(transactionData);
 
 			case MESSAGE:
-				return MessageTransactionTransformer.toJSON(transaction);
+				return MessageTransactionTransformer.toJSON(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type");

@@ -50,8 +50,6 @@ public class HSQLDBSaver {
 	 * Build PreparedStatement using bound column-value pairs then execute it.
 	 * 
 	 * @param repository
-	 *            TODO
-	 * @param repository
 	 *
 	 * @return the result from {@link PreparedStatement#execute()}
 	 * @throws SQLException

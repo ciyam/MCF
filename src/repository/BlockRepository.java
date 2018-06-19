@@ -42,6 +42,10 @@ public interface BlockRepository {
 
 	public void save(BlockData blockData) throws DataException;
 
+	public void delete(BlockData blockData) throws DataException;
+
 	public void save(BlockTransactionData blockTransactionData) throws DataException;
+
+	public void delete(BlockTransactionData blockTransactionData) throws DataException;
 
 }

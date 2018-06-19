@@ -9,9 +9,9 @@ public interface TransactionRepository {
 
 	public TransactionData fromReference(byte[] reference) throws DataException;
 
-	public int getHeight(TransactionData transactionData);
+	public int getHeightFromSignature(byte[] signature) throws DataException;
 
-	public BlockData toBlock(TransactionData transactionData) throws DataException;
+	public BlockData getBlockDataFromSignature(byte[] signature) throws DataException;
 
 	public void save(TransactionData transactionData) throws DataException;
 
