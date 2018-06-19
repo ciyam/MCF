@@ -5,8 +5,7 @@ To use:
 - Use maven to fetch dependencies.
 - Build project.
 - Fire up an old-gen Qora node.
-- Run ```src/test/update.java``` as a JUnit test to build DB structure.
-- Run ```src/test/migrate.java``` as a JUnit test to migrate old Qora blocks to DB.
+- Run ```src/migrate.java``` as a Java application to migrate old Qora blocks to DB.
 
 You should now be able to run ```src/test/load.java``` and ```src/test/save.java```
 as JUnit tests demonstrating loading/saving Transactions from/to database.
@@ -45,3 +44,5 @@ Another idea is to assign a shell alias in your ```.bashrc``` like:
 alias sqltool='rlwrap java -cp ${HSQLDB_JAR}:${SQLTOOL_JAR} org.hsqldb.cmdline.SqlTool --rcFile=${SQLTOOL_RC}'
 ```
 So you can simply type: ```sqltool qora```
+
+Don't forget to use ```SHUTDOWN;``` before exiting sqltool so that database files are closed cleanly.

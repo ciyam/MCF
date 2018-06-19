@@ -24,7 +24,7 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 			if (rs == null)
 				return null;
 
-			byte[] issuerPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(1));
+			byte[] issuerPublicKey = rs.getBytes(1);
 			String owner = rs.getString(2);
 			String assetName = rs.getString(3);
 			String description = rs.getString(4);

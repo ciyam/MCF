@@ -31,16 +31,16 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 		try {
 			int version = rs.getInt(1);
-			byte[] reference = this.repository.getResultSetBytes(rs.getBinaryStream(2));
+			byte[] reference = rs.getBytes(2);
 			int transactionCount = rs.getInt(3);
 			BigDecimal totalFees = rs.getBigDecimal(4);
-			byte[] transactionsSignature = this.repository.getResultSetBytes(rs.getBinaryStream(5));
+			byte[] transactionsSignature = rs.getBytes(5);
 			int height = rs.getInt(6);
 			long timestamp = rs.getTimestamp(7).getTime();
 			BigDecimal generatingBalance = rs.getBigDecimal(8);
-			byte[] generatorPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(9));
-			byte[] generatorSignature = this.repository.getResultSetBytes(rs.getBinaryStream(10));
-			byte[] atBytes = this.repository.getResultSetBytes(rs.getBinaryStream(11));
+			byte[] generatorPublicKey = rs.getBytes(9);
+			byte[] generatorSignature = rs.getBytes(10);
+			byte[] atBytes = rs.getBytes(11);
 			BigDecimal atFees = rs.getBigDecimal(12);
 
 			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
@@ -117,7 +117,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 			// NB: do-while loop because .checkedExecute() implicitly calls ResultSet.next() for us
 			do {
-				byte[] transactionSignature = this.repository.getResultSetBytes(rs.getBinaryStream(1));
+				byte[] transactionSignature = rs.getBytes(1);
 				transactions.add(transactionRepo.fromSignature(transactionSignature));
 			} while (rs.next());
 		} catch (SQLException e) {

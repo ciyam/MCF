@@ -23,7 +23,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			if (resultSet == null)
 				return null;
 
-			return new AccountData(address, this.repository.getResultSetBytes(resultSet.getBinaryStream(1)));
+			return new AccountData(address, resultSet.getBytes(1));
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}

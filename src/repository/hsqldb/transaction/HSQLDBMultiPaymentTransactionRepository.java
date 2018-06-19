@@ -24,7 +24,7 @@ public class HSQLDBMultiPaymentTransactionRepository extends HSQLDBTransactionRe
 			if (rs == null)
 				return null;
 
-			byte[] senderPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(1));
+			byte[] senderPublicKey = rs.getBytes(1);
 
 			List<PaymentData> payments = this.getPaymentsFromSignature(signature);
 

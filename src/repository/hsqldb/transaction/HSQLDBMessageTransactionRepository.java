@@ -24,13 +24,13 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 				return null;
 
 			int version = rs.getInt(1);
-			byte[] senderPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(2));
+			byte[] senderPublicKey = rs.getBytes(2);
 			String recipient = rs.getString(3);
 			boolean isText = rs.getBoolean(4);
 			boolean isEncrypted = rs.getBoolean(5);
 			BigDecimal amount = rs.getBigDecimal(6);
 			Long assetId = rs.getLong(7);
-			byte[] data = this.repository.getResultSetBytes(rs.getBinaryStream(8));
+			byte[] data = rs.getBytes(8);
 
 			return new MessageTransactionData(version, senderPublicKey, recipient, assetId, amount, fee, data, isText, isEncrypted, timestamp, reference,
 					signature);

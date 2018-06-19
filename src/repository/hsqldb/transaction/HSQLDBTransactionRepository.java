@@ -52,8 +52,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				return null;
 
 			TransactionType type = TransactionType.valueOf(rs.getInt(1));
-			byte[] reference = this.repository.getResultSetBytes(rs.getBinaryStream(2));
-			byte[] creatorPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(3));
+			byte[] reference = rs.getBytes(2);
+			byte[] creatorPublicKey = rs.getBytes(3);
 			long timestamp = rs.getTimestamp(4).getTime();
 			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
 
@@ -70,8 +70,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				return null;
 
 			TransactionType type = TransactionType.valueOf(rs.getInt(1));
-			byte[] signature = this.repository.getResultSetBytes(rs.getBinaryStream(2));
-			byte[] creatorPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(3));
+			byte[] signature = rs.getBytes(2);
+			byte[] creatorPublicKey = rs.getBytes(3);
 			long timestamp = rs.getTimestamp(4).getTime();
 			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
 
@@ -185,7 +185,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			if (rs == null)
 				return null;
 
-			byte[] blockSignature = this.repository.getResultSetBytes(rs.getBinaryStream(1));
+			byte[] blockSignature = rs.getBytes(1);
 
 			return this.repository.getBlockRepository().fromSignature(blockSignature);
 		} catch (SQLException | DataException e) {

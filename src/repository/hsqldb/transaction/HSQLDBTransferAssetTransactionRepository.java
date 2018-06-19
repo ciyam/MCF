@@ -23,7 +23,7 @@ public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionR
 			if (rs == null)
 				return null;
 
-			byte[] senderPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(1));
+			byte[] senderPublicKey = rs.getBytes(1);
 			String recipient = rs.getString(2);
 			long assetId = rs.getLong(3);
 			BigDecimal amount = rs.getBigDecimal(4);

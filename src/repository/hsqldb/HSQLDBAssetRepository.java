@@ -31,7 +31,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			String description = resultSet.getString(3);
 			long quantity = resultSet.getLong(4);
 			boolean isDivisible = resultSet.getBoolean(5);
-			byte[] reference = this.repository.getResultSetBytes(resultSet.getBinaryStream(6));
+			byte[] reference = resultSet.getBytes(6);
 
 			return new AssetData(assetId, owner, assetName, description, quantity, isDivisible, reference);
 		} catch (SQLException e) {
@@ -89,7 +89,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			if (resultSet == null)
 				return null;
 
-			byte[] creatorPublicKey = this.repository.getResultSetBytes(resultSet.getBinaryStream(1));
+			byte[] creatorPublicKey = resultSet.getBytes(1);
 			long haveAssetId = resultSet.getLong(2);
 			long wantAssetId = resultSet.getLong(3);
 			BigDecimal amount = resultSet.getBigDecimal(4);

@@ -22,7 +22,7 @@ public class HSQLDBCancelOrderTransactionRepository extends HSQLDBTransactionRep
 			if (rs == null)
 				return null;
 
-			byte[] assetOrderId = this.repository.getResultSetBytes(rs.getBinaryStream(1));
+			byte[] assetOrderId = rs.getBytes(1);
 
 			return new CancelOrderTransactionData(creatorPublicKey, assetOrderId, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

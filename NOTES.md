@@ -28,18 +28,10 @@ as previously public key objects could be stored directly in MapDB.
 e.g. ```PaymentTransactions.sender```, 
 so that all transactions by a specific Qora account can be quickly found without scanning all child tables.
 
-- Trying to keep all SQL inside respective Java classes, 
-e.g. operations on ```Blocks``` table  only done within ```Block.java```.
+- SQL is contained within repository classes repository.* (interfaces) and repository.hsqldb.* (implementations).
 
-- Some MapDB-based objects had Java Map<> obejcts as their values. These will need to be unpicked into separate tables.
+- We use transfer objects in data.*
 
-### Possible gen2 refactoring already
+- "Business logic" is left in qora.* 
 
-- We might need to change ```Blocks.generator``` from Qora address in VARCHAR to public key in VARBINARY,
-then derive address from public key as needed.
-
-- Ditto ```Transactions.creator``` and equivalent columns in child tables.
-
-- Extracting values from a ```ResultSet``` by column index is efficient but prone to mistakes 
-as the indexes have to be maintained by a human. There might be a better, general solution to this 
-without having to resort to importing an external ORM library. Maybe simply ```value = resultSet.getInt(columnIndex++)```
+- Some MapDB-based objects had Java Map<> objects as their values. These will need to be unpacked into separate tables.

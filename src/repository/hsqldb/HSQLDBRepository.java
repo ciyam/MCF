@@ -1,7 +1,5 @@
 package repository.hsqldb;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -99,30 +97,6 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public void rebuild() throws DataException {
-	}
-
-	/**
-	 * Convert InputStream, from ResultSet.getBinaryStream(), into byte[].
-	 * 
-	 * @param inputStream
-	 * @return byte[]
-	 */
-	public byte[] getResultSetBytes(InputStream inputStream) {
-		// inputStream could be null if database's column's value is null
-		if (inputStream == null)
-			return null;
-
-		try {
-			int length = inputStream.available();
-			byte[] result = new byte[length];
-
-			if (inputStream.read(result) == length)
-				return result;
-		} catch (IOException e) {
-			// Fall-through to return null
-		}
-
-		return null;
 	}
 
 	/**

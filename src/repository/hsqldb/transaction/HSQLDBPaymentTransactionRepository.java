@@ -22,7 +22,7 @@ public class HSQLDBPaymentTransactionRepository extends HSQLDBTransactionReposit
 			if (rs == null)
 				return null;
 
-			byte[] senderPublicKey = this.repository.getResultSetBytes(rs.getBinaryStream(1));
+			byte[] senderPublicKey = rs.getBytes(1);
 			String recipient = rs.getString(2);
 			BigDecimal amount = rs.getBigDecimal(3);
 
