@@ -24,6 +24,7 @@ public class HSQLDBDatabaseUpdates {
 	 */
 	private static void incrementDatabaseVersion(Connection connection) throws SQLException {
 		connection.createStatement().execute("UPDATE DatabaseInfo SET version = version + 1");
+		connection.commit();
 	}
 
 	/**
@@ -101,9 +102,13 @@ public class HSQLDBDatabaseUpdates {
 						+ "transaction_count INTEGER NOT NULL, total_fees QoraAmount NOT NULL, transactions_signature Signature NOT NULL, "
 						+ "height INTEGER NOT NULL, generation TIMESTAMP NOT NULL, generating_balance QoraAmount NOT NULL, "
 						+ "generator QoraPublicKey NOT NULL, generator_signature Signature NOT NULL, AT_data VARBINARY(20000), AT_fees QoraAmount)");
+				// For finding blocks by height.
 				stmt.execute("CREATE INDEX BlockHeightIndex ON Blocks (height)");
+				// For finding blocks by the account that generated them.
 				stmt.execute("CREATE INDEX BlockGeneratorIndex ON Blocks (generator)");
+				// For finding blocks by reference, e.g. child blocks.
 				stmt.execute("CREATE INDEX BlockReferenceIndex ON Blocks (reference)");
+				// Use a separate table space as this table will be very large.
 				stmt.execute("SET TABLE Blocks NEW SPACE");
 				break;
 
@@ -111,26 +116,33 @@ public class HSQLDBDatabaseUpdates {
 				// Generic transactions (null reference, creator and milestone_block for genesis transactions)
 				stmt.execute("CREATE TABLE Transactions (signature Signature PRIMARY KEY, reference Signature, type TINYINT NOT NULL, "
 						+ "creator QoraPublicKey, creation TIMESTAMP NOT NULL, fee QoraAmount NOT NULL, milestone_block BlockSignature)");
+				// For finding transactions by transaction type.
 				stmt.execute("CREATE INDEX TransactionTypeIndex ON Transactions (type)");
+				// For finding transactions using timestamp.
 				stmt.execute("CREATE INDEX TransactionCreationIndex ON Transactions (creation)");
+				// For when a user wants to lookup ALL transactions they have created, regardless of type.
 				stmt.execute("CREATE INDEX TransactionCreatorIndex ON Transactions (creator)");
+				// For finding transactions by reference, e.g. child transactions.
 				stmt.execute("CREATE INDEX TransactionReferenceIndex ON Transactions (reference)");
+				// Use a separate table space as this table will be very large.
 				stmt.execute("SET TABLE Transactions NEW SPACE");
 
 				// Transaction-Block mapping ("signature" is unique as a transaction cannot be included in more than one block)
 				stmt.execute("CREATE TABLE BlockTransactions (block_signature BlockSignature, sequence INTEGER, transaction_signature Signature, "
 						+ "PRIMARY KEY (block_signature, sequence), FOREIGN KEY (transaction_signature) REFERENCES Transactions (signature) ON DELETE CASCADE, "
 						+ "FOREIGN KEY (block_signature) REFERENCES Blocks (signature) ON DELETE CASCADE)");
+				// Use a separate table space as this table will be very large.
 				stmt.execute("SET TABLE BlockTransactions NEW SPACE");
 
 				// Unconfirmed transactions
-				// Do we need this? If a transaction doesn't have a corresponding BlockTransactions record then it's unconfirmed?
+				// XXX Do we need this? If a transaction doesn't have a corresponding BlockTransactions record then it's unconfirmed?
 				stmt.execute("CREATE TABLE UnconfirmedTransactions (signature Signature PRIMARY KEY, expiry TIMESTAMP NOT NULL)");
 				stmt.execute("CREATE INDEX UnconfirmedTransactionExpiryIndex ON UnconfirmedTransactions (expiry)");
 
 				// Transaction recipients
 				stmt.execute("CREATE TABLE TransactionRecipients (signature Signature, recipient QoraAddress NOT NULL, "
 						+ "FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+				// Use a separate table space as this table will be very large.
 				stmt.execute("SET TABLE TransactionRecipients NEW SPACE");
 				break;
 
@@ -184,11 +196,11 @@ public class HSQLDBDatabaseUpdates {
 			case 10:
 				// Create Poll Transactions
 				stmt.execute("CREATE TABLE CreatePollTransactions (signature Signature, creator QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
-						+ "poll PollName NOT NULL, description VARCHAR(4000) NOT NULL, "
+						+ "poll_name PollName NOT NULL, description VARCHAR(4000) NOT NULL, "
 						+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				// Poll options. NB: option is implicitly NON NULL and UNIQUE due to being part of compound primary key
-				stmt.execute("CREATE TABLE CreatePollTransactionOptions (signature Signature, option PollOption, "
-						+ "PRIMARY KEY (signature, option), FOREIGN KEY (signature) REFERENCES CreatePollTransactions (signature) ON DELETE CASCADE)");
+				stmt.execute("CREATE TABLE CreatePollTransactionOptions (signature Signature, option_name PollOption, "
+						+ "PRIMARY KEY (signature, option_name), FOREIGN KEY (signature) REFERENCES CreatePollTransactions (signature) ON DELETE CASCADE)");
 				// For the future: add flag to polls to allow one or multiple votes per voter
 				break;
 
@@ -272,6 +284,7 @@ public class HSQLDBDatabaseUpdates {
 				stmt.execute(
 						"CREATE TABLE Assets (asset_id AssetID IDENTITY, owner QoraAddress NOT NULL, asset_name AssetName NOT NULL, description VARCHAR(4000) NOT NULL, "
 								+ "quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, reference Signature NOT NULL)");
+				// For when a user wants to lookup an asset by name
 				stmt.execute("CREATE INDEX AssetNameIndex on Assets (asset_name)");
 				break;
 
@@ -288,8 +301,26 @@ public class HSQLDBDatabaseUpdates {
 						"CREATE TABLE AssetOrders (asset_order_id AssetOrderID, creator QoraPublicKey NOT NULL, have_asset_id AssetID NOT NULL, want_asset_id AssetID NOT NULL, "
 								+ "amount QoraAmount NOT NULL, fulfilled QoraAmount NOT NULL, price QoraAmount NOT NULL, ordered TIMESTAMP NOT NULL, is_closed BOOLEAN NOT NULL, "
 								+ "PRIMARY KEY (asset_order_id))");
+				// For quick matching of orders. is_closed included so inactive orders can be filtered out.
 				stmt.execute("CREATE INDEX AssetOrderHaveIndex on AssetOrders (have_asset_id, is_closed)");
 				stmt.execute("CREATE INDEX AssetOrderWantIndex on AssetOrders (want_asset_id, is_closed)");
+				// For when a user wants to look up their current/historic orders. is_closed included so user can filter by active/inactive orders.
+				stmt.execute("CREATE INDEX AssetOrderCreatorIndex on AssetOrders (creator, is_closed)");
+				break;
+
+			case 24:
+				// Polls/Voting
+				stmt.execute(
+						"CREATE TABLE Polls (poll_name PollName, description VARCHAR(4000) NOT NULL, creator QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
+								+ "published TIMESTAMP NOT NULL, " + "PRIMARY KEY (poll_name))");
+				// Various options available on a poll
+				stmt.execute("CREATE TABLE PollOptions (poll_name PollName, option_name PollOption, "
+						+ "PRIMARY KEY (poll_name, option_name), FOREIGN KEY (poll_name) REFERENCES Polls (poll_name) ON DELETE CASCADE)");
+				// Actual votes cast on a poll by voting users. NOTE: only one vote per user supported at this time.
+				stmt.execute("CREATE TABLE PollVotes (poll_name PollName, voter QoraPublicKey, option_name PollOption, "
+						+ "PRIMARY KEY (poll_name, voter), FOREIGN KEY (poll_name) REFERENCES Polls (poll_name) ON DELETE CASCADE)");
+				// For when a user wants to lookup poll they own
+				stmt.execute("CREATE INDEX PollOwnerIndex on Polls (owner)");
 				break;
 
 			default:

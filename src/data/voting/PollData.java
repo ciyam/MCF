@@ -12,14 +12,17 @@ public class PollData {
 	private String pollName;
 	private String description;
 	private List<PollOptionData> pollOptions;
+	private long published;
 
 	// Constructors
 
-	public PollData(byte[] creatorPublicKey, String owner, String pollName, String description, List<PollOptionData> pollOptions) {
+	public PollData(byte[] creatorPublicKey, String owner, String pollName, String description, List<PollOptionData> pollOptions, long published) {
 		this.creatorPublicKey = creatorPublicKey;
+		this.owner = owner;
 		this.pollName = pollName;
 		this.description = description;
 		this.pollOptions = pollOptions;
+		this.published = published;
 	}
 
 	// Getters/setters
@@ -42,6 +45,14 @@ public class PollData {
 
 	public List<PollOptionData> getPollOptions() {
 		return this.pollOptions;
+	}
+
+	public long getPublished() {
+		return this.published;
+	}
+
+	public void setPublished(long published) {
+		this.published = published;
 	}
 
 }

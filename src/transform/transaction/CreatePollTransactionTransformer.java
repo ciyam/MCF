@@ -111,7 +111,9 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			}
 
 			Serialization.serializeBigDecimal(bytes, createPollTransactionData.getFee());
-			bytes.write(createPollTransactionData.getSignature());
+
+			if (createPollTransactionData.getSignature() != null)
+				bytes.write(createPollTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

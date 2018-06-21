@@ -28,6 +28,11 @@ public class CreatePollTransactionData extends TransactionData {
 		this.pollOptions = pollOptions;
 	}
 
+	public CreatePollTransactionData(byte[] creatorPublicKey, String owner, String pollName, String description, List<PollOptionData> pollOptions,
+			BigDecimal fee, long timestamp, byte[] reference) {
+		this(creatorPublicKey, owner, pollName, description, pollOptions, fee, timestamp, reference, null);
+	}
+
 	// Getters/setters
 
 	public byte[] getCreatorPublicKey() {

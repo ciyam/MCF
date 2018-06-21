@@ -112,15 +112,7 @@ public class HSQLDBRepository implements Repository {
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
 
-		for (int i = 0; i < objects.length; ++i)
-			// Special treatment for BigDecimals so that they retain their "scale",
-			// which would otherwise be assumed as 0.
-			if (objects[i] instanceof BigDecimal)
-				preparedStatement.setBigDecimal(i + 1, (BigDecimal) objects[i]);
-			else
-				preparedStatement.setObject(i + 1, objects[i]);
-
-		return this.checkedExecute(preparedStatement);
+		return this.checkedExecute(preparedStatement, objects);
 	}
 
 	/**
@@ -129,10 +121,19 @@ public class HSQLDBRepository implements Repository {
 	 * <b>Note: calls ResultSet.next()</b> therefore returned ResultSet is already pointing to first row.
 	 * 
 	 * @param preparedStatement
+	 * @param objects
 	 * @return ResultSet, or null if there are no found rows
 	 * @throws SQLException
 	 */
-	public ResultSet checkedExecute(PreparedStatement preparedStatement) throws SQLException {
+	public ResultSet checkedExecute(PreparedStatement preparedStatement, Object... objects) throws SQLException {
+		for (int i = 0; i < objects.length; ++i)
+			// Special treatment for BigDecimals so that they retain their "scale",
+			// which would otherwise be assumed as 0.
+			if (objects[i] instanceof BigDecimal)
+				preparedStatement.setBigDecimal(i + 1, (BigDecimal) objects[i]);
+			else
+				preparedStatement.setObject(i + 1, objects[i]);
+
 		if (!preparedStatement.execute())
 			throw new SQLException("Fetching from database produced no results");
 
@@ -183,9 +184,8 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
-		PreparedStatement preparedStatement = this.connection
-				.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " ORDER BY NULL LIMIT 1");
-		ResultSet resultSet = this.checkedExecute(preparedStatement);
+		PreparedStatement preparedStatement = this.connection.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " LIMIT 1");
+		ResultSet resultSet = this.checkedExecute(preparedStatement, objects);
 		if (resultSet == null)
 			return false;
 

@@ -27,7 +27,7 @@ public class Poll {
 	public Poll(Repository repository, CreatePollTransactionData createPollTransactionData) {
 		this.repository = repository;
 		this.pollData = new PollData(createPollTransactionData.getCreatorPublicKey(), createPollTransactionData.getOwner(),
-				createPollTransactionData.getPollName(), createPollTransactionData.getDescription(), createPollTransactionData.getPollOptions());
+				createPollTransactionData.getPollName(), createPollTransactionData.getDescription(), createPollTransactionData.getPollOptions(), createPollTransactionData.getTimestamp());
 	}
 
 	public Poll(Repository repository, String pollName) throws DataException {

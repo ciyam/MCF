@@ -17,6 +17,7 @@ import qora.crypto.Crypto;
 import qora.transaction.Transaction;
 import repository.DataException;
 import repository.Repository;
+import utils.NTP;
 
 public class GenesisBlock extends Block {
 

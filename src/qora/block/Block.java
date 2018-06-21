@@ -483,8 +483,7 @@ public class Block {
 		Block parentBlock = new Block(this.repository, parentBlockData);
 
 		// Check timestamp is newer than parent timestamp
-		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp()
-				|| this.blockData.getTimestamp() - BlockChain.BLOCK_TIMESTAMP_MARGIN > NTP.getTime())
+		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp())
 			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
 
 		// Check timestamp is not in the future (within configurable ~500ms margin)
