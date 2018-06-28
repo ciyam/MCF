@@ -70,7 +70,9 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 			Serialization.serializeBigDecimal(bytes, transferAssetTransactionData.getAmount(), AMOUNT_LENGTH);
 
 			Serialization.serializeBigDecimal(bytes, transferAssetTransactionData.getFee());
-			bytes.write(transferAssetTransactionData.getSignature());
+
+			if (transferAssetTransactionData.getSignature() != null)
+				bytes.write(transferAssetTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

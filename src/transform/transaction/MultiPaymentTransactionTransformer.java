@@ -84,7 +84,9 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 				PaymentTransformer.toBytes(paymentData);
 
 			Serialization.serializeBigDecimal(bytes, multiPaymentTransactionData.getFee());
-			bytes.write(multiPaymentTransactionData.getSignature());
+
+			if (multiPaymentTransactionData.getSignature() != null)
+				bytes.write(multiPaymentTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

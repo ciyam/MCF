@@ -17,29 +17,17 @@ import repository.RepositoryManager;
  */
 public class BlockChain {
 
-	/**
-	 * Minimum Qora balance.
-	 */
+	/** Minimum Qora balance for use in calculations. */
 	public static final BigDecimal MIN_BALANCE = BigDecimal.valueOf(1L).setScale(8);
-	/**
-	 * Maximum Qora balance.
-	 */
+	/** Maximum Qora balance. */
 	public static final BigDecimal MAX_BALANCE = BigDecimal.valueOf(10_000_000_000L).setScale(8);
-	/**
-	 * Number of blocks between recalculating block's generating balance.
-	 */
+	/** Number of blocks between recalculating block's generating balance. */
 	public static final int BLOCK_RETARGET_INTERVAL = 10;
-	/**
-	 * Minimum target time between blocks, in seconds.
-	 */
+	/** Minimum target time between blocks, in seconds. */
 	public static final long MIN_BLOCK_TIME = 60;
-	/**
-	 * Maximum target time between blocks, in seconds.
-	 */
+	/** Maximum target time between blocks, in seconds. */
 	public static final long MAX_BLOCK_TIME = 300;
-	/**
-	 * Maximum acceptable timestamp disagreement offset in milliseconds.
-	 */
+	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
 	public static final long BLOCK_TIMESTAMP_MARGIN = 500L;
 
 	// Various release timestamps / block heights

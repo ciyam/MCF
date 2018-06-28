@@ -5,7 +5,6 @@ import static java.util.stream.Collectors.toMap;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -463,10 +462,10 @@ public class Block {
 	 * <p>
 	 * Performs various tests like checking for parent block, correct block timestamp, version, generating balance, etc.
 	 * <p>
-	 * Checks block's transactions using an HSQLDB "SAVEPOINT" and hence needs to be called within an ongoing SQL Transaction.
+	 * Checks block's transactions by testing their validity then processing them.<br>
+	 * Hence <b>calls repository.discardChanges()</b> before returning.
 	 * 
-	 * @return true if block is valid, false otherwise.
-	 * @throws SQLException
+	 * @return ValidationResult.OK if block is valid, or some other ValidationResult otherwise.
 	 * @throws DataException
 	 */
 	public ValidationResult isValid() throws DataException {
@@ -561,13 +560,13 @@ public class Block {
 		} catch (DataException e) {
 			return ValidationResult.TRANSACTION_TIMESTAMP_INVALID;
 		} finally {
-			// Revert back to savepoint
+			// Discard changes to repository made by test-processing transactions above
 			try {
 				this.repository.discardChanges();
 			} catch (DataException e) {
 				/*
-				 * Rollback failure most likely due to prior DataException, so catch rollback's DataException and discard. A "return false" in try-block will
-				 * still return false, prior DataException propagates to caller and successful completion of try-block continues on after rollback.
+				 * Discard failure most likely due to prior DataException, so catch discardChanges' DataException and discard.
+				 * Prior DataException propagates to caller. Successful completion of try-block continues on after discard.
 				 */
 			}
 		}

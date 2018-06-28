@@ -120,7 +120,9 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 			bytes.write((byte) (messageTransactionData.getIsText() ? 1 : 0));
 
 			Serialization.serializeBigDecimal(bytes, messageTransactionData.getFee());
-			bytes.write(messageTransactionData.getSignature());
+
+			if (messageTransactionData.getSignature() != null)
+				bytes.write(messageTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

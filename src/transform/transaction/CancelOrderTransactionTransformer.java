@@ -66,7 +66,9 @@ public class CancelOrderTransactionTransformer extends TransactionTransformer {
 			bytes.write(cancelOrderTransactionData.getOrderId());
 
 			Serialization.serializeBigDecimal(bytes, cancelOrderTransactionData.getFee());
-			bytes.write(cancelOrderTransactionData.getSignature());
+
+			if (cancelOrderTransactionData.getSignature() != null)
+				bytes.write(cancelOrderTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

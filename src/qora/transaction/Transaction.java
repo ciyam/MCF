@@ -62,7 +62,7 @@ public abstract class Transaction {
 		}
 	}
 
-	// Minimum fee
+	/** Minimum fee for a transaction */
 	public static final BigDecimal MINIMUM_FEE = BigDecimal.ONE;
 
 	// Cached info to make transaction processing faster
@@ -75,11 +75,26 @@ public abstract class Transaction {
 
 	// Constructors
 
+	/**
+	 * Basic constructor for use by subclasses.
+	 * 
+	 * @param repository
+	 * @param transactionData
+	 */
 	protected Transaction(Repository repository, TransactionData transactionData) {
 		this.repository = repository;
 		this.transactionData = transactionData;
 	}
 
+	/**
+	 * Returns subclass of Transaction constructed using passed transaction data.
+	 * <p>
+	 * Uses transaction-type in transaction data to call relevant subclass constructor.
+	 * 
+	 * @param repository
+	 * @param transactionData
+	 * @return a Transaction subclass, or null if a transaction couldn't be determined/built from passed data
+	 */
 	public static Transaction fromData(Repository repository, TransactionData transactionData) {
 		switch (transactionData.getType()) {
 			case GENESIS:
