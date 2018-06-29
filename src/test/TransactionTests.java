@@ -4,12 +4,10 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.hash.HashCode;
@@ -19,6 +17,7 @@ import data.account.AccountData;
 import data.block.BlockData;
 import data.transaction.CreatePollTransactionData;
 import data.transaction.PaymentTransactionData;
+import data.transaction.VoteOnPollTransactionData;
 import data.voting.PollData;
 import data.voting.PollOptionData;
 import qora.account.Account;
@@ -31,12 +30,14 @@ import qora.transaction.CreatePollTransaction;
 import qora.transaction.PaymentTransaction;
 import qora.transaction.Transaction;
 import qora.transaction.Transaction.ValidationResult;
+import qora.transaction.VoteOnPollTransaction;
 import repository.AccountRepository;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryFactory;
 import repository.RepositoryManager;
 import repository.hsqldb.HSQLDBRepositoryFactory;
+import settings.Settings;
 
 // Don't extend Common as we want to use an in-memory database
 public class TransactionTests {
@@ -57,14 +58,19 @@ public class TransactionTests {
 	private PrivateKeyAccount generator;
 	private byte[] reference;
 
-	@Before
-	public void createTestAccounts() throws DataException {
+	public void createTestAccounts(Long genesisTimestamp) throws DataException {
 		RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
 		RepositoryManager.setRepositoryFactory(repositoryFactory);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			assertEquals("Blockchain should be empty for this test", 0, repository.getBlockRepository().getBlockchainHeight());
 		}
+
+		// [Un]set genesis timestamp as required by test
+		if (genesisTimestamp != null)
+			Settings.getInstance().setGenesisTimestamp(genesisTimestamp);
+		else
+			Settings.getInstance().unsetGenesisTimestamp();
 
 		// This needs to be called outside of acquiring our own repository or it will deadlock
 		BlockChain.validate();
@@ -102,6 +108,8 @@ public class TransactionTests {
 
 	@Test
 	public void testPaymentTransaction() throws DataException {
+		createTestAccounts(null);
+
 		// Make a new payment transaction
 		Account recipient = new PublicKeyAccount(repository, recipientSeed);
 		BigDecimal amount = BigDecimal.valueOf(1_000L);
@@ -144,7 +152,8 @@ public class TransactionTests {
 
 	@Test
 	public void testCreatePollTransaction() throws DataException {
-		// XXX This test fails unless GenesisBlock's timestamp is set to something after BlockChain.VOTING_RELEASE_TIMESTAMP so we need better testing setup
+		// This test requires GenesisBlock's timestamp is set to something after BlockChain.VOTING_RELEASE_TIMESTAMP
+		createTestAccounts(BlockChain.VOTING_RELEASE_TIMESTAMP + 1_000L);
 
 		// Make a new create poll transaction
 		String pollName = "test poll";
@@ -166,7 +175,7 @@ public class TransactionTests {
 		assertTrue(createPollTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, createPollTransaction.isValid());
 
-		// Forge new block with payment transaction
+		// Forge new block with transaction
 		Block block = new Block(repository, genesisBlockData, generator, null, null);
 		block.addTransaction(createPollTransactionData);
 		block.sign();
@@ -190,6 +199,57 @@ public class TransactionTests {
 		// Check poll was created
 		PollData actualPollData = this.repository.getVotingRepository().fromPollName(pollName);
 		assertNotNull(actualPollData);
+
+		// Check sender's reference
+		assertTrue("Sender's new reference incorrect", Arrays.equals(createPollTransactionData.getSignature(), sender.getLastReference()));
+
+		// Update reference variable for use by other tests
+		reference = sender.getLastReference();
+	}
+
+	@Test
+	public void testVoteOnPollTransaction() throws DataException {
+		// Create poll using another test
+		testCreatePollTransaction();
+
+		// Try all options, plus invalid optionIndex (note use of <= for this)
+		String pollName = "test poll";
+		int pollOptionsSize = 3;
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = genesisBlockData.getTimestamp() + 1_000;
+		BlockData previousBlockData = genesisBlockData;
+
+		for (int optionIndex = 0; optionIndex <= pollOptionsSize; ++optionIndex) {
+			// Make a vote-on-poll transaction
+			VoteOnPollTransactionData voteOnPollTransactionData = new VoteOnPollTransactionData(sender.getPublicKey(), pollName, optionIndex, fee, timestamp,
+					reference);
+
+			Transaction voteOnPollTransaction = new VoteOnPollTransaction(repository, voteOnPollTransactionData);
+			voteOnPollTransaction.calcSignature(sender);
+			assertTrue(voteOnPollTransaction.isSignatureValid());
+
+			if (optionIndex == pollOptionsSize) {
+				assertEquals(ValidationResult.POLL_OPTION_DOES_NOT_EXIST, voteOnPollTransaction.isValid());
+				break;
+			}
+			assertEquals(ValidationResult.OK, voteOnPollTransaction.isValid());
+
+			// Forge new block with transaction
+			Block block = new Block(repository, previousBlockData, generator, null, null);
+			block.addTransaction(voteOnPollTransactionData);
+			block.sign();
+
+			assertTrue("Block signatures invalid", block.isSignatureValid());
+			assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+			block.process();
+			repository.saveChanges();
+
+			// update variables for next round
+			previousBlockData = block.getBlockData();
+			timestamp += 1_000;
+			reference = voteOnPollTransaction.getTransactionData().getSignature();
+		}
 	}
 
 }

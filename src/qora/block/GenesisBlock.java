@@ -17,22 +17,24 @@ import qora.crypto.Crypto;
 import qora.transaction.Transaction;
 import repository.DataException;
 import repository.Repository;
-import utils.NTP;
+import settings.Settings;
 
 public class GenesisBlock extends Block {
 
+	// Properties
 	private static final int GENESIS_BLOCK_VERSION = 1;
 	private static final byte[] GENESIS_REFERENCE = new byte[] { 1, 1, 1, 1, 1, 1, 1, 1 }; // NOTE: Neither 64 nor 128 bytes!
 	private static final BigDecimal GENESIS_GENERATING_BALANCE = BigDecimal.valueOf(10_000_000L).setScale(8);
 	private static final byte[] GENESIS_GENERATOR_PUBLIC_KEY = GenesisAccount.PUBLIC_KEY; // NOTE: 8 bytes not 32 bytes!
-	private static final long GENESIS_TIMESTAMP = 1400247274336L; // QORA RELEASE: Fri May 16 13:34:34.336 2014 UTC
+	public static final long GENESIS_TIMESTAMP = 1400247274336L; // QORA RELEASE: Fri May 16 13:34:34.336 2014 UTC
 	private static final byte[] GENESIS_GENERATOR_SIGNATURE = calcSignature();
 	private static final byte[] GENESIS_TRANSACTIONS_SIGNATURE = calcSignature();
 
 	// Constructors
+
 	public GenesisBlock(Repository repository) throws DataException {
 		super(repository, new BlockData(GENESIS_BLOCK_VERSION, GENESIS_REFERENCE, 0, BigDecimal.ZERO.setScale(8), GENESIS_TRANSACTIONS_SIGNATURE, 1,
-				GENESIS_TIMESTAMP, GENESIS_GENERATING_BALANCE, GENESIS_GENERATOR_PUBLIC_KEY, GENESIS_GENERATOR_SIGNATURE, null, null));
+				Settings.getInstance().getGenesisTimestamp(), GENESIS_GENERATING_BALANCE, GENESIS_GENERATOR_PUBLIC_KEY, GENESIS_GENERATOR_SIGNATURE, null, null));
 
 		this.transactions = new ArrayList<Transaction>();
 

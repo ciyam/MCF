@@ -8,6 +8,7 @@ import java.util.List;
 
 import data.voting.PollData;
 import data.voting.PollOptionData;
+import data.voting.VoteOnPollData;
 import repository.VotingRepository;
 import repository.DataException;
 
@@ -18,6 +19,8 @@ public class HSQLDBVotingRepository implements VotingRepository {
 	public HSQLDBVotingRepository(HSQLDBRepository repository) {
 		this.repository = repository;
 	}
+
+	// Votes
 
 	public PollData fromPollName(String pollName) throws DataException {
 		try {
@@ -30,7 +33,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 			String owner = resultSet.getString(3);
 			long published = resultSet.getTimestamp(4).getTime();
 
-			resultSet = this.repository.checkedExecute("SELECT option_name FROM PollOptions where poll_name = ?", pollName);
+			resultSet = this.repository.checkedExecute("SELECT option_name FROM PollOptions where poll_name = ? ORDER BY option_index ASC", pollName);
 			if (resultSet == null)
 				return null;
 
@@ -70,10 +73,13 @@ public class HSQLDBVotingRepository implements VotingRepository {
 		}
 
 		// Now attempt to save poll options
-		for (PollOptionData pollOptionData : pollData.getPollOptions()) {
+		List<PollOptionData> pollOptions = pollData.getPollOptions();
+		for (int optionIndex = 0; optionIndex < pollOptions.size(); ++optionIndex) {
+			PollOptionData pollOptionData = pollOptions.get(optionIndex);
+
 			HSQLDBSaver optionSaveHelper = new HSQLDBSaver("PollOptions");
 
-			optionSaveHelper.bind("poll_name", pollData.getPollName()).bind("option_name", pollOptionData.getOptionName());
+			optionSaveHelper.bind("poll_name", pollData.getPollName()).bind("option_index", optionIndex).bind("option_name", pollOptionData.getOptionName());
 
 			try {
 				optionSaveHelper.execute(this.repository);
@@ -90,6 +96,44 @@ public class HSQLDBVotingRepository implements VotingRepository {
 			this.repository.checkedExecute("DELETE FROM Polls WHERE poll_name = ?", pollName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete poll from repository", e);
+		}
+	}
+
+	// Votes
+
+	public VoteOnPollData getVote(String pollName, byte[] voterPublicKey) throws DataException {
+		try {
+			ResultSet resultSet = this.repository.checkedExecute("SELECT option_index FROM PollVotes WHERE poll_name = ? AND voter = ?", pollName,
+					voterPublicKey);
+			if (resultSet == null)
+				return null;
+
+			int optionIndex = resultSet.getInt(1);
+
+			return new VoteOnPollData(pollName, voterPublicKey, optionIndex);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch poll vote from repository", e);
+		}
+	}
+
+	public void save(VoteOnPollData voteOnPollData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("PollVotes");
+
+		saveHelper.bind("poll_name", voteOnPollData.getPollName()).bind("voter", voteOnPollData.getVoterPublicKey()).bind("option_index",
+				voteOnPollData.getOptionIndex());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save poll vote into repository", e);
+		}
+	}
+
+	public void delete(String pollName, byte[] voterPublicKey) throws DataException {
+		try {
+			this.repository.checkedExecute("DELETE FROM PollVotes WHERE poll_name = ? AND voter = ?", pollName, voterPublicKey);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete poll vote from repository", e);
 		}
 	}
 

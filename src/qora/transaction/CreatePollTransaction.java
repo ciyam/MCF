@@ -24,11 +24,6 @@ public class CreatePollTransaction extends Transaction {
 	// Properties
 	private CreatePollTransactionData createPollTransactionData;
 
-	// Other useful constants
-	public static final int MAX_NAME_SIZE = 400;
-	public static final int MAX_DESCRIPTION_SIZE = 4000;
-	public static final int MAX_OPTIONS = 100;
-
 	// Constructors
 
 	public CreatePollTransaction(Repository repository, TransactionData transactionData) {
@@ -89,12 +84,12 @@ public class CreatePollTransaction extends Transaction {
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check name size bounds
-		if (createPollTransactionData.getPollName().length() < 1 || createPollTransactionData.getPollName().length() > CreatePollTransaction.MAX_NAME_SIZE)
+		if (createPollTransactionData.getPollName().length() < 1 || createPollTransactionData.getPollName().length() > Poll.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check description size bounds
 		if (createPollTransactionData.getDescription().length() < 1
-				|| createPollTransactionData.getDescription().length() > CreatePollTransaction.MAX_DESCRIPTION_SIZE)
+				|| createPollTransactionData.getDescription().length() > Poll.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
 		// Check poll name is lowercase
@@ -110,7 +105,7 @@ public class CreatePollTransaction extends Transaction {
 		// Check number of options
 		List<PollOptionData> pollOptions = createPollTransactionData.getPollOptions();
 		int pollOptionsCount = pollOptions.size();
-		if (pollOptionsCount < 1 || pollOptionsCount > MAX_OPTIONS)
+		if (pollOptionsCount < 1 || pollOptionsCount > Poll.MAX_OPTIONS)
 			return ValidationResult.INVALID_OPTIONS_COUNT;
 
 		// Check each option
@@ -118,7 +113,7 @@ public class CreatePollTransaction extends Transaction {
 		for (PollOptionData pollOptionData : pollOptions) {
 			// Check option length
 			int optionNameLength = pollOptionData.getOptionName().getBytes(StandardCharsets.UTF_8).length;
-			if (optionNameLength < 1 || optionNameLength > MAX_NAME_SIZE)
+			if (optionNameLength < 1 || optionNameLength > Poll.MAX_NAME_SIZE)
 				return ValidationResult.INVALID_OPTION_LENGTH;
 
 			// Check option is unique. NOTE: NOT case-sensitive!

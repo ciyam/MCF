@@ -11,6 +11,11 @@ public class Poll {
 	private Repository repository;
 	private PollData pollData;
 
+	// Other useful constants
+	public static final int MAX_NAME_SIZE = 400;
+	public static final int MAX_DESCRIPTION_SIZE = 4000;
+	public static final int MAX_OPTIONS = 100;
+
 	// Constructors
 
 	/**

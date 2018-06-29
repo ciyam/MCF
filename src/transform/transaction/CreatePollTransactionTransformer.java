@@ -18,7 +18,7 @@ import data.transaction.CreatePollTransactionData;
 import data.transaction.TransactionData;
 import data.voting.PollOptionData;
 import qora.account.PublicKeyAccount;
-import qora.transaction.CreatePollTransaction;
+import qora.voting.Poll;
 import transform.TransformationException;
 import utils.Base58;
 import utils.Serialization;
@@ -46,20 +46,20 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 
 		String owner = Serialization.deserializeRecipient(byteBuffer);
 
-		String pollName = Serialization.deserializeSizedString(byteBuffer, CreatePollTransaction.MAX_NAME_SIZE);
-		String description = Serialization.deserializeSizedString(byteBuffer, CreatePollTransaction.MAX_DESCRIPTION_SIZE);
+		String pollName = Serialization.deserializeSizedString(byteBuffer, Poll.MAX_NAME_SIZE);
+		String description = Serialization.deserializeSizedString(byteBuffer, Poll.MAX_DESCRIPTION_SIZE);
 
 		// Make sure there are enough bytes left for poll options
 		if (byteBuffer.remaining() < OPTIONS_SIZE_LENGTH)
 			throw new TransformationException("Byte data too short for CreatePollTransaction");
 
 		int optionsCount = byteBuffer.getInt();
-		if (optionsCount < 1 || optionsCount > CreatePollTransaction.MAX_OPTIONS)
+		if (optionsCount < 1 || optionsCount > Poll.MAX_OPTIONS)
 			throw new TransformationException("Invalid number of options for CreatePollTransaction");
 
 		List<PollOptionData> pollOptions = new ArrayList<PollOptionData>();
-		for (int i = 0; i < optionsCount; ++i) {
-			String optionName = Serialization.deserializeSizedString(byteBuffer, CreatePollTransaction.MAX_NAME_SIZE);
+		for (int optionIndex = 0; optionIndex < optionsCount; ++optionIndex) {
+			String optionName = Serialization.deserializeSizedString(byteBuffer, Poll.MAX_NAME_SIZE);
 
 			pollOptions.add(new PollOptionData(optionName));
 		}
@@ -106,9 +106,8 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			List<PollOptionData> pollOptions = createPollTransactionData.getPollOptions();
 			bytes.write(Ints.toByteArray(pollOptions.size()));
 
-			for (PollOptionData pollOptionData : pollOptions) {
+			for (PollOptionData pollOptionData : pollOptions)
 				Serialization.serializeSizedString(bytes, pollOptionData.getOptionName());
-			}
 
 			Serialization.serializeBigDecimal(bytes, createPollTransactionData.getFee());
 
@@ -138,9 +137,8 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			json.put("description", createPollTransactionData.getDescription());
 
 			JSONArray options = new JSONArray();
-			for (PollOptionData optionData : createPollTransactionData.getPollOptions()) {
+			for (PollOptionData optionData : createPollTransactionData.getPollOptions())
 				options.add(optionData.getOptionName());
-			}
 
 			json.put("options", options);
 		} catch (ClassCastException e) {

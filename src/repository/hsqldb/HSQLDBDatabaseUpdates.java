@@ -88,6 +88,7 @@ public class HSQLDBDatabaseUpdates {
 				stmt.execute("CREATE TYPE NameData AS VARCHAR(4000)");
 				stmt.execute("CREATE TYPE PollName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
 				stmt.execute("CREATE TYPE PollOption AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
+				stmt.execute("CREATE TYPE PollOptionIndex AS INTEGER");
 				stmt.execute("CREATE TYPE DataHash AS VARCHAR(100)");
 				stmt.execute("CREATE TYPE AssetID AS BIGINT");
 				stmt.execute("CREATE TYPE AssetName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
@@ -206,8 +207,8 @@ public class HSQLDBDatabaseUpdates {
 
 			case 11:
 				// Vote On Poll Transactions
-				stmt.execute("CREATE TABLE VoteOnPollTransactions (signature Signature, voter QoraPublicKey NOT NULL, poll PollName NOT NULL, "
-						+ "option_index INTEGER NOT NULL, "
+				stmt.execute("CREATE TABLE VoteOnPollTransactions (signature Signature, voter QoraPublicKey NOT NULL, poll_name PollName NOT NULL, "
+						+ "option_index PollOptionIndex NOT NULL, previous_option_index PollOptionIndex, "
 						+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				break;
 
@@ -314,10 +315,10 @@ public class HSQLDBDatabaseUpdates {
 						"CREATE TABLE Polls (poll_name PollName, description VARCHAR(4000) NOT NULL, creator QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
 								+ "published TIMESTAMP NOT NULL, " + "PRIMARY KEY (poll_name))");
 				// Various options available on a poll
-				stmt.execute("CREATE TABLE PollOptions (poll_name PollName, option_name PollOption, "
-						+ "PRIMARY KEY (poll_name, option_name), FOREIGN KEY (poll_name) REFERENCES Polls (poll_name) ON DELETE CASCADE)");
+				stmt.execute("CREATE TABLE PollOptions (poll_name PollName, option_index TINYINT NOT NULL, option_name PollOption, "
+						+ "PRIMARY KEY (poll_name, option_index), FOREIGN KEY (poll_name) REFERENCES Polls (poll_name) ON DELETE CASCADE)");
 				// Actual votes cast on a poll by voting users. NOTE: only one vote per user supported at this time.
-				stmt.execute("CREATE TABLE PollVotes (poll_name PollName, voter QoraPublicKey, option_name PollOption, "
+				stmt.execute("CREATE TABLE PollVotes (poll_name PollName, voter QoraPublicKey, option_index PollOptionIndex NOT NULL, "
 						+ "PRIMARY KEY (poll_name, voter), FOREIGN KEY (poll_name) REFERENCES Polls (poll_name) ON DELETE CASCADE)");
 				// For when a user wants to lookup poll they own
 				stmt.execute("CREATE INDEX PollOwnerIndex on Polls (owner)");

@@ -158,6 +158,8 @@ public class Account {
 	 * @throws DataException
 	 */
 	public void setLastReference(byte[] reference) throws DataException {
+		accountData.setReference(reference);
+
 		this.repository.getAccountRepository().save(accountData);
 	}
 

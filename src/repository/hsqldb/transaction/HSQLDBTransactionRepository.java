@@ -22,6 +22,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
 	private HSQLDBPaymentTransactionRepository paymentTransactionRepository;
 	private HSQLDBCreatePollTransactionRepository createPollTransactionRepository;
+	private HSQLDBVoteOnPollTransactionRepository voteOnPollTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
 	private HSQLDBTransferAssetTransactionRepository transferAssetTransactionRepository;
 	private HSQLDBCreateOrderTransactionRepository createOrderTransactionRepository;
@@ -34,6 +35,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
 		this.paymentTransactionRepository = new HSQLDBPaymentTransactionRepository(repository);
 		this.createPollTransactionRepository = new HSQLDBCreatePollTransactionRepository(repository);
+		this.voteOnPollTransactionRepository = new HSQLDBVoteOnPollTransactionRepository(repository);
 		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
 		this.transferAssetTransactionRepository = new HSQLDBTransferAssetTransactionRepository(repository);
 		this.createOrderTransactionRepository = new HSQLDBCreateOrderTransactionRepository(repository);
@@ -92,6 +94,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case CREATE_POLL:
 				return this.createPollTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case VOTE_ON_POLL:
+				return this.voteOnPollTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case ISSUE_ASSET:
 				return this.issueAssetTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
@@ -217,6 +222,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case CREATE_POLL:
 				this.createPollTransactionRepository.save(transactionData);
+				break;
+
+			case VOTE_ON_POLL:
+				this.voteOnPollTransactionRepository.save(transactionData);
 				break;
 
 			case ISSUE_ASSET:
