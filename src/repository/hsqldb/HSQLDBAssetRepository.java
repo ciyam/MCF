@@ -73,7 +73,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	public void delete(long assetId) throws DataException {
 		try {
-			this.repository.checkedExecute("DELETE FROM Assets WHERE assetId = ?", assetId);
+			this.repository.delete("Assets", "assetId = ?", assetId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete asset from repository", e);
 		}
@@ -119,7 +119,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	public void delete(byte[] orderId) throws DataException {
 		try {
-			this.repository.checkedExecute("DELETE FROM AssetOrders WHERE orderId = ?", orderId);
+			this.repository.delete("AssetOrders", "orderId = ?", orderId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete asset order from repository", e);
 		}

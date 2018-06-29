@@ -68,7 +68,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	public void delete(String address, long assetId) throws DataException {
 		try {
-			this.repository.checkedExecute("DELETE FROM AccountBalances WHERE account = ? and asset_id = ?", address, assetId);
+			this.repository.delete("AccountBalances", "account = ? and asset_id = ?", address, assetId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete account balance from repository", e);
 		}

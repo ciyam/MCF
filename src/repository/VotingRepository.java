@@ -1,5 +1,7 @@
 package repository;
 
+import java.util.List;
+
 import data.voting.PollData;
 import data.voting.VoteOnPollData;
 
@@ -16,6 +18,8 @@ public interface VotingRepository {
 	public void delete(String pollName) throws DataException;
 
 	// Votes
+
+	public List<VoteOnPollData> getVotes(String pollName) throws DataException;
 
 	public VoteOnPollData getVote(String pollName, byte[] voterPublicKey) throws DataException;
 

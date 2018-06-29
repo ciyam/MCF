@@ -112,7 +112,26 @@ public class HSQLDBRepository implements Repository {
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
 
-		return this.checkedExecute(preparedStatement, objects);
+		return this.checkedExecuteResultSet(preparedStatement, objects);
+	}
+
+	/**
+	 * Bind objects to placeholders in prepared statement.
+	 * <p>
+	 * Special treatment for BigDecimals so that they retain their "scale".
+	 * 
+	 * @param preparedStatement
+	 * @param objects
+	 * @throws SQLException
+	 */
+	private void prepareExecute(PreparedStatement preparedStatement, Object... objects) throws SQLException {
+		for (int i = 0; i < objects.length; ++i)
+			// Special treatment for BigDecimals so that they retain their "scale",
+			// which would otherwise be assumed as 0.
+			if (objects[i] instanceof BigDecimal)
+				preparedStatement.setBigDecimal(i + 1, (BigDecimal) objects[i]);
+			else
+				preparedStatement.setObject(i + 1, objects[i]);
 	}
 
 	/**
@@ -125,14 +144,8 @@ public class HSQLDBRepository implements Repository {
 	 * @return ResultSet, or null if there are no found rows
 	 * @throws SQLException
 	 */
-	public ResultSet checkedExecute(PreparedStatement preparedStatement, Object... objects) throws SQLException {
-		for (int i = 0; i < objects.length; ++i)
-			// Special treatment for BigDecimals so that they retain their "scale",
-			// which would otherwise be assumed as 0.
-			if (objects[i] instanceof BigDecimal)
-				preparedStatement.setBigDecimal(i + 1, (BigDecimal) objects[i]);
-			else
-				preparedStatement.setObject(i + 1, objects[i]);
+	private ResultSet checkedExecuteResultSet(PreparedStatement preparedStatement, Object... objects) throws SQLException {
+		prepareExecute(preparedStatement, objects);
 
 		if (!preparedStatement.execute())
 			throw new SQLException("Fetching from database produced no results");
@@ -148,6 +161,27 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	/**
+	 * Execute PreparedStatement and return changed row count.
+	 * 
+	 * @param preparedStatement
+	 * @param objects
+	 * @return number of changed rows
+	 * @throws SQLException
+	 */
+	private int checkedExecuteUpdateCount(PreparedStatement preparedStatement, Object... objects) throws SQLException {
+		prepareExecute(preparedStatement, objects);
+
+		if (preparedStatement.execute())
+			throw new SQLException("Database produced results, not row count");
+
+		int rowCount = preparedStatement.getUpdateCount();
+		if (rowCount == -1)
+			throw new SQLException("Database returned invalid row count");
+
+		return rowCount;
+	}
+
+	/**
 	 * Fetch last value of IDENTITY column after an INSERT statement.
 	 * <p>
 	 * Performs "CALL IDENTITY()" SQL statement to retrieve last value used when INSERTing into a table that has an IDENTITY column.
@@ -159,7 +193,7 @@ public class HSQLDBRepository implements Repository {
 	 */
 	public Long callIdentity() throws SQLException {
 		PreparedStatement preparedStatement = this.connection.prepareStatement("CALL IDENTITY()");
-		ResultSet resultSet = this.checkedExecute(preparedStatement);
+		ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement);
 		if (resultSet == null)
 			return null;
 
@@ -185,11 +219,24 @@ public class HSQLDBRepository implements Repository {
 	 */
 	public boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.connection.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " LIMIT 1");
-		ResultSet resultSet = this.checkedExecute(preparedStatement, objects);
+		ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects);
 		if (resultSet == null)
 			return false;
 
 		return true;
+	}
+
+	/**
+	 * Delete rows from database table.
+	 * 
+	 * @param tableName
+	 * @param whereClause
+	 * @param objects
+	 * @throws SQLException
+	 */
+	public void delete(String tableName, String whereClause, Object... objects) throws SQLException {
+		PreparedStatement preparedStatement = this.connection.prepareStatement("DELETE FROM " + tableName + " WHERE " + whereClause);
+		this.checkedExecuteUpdateCount(preparedStatement, objects);
 	}
 
 }

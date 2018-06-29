@@ -20,7 +20,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 		this.repository = repository;
 	}
 
-	// Votes
+	// Polls
 
 	public PollData fromPollName(String pollName) throws DataException {
 		try {
@@ -93,13 +93,35 @@ public class HSQLDBVotingRepository implements VotingRepository {
 		// NOTE: The corresponding rows in PollOptions are deleted automatically by the database thanks to "ON DELETE CASCADE" in the PollOptions' FOREIGN KEY
 		// definition.
 		try {
-			this.repository.checkedExecute("DELETE FROM Polls WHERE poll_name = ?", pollName);
+			this.repository.delete("Polls", "poll_name = ?", pollName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete poll from repository", e);
 		}
 	}
 
 	// Votes
+
+	public List<VoteOnPollData> getVotes(String pollName) throws DataException {
+		List<VoteOnPollData> votes = new ArrayList<VoteOnPollData>();
+
+		try {
+			ResultSet resultSet = this.repository.checkedExecute("SELECT voter, option_index FROM PollVotes WHERE poll_name = ?", pollName);
+			if (resultSet == null)
+				return votes;
+
+			// NOTE: do-while because checkedExecute() above has already called rs.next() for us
+			do {
+				byte[] voterPublicKey = resultSet.getBytes(1);
+				int optionIndex = resultSet.getInt(2);
+
+				votes.add(new VoteOnPollData(pollName, voterPublicKey, optionIndex));
+			} while (resultSet.next());
+
+			return votes;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch poll votes from repository", e);
+		}
+	}
 
 	public VoteOnPollData getVote(String pollName, byte[] voterPublicKey) throws DataException {
 		try {
@@ -131,7 +153,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 
 	public void delete(String pollName, byte[] voterPublicKey) throws DataException {
 		try {
-			this.repository.checkedExecute("DELETE FROM PollVotes WHERE poll_name = ? AND voter = ?", pollName, voterPublicKey);
+			this.repository.delete("PollVotes", "poll_name = ? AND voter = ?", pollName, voterPublicKey);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete poll vote from repository", e);
 		}

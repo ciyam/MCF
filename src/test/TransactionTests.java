@@ -20,6 +20,7 @@ import data.transaction.PaymentTransactionData;
 import data.transaction.VoteOnPollTransactionData;
 import data.voting.PollData;
 import data.voting.PollOptionData;
+import data.voting.VoteOnPollData;
 import qora.account.Account;
 import qora.account.PrivateKeyAccount;
 import qora.account.PublicKeyAccount;
@@ -245,11 +246,40 @@ public class TransactionTests {
 			block.process();
 			repository.saveChanges();
 
+			// Check vote was registered properly
+			VoteOnPollData actualVoteOnPollData = repository.getVotingRepository().getVote(pollName, sender.getPublicKey());
+			assertNotNull(actualVoteOnPollData);
+			assertEquals(optionIndex, actualVoteOnPollData.getOptionIndex());
+
 			// update variables for next round
 			previousBlockData = block.getBlockData();
 			timestamp += 1_000;
 			reference = voteOnPollTransaction.getTransactionData().getSignature();
 		}
+
+		// Check poll's votes
+		List<VoteOnPollData> votes = repository.getVotingRepository().getVotes(pollName);
+		assertNotNull(votes);
+
+		assertEquals("Only one vote expected", 1, votes.size());
+
+		assertEquals("Wrong vote option index", pollOptionsSize - 1, votes.get(0).getOptionIndex());
+		assertTrue("Wrong voter public key", Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()));
+
+		// Orphan last block
+		BlockData lastBlockData = repository.getBlockRepository().getLastBlock();
+		Block lastBlock = new Block(repository, lastBlockData);
+		lastBlock.orphan();
+		repository.saveChanges();
+
+		// Recheck poll's votes
+		votes = repository.getVotingRepository().getVotes(pollName);
+		assertNotNull(votes);
+
+		assertEquals("Only one vote expected", 1, votes.size());
+
+		assertEquals("Wrong vote option index", pollOptionsSize - 1 - 1, votes.get(0).getOptionIndex());
+		assertTrue("Wrong voter public key", Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()));
 	}
 
 }

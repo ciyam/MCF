@@ -262,7 +262,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		// NOTE: The corresponding row in sub-table is deleted automatically by the database thanks to "ON DELETE CASCADE" in the sub-table's FOREIGN KEY
 		// definition.
 		try {
-			this.repository.checkedExecute("DELETE FROM Transactions WHERE signature = ?", transactionData.getSignature());
+			this.repository.delete("Transactions", "signature = ?", transactionData.getSignature());
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete transaction from repository", e);
 		}

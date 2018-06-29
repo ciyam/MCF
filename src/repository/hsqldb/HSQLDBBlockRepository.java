@@ -146,7 +146,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	public void delete(BlockData blockData) throws DataException {
 		try {
-			this.repository.checkedExecute("DELETE FROM Blocks WHERE signature = ?", blockData.getSignature());
+			this.repository.delete("Blocks", "signature = ?", blockData.getSignature());
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete Block from repository", e);
 		}
@@ -166,7 +166,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	public void delete(BlockTransactionData blockTransactionData) throws DataException {
 		try {
-			this.repository.checkedExecute("DELETE FROM BlockTransactions WHERE block_signature = ? AND sequence = ? AND transaction_signature = ?",
+			this.repository.delete("BlockTransactions", "block_signature = ? AND sequence = ? AND transaction_signature = ?",
 					blockTransactionData.getBlockSignature(), blockTransactionData.getSequence(), blockTransactionData.getTransactionSignature());
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete BlockTransaction from repository", e);
