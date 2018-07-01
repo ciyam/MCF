@@ -26,12 +26,14 @@ import utils.Serialization;
 public class CreatePollTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
+	private static final int CREATOR_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int OWNER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int OPTIONS_SIZE_LENGTH = INT_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH;
+	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH
+			+ OPTIONS_SIZE_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_DATALESS_LENGTH)
@@ -79,11 +81,12 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		CreatePollTransactionData createPollTransactionData = (CreatePollTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + createPollTransactionData.getPollName().length();
+		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + createPollTransactionData.getPollName().length()
+				+ createPollTransactionData.getDescription().length();
 
 		// Add lengths for each poll options
 		for (PollOptionData pollOptionData : createPollTransactionData.getPollOptions())
-			dataLength += OPTIONS_SIZE_LENGTH + pollOptionData.getOptionName().length();
+			dataLength += INT_LENGTH + pollOptionData.getOptionName().length();
 
 		return dataLength;
 	}

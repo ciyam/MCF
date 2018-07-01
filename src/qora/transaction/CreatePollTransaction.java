@@ -167,11 +167,11 @@ public class CreatePollTransaction extends Transaction {
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(createPollTransactionData);
 
-		// Update issuer's balance
+		// Update creator's balance
 		Account creator = new PublicKeyAccount(this.repository, createPollTransactionData.getCreatorPublicKey());
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(createPollTransactionData.getFee()));
 
-		// Update issuer's reference
+		// Update creator's reference
 		creator.setLastReference(createPollTransactionData.getReference());
 	}
 

@@ -8,6 +8,8 @@ public interface Repository extends AutoCloseable {
 
 	public BlockRepository getBlockRepository();
 
+	public NameRepository getNameRepository();
+
 	public TransactionRepository getTransactionRepository();
 
 	public VotingRepository getVotingRepository();

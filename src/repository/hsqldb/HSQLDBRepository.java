@@ -11,6 +11,7 @@ import repository.AccountRepository;
 import repository.AssetRepository;
 import repository.BlockRepository;
 import repository.DataException;
+import repository.NameRepository;
 import repository.Repository;
 import repository.TransactionRepository;
 import repository.VotingRepository;
@@ -38,6 +39,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public BlockRepository getBlockRepository() {
 		return new HSQLDBBlockRepository(this);
+	}
+
+	@Override
+	public NameRepository getNameRepository() {
+		return new HSQLDBNameRepository(this);
 	}
 
 	@Override

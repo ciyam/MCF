@@ -37,6 +37,9 @@ public class TransactionTransformer extends Transformer {
 			case PAYMENT:
 				return PaymentTransactionTransformer.fromByteBuffer(byteBuffer);
 
+			case REGISTER_NAME:
+				return RegisterNameTransactionTransformer.fromByteBuffer(byteBuffer);
+
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.fromByteBuffer(byteBuffer);
 
@@ -73,6 +76,9 @@ public class TransactionTransformer extends Transformer {
 
 			case PAYMENT:
 				return PaymentTransactionTransformer.getDataLength(transactionData);
+
+			case REGISTER_NAME:
+				return RegisterNameTransactionTransformer.getDataLength(transactionData);
 
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.getDataLength(transactionData);
@@ -111,6 +117,9 @@ public class TransactionTransformer extends Transformer {
 			case PAYMENT:
 				return PaymentTransactionTransformer.toBytes(transactionData);
 
+			case REGISTER_NAME:
+				return RegisterNameTransactionTransformer.toBytes(transactionData);
+
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.toBytes(transactionData);
 
@@ -147,6 +156,9 @@ public class TransactionTransformer extends Transformer {
 
 			case PAYMENT:
 				return PaymentTransactionTransformer.toJSON(transactionData);
+
+			case REGISTER_NAME:
+				return RegisterNameTransactionTransformer.toJSON(transactionData);
 
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.toJSON(transactionData);

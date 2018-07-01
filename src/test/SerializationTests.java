@@ -2,7 +2,6 @@ package test;
 
 import static org.junit.Assert.*;
 
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -85,9 +84,43 @@ public class SerializationTests extends Common {
 	}
 
 	@Test
-	public void testMessageSerialization() throws SQLException, TransformationException {
+	public void testMessageSerialization() throws TransformationException {
 		// Message transactions went live block 99000
 		// Some transactions to be found in block 99001/2/5/6
+	}
+
+	@Test
+	public void testRegisterNameSerialization() throws TransformationException, DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Block 120 has only name registration transactions
+			BlockData blockData = repository.getBlockRepository().fromHeight(120);
+			assertNotNull("Block 120 is required for this test", blockData);
+
+			Block block = new Block(repository, blockData);
+
+			List<Transaction> transactions = block.getTransactions();
+			assertNotNull(transactions);
+
+			for (Transaction transaction : transactions)
+				testGenericSerialization(transaction.getTransactionData());
+		}
+	}
+
+	@Test
+	public void testCreatePollSerialization() throws TransformationException, DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Block 10537 has only create poll transactions
+			BlockData blockData = repository.getBlockRepository().fromHeight(10537);
+			assertNotNull("Block 10537 is required for this test", blockData);
+
+			Block block = new Block(repository, blockData);
+
+			List<Transaction> transactions = block.getTransactions();
+			assertNotNull(transactions);
+
+			for (Transaction transaction : transactions)
+				testGenericSerialization(transaction.getTransactionData());
+		}
 	}
 
 }
