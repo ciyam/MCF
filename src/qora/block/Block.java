@@ -28,6 +28,7 @@ import repository.Repository;
 import transform.TransformationException;
 import transform.block.BlockTransformer;
 import transform.transaction.TransactionTransformer;
+import utils.Base58;
 import utils.NTP;
 
 /*
@@ -554,6 +555,9 @@ public class Block {
 					transaction.process();
 				} catch (Exception e) {
 					// LOGGER.error("Exception during transaction processing, tx " + Base58.encode(transaction.getSignature()), e);
+					System.err.println("Exception during transaction processing, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
+							+ e.getMessage());
+					e.printStackTrace();
 					return ValidationResult.TRANSACTION_PROCESSING_FAILED;
 				}
 			}
@@ -565,8 +569,8 @@ public class Block {
 				this.repository.discardChanges();
 			} catch (DataException e) {
 				/*
-				 * Discard failure most likely due to prior DataException, so catch discardChanges' DataException and discard.
-				 * Prior DataException propagates to caller. Successful completion of try-block continues on after discard.
+				 * Discard failure most likely due to prior DataException, so catch discardChanges' DataException and discard. Prior DataException propagates to
+				 * caller. Successful completion of try-block continues on after discard.
 				 */
 			}
 		}

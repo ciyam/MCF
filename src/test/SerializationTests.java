@@ -14,6 +14,7 @@ import qora.block.Block;
 import qora.block.GenesisBlock;
 import qora.transaction.GenesisTransaction;
 import qora.transaction.Transaction;
+import qora.transaction.Transaction.TransactionType;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
@@ -65,13 +66,10 @@ public class SerializationTests extends Common {
 		assertEquals(TransactionTransformer.getDataLength(transactionData), bytes.length);
 	}
 
-	@Test
-	public void testPaymentSerialization() throws TransformationException, DataException {
+	private void testSpecificBlockTransactions(int height, TransactionType type) throws DataException, TransformationException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Block 949 has lots of varied transactions
-			// Blocks 390 & 754 have only payment transactions
-			BlockData blockData = repository.getBlockRepository().fromHeight(754);
-			assertNotNull("Block 754 is required for this test", blockData);
+			BlockData blockData = repository.getBlockRepository().fromHeight(height);
+			assertNotNull("Block " + height + " is required for this test", blockData);
 
 			Block block = new Block(repository, blockData);
 
@@ -79,48 +77,39 @@ public class SerializationTests extends Common {
 			assertNotNull(transactions);
 
 			for (Transaction transaction : transactions)
-				testGenericSerialization(transaction.getTransactionData());
+				if (transaction.getTransactionData().getType() == type)
+					testGenericSerialization(transaction.getTransactionData());
 		}
 	}
 
 	@Test
-	public void testMessageSerialization() throws TransformationException {
-		// Message transactions went live block 99000
-		// Some transactions to be found in block 99001/2/5/6
+	public void testPaymentSerialization() throws TransformationException, DataException {
+		// Blocks 390 & 754 have only payment transactions
+		testSpecificBlockTransactions(754, TransactionType.PAYMENT);
 	}
 
 	@Test
 	public void testRegisterNameSerialization() throws TransformationException, DataException {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Block 120 has only name registration transactions
-			BlockData blockData = repository.getBlockRepository().fromHeight(120);
-			assertNotNull("Block 120 is required for this test", blockData);
+		// Block 120 has only name registration transactions
+		testSpecificBlockTransactions(120, TransactionType.REGISTER_NAME);
+	}
 
-			Block block = new Block(repository, blockData);
-
-			List<Transaction> transactions = block.getTransactions();
-			assertNotNull(transactions);
-
-			for (Transaction transaction : transactions)
-				testGenericSerialization(transaction.getTransactionData());
-		}
+	@Test
+	public void testUpdateNameSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(673, TransactionType.UPDATE_NAME);
 	}
 
 	@Test
 	public void testCreatePollSerialization() throws TransformationException, DataException {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Block 10537 has only create poll transactions
-			BlockData blockData = repository.getBlockRepository().fromHeight(10537);
-			assertNotNull("Block 10537 is required for this test", blockData);
+		// Block 10537 has only create poll transactions
+		testSpecificBlockTransactions(10537, TransactionType.CREATE_POLL);
+	}
 
-			Block block = new Block(repository, blockData);
-
-			List<Transaction> transactions = block.getTransactions();
-			assertNotNull(transactions);
-
-			for (Transaction transaction : transactions)
-				testGenericSerialization(transaction.getTransactionData());
-		}
+	@Test
+	public void testMessageSerialization() throws TransformationException, DataException {
+		// Message transactions went live block 99000
+		// Some transactions to be found in block 99001/2/5/6
+		testSpecificBlockTransactions(99001, TransactionType.MESSAGE);
 	}
 
 }

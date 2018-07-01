@@ -15,8 +15,11 @@ import com.google.common.hash.HashCode;
 import data.account.AccountBalanceData;
 import data.account.AccountData;
 import data.block.BlockData;
+import data.naming.NameData;
 import data.transaction.CreatePollTransactionData;
 import data.transaction.PaymentTransactionData;
+import data.transaction.RegisterNameTransactionData;
+import data.transaction.UpdateNameTransactionData;
 import data.transaction.VoteOnPollTransactionData;
 import data.voting.PollData;
 import data.voting.PollOptionData;
@@ -29,8 +32,10 @@ import qora.block.Block;
 import qora.block.BlockChain;
 import qora.transaction.CreatePollTransaction;
 import qora.transaction.PaymentTransaction;
+import qora.transaction.RegisterNameTransaction;
 import qora.transaction.Transaction;
 import qora.transaction.Transaction.ValidationResult;
+import qora.transaction.UpdateNameTransaction;
 import qora.transaction.VoteOnPollTransaction;
 import repository.AccountRepository;
 import repository.DataException;
@@ -54,7 +59,7 @@ public class TransactionTests {
 
 	private Repository repository;
 	private AccountRepository accountRepository;
-	private BlockData genesisBlockData;
+	private BlockData parentBlockData;
 	private PrivateKeyAccount sender;
 	private PrivateKeyAccount generator;
 	private byte[] reference;
@@ -80,7 +85,7 @@ public class TransactionTests {
 		repository = RepositoryManager.getRepository();
 
 		// Grab genesis block
-		genesisBlockData = repository.getBlockRepository().fromHeight(1);
+		parentBlockData = repository.getBlockRepository().fromHeight(1);
 
 		accountRepository = repository.getAccountRepository();
 
@@ -115,7 +120,7 @@ public class TransactionTests {
 		Account recipient = new PublicKeyAccount(repository, recipientSeed);
 		BigDecimal amount = BigDecimal.valueOf(1_000L);
 		BigDecimal fee = BigDecimal.ONE;
-		long timestamp = genesisBlockData.getTimestamp() + 1_000;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(sender.getPublicKey(), recipient.getAddress(), amount, fee, timestamp,
 				reference);
 
@@ -125,7 +130,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, paymentTransaction.isValid());
 
 		// Forge new block with payment transaction
-		Block block = new Block(repository, genesisBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator, null, null);
 		block.addTransaction(paymentTransactionData);
 		block.sign();
 
@@ -152,6 +157,106 @@ public class TransactionTests {
 	}
 
 	@Test
+	public void testRegisterNameTransaction() throws DataException {
+		createTestAccounts(null);
+
+		// Make a new register name transaction
+		String name = "test name";
+		String data = "{\"key\":\"value\"}";
+
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+		RegisterNameTransactionData registerNameTransactionData = new RegisterNameTransactionData(sender.getPublicKey(), sender.getAddress(), name, data, fee,
+				timestamp, reference);
+
+		Transaction registerNameTransaction = new RegisterNameTransaction(repository, registerNameTransactionData);
+		registerNameTransaction.calcSignature(sender);
+		assertTrue(registerNameTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, registerNameTransaction.isValid());
+
+		// Forge new block with transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(registerNameTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check sender's balance
+		BigDecimal expectedBalance = senderBalance.subtract(fee);
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+
+		// Fee should be in generator's balance
+		expectedBalance = generatorBalance.add(fee);
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+
+		// Check name was registered
+		NameData actualNameData = this.repository.getNameRepository().fromName(name);
+		assertNotNull(actualNameData);
+
+		// Check sender's reference
+		assertTrue("Sender's new reference incorrect", Arrays.equals(registerNameTransactionData.getSignature(), sender.getLastReference()));
+
+		// Update variables for use by other tests
+		reference = sender.getLastReference();
+		parentBlockData = block.getBlockData();
+	}
+
+	@Test
+	public void testUpdateNamesTransaction() throws DataException {
+		// Register name using another test
+		testRegisterNameTransaction();
+
+		String name = "test name";
+		NameData originalNameData = this.repository.getNameRepository().fromName(name);
+
+		// Update name's owner and data
+		Account newOwner = new PublicKeyAccount(repository, recipientSeed);
+		String newData = "{\"newKey\":\"newValue\"}";
+		byte[] nameReference = reference;
+
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 2_000;
+		UpdateNameTransactionData updateNameTransactionData = new UpdateNameTransactionData(sender.getPublicKey(), newOwner.getAddress(), name, newData,
+				nameReference, fee, timestamp, reference);
+
+		Transaction updateNameTransaction = new UpdateNameTransaction(repository, updateNameTransactionData);
+		updateNameTransaction.calcSignature(sender);
+		assertTrue(updateNameTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, updateNameTransaction.isValid());
+
+		// Forge new block with transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(updateNameTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check name was updated
+		NameData actualNameData = this.repository.getNameRepository().fromName(name);
+		assertEquals(newOwner.getAddress(), actualNameData.getOwner());
+		assertEquals(newData, actualNameData.getData());
+
+		// Now orphan block
+		block.orphan();
+		repository.saveChanges();
+
+		// Check name has been reverted correctly
+		actualNameData = this.repository.getNameRepository().fromName(name);
+		assertEquals(originalNameData.getOwner(), actualNameData.getOwner());
+		assertEquals(originalNameData.getData(), actualNameData.getData());
+	}
+
+	@Test
 	public void testCreatePollTransaction() throws DataException {
 		// This test requires GenesisBlock's timestamp is set to something after BlockChain.VOTING_RELEASE_TIMESTAMP
 		createTestAccounts(BlockChain.VOTING_RELEASE_TIMESTAMP + 1_000L);
@@ -167,7 +272,7 @@ public class TransactionTests {
 
 		Account recipient = new PublicKeyAccount(repository, recipientSeed);
 		BigDecimal fee = BigDecimal.ONE;
-		long timestamp = genesisBlockData.getTimestamp() + 1_000;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		CreatePollTransactionData createPollTransactionData = new CreatePollTransactionData(sender.getPublicKey(), recipient.getAddress(), pollName,
 				description, pollOptions, fee, timestamp, reference);
 
@@ -177,7 +282,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, createPollTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, genesisBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator, null, null);
 		block.addTransaction(createPollTransactionData);
 		block.sign();
 
@@ -204,8 +309,9 @@ public class TransactionTests {
 		// Check sender's reference
 		assertTrue("Sender's new reference incorrect", Arrays.equals(createPollTransactionData.getSignature(), sender.getLastReference()));
 
-		// Update reference variable for use by other tests
+		// Update variables for use by other tests
 		reference = sender.getLastReference();
+		parentBlockData = block.getBlockData();
 	}
 
 	@Test
@@ -217,8 +323,7 @@ public class TransactionTests {
 		String pollName = "test poll";
 		int pollOptionsSize = 3;
 		BigDecimal fee = BigDecimal.ONE;
-		long timestamp = genesisBlockData.getTimestamp() + 1_000;
-		BlockData previousBlockData = genesisBlockData;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
 
 		for (int optionIndex = 0; optionIndex <= pollOptionsSize; ++optionIndex) {
 			// Make a vote-on-poll transaction
@@ -236,7 +341,7 @@ public class TransactionTests {
 			assertEquals(ValidationResult.OK, voteOnPollTransaction.isValid());
 
 			// Forge new block with transaction
-			Block block = new Block(repository, previousBlockData, generator, null, null);
+			Block block = new Block(repository, parentBlockData, generator, null, null);
 			block.addTransaction(voteOnPollTransactionData);
 			block.sign();
 
@@ -252,7 +357,7 @@ public class TransactionTests {
 			assertEquals(optionIndex, actualVoteOnPollData.getOptionIndex());
 
 			// update variables for next round
-			previousBlockData = block.getBlockData();
+			parentBlockData = block.getBlockData();
 			timestamp += 1_000;
 			reference = voteOnPollTransaction.getTransactionData().getSignature();
 		}

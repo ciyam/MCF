@@ -171,7 +171,7 @@ public class HSQLDBDatabaseUpdates {
 			case 6:
 				// Update Name Transactions
 				stmt.execute("CREATE TABLE UpdateNameTransactions (signature Signature, owner QoraPublicKey NOT NULL, name RegisteredName NOT NULL, "
-						+ "new_owner QoraAddress NOT NULL, new_data NameData NOT NULL, "
+						+ "new_owner QoraAddress NOT NULL, new_data NameData NOT NULL, name_reference Signature NOT NULL, "
 						+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				break;
 
@@ -322,6 +322,14 @@ public class HSQLDBDatabaseUpdates {
 						+ "PRIMARY KEY (poll_name, voter), FOREIGN KEY (poll_name) REFERENCES Polls (poll_name) ON DELETE CASCADE)");
 				// For when a user wants to lookup poll they own
 				stmt.execute("CREATE INDEX PollOwnerIndex on Polls (owner)");
+				break;
+
+			case 25:
+				// Registered Names
+				stmt.execute(
+						"CREATE TABLE Names (name RegisteredName, data VARCHAR(4000) NOT NULL, registrant QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
+								+ "registered TIMESTAMP NOT NULL, updated TIMESTAMP, reference Signature, is_for_sale BOOLEAN NOT NULL, sale_price QoraAmount, "
+								+ "PRIMARY KEY (name))");
 				break;
 
 			default:

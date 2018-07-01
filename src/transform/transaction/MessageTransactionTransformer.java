@@ -64,7 +64,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
-		int dataSize = byteBuffer.getInt(0);
+		int dataSize = byteBuffer.getInt();
 		// Don't allow invalid dataSize here to avoid run-time issues
 		if (dataSize > MessageTransaction.MAX_DATA_SIZE)
 			throw new TransformationException("MessageTransaction data size too large");

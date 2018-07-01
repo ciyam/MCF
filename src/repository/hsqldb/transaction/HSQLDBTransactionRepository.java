@@ -22,6 +22,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
 	private HSQLDBPaymentTransactionRepository paymentTransactionRepository;
 	private HSQLDBRegisterNameTransactionRepository registerNameTransactionRepository;
+	private HSQLDBUpdateNameTransactionRepository updateNameTransactionRepository;
 	private HSQLDBCreatePollTransactionRepository createPollTransactionRepository;
 	private HSQLDBVoteOnPollTransactionRepository voteOnPollTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
@@ -36,6 +37,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
 		this.paymentTransactionRepository = new HSQLDBPaymentTransactionRepository(repository);
 		this.registerNameTransactionRepository = new HSQLDBRegisterNameTransactionRepository(repository);
+		this.updateNameTransactionRepository = new HSQLDBUpdateNameTransactionRepository(repository);
 		this.createPollTransactionRepository = new HSQLDBCreatePollTransactionRepository(repository);
 		this.voteOnPollTransactionRepository = new HSQLDBVoteOnPollTransactionRepository(repository);
 		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
@@ -96,6 +98,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case REGISTER_NAME:
 				return this.registerNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case UPDATE_NAME:
+				return this.updateNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case CREATE_POLL:
 				return this.createPollTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
@@ -227,6 +232,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case REGISTER_NAME:
 				this.registerNameTransactionRepository.save(transactionData);
+				break;
+
+			case UPDATE_NAME:
+				this.updateNameTransactionRepository.save(transactionData);
 				break;
 
 			case CREATE_POLL:

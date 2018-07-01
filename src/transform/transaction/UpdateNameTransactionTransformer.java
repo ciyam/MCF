@@ -11,7 +11,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
-import data.transaction.RegisterNameTransactionData;
+import data.transaction.UpdateNameTransactionData;
 import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
 import qora.naming.Name;
@@ -19,7 +19,7 @@ import transform.TransformationException;
 import utils.Base58;
 import utils.Serialization;
 
-public class RegisterNameTransactionTransformer extends TransactionTransformer {
+public class UpdateNameTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int REGISTRANT_LENGTH = PUBLIC_KEY_LENGTH;
@@ -31,60 +31,60 @@ public class RegisterNameTransactionTransformer extends TransactionTransformer {
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_DATALESS_LENGTH)
-			throw new TransformationException("Byte data too short for RegisterNameTransaction");
+			throw new TransformationException("Byte data too short for UpdateNameTransaction");
 
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
 
-		byte[] registrantPublicKey = Serialization.deserializePublicKey(byteBuffer);
+		byte[] ownerPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String owner = Serialization.deserializeRecipient(byteBuffer);
+		String newOwner = Serialization.deserializeRecipient(byteBuffer);
 
 		String name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
-		String data = Serialization.deserializeSizedString(byteBuffer, Name.MAX_DATA_SIZE);
+		String newData = Serialization.deserializeSizedString(byteBuffer, Name.MAX_DATA_SIZE);
 
 		// Still need to make sure there are enough bytes left for remaining fields
 		if (byteBuffer.remaining() < FEE_LENGTH + SIGNATURE_LENGTH)
-			throw new TransformationException("Byte data too short for RegisterNameTransaction");
+			throw new TransformationException("Byte data too short for UpdateNameTransaction");
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new RegisterNameTransactionData(registrantPublicKey, owner, name, data, fee, timestamp, reference, signature);
+		return new UpdateNameTransactionData(ownerPublicKey, newOwner, name, newData, null, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		RegisterNameTransactionData registerNameTransactionData = (RegisterNameTransactionData) transactionData;
+		UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + registerNameTransactionData.getName().length()
-				+ registerNameTransactionData.getData().length();
+		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + updateNameTransactionData.getName().length()
+				+ updateNameTransactionData.getNewData().length();
 
 		return dataLength;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
 		try {
-			RegisterNameTransactionData registerNameTransactionData = (RegisterNameTransactionData) transactionData;
+			UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) transactionData;
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(registerNameTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(registerNameTransactionData.getTimestamp()));
-			bytes.write(registerNameTransactionData.getReference());
+			bytes.write(Ints.toByteArray(updateNameTransactionData.getType().value));
+			bytes.write(Longs.toByteArray(updateNameTransactionData.getTimestamp()));
+			bytes.write(updateNameTransactionData.getReference());
 
-			bytes.write(registerNameTransactionData.getRegistrantPublicKey());
-			bytes.write(Base58.decode(registerNameTransactionData.getOwner()));
-			Serialization.serializeSizedString(bytes, registerNameTransactionData.getName());
-			Serialization.serializeSizedString(bytes, registerNameTransactionData.getData());
+			bytes.write(updateNameTransactionData.getOwnerPublicKey());
+			bytes.write(Base58.decode(updateNameTransactionData.getNewOwner()));
+			Serialization.serializeSizedString(bytes, updateNameTransactionData.getName());
+			Serialization.serializeSizedString(bytes, updateNameTransactionData.getNewData());
 
-			Serialization.serializeBigDecimal(bytes, registerNameTransactionData.getFee());
+			Serialization.serializeBigDecimal(bytes, updateNameTransactionData.getFee());
 
-			if (registerNameTransactionData.getSignature() != null)
-				bytes.write(registerNameTransactionData.getSignature());
+			if (updateNameTransactionData.getSignature() != null)
+				bytes.write(updateNameTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {
@@ -97,16 +97,16 @@ public class RegisterNameTransactionTransformer extends TransactionTransformer {
 		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
 
 		try {
-			RegisterNameTransactionData registerNameTransactionData = (RegisterNameTransactionData) transactionData;
+			UpdateNameTransactionData updateNameTransactionData = (UpdateNameTransactionData) transactionData;
 
-			byte[] registrantPublicKey = registerNameTransactionData.getRegistrantPublicKey();
+			byte[] ownerPublicKey = updateNameTransactionData.getOwnerPublicKey();
 
-			json.put("registrant", PublicKeyAccount.getAddress(registrantPublicKey));
-			json.put("registrantPublicKey", HashCode.fromBytes(registrantPublicKey).toString());
+			json.put("owner", PublicKeyAccount.getAddress(ownerPublicKey));
+			json.put("ownerPublicKey", HashCode.fromBytes(ownerPublicKey).toString());
 
-			json.put("owner", registerNameTransactionData.getOwner());
-			json.put("name", registerNameTransactionData.getName());
-			json.put("data", registerNameTransactionData.getData());
+			json.put("newOwner", updateNameTransactionData.getNewOwner());
+			json.put("name", updateNameTransactionData.getName());
+			json.put("newData", updateNameTransactionData.getNewData());
 		} catch (ClassCastException e) {
 			throw new TransformationException(e);
 		}

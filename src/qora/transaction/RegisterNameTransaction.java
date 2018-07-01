@@ -82,7 +82,7 @@ public class RegisterNameTransaction extends Transaction {
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check value size bounds
-		if (registerNameTransactionData.getData().length() < 1 || registerNameTransactionData.getData().length() > Name.MAX_VALUE_SIZE)
+		if (registerNameTransactionData.getData().length() < 1 || registerNameTransactionData.getData().length() > Name.MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// Check name is lowercase
