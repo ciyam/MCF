@@ -111,6 +111,9 @@ public abstract class Transaction {
 			case UPDATE_NAME:
 				return new UpdateNameTransaction(repository, transactionData);
 
+			case SELL_NAME:
+				return new SellNameTransaction(repository, transactionData);
+
 			case CREATE_POLL:
 				return new CreatePollTransaction(repository, transactionData);
 
@@ -136,7 +139,7 @@ public abstract class Transaction {
 				return new MessageTransaction(repository, transactionData);
 
 			default:
-				return null;
+				throw new IllegalStateException("Unsupported transaction type [" + transactionData.getType().value + "] during fetch from repository");
 		}
 	}
 

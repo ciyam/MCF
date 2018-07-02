@@ -43,6 +43,9 @@ public class TransactionTransformer extends Transformer {
 			case UPDATE_NAME:
 				return UpdateNameTransactionTransformer.fromByteBuffer(byteBuffer);
 
+			case SELL_NAME:
+				return SellNameTransactionTransformer.fromByteBuffer(byteBuffer);
+
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.fromByteBuffer(byteBuffer);
 
@@ -68,7 +71,7 @@ public class TransactionTransformer extends Transformer {
 				return MessageTransactionTransformer.fromByteBuffer(byteBuffer);
 
 			default:
-				throw new TransformationException("Unsupported transaction type");
+				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
 		}
 	}
 
@@ -85,6 +88,9 @@ public class TransactionTransformer extends Transformer {
 
 			case UPDATE_NAME:
 				return UpdateNameTransactionTransformer.getDataLength(transactionData);
+
+			case SELL_NAME:
+				return SellNameTransactionTransformer.getDataLength(transactionData);
 
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.getDataLength(transactionData);
@@ -111,7 +117,7 @@ public class TransactionTransformer extends Transformer {
 				return MessageTransactionTransformer.getDataLength(transactionData);
 
 			default:
-				throw new TransformationException("Unsupported transaction type");
+				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] when requesting byte length");
 		}
 	}
 
@@ -128,6 +134,9 @@ public class TransactionTransformer extends Transformer {
 
 			case UPDATE_NAME:
 				return UpdateNameTransactionTransformer.toBytes(transactionData);
+
+			case SELL_NAME:
+				return SellNameTransactionTransformer.toBytes(transactionData);
 
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.toBytes(transactionData);
@@ -154,7 +163,7 @@ public class TransactionTransformer extends Transformer {
 				return MessageTransactionTransformer.toBytes(transactionData);
 
 			default:
-				throw new TransformationException("Unsupported transaction type");
+				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes");
 		}
 	}
 
@@ -171,6 +180,9 @@ public class TransactionTransformer extends Transformer {
 
 			case UPDATE_NAME:
 				return UpdateNameTransactionTransformer.toJSON(transactionData);
+
+			case SELL_NAME:
+				return SellNameTransactionTransformer.toJSON(transactionData);
 
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.toJSON(transactionData);
@@ -197,7 +209,7 @@ public class TransactionTransformer extends Transformer {
 				return MessageTransactionTransformer.toJSON(transactionData);
 
 			default:
-				throw new TransformationException("Unsupported transaction type");
+				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to JSON");
 		}
 	}
 

@@ -59,11 +59,14 @@ public class LoadTests extends Common {
 				if (transactionData == null)
 					break;
 
+				if (transactionData.getType() != TransactionType.PAYMENT)
+					break;
+
 				PaymentTransactionData paymentTransactionData = (PaymentTransactionData) transactionData;
 				System.out.println(PublicKeyAccount.getAddress(paymentTransactionData.getSenderPublicKey()) + " sent " + paymentTransactionData.getAmount()
 						+ " QORA to " + paymentTransactionData.getRecipient());
 
-				signature = paymentTransactionData.getReference();
+				signature = transactionData.getReference();
 			}
 		}
 	}

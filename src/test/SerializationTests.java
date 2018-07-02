@@ -100,6 +100,11 @@ public class SerializationTests extends Common {
 	}
 
 	@Test
+	public void testSellNameSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(673, TransactionType.SELL_NAME);
+	}
+
+	@Test
 	public void testCreatePollSerialization() throws TransformationException, DataException {
 		// Block 10537 has only create poll transactions
 		testSpecificBlockTransactions(10537, TransactionType.CREATE_POLL);

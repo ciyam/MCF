@@ -23,6 +23,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBPaymentTransactionRepository paymentTransactionRepository;
 	private HSQLDBRegisterNameTransactionRepository registerNameTransactionRepository;
 	private HSQLDBUpdateNameTransactionRepository updateNameTransactionRepository;
+	private HSQLDBSellNameTransactionRepository sellNameTransactionRepository;
 	private HSQLDBCreatePollTransactionRepository createPollTransactionRepository;
 	private HSQLDBVoteOnPollTransactionRepository voteOnPollTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
@@ -38,6 +39,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.paymentTransactionRepository = new HSQLDBPaymentTransactionRepository(repository);
 		this.registerNameTransactionRepository = new HSQLDBRegisterNameTransactionRepository(repository);
 		this.updateNameTransactionRepository = new HSQLDBUpdateNameTransactionRepository(repository);
+		this.sellNameTransactionRepository = new HSQLDBSellNameTransactionRepository(repository);
 		this.createPollTransactionRepository = new HSQLDBCreatePollTransactionRepository(repository);
 		this.voteOnPollTransactionRepository = new HSQLDBVoteOnPollTransactionRepository(repository);
 		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
@@ -102,6 +104,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			case UPDATE_NAME:
 				return this.updateNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
+			case SELL_NAME:
+				return this.sellNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
 			case CREATE_POLL:
 				return this.createPollTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
@@ -127,7 +132,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				return this.messageTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			default:
-				return null;
+				throw new DataException("Unsupported transaction type [" + type.value + "] during fetch from HSQLDB repository");
 		}
 	}
 
@@ -238,6 +243,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				this.updateNameTransactionRepository.save(transactionData);
 				break;
 
+			case SELL_NAME:
+				this.sellNameTransactionRepository.save(transactionData);
+				break;
+
 			case CREATE_POLL:
 				this.createPollTransactionRepository.save(transactionData);
 				break;
@@ -271,7 +280,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				break;
 
 			default:
-				throw new DataException("Unsupported transaction type during save into repository");
+				throw new DataException("Unsupported transaction type [" + transactionData.getType().value + "] during save into HSQLDB repository");
 		}
 	}
 

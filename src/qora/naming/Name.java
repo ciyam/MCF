@@ -2,6 +2,7 @@ package qora.naming;
 
 import data.naming.NameData;
 import data.transaction.RegisterNameTransactionData;
+import data.transaction.SellNameTransactionData;
 import data.transaction.TransactionData;
 import data.transaction.UpdateNameTransactionData;
 import repository.DataException;
@@ -96,6 +97,24 @@ public class Name {
 		}
 
 		// Save reverted name data
+		this.repository.getNameRepository().save(this.nameData);
+	}
+
+	public void sell(SellNameTransactionData sellNameTransactionData) throws DataException {
+		// Mark as for-sale and set price
+		this.nameData.setIsForSale(true);
+		this.nameData.setSalePrice(sellNameTransactionData.getAmount());
+
+		// Save sale info into repository
+		this.repository.getNameRepository().save(this.nameData);
+	}
+
+	public void unsell(SellNameTransactionData sellNameTransactionData) throws DataException {
+		// Mark not for-sale and unset price
+		this.nameData.setIsForSale(false);
+		this.nameData.setSalePrice(null);
+
+		// Save no-sale info into repository
 		this.repository.getNameRepository().save(this.nameData);
 	}
 
