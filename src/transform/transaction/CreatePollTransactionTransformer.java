@@ -10,6 +10,7 @@ import java.util.List;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+import com.google.common.base.Utf8;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
@@ -81,12 +82,12 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		CreatePollTransactionData createPollTransactionData = (CreatePollTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + createPollTransactionData.getPollName().length()
-				+ createPollTransactionData.getDescription().length();
+		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(createPollTransactionData.getPollName())
+				+ Utf8.encodedLength(createPollTransactionData.getDescription());
 
 		// Add lengths for each poll options
 		for (PollOptionData pollOptionData : createPollTransactionData.getPollOptions())
-			dataLength += INT_LENGTH + pollOptionData.getOptionName().length();
+			dataLength += INT_LENGTH + Utf8.encodedLength(pollOptionData.getOptionName());
 
 		return dataLength;
 	}

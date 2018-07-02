@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 
 import org.json.simple.JSONObject;
 
+import com.google.common.base.Utf8;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
@@ -60,8 +61,8 @@ public class RegisterNameTransactionTransformer extends TransactionTransformer {
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		RegisterNameTransactionData registerNameTransactionData = (RegisterNameTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + registerNameTransactionData.getName().length()
-				+ registerNameTransactionData.getData().length();
+		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(registerNameTransactionData.getName())
+				+ Utf8.encodedLength(registerNameTransactionData.getData());
 
 		return dataLength;
 	}

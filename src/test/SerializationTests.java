@@ -101,7 +101,12 @@ public class SerializationTests extends Common {
 
 	@Test
 	public void testSellNameSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(673, TransactionType.SELL_NAME);
+		testSpecificBlockTransactions(200, TransactionType.SELL_NAME);
+	}
+
+	@Test
+	public void testCancelSellNameSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(741, TransactionType.CANCEL_SELL_NAME);
 	}
 
 	@Test

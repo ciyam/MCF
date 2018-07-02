@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.google.common.base.Utf8;
+
 import data.transaction.TransactionData;
 import data.transaction.VoteOnPollTransactionData;
 import data.voting.PollData;
@@ -64,7 +66,8 @@ public class VoteOnPollTransaction extends Transaction {
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check name size bounds
-		if (voteOnPollTransactionData.getPollName().length() < 1 || voteOnPollTransactionData.getPollName().length() > Poll.MAX_NAME_SIZE)
+		int pollNameLength = Utf8.encodedLength(voteOnPollTransactionData.getPollName());
+		if (pollNameLength < 1 || pollNameLength > Poll.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check poll name is lowercase

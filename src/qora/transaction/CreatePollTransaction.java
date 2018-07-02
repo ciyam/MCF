@@ -1,11 +1,12 @@
 package qora.transaction;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
+import com.google.common.base.Utf8;
 
 import data.transaction.CreatePollTransactionData;
 import data.transaction.TransactionData;
@@ -84,12 +85,13 @@ public class CreatePollTransaction extends Transaction {
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check name size bounds
-		if (createPollTransactionData.getPollName().length() < 1 || createPollTransactionData.getPollName().length() > Poll.MAX_NAME_SIZE)
+		int pollNameLength = Utf8.encodedLength(createPollTransactionData.getPollName());
+		if (pollNameLength < 1 || pollNameLength > Poll.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check description size bounds
-		if (createPollTransactionData.getDescription().length() < 1
-				|| createPollTransactionData.getDescription().length() > Poll.MAX_DESCRIPTION_SIZE)
+		int pollDescriptionLength = Utf8.encodedLength(createPollTransactionData.getDescription());
+		if (pollDescriptionLength < 1 || pollDescriptionLength > Poll.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
 		// Check poll name is lowercase
@@ -112,7 +114,7 @@ public class CreatePollTransaction extends Transaction {
 		List<String> optionNames = new ArrayList<String>();
 		for (PollOptionData pollOptionData : pollOptions) {
 			// Check option length
-			int optionNameLength = pollOptionData.getOptionName().getBytes(StandardCharsets.UTF_8).length;
+			int optionNameLength = Utf8.encodedLength(pollOptionData.getOptionName());
 			if (optionNameLength < 1 || optionNameLength > Poll.MAX_NAME_SIZE)
 				return ValidationResult.INVALID_OPTION_LENGTH;
 

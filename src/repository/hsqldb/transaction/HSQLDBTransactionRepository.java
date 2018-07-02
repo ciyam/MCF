@@ -24,6 +24,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBRegisterNameTransactionRepository registerNameTransactionRepository;
 	private HSQLDBUpdateNameTransactionRepository updateNameTransactionRepository;
 	private HSQLDBSellNameTransactionRepository sellNameTransactionRepository;
+	private HSQLDBCancelSellNameTransactionRepository cancelSellNameTransactionRepository;
 	private HSQLDBCreatePollTransactionRepository createPollTransactionRepository;
 	private HSQLDBVoteOnPollTransactionRepository voteOnPollTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
@@ -40,6 +41,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.registerNameTransactionRepository = new HSQLDBRegisterNameTransactionRepository(repository);
 		this.updateNameTransactionRepository = new HSQLDBUpdateNameTransactionRepository(repository);
 		this.sellNameTransactionRepository = new HSQLDBSellNameTransactionRepository(repository);
+		this.cancelSellNameTransactionRepository = new HSQLDBCancelSellNameTransactionRepository(repository);
 		this.createPollTransactionRepository = new HSQLDBCreatePollTransactionRepository(repository);
 		this.voteOnPollTransactionRepository = new HSQLDBVoteOnPollTransactionRepository(repository);
 		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
@@ -106,6 +108,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case SELL_NAME:
 				return this.sellNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case CANCEL_SELL_NAME:
+				return this.cancelSellNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case CREATE_POLL:
 				return this.createPollTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
@@ -245,6 +250,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case SELL_NAME:
 				this.sellNameTransactionRepository.save(transactionData);
+				break;
+
+			case CANCEL_SELL_NAME:
+				this.cancelSellNameTransactionRepository.save(transactionData);
 				break;
 
 			case CREATE_POLL:

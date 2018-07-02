@@ -12,25 +12,24 @@ import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
-import data.transaction.SellNameTransactionData;
+import data.transaction.CancelSellNameTransactionData;
 import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
 import qora.naming.Name;
 import transform.TransformationException;
 import utils.Serialization;
 
-public class SellNameTransactionTransformer extends TransactionTransformer {
+public class CancelSellNameTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int OWNER_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
-	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + AMOUNT_LENGTH;
+	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_DATALESS_LENGTH)
-			throw new TransformationException("Byte data too short for SellNameTransaction");
+			throw new TransformationException("Byte data too short for CancelSellNameTransaction");
 
 		long timestamp = byteBuffer.getLong();
 
@@ -42,45 +41,42 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 		String name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
 
 		// Still need to make sure there are enough bytes left for remaining fields
-		if (byteBuffer.remaining() < AMOUNT_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH)
-			throw new TransformationException("Byte data too short for SellNameTransaction");
-
-		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
+		if (byteBuffer.remaining() < FEE_LENGTH + SIGNATURE_LENGTH)
+			throw new TransformationException("Byte data too short for CancelSellNameTransaction");
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new SellNameTransactionData(ownerPublicKey, name, amount, fee, timestamp, reference, signature);
+		return new CancelSellNameTransactionData(ownerPublicKey, name, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		SellNameTransactionData sellNameTransactionData = (SellNameTransactionData) transactionData;
+		CancelSellNameTransactionData cancelSellNameTransactionData = (CancelSellNameTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(sellNameTransactionData.getName());
+		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(cancelSellNameTransactionData.getName());
 
 		return dataLength;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
 		try {
-			SellNameTransactionData sellNameTransactionData = (SellNameTransactionData) transactionData;
+			CancelSellNameTransactionData cancelSellNameTransactionData = (CancelSellNameTransactionData) transactionData;
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(sellNameTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(sellNameTransactionData.getTimestamp()));
-			bytes.write(sellNameTransactionData.getReference());
+			bytes.write(Ints.toByteArray(cancelSellNameTransactionData.getType().value));
+			bytes.write(Longs.toByteArray(cancelSellNameTransactionData.getTimestamp()));
+			bytes.write(cancelSellNameTransactionData.getReference());
 
-			bytes.write(sellNameTransactionData.getOwnerPublicKey());
-			Serialization.serializeSizedString(bytes, sellNameTransactionData.getName());
-			Serialization.serializeBigDecimal(bytes, sellNameTransactionData.getAmount());
+			bytes.write(cancelSellNameTransactionData.getOwnerPublicKey());
+			Serialization.serializeSizedString(bytes, cancelSellNameTransactionData.getName());
 
-			Serialization.serializeBigDecimal(bytes, sellNameTransactionData.getFee());
+			Serialization.serializeBigDecimal(bytes, cancelSellNameTransactionData.getFee());
 
-			if (sellNameTransactionData.getSignature() != null)
-				bytes.write(sellNameTransactionData.getSignature());
+			if (cancelSellNameTransactionData.getSignature() != null)
+				bytes.write(cancelSellNameTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {
@@ -93,15 +89,14 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
 
 		try {
-			SellNameTransactionData sellNameTransactionData = (SellNameTransactionData) transactionData;
+			CancelSellNameTransactionData cancelSellNameTransactionData = (CancelSellNameTransactionData) transactionData;
 
-			byte[] ownerPublicKey = sellNameTransactionData.getOwnerPublicKey();
+			byte[] ownerPublicKey = cancelSellNameTransactionData.getOwnerPublicKey();
 
 			json.put("owner", PublicKeyAccount.getAddress(ownerPublicKey));
 			json.put("ownerPublicKey", HashCode.fromBytes(ownerPublicKey).toString());
 
-			json.put("name", sellNameTransactionData.getName());
-			json.put("amount", sellNameTransactionData.getAmount().toPlainString());
+			json.put("name", cancelSellNameTransactionData.getName());
 		} catch (ClassCastException e) {
 			throw new TransformationException(e);
 		}

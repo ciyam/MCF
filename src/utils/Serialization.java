@@ -63,7 +63,8 @@ public class Serialization {
 	}
 
 	public static void serializeSizedString(ByteArrayOutputStream bytes, String string) throws UnsupportedEncodingException, IOException {
-		bytes.write(Ints.toByteArray(string.length()));
+		byte[] stringBytes = string.getBytes("UTF-8");
+		bytes.write(Ints.toByteArray(stringBytes.length));
 		bytes.write(string.getBytes("UTF-8"));
 	}
 

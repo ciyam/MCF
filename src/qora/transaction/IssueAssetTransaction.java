@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.base.Utf8;
+
 import data.transaction.IssueAssetTransactionData;
 import data.transaction.TransactionData;
 import qora.account.Account;
@@ -85,12 +87,13 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check name size bounds
-		if (issueAssetTransactionData.getAssetName().length() < 1 || issueAssetTransactionData.getAssetName().length() > IssueAssetTransaction.MAX_NAME_SIZE)
+		int assetNameLength = Utf8.encodedLength(issueAssetTransactionData.getAssetName());
+		if (assetNameLength < 1 || assetNameLength > IssueAssetTransaction.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check description size bounds
-		if (issueAssetTransactionData.getDescription().length() < 1
-				|| issueAssetTransactionData.getDescription().length() > IssueAssetTransaction.MAX_DESCRIPTION_SIZE)
+		int assetDescriptionlength = Utf8.encodedLength(issueAssetTransactionData.getDescription());
+		if (assetDescriptionlength < 1 || assetDescriptionlength > IssueAssetTransaction.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
 		// Check quantity - either 10 billion or if that's not enough: a billion billion!

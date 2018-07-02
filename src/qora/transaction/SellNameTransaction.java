@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.google.common.base.Utf8;
+
 import data.naming.NameData;
 import data.transaction.SellNameTransactionData;
 import data.transaction.TransactionData;
@@ -68,7 +70,8 @@ public class SellNameTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Check name size bounds
-		if (sellNameTransactionData.getName().length() < 1 || sellNameTransactionData.getName().length() > Name.MAX_NAME_SIZE)
+		int nameLength = Utf8.encodedLength(sellNameTransactionData.getName());
+		if (nameLength < 1 || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check name is lowercase

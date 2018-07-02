@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.base.Utf8;
+
 import data.transaction.UpdateNameTransactionData;
 import data.naming.NameData;
 import data.transaction.TransactionData;
@@ -79,11 +81,13 @@ public class UpdateNameTransaction extends Transaction {
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check name size bounds
-		if (updateNameTransactionData.getName().length() < 1 || updateNameTransactionData.getName().length() > Name.MAX_NAME_SIZE)
+		int nameLength = Utf8.encodedLength(updateNameTransactionData.getName());
+		if (nameLength < 1 || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
-		// Check value size bounds
-		if (updateNameTransactionData.getNewData().length() < 1 || updateNameTransactionData.getNewData().length() > Name.MAX_DATA_SIZE)
+		// Check new data size bounds
+		int newDataLength = Utf8.encodedLength(updateNameTransactionData.getNewData());
+		if (newDataLength < 1 || newDataLength > Name.MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// Check name is lowercase

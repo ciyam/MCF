@@ -16,6 +16,7 @@ import data.account.AccountBalanceData;
 import data.account.AccountData;
 import data.block.BlockData;
 import data.naming.NameData;
+import data.transaction.CancelSellNameTransactionData;
 import data.transaction.CreatePollTransactionData;
 import data.transaction.PaymentTransactionData;
 import data.transaction.RegisterNameTransactionData;
@@ -31,6 +32,7 @@ import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
 import qora.block.Block;
 import qora.block.BlockChain;
+import qora.transaction.CancelSellNameTransaction;
 import qora.transaction.CreatePollTransaction;
 import qora.transaction.PaymentTransaction;
 import qora.transaction.RegisterNameTransaction;
@@ -223,7 +225,7 @@ public class TransactionTests {
 		byte[] nameReference = reference;
 
 		BigDecimal fee = BigDecimal.ONE;
-		long timestamp = parentBlockData.getTimestamp() + 2_000;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		UpdateNameTransactionData updateNameTransactionData = new UpdateNameTransactionData(sender.getPublicKey(), newOwner.getAddress(), name, newData,
 				nameReference, fee, timestamp, reference);
 
@@ -269,7 +271,7 @@ public class TransactionTests {
 		BigDecimal amount = BigDecimal.valueOf(1234L).setScale(8);
 
 		BigDecimal fee = BigDecimal.ONE;
-		long timestamp = parentBlockData.getTimestamp() + 2_000;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		SellNameTransactionData sellNameTransactionData = new SellNameTransactionData(sender.getPublicKey(), name, amount, fee, timestamp, reference);
 
 		Transaction sellNameTransaction = new SellNameTransaction(repository, sellNameTransactionData);
@@ -301,6 +303,61 @@ public class TransactionTests {
 		actualNameData = this.repository.getNameRepository().fromName(name);
 		assertFalse(actualNameData.getIsForSale());
 		assertNull(actualNameData.getSalePrice());
+
+		// Re-process block for use by other tests
+		block.process();
+		repository.saveChanges();
+
+		// Update variables for use by other tests
+		reference = sender.getLastReference();
+		parentBlockData = block.getBlockData();
+	}
+
+	@Test
+	public void testCancelSellNameTransaction() throws DataException {
+		// Register and sell name using another test
+		testSellNameTransaction();
+
+		String name = "test name";
+		NameData originalNameData = this.repository.getNameRepository().fromName(name);
+
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+		CancelSellNameTransactionData cancelSellNameTransactionData = new CancelSellNameTransactionData(sender.getPublicKey(), name, fee, timestamp, reference);
+
+		Transaction cancelSellNameTransaction = new CancelSellNameTransaction(repository, cancelSellNameTransactionData);
+		cancelSellNameTransaction.calcSignature(sender);
+		assertTrue(cancelSellNameTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, cancelSellNameTransaction.isValid());
+
+		// Forge new block with transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(cancelSellNameTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check name was updated
+		NameData actualNameData = this.repository.getNameRepository().fromName(name);
+		assertFalse(actualNameData.getIsForSale());
+		assertEquals(originalNameData.getSalePrice(), actualNameData.getSalePrice());
+
+		// Now orphan block
+		block.orphan();
+		repository.saveChanges();
+
+		// Check name has been reverted correctly
+		actualNameData = this.repository.getNameRepository().fromName(name);
+		assertTrue(actualNameData.getIsForSale());
+		assertEquals(originalNameData.getSalePrice(), actualNameData.getSalePrice());
+
+		// Update variables for use by other tests
+		reference = sender.getLastReference();
+		parentBlockData = block.getBlockData();
 	}
 
 	@Test

@@ -1,6 +1,7 @@
 package qora.naming;
 
 import data.naming.NameData;
+import data.transaction.CancelSellNameTransactionData;
 import data.transaction.RegisterNameTransactionData;
 import data.transaction.SellNameTransactionData;
 import data.transaction.TransactionData;
@@ -113,6 +114,22 @@ public class Name {
 		// Mark not for-sale and unset price
 		this.nameData.setIsForSale(false);
 		this.nameData.setSalePrice(null);
+
+		// Save no-sale info into repository
+		this.repository.getNameRepository().save(this.nameData);
+	}
+
+	public void sell(CancelSellNameTransactionData cancelSellNameTransactionData) throws DataException {
+		// Mark not for-sale but leave price in case we want to orphan
+		this.nameData.setIsForSale(false);
+
+		// Save sale info into repository
+		this.repository.getNameRepository().save(this.nameData);
+	}
+
+	public void unsell(CancelSellNameTransactionData cancelSellNameTransactionData) throws DataException {
+		// Mark as for-sale using existing price
+		this.nameData.setIsForSale(true);
 
 		// Save no-sale info into repository
 		this.repository.getNameRepository().save(this.nameData);

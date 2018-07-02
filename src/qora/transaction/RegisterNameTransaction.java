@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.base.Utf8;
+
 import data.transaction.RegisterNameTransactionData;
 import data.transaction.TransactionData;
 import qora.account.Account;
@@ -78,11 +80,13 @@ public class RegisterNameTransaction extends Transaction {
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check name size bounds
-		if (registerNameTransactionData.getName().length() < 1 || registerNameTransactionData.getName().length() > Name.MAX_NAME_SIZE)
+		int nameLength = Utf8.encodedLength(registerNameTransactionData.getName());
+		if (nameLength < 1 || nameLength > Name.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
-		// Check value size bounds
-		if (registerNameTransactionData.getData().length() < 1 || registerNameTransactionData.getData().length() > Name.MAX_DATA_SIZE)
+		// Check data size bounds
+		int dataLength = Utf8.encodedLength(registerNameTransactionData.getData());
+		if (dataLength < 1 || dataLength > Name.MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// Check name is lowercase
