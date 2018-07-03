@@ -21,7 +21,7 @@ import utils.Serialization;
 public class CancelOrderTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int CREATOR_LENGTH = LONG_LENGTH;
+	private static final int CREATOR_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int ORDER_ID_LENGTH = SIGNATURE_LENGTH;
 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + ORDER_ID_LENGTH;

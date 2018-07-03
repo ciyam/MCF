@@ -50,7 +50,11 @@ public class Serialization {
 		return Serialization.deserializeBigDecimal(byteBuffer, 8);
 	}
 
-	public static String deserializeRecipient(ByteBuffer byteBuffer) {
+	public static void serializeAddress(ByteArrayOutputStream bytes, String address) throws IOException {
+		bytes.write(Base58.decode(address));
+	}
+
+	public static String deserializeAddress(ByteBuffer byteBuffer) {
 		byte[] bytes = new byte[Transformer.ADDRESS_LENGTH];
 		byteBuffer.get(bytes);
 		return Base58.encode(bytes);

@@ -49,6 +49,9 @@ public class TransactionTransformer extends Transformer {
 			case CANCEL_SELL_NAME:
 				return CancelSellNameTransactionTransformer.fromByteBuffer(byteBuffer);
 
+			case BUY_NAME:
+				return BuyNameTransactionTransformer.fromByteBuffer(byteBuffer);
+
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.fromByteBuffer(byteBuffer);
 
@@ -97,6 +100,9 @@ public class TransactionTransformer extends Transformer {
 
 			case CANCEL_SELL_NAME:
 				return CancelSellNameTransactionTransformer.getDataLength(transactionData);
+
+			case BUY_NAME:
+				return BuyNameTransactionTransformer.getDataLength(transactionData);
 
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.getDataLength(transactionData);
@@ -147,6 +153,9 @@ public class TransactionTransformer extends Transformer {
 			case CANCEL_SELL_NAME:
 				return CancelSellNameTransactionTransformer.toBytes(transactionData);
 
+			case BUY_NAME:
+				return BuyNameTransactionTransformer.toBytes(transactionData);
+
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.toBytes(transactionData);
 
@@ -195,6 +204,9 @@ public class TransactionTransformer extends Transformer {
 
 			case CANCEL_SELL_NAME:
 				return CancelSellNameTransactionTransformer.toJSON(transactionData);
+
+			case BUY_NAME:
+				return BuyNameTransactionTransformer.toJSON(transactionData);
 
 			case CREATE_POLL:
 				return CreatePollTransactionTransformer.toJSON(transactionData);

@@ -98,7 +98,7 @@ public class MessageTransaction extends Transaction {
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// Check reference is correct
-		Account sender = new PublicKeyAccount(this.repository, messageTransactionData.getSenderPublicKey());
+		Account sender = getSender();
 		if (!Arrays.equals(sender.getLastReference(), messageTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 

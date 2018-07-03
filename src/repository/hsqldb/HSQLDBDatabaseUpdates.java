@@ -190,7 +190,7 @@ public class HSQLDBDatabaseUpdates {
 			case 9:
 				// Buy Name Transactions
 				stmt.execute("CREATE TABLE BuyNameTransactions (signature Signature, buyer QoraPublicKey NOT NULL, name RegisteredName NOT NULL, "
-						+ "seller QoraAddress NOT NULL, amount QoraAmount NOT NULL, "
+						+ "seller QoraAddress NOT NULL, amount QoraAmount NOT NULL, name_reference Signature NOT NULL, "
 						+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				break;
 

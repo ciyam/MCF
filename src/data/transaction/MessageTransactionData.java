@@ -18,8 +18,9 @@ public class MessageTransactionData extends TransactionData {
 	protected boolean isEncrypted;
 
 	// Constructors
-	public MessageTransactionData(int version, byte[] senderPublicKey, String recipient, Long assetId, BigDecimal amount, BigDecimal fee, byte[] data,
-			boolean isText, boolean isEncrypted, long timestamp, byte[] reference, byte[] signature) {
+
+	public MessageTransactionData(int version, byte[] senderPublicKey, String recipient, Long assetId, BigDecimal amount, byte[] data, boolean isText,
+			boolean isEncrypted, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.MESSAGE, fee, senderPublicKey, timestamp, reference, signature);
 
 		this.version = version;
@@ -35,6 +36,11 @@ public class MessageTransactionData extends TransactionData {
 		this.data = data;
 		this.isText = isText;
 		this.isEncrypted = isEncrypted;
+	}
+
+	public MessageTransactionData(int version, byte[] senderPublicKey, String recipient, Long assetId, BigDecimal amount, byte[] data, boolean isText,
+			boolean isEncrypted, BigDecimal fee, long timestamp, byte[] reference) {
+		this(version, senderPublicKey, recipient, assetId, amount, data, isText, isEncrypted, fee, timestamp, reference, null);
 	}
 
 	// Getters/Setters

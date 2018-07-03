@@ -11,7 +11,6 @@ import com.google.common.primitives.Longs;
 
 import data.PaymentData;
 import transform.TransformationException;
-import utils.Base58;
 import utils.Serialization;
 
 public class PaymentTransformer extends Transformer {
@@ -27,7 +26,7 @@ public class PaymentTransformer extends Transformer {
 		if (byteBuffer.remaining() < TOTAL_LENGTH)
 			throw new TransformationException("Byte data too short for payment information");
 
-		String recipient = Serialization.deserializeRecipient(byteBuffer);
+		String recipient = Serialization.deserializeAddress(byteBuffer);
 		long assetId = byteBuffer.getLong();
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
@@ -42,7 +41,7 @@ public class PaymentTransformer extends Transformer {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Base58.decode(paymentData.getRecipient()));
+			Serialization.serializeAddress(bytes, paymentData.getRecipient());
 			bytes.write(Longs.toByteArray(paymentData.getAssetId()));
 			Serialization.serializeBigDecimal(bytes, paymentData.getAmount());
 

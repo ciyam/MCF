@@ -21,7 +21,6 @@ import data.voting.PollOptionData;
 import qora.account.PublicKeyAccount;
 import qora.voting.Poll;
 import transform.TransformationException;
-import utils.Base58;
 import utils.Serialization;
 
 public class CreatePollTransactionTransformer extends TransactionTransformer {
@@ -47,7 +46,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 
 		byte[] creatorPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String owner = Serialization.deserializeRecipient(byteBuffer);
+		String owner = Serialization.deserializeAddress(byteBuffer);
 
 		String pollName = Serialization.deserializeSizedString(byteBuffer, Poll.MAX_NAME_SIZE);
 		String description = Serialization.deserializeSizedString(byteBuffer, Poll.MAX_DESCRIPTION_SIZE);
@@ -103,7 +102,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			bytes.write(createPollTransactionData.getReference());
 
 			bytes.write(createPollTransactionData.getCreatorPublicKey());
-			bytes.write(Base58.decode(createPollTransactionData.getOwner()));
+			Serialization.serializeAddress(bytes, createPollTransactionData.getOwner());
 			Serialization.serializeSizedString(bytes, createPollTransactionData.getPollName());
 			Serialization.serializeSizedString(bytes, createPollTransactionData.getDescription());
 

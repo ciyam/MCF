@@ -17,7 +17,6 @@ import qora.account.PublicKeyAccount;
 import qora.transaction.IssueAssetTransaction;
 import data.transaction.IssueAssetTransactionData;
 import transform.TransformationException;
-import utils.Base58;
 import utils.Serialization;
 
 public class IssueAssetTransactionTransformer extends TransactionTransformer {
@@ -43,7 +42,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		byteBuffer.get(reference);
 
 		byte[] issuerPublicKey = Serialization.deserializePublicKey(byteBuffer);
-		String owner = Serialization.deserializeRecipient(byteBuffer);
+		String owner = Serialization.deserializeAddress(byteBuffer);
 
 		String assetName = Serialization.deserializeSizedString(byteBuffer, IssueAssetTransaction.MAX_NAME_SIZE);
 		String description = Serialization.deserializeSizedString(byteBuffer, IssueAssetTransaction.MAX_DESCRIPTION_SIZE);
@@ -81,7 +80,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 			bytes.write(issueAssetTransactionData.getReference());
 
 			bytes.write(issueAssetTransactionData.getIssuerPublicKey());
-			bytes.write(Base58.decode(issueAssetTransactionData.getOwner()));
+			Serialization.serializeAddress(bytes, issueAssetTransactionData.getOwner());
 			Serialization.serializeSizedString(bytes, issueAssetTransactionData.getAssetName());
 			Serialization.serializeSizedString(bytes, issueAssetTransactionData.getDescription());
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getQuantity()));

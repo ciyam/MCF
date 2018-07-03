@@ -26,6 +26,11 @@ public class UpdateNameTransactionData extends TransactionData {
 		this.nameReference = nameReference;
 	}
 
+	public UpdateNameTransactionData(byte[] ownerPublicKey, String newOwner, String name, String newData, BigDecimal fee, long timestamp, byte[] reference,
+			byte[] signature) {
+		this(ownerPublicKey, newOwner, name, newData, null, fee, timestamp, reference, signature);
+	}
+
 	public UpdateNameTransactionData(byte[] ownerPublicKey, String newOwner, String name, String newData, byte[] nameReference, BigDecimal fee, long timestamp,
 			byte[] reference) {
 		this(ownerPublicKey, newOwner, name, newData, nameReference, fee, timestamp, reference, null);

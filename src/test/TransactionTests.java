@@ -2,6 +2,7 @@ package test;
 
 import static org.junit.Assert.*;
 
+import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,8 +17,10 @@ import data.account.AccountBalanceData;
 import data.account.AccountData;
 import data.block.BlockData;
 import data.naming.NameData;
+import data.transaction.BuyNameTransactionData;
 import data.transaction.CancelSellNameTransactionData;
 import data.transaction.CreatePollTransactionData;
+import data.transaction.MessageTransactionData;
 import data.transaction.PaymentTransactionData;
 import data.transaction.RegisterNameTransactionData;
 import data.transaction.SellNameTransactionData;
@@ -32,8 +35,10 @@ import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
 import qora.block.Block;
 import qora.block.BlockChain;
+import qora.transaction.BuyNameTransaction;
 import qora.transaction.CancelSellNameTransaction;
 import qora.transaction.CreatePollTransaction;
+import qora.transaction.MessageTransaction;
 import qora.transaction.PaymentTransaction;
 import qora.transaction.RegisterNameTransaction;
 import qora.transaction.SellNameTransaction;
@@ -114,6 +119,19 @@ public class TransactionTests {
 	@After
 	public void closeRepository() throws DataException {
 		RepositoryManager.closeRepositoryFactory();
+	}
+
+	private Transaction createPayment(PrivateKeyAccount sender, String recipient) throws DataException {
+		// Make a new payment transaction
+		BigDecimal amount = BigDecimal.valueOf(1_000L);
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(sender.getPublicKey(), recipient, amount, fee, timestamp, reference);
+
+		Transaction paymentTransaction = new PaymentTransaction(repository, paymentTransactionData);
+		paymentTransaction.calcSignature(sender);
+
+		return paymentTransaction;
 	}
 
 	@Test
@@ -361,6 +379,70 @@ public class TransactionTests {
 	}
 
 	@Test
+	public void testBuyNameTransaction() throws DataException {
+		// Register and sell name using another test
+		testSellNameTransaction();
+
+		String name = "test name";
+		NameData originalNameData = this.repository.getNameRepository().fromName(name);
+		String seller = originalNameData.getOwner();
+
+		// Buyer
+		PrivateKeyAccount buyer = new PrivateKeyAccount(repository, recipientSeed);
+		byte[] nameReference = reference;
+
+		// Send buyer some funds so they have a reference
+		Transaction somePaymentTransaction = createPayment(sender, buyer.getAddress());
+		byte[] buyersReference = somePaymentTransaction.getTransactionData().getSignature();
+
+		// Forge new block with transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(somePaymentTransaction.getTransactionData());
+		block.sign();
+
+		block.process();
+		repository.saveChanges();
+		parentBlockData = block.getBlockData();
+
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+		BuyNameTransactionData buyNameTransactionData = new BuyNameTransactionData(buyer.getPublicKey(), name, originalNameData.getSalePrice(), seller,
+				nameReference, fee, timestamp, buyersReference);
+
+		Transaction buyNameTransaction = new BuyNameTransaction(repository, buyNameTransactionData);
+		buyNameTransaction.calcSignature(buyer);
+		assertTrue(buyNameTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, buyNameTransaction.isValid());
+
+		// Forge new block with transaction
+		block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(buyNameTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check name was updated
+		NameData actualNameData = this.repository.getNameRepository().fromName(name);
+		assertFalse(actualNameData.getIsForSale());
+		assertEquals(originalNameData.getSalePrice(), actualNameData.getSalePrice());
+		assertEquals(buyer.getAddress(), actualNameData.getOwner());
+
+		// Now orphan block
+		block.orphan();
+		repository.saveChanges();
+
+		// Check name has been reverted correctly
+		actualNameData = this.repository.getNameRepository().fromName(name);
+		assertTrue(actualNameData.getIsForSale());
+		assertEquals(originalNameData.getSalePrice(), actualNameData.getSalePrice());
+		assertEquals(originalNameData.getOwner(), actualNameData.getOwner());
+	}
+
+	@Test
 	public void testCreatePollTransaction() throws DataException {
 		// This test requires GenesisBlock's timestamp is set to something after BlockChain.VOTING_RELEASE_TIMESTAMP
 		createTestAccounts(BlockChain.VOTING_RELEASE_TIMESTAMP + 1_000L);
@@ -489,6 +571,80 @@ public class TransactionTests {
 
 		assertEquals("Wrong vote option index", pollOptionsSize - 1 - 1, votes.get(0).getOptionIndex());
 		assertTrue("Wrong voter public key", Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()));
+	}
+
+	@Test
+	public void testIssueAssetTransaction() throws DataException {
+		// TODO
+	}
+
+	@Test
+	public void testTransferAssetTransaction() throws DataException {
+		// TODO
+	}
+
+	@Test
+	public void testCreateAssetOrderTransaction() throws DataException {
+		// TODO
+	}
+
+	@Test
+	public void testCancelAssetOrderTransaction() throws DataException {
+		// TODO
+	}
+
+	@Test
+	public void testMultiPaymentTransaction() throws DataException {
+		// TODO
+	}
+
+	@Test
+	public void testMessageTransaction() throws DataException, UnsupportedEncodingException {
+		createTestAccounts(null);
+
+		// Make a new message transaction
+		Account recipient = new PublicKeyAccount(repository, recipientSeed);
+		BigDecimal amount = BigDecimal.valueOf(1_000L);
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+		int version = Transaction.getVersionByTimestamp(timestamp);
+		byte[] data = "test".getBytes("UTF-8");
+		boolean isText = true;
+		boolean isEncrypted = false;
+
+		MessageTransactionData messageTransactionData = new MessageTransactionData(version, sender.getPublicKey(), recipient.getAddress(), Asset.QORA, amount,
+				data, isText, isEncrypted, fee, timestamp, reference);
+
+		Transaction messageTransaction = new MessageTransaction(repository, messageTransactionData);
+		messageTransaction.calcSignature(sender);
+		assertTrue(messageTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, messageTransaction.isValid());
+
+		// Forge new block with message transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(messageTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check sender's balance
+		BigDecimal expectedBalance = senderBalance.subtract(amount).subtract(fee);
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+
+		// Fee should be in generator's balance
+		expectedBalance = generatorBalance.add(fee);
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+
+		// Amount should be in recipient's balance
+		expectedBalance = amount;
+		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 	}
 
 }

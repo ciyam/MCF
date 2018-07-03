@@ -32,7 +32,7 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransformationException("Byte data too short for PaymentTransaction");
+			throw new TransformationException("Byte data too short for MultiPaymentTransaction");
 
 		long timestamp = byteBuffer.getLong();
 
@@ -45,7 +45,7 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 		// Check remaining buffer size
 		int minRemaining = paymentsCount * PaymentTransformer.getDataLength() + FEE_LENGTH + SIGNATURE_LENGTH;
 		if (byteBuffer.remaining() < minRemaining)
-			throw new TransformationException("Byte data too short for PaymentTransaction");
+			throw new TransformationException("Byte data too short for MultiPaymentTransaction");
 
 		List<PaymentData> payments = new ArrayList<PaymentData>();
 		for (int i = 0; i < paymentsCount; ++i)
@@ -81,7 +81,7 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 			bytes.write(Ints.toByteArray(payments.size()));
 
 			for (PaymentData paymentData : payments)
-				PaymentTransformer.toBytes(paymentData);
+				bytes.write(PaymentTransformer.toBytes(paymentData));
 
 			Serialization.serializeBigDecimal(bytes, multiPaymentTransactionData.getFee());
 

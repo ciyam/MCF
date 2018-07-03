@@ -15,7 +15,6 @@ import data.transaction.TransactionData;
 import data.transaction.TransferAssetTransactionData;
 import qora.account.PublicKeyAccount;
 import transform.TransformationException;
-import utils.Base58;
 import utils.Serialization;
 
 public class TransferAssetTransactionTransformer extends TransactionTransformer {
@@ -38,7 +37,7 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 		byteBuffer.get(reference);
 
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
-		String recipient = Serialization.deserializeRecipient(byteBuffer);
+		String recipient = Serialization.deserializeAddress(byteBuffer);
 		long assetId = byteBuffer.getLong();
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
 
@@ -65,7 +64,7 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 			bytes.write(transferAssetTransactionData.getReference());
 
 			bytes.write(transferAssetTransactionData.getSenderPublicKey());
-			bytes.write(Base58.decode(transferAssetTransactionData.getRecipient()));
+			Serialization.serializeAddress(bytes, transferAssetTransactionData.getRecipient());
 			bytes.write(Longs.toByteArray(transferAssetTransactionData.getAssetId()));
 			Serialization.serializeBigDecimal(bytes, transferAssetTransactionData.getAmount(), AMOUNT_LENGTH);
 

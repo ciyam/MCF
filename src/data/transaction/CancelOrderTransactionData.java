@@ -19,6 +19,10 @@ public class CancelOrderTransactionData extends TransactionData {
 		this.orderId = orderId;
 	}
 
+	public CancelOrderTransactionData(byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, long timestamp, byte[] reference) {
+		this(creatorPublicKey, orderId, fee, timestamp, reference, null);
+	}
+
 	// Getters/Setters
 
 	public byte[] getCreatorPublicKey() {

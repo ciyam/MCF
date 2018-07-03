@@ -49,6 +49,12 @@ public class CancelOrderTransaction extends Transaction {
 		return amount;
 	}
 
+	// Navigation
+
+	public Account getCreator() throws DataException {
+		return new PublicKeyAccount(this.repository, cancelOrderTransactionData.getCreatorPublicKey());
+	}
+
 	// Processing
 
 	@Override
@@ -65,7 +71,7 @@ public class CancelOrderTransaction extends Transaction {
 		if (orderData == null)
 			return ValidationResult.ORDER_DOES_NOT_EXIST;
 
-		Account creator = new PublicKeyAccount(this.repository, cancelOrderTransactionData.getCreatorPublicKey());
+		Account creator = getCreator();
 
 		// Check creator's public key results in valid address
 		if (!Crypto.isValidAddress(creator.getAddress()))
@@ -89,7 +95,7 @@ public class CancelOrderTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		Account creator = new PublicKeyAccount(this.repository, cancelOrderTransactionData.getCreatorPublicKey());
+		Account creator = getCreator();
 
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
@@ -111,7 +117,7 @@ public class CancelOrderTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		Account creator = new PublicKeyAccount(this.repository, cancelOrderTransactionData.getCreatorPublicKey());
+		Account creator = getCreator();
 
 		// Save this transaction itself
 		this.repository.getTransactionRepository().delete(this.transactionData);

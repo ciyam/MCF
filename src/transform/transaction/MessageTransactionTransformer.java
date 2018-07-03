@@ -18,7 +18,6 @@ import qora.assets.Asset;
 import qora.transaction.MessageTransaction;
 import data.transaction.MessageTransactionData;
 import transform.TransformationException;
-import utils.Base58;
 import utils.Serialization;
 
 public class MessageTransactionTransformer extends TransactionTransformer {
@@ -54,7 +53,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		byteBuffer.get(reference);
 
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
-		String recipient = Serialization.deserializeRecipient(byteBuffer);
+		String recipient = Serialization.deserializeAddress(byteBuffer);
 
 		long assetId;
 		if (version == 1)
@@ -84,7 +83,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new MessageTransactionData(version, senderPublicKey, recipient, assetId, amount, fee, data, isText, isEncrypted, timestamp, reference,
+		return new MessageTransactionData(version, senderPublicKey, recipient, assetId, amount, data, isText, isEncrypted, fee, timestamp, reference,
 				signature);
 	}
 
@@ -108,7 +107,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 			bytes.write(messageTransactionData.getReference());
 
 			bytes.write(messageTransactionData.getSenderPublicKey());
-			bytes.write(Base58.decode(messageTransactionData.getRecipient()));
+			Serialization.serializeAddress(bytes, messageTransactionData.getRecipient());
 
 			if (messageTransactionData.getVersion() != 1)
 				bytes.write(Longs.toByteArray(messageTransactionData.getAssetId()));

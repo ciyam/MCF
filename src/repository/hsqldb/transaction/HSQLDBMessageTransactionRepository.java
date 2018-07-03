@@ -32,7 +32,7 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 			Long assetId = rs.getLong(7);
 			byte[] data = rs.getBytes(8);
 
-			return new MessageTransactionData(version, senderPublicKey, recipient, assetId, amount, fee, data, isText, isEncrypted, timestamp, reference,
+			return new MessageTransactionData(version, senderPublicKey, recipient, assetId, amount, data, isText, isEncrypted, fee, timestamp, reference,
 					signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch message transaction from repository", e);

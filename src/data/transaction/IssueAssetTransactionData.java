@@ -20,7 +20,7 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	public IssueAssetTransactionData(Long assetId, byte[] issuerPublicKey, String owner, String assetName, String description, long quantity,
 			boolean isDivisible, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.ISSUE_ASSET, fee, issuerPublicKey, timestamp, reference);
+		super(TransactionType.ISSUE_ASSET, fee, issuerPublicKey, timestamp, reference, signature);
 
 		this.assetId = assetId;
 		this.issuerPublicKey = issuerPublicKey;

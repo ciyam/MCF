@@ -15,7 +15,6 @@ import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
 import data.transaction.PaymentTransactionData;
 import transform.TransformationException;
-import utils.Base58;
 import utils.Serialization;
 
 public class PaymentTransactionTransformer extends TransactionTransformer {
@@ -37,7 +36,7 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 		byteBuffer.get(reference);
 
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
-		String recipient = Serialization.deserializeRecipient(byteBuffer);
+		String recipient = Serialization.deserializeAddress(byteBuffer);
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
@@ -63,7 +62,7 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 			bytes.write(paymentTransactionData.getReference());
 
 			bytes.write(paymentTransactionData.getSenderPublicKey());
-			bytes.write(Base58.decode(paymentTransactionData.getRecipient()));
+			Serialization.serializeAddress(bytes, paymentTransactionData.getRecipient());
 			Serialization.serializeBigDecimal(bytes, paymentTransactionData.getAmount());
 
 			Serialization.serializeBigDecimal(bytes, paymentTransactionData.getFee());

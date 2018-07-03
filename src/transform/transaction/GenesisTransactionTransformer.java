@@ -13,7 +13,6 @@ import com.google.common.primitives.Longs;
 import data.transaction.TransactionData;
 import data.transaction.GenesisTransactionData;
 import transform.TransformationException;
-import utils.Base58;
 import utils.Serialization;
 
 public class GenesisTransactionTransformer extends TransactionTransformer {
@@ -30,7 +29,7 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 			throw new TransformationException("Byte data too short for GenesisTransaction");
 
 		long timestamp = byteBuffer.getLong();
-		String recipient = Serialization.deserializeRecipient(byteBuffer);
+		String recipient = Serialization.deserializeAddress(byteBuffer);
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
 		return new GenesisTransactionData(recipient, amount, timestamp);
@@ -49,7 +48,7 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 			bytes.write(Ints.toByteArray(genesisTransactionData.getType().value));
 			bytes.write(Longs.toByteArray(genesisTransactionData.getTimestamp()));
 
-			bytes.write(Base58.decode(genesisTransactionData.getRecipient()));
+			Serialization.serializeAddress(bytes, genesisTransactionData.getRecipient());
 			Serialization.serializeBigDecimal(bytes, genesisTransactionData.getAmount());
 
 			return bytes.toByteArray();

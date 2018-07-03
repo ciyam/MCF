@@ -89,7 +89,7 @@ public class TransferAssetTransaction extends Transaction {
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check reference is correct
-		PublicKeyAccount sender = new PublicKeyAccount(this.repository, transferAssetTransactionData.getSenderPublicKey());
+		Account sender = getSender();
 
 		if (!Arrays.equals(sender.getLastReference(), transferAssetTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;

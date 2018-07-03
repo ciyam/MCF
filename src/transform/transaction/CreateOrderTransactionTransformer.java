@@ -20,10 +20,11 @@ import utils.Serialization;
 public class CreateOrderTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
+	private static final int CREATOR_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 	private static final int AMOUNT_LENGTH = 12; // Not standard BIG_DECIMAL_LENGTH
 
-	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + (ASSET_ID_LENGTH + AMOUNT_LENGTH) * 2;
+	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + (ASSET_ID_LENGTH + AMOUNT_LENGTH) * 2;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		if (byteBuffer.remaining() < TYPELESS_LENGTH)

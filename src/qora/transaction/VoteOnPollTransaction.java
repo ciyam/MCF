@@ -56,6 +56,12 @@ public class VoteOnPollTransaction extends Transaction {
 		return amount;
 	}
 
+	// Navigation
+
+	public Account getVoter() throws DataException {
+		return new PublicKeyAccount(this.repository, voteOnPollTransactionData.getVoterPublicKey());
+	}
+
 	// Processing
 
 	@Override
@@ -98,13 +104,13 @@ public class VoteOnPollTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		PublicKeyAccount creator = new PublicKeyAccount(this.repository, voteOnPollTransactionData.getCreatorPublicKey());
+		Account voter = getVoter();
 
-		if (!Arrays.equals(creator.getLastReference(), voteOnPollTransactionData.getReference()))
+		if (!Arrays.equals(voter.getLastReference(), voteOnPollTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
-		// Check issuer has enough funds
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(voteOnPollTransactionData.getFee()) == -1)
+		// Check voter has enough funds
+		if (voter.getConfirmedBalance(Asset.QORA).compareTo(voteOnPollTransactionData.getFee()) == -1)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -113,7 +119,7 @@ public class VoteOnPollTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update voter's balance
-		Account voter = new PublicKeyAccount(this.repository, voteOnPollTransactionData.getVoterPublicKey());
+		Account voter = getVoter();
 		voter.setConfirmedBalance(Asset.QORA, voter.getConfirmedBalance(Asset.QORA).subtract(voteOnPollTransactionData.getFee()));
 
 		// Update vote's reference
@@ -138,11 +144,11 @@ public class VoteOnPollTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Update issuer's balance
-		Account voter = new PublicKeyAccount(this.repository, voteOnPollTransactionData.getVoterPublicKey());
+		// Update voter's balance
+		Account voter = getVoter();
 		voter.setConfirmedBalance(Asset.QORA, voter.getConfirmedBalance(Asset.QORA).add(voteOnPollTransactionData.getFee()));
 
-		// Update issuer's reference
+		// Update voter's reference
 		voter.setLastReference(voteOnPollTransactionData.getReference());
 
 		// Does this transaction have previous vote info?

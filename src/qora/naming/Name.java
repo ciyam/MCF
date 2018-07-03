@@ -1,11 +1,14 @@
 package qora.naming;
 
 import data.naming.NameData;
+import data.transaction.BuyNameTransactionData;
 import data.transaction.CancelSellNameTransactionData;
 import data.transaction.RegisterNameTransactionData;
 import data.transaction.SellNameTransactionData;
 import data.transaction.TransactionData;
 import data.transaction.UpdateNameTransactionData;
+import qora.account.Account;
+import qora.account.PublicKeyAccount;
 import repository.DataException;
 import repository.Repository;
 
@@ -56,6 +59,35 @@ public class Name {
 		this.repository.getNameRepository().delete(this.nameData.getName());
 	}
 
+	private void revert() throws DataException {
+		TransactionData previousTransactionData = this.repository.getTransactionRepository().fromSignature(this.nameData.getReference());
+		if (previousTransactionData == null)
+			throw new DataException("Unable to revert name transaction as referenced transaction not found in repository");
+
+		switch (previousTransactionData.getType()) {
+			case REGISTER_NAME:
+				RegisterNameTransactionData previousRegisterNameTransactionData = (RegisterNameTransactionData) previousTransactionData;
+				this.nameData.setOwner(previousRegisterNameTransactionData.getOwner());
+				this.nameData.setData(previousRegisterNameTransactionData.getData());
+				break;
+
+			case UPDATE_NAME:
+				UpdateNameTransactionData previousUpdateNameTransactionData = (UpdateNameTransactionData) previousTransactionData;
+				this.nameData.setData(previousUpdateNameTransactionData.getNewData());
+				this.nameData.setOwner(previousUpdateNameTransactionData.getNewOwner());
+				break;
+
+			case BUY_NAME:
+				BuyNameTransactionData previousBuyNameTransactionData = (BuyNameTransactionData) previousTransactionData;
+				Account buyer = new PublicKeyAccount(this.repository, previousBuyNameTransactionData.getBuyerPublicKey());
+				this.nameData.setOwner(buyer.getAddress());
+				break;
+
+			default:
+				throw new IllegalStateException("Unable to revert name transaction due to unsupported referenced transaction");
+		}
+	}
+
 	public void update(UpdateNameTransactionData updateNameTransactionData) throws DataException {
 		// Update reference in transaction data
 		updateNameTransactionData.setNameReference(this.nameData.getReference());
@@ -76,26 +108,7 @@ public class Name {
 		this.nameData.setReference(updateNameTransactionData.getNameReference());
 
 		// Previous Name's owner and/or data taken from referenced transaction
-		TransactionData previousTransactionData = this.repository.getTransactionRepository().fromSignature(this.nameData.getReference());
-		if (previousTransactionData == null)
-			throw new DataException("Unable to un-update name as referenced transaction not found in repository");
-
-		switch (previousTransactionData.getType()) {
-			case REGISTER_NAME:
-				RegisterNameTransactionData previousRegisterNameTransactionData = (RegisterNameTransactionData) previousTransactionData;
-				this.nameData.setOwner(previousRegisterNameTransactionData.getOwner());
-				this.nameData.setData(previousRegisterNameTransactionData.getData());
-				break;
-
-			case UPDATE_NAME:
-				UpdateNameTransactionData previousUpdateNameTransactionData = (UpdateNameTransactionData) previousTransactionData;
-				this.nameData.setData(previousUpdateNameTransactionData.getNewData());
-				this.nameData.setOwner(previousUpdateNameTransactionData.getNewOwner());
-				break;
-
-			default:
-				throw new IllegalStateException("Unable to revert update name transaction due to unsupported referenced transaction");
-		}
+		this.revert();
 
 		// Save reverted name data
 		this.repository.getNameRepository().save(this.nameData);
@@ -132,6 +145,38 @@ public class Name {
 		this.nameData.setIsForSale(true);
 
 		// Save no-sale info into repository
+		this.repository.getNameRepository().save(this.nameData);
+	}
+
+	public void buy(BuyNameTransactionData buyNameTransactionData) throws DataException {
+		// Mark not for-sale but leave price in case we want to orphan
+		this.nameData.setIsForSale(false);
+
+		// Set new owner
+		Account buyer = new PublicKeyAccount(this.repository, buyNameTransactionData.getBuyerPublicKey());
+		this.nameData.setOwner(buyer.getAddress());
+
+		// Update reference in transaction data
+		buyNameTransactionData.setNameReference(this.nameData.getReference());
+
+		// New name reference is this transaction's signature
+		this.nameData.setReference(buyNameTransactionData.getSignature());
+
+		// Save updated name data
+		this.repository.getNameRepository().save(this.nameData);
+	}
+
+	public void unbuy(BuyNameTransactionData buyNameTransactionData) throws DataException {
+		// Mark as for-sale using existing price
+		this.nameData.setIsForSale(true);
+
+		// Previous name reference is taken from this transaction's cached copy
+		this.nameData.setReference(buyNameTransactionData.getNameReference());
+
+		// Previous Name's owner and/or data taken from referenced transaction
+		this.revert();
+
+		// Save reverted name data
 		this.repository.getNameRepository().save(this.nameData);
 	}
 

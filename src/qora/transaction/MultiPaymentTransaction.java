@@ -98,7 +98,7 @@ public class MultiPaymentTransaction extends Transaction {
 			return ValidationResult.INVALID_PAYMENTS_COUNT;
 
 		// Check reference is correct
-		PublicKeyAccount sender = new PublicKeyAccount(this.repository, multiPaymentTransactionData.getSenderPublicKey());
+		Account sender = getSender();
 
 		if (!Arrays.equals(sender.getLastReference(), multiPaymentTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;

@@ -89,7 +89,7 @@ public class SellNameTransaction extends Transaction {
 			return ValidationResult.NAME_ALREADY_FOR_SALE;
 
 		// Check transaction's public key matches name's current owner
-		Account owner = new PublicKeyAccount(this.repository, sellNameTransactionData.getOwnerPublicKey());
+		Account owner = getOwner();
 		if (!owner.getAddress().equals(nameData.getOwner()))
 			return ValidationResult.INVALID_NAME_OWNER;
 
@@ -114,7 +114,6 @@ public class SellNameTransaction extends Transaction {
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
-
 	}
 
 	@Override
@@ -127,7 +126,7 @@ public class SellNameTransaction extends Transaction {
 		this.repository.getTransactionRepository().save(sellNameTransactionData);
 
 		// Update owner's balance
-		Account owner = new PublicKeyAccount(this.repository, sellNameTransactionData.getOwnerPublicKey());
+		Account owner = getOwner();
 		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).subtract(sellNameTransactionData.getFee()));
 
 		// Update owner's reference
@@ -144,7 +143,7 @@ public class SellNameTransaction extends Transaction {
 		this.repository.getTransactionRepository().delete(sellNameTransactionData);
 
 		// Update owner's balance
-		Account owner = new PublicKeyAccount(this.repository, sellNameTransactionData.getOwnerPublicKey());
+		Account owner = getOwner();
 		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(sellNameTransactionData.getFee()));
 
 		// Update owner's reference

@@ -17,7 +17,6 @@ import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
 import qora.naming.Name;
 import transform.TransformationException;
-import utils.Base58;
 import utils.Serialization;
 
 public class UpdateNameTransactionTransformer extends TransactionTransformer {
@@ -41,7 +40,7 @@ public class UpdateNameTransactionTransformer extends TransactionTransformer {
 
 		byte[] ownerPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String newOwner = Serialization.deserializeRecipient(byteBuffer);
+		String newOwner = Serialization.deserializeAddress(byteBuffer);
 
 		String name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
 		String newData = Serialization.deserializeSizedString(byteBuffer, Name.MAX_DATA_SIZE);
@@ -55,7 +54,7 @@ public class UpdateNameTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new UpdateNameTransactionData(ownerPublicKey, newOwner, name, newData, null, fee, timestamp, reference, signature);
+		return new UpdateNameTransactionData(ownerPublicKey, newOwner, name, newData, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -78,7 +77,7 @@ public class UpdateNameTransactionTransformer extends TransactionTransformer {
 			bytes.write(updateNameTransactionData.getReference());
 
 			bytes.write(updateNameTransactionData.getOwnerPublicKey());
-			bytes.write(Base58.decode(updateNameTransactionData.getNewOwner()));
+			Serialization.serializeAddress(bytes, updateNameTransactionData.getNewOwner());
 			Serialization.serializeSizedString(bytes, updateNameTransactionData.getName());
 			Serialization.serializeSizedString(bytes, updateNameTransactionData.getNewData());
 

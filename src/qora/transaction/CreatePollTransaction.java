@@ -131,7 +131,7 @@ public class CreatePollTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		PublicKeyAccount creator = new PublicKeyAccount(this.repository, createPollTransactionData.getCreatorPublicKey());
+		Account creator = getCreator();
 
 		if (!Arrays.equals(creator.getLastReference(), createPollTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
@@ -153,7 +153,7 @@ public class CreatePollTransaction extends Transaction {
 		this.repository.getTransactionRepository().save(createPollTransactionData);
 
 		// Update creator's balance
-		Account creator = new PublicKeyAccount(this.repository, createPollTransactionData.getCreatorPublicKey());
+		Account creator = getCreator();
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(createPollTransactionData.getFee()));
 
 		// Update creator's reference
@@ -170,7 +170,7 @@ public class CreatePollTransaction extends Transaction {
 		this.repository.getTransactionRepository().delete(createPollTransactionData);
 
 		// Update creator's balance
-		Account creator = new PublicKeyAccount(this.repository, createPollTransactionData.getCreatorPublicKey());
+		Account creator = getCreator();
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(createPollTransactionData.getFee()));
 
 		// Update creator's reference

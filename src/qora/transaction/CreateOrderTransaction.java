@@ -52,6 +52,10 @@ public class CreateOrderTransaction extends Transaction {
 
 	// Navigation
 
+	public Account getCreator() throws DataException {
+		return new PublicKeyAccount(this.repository, createOrderTransactionData.getCreatorPublicKey());
+	}
+
 	public Order getOrder() throws DataException {
 		// orderId is the transaction signature
 		OrderData orderData = this.repository.getAssetRepository().fromOrderId(this.createOrderTransactionData.getSignature());
@@ -92,7 +96,7 @@ public class CreateOrderTransaction extends Transaction {
 		if (wantAssetData == null)
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
-		Account creator = new PublicKeyAccount(this.repository, createOrderTransactionData.getCreatorPublicKey());
+		Account creator = getCreator();
 
 		// Check reference is correct
 		if (!Arrays.equals(creator.getLastReference(), createOrderTransactionData.getReference()))
@@ -129,7 +133,7 @@ public class CreateOrderTransaction extends Transaction {
 	}
 
 	public void process() throws DataException {
-		Account creator = new PublicKeyAccount(this.repository, createOrderTransactionData.getCreatorPublicKey());
+		Account creator = getCreator();
 
 		// Update creator's balance due to fee
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(createOrderTransactionData.getFee()));
@@ -152,7 +156,7 @@ public class CreateOrderTransaction extends Transaction {
 	}
 
 	public void orphan() throws DataException {
-		Account creator = new PublicKeyAccount(this.repository, createOrderTransactionData.getCreatorPublicKey());
+		Account creator = getCreator();
 
 		// Update creator's balance due to fee
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(createOrderTransactionData.getFee()));

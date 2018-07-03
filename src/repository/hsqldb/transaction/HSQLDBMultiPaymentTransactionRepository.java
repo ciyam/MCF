@@ -20,7 +20,7 @@ public class HSQLDBMultiPaymentTransactionRepository extends HSQLDBTransactionRe
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
 		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT sender MultiPaymentTransactions WHERE signature = ?", signature);
+			ResultSet rs = this.repository.checkedExecute("SELECT sender from MultiPaymentTransactions WHERE signature = ?", signature);
 			if (rs == null)
 				return null;
 

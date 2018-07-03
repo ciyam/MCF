@@ -106,7 +106,7 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		PublicKeyAccount issuer = new PublicKeyAccount(this.repository, issueAssetTransactionData.getIssuerPublicKey());
+		Account issuer = getIssuer();
 
 		if (!Arrays.equals(issuer.getLastReference(), issueAssetTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
@@ -134,20 +134,20 @@ public class IssueAssetTransaction extends Transaction {
 		this.repository.getTransactionRepository().save(issueAssetTransactionData);
 
 		// Update issuer's balance
-		Account issuer = new PublicKeyAccount(this.repository, issueAssetTransactionData.getIssuerPublicKey());
+		Account issuer = getIssuer();
 		issuer.setConfirmedBalance(Asset.QORA, issuer.getConfirmedBalance(Asset.QORA).subtract(issueAssetTransactionData.getFee()));
 
 		// Update issuer's reference
 		issuer.setLastReference(issueAssetTransactionData.getSignature());
 
 		// Add asset to owner
-		Account owner = new Account(this.repository, issueAssetTransactionData.getOwner());
+		Account owner = getOwner();
 		owner.setConfirmedBalance(issueAssetTransactionData.getAssetId(), BigDecimal.valueOf(issueAssetTransactionData.getQuantity()).setScale(8));
 	}
 
 	public void orphan() throws DataException {
 		// Remove asset from owner
-		Account owner = new Account(this.repository, issueAssetTransactionData.getOwner());
+		Account owner = getOwner();
 		owner.deleteBalance(issueAssetTransactionData.getAssetId());
 
 		// Issue asset
@@ -158,7 +158,7 @@ public class IssueAssetTransaction extends Transaction {
 		this.repository.getTransactionRepository().delete(issueAssetTransactionData);
 
 		// Update issuer's balance
-		Account issuer = new PublicKeyAccount(this.repository, issueAssetTransactionData.getIssuerPublicKey());
+		Account issuer = getIssuer();
 		issuer.setConfirmedBalance(Asset.QORA, issuer.getConfirmedBalance(Asset.QORA).add(issueAssetTransactionData.getFee()));
 
 		// Update issuer's reference

@@ -102,7 +102,7 @@ public class RegisterNameTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		PublicKeyAccount registrant = new PublicKeyAccount(this.repository, registerNameTransactionData.getRegistrantPublicKey());
+		Account registrant = getRegistrant();
 
 		if (!Arrays.equals(registrant.getLastReference(), registerNameTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
@@ -124,7 +124,7 @@ public class RegisterNameTransaction extends Transaction {
 		this.repository.getTransactionRepository().save(registerNameTransactionData);
 
 		// Update registrant's balance
-		Account registrant = new PublicKeyAccount(this.repository, registerNameTransactionData.getRegistrantPublicKey());
+		Account registrant = getRegistrant();
 		registrant.setConfirmedBalance(Asset.QORA, registrant.getConfirmedBalance(Asset.QORA).subtract(registerNameTransactionData.getFee()));
 
 		// Update registrant's reference
@@ -141,7 +141,7 @@ public class RegisterNameTransaction extends Transaction {
 		this.repository.getTransactionRepository().delete(registerNameTransactionData);
 
 		// Update registrant's balance
-		Account registrant = new PublicKeyAccount(this.repository, registerNameTransactionData.getRegistrantPublicKey());
+		Account registrant = getRegistrant();
 		registrant.setConfirmedBalance(Asset.QORA, registrant.getConfirmedBalance(Asset.QORA).add(registerNameTransactionData.getFee()));
 
 		// Update registrant's reference

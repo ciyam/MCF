@@ -74,7 +74,7 @@ public class PaymentTransaction extends Transaction {
 
 	public ValidationResult isValid() throws DataException {
 		// Check reference is correct
-		Account sender = new PublicKeyAccount(repository, paymentTransactionData.getSenderPublicKey());
+		Account sender = getSender();
 		if (!Arrays.equals(sender.getLastReference(), paymentTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 

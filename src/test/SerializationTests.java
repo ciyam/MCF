@@ -61,9 +61,9 @@ public class SerializationTests extends Common {
 
 		TransactionData parsedTransactionData = TransactionTransformer.fromBytes(bytes);
 
-		assertTrue(Arrays.equals(transactionData.getSignature(), parsedTransactionData.getSignature()));
+		assertTrue("Transaction signature mismatch", Arrays.equals(transactionData.getSignature(), parsedTransactionData.getSignature()));
 
-		assertEquals(TransactionTransformer.getDataLength(transactionData), bytes.length);
+		assertEquals("Data length mismatch", TransactionTransformer.getDataLength(transactionData), bytes.length);
 	}
 
 	private void testSpecificBlockTransactions(int height, TransactionType type) throws DataException, TransformationException {
@@ -84,13 +84,11 @@ public class SerializationTests extends Common {
 
 	@Test
 	public void testPaymentSerialization() throws TransformationException, DataException {
-		// Blocks 390 & 754 have only payment transactions
 		testSpecificBlockTransactions(754, TransactionType.PAYMENT);
 	}
 
 	@Test
 	public void testRegisterNameSerialization() throws TransformationException, DataException {
-		// Block 120 has only name registration transactions
 		testSpecificBlockTransactions(120, TransactionType.REGISTER_NAME);
 	}
 
@@ -110,9 +108,43 @@ public class SerializationTests extends Common {
 	}
 
 	@Test
+	public void testBuyNameSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(973, TransactionType.BUY_NAME);
+	}
+
+	@Test
 	public void testCreatePollSerialization() throws TransformationException, DataException {
-		// Block 10537 has only create poll transactions
 		testSpecificBlockTransactions(10537, TransactionType.CREATE_POLL);
+	}
+
+	@Test
+	public void testVoteOnPollSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(10540, TransactionType.CREATE_POLL);
+	}
+
+	@Test
+	public void testIssueAssetSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(33661, TransactionType.ISSUE_ASSET);
+	}
+
+	@Test
+	public void testTransferAssetSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(39039, TransactionType.TRANSFER_ASSET);
+	}
+
+	@Test
+	public void testCreateAssetOrderSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(35611, TransactionType.CREATE_ASSET_ORDER);
+	}
+
+	@Test
+	public void testCancelAssetOrderSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(36176, TransactionType.CANCEL_ASSET_ORDER);
+	}
+
+	@Test
+	public void testMultiPaymentSerialization() throws TransformationException, DataException {
+		testSpecificBlockTransactions(34500, TransactionType.MULTIPAYMENT);
 	}
 
 	@Test
