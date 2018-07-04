@@ -1,7 +1,6 @@
 package data.transaction;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 
 import data.PaymentData;
@@ -22,8 +21,8 @@ public class MultiPaymentTransactionData extends TransactionData {
 		this.payments = payments;
 	}
 
-	public MultiPaymentTransactionData(byte[] senderPublicKey, BigDecimal fee, long timestamp, byte[] reference) {
-		this(senderPublicKey, new ArrayList<PaymentData>(), fee, timestamp, reference, null);
+	public MultiPaymentTransactionData(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, long timestamp, byte[] reference) {
+		this(senderPublicKey, payments, fee, timestamp, reference, null);
 	}
 
 	// Getters/setters
