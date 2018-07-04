@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.json.simple.JSONObject;
 import org.junit.After;
 import org.junit.Test;
 
@@ -15,15 +16,18 @@ import com.google.common.hash.HashCode;
 
 import data.account.AccountBalanceData;
 import data.account.AccountData;
+import data.assets.AssetData;
 import data.block.BlockData;
 import data.naming.NameData;
 import data.transaction.BuyNameTransactionData;
 import data.transaction.CancelSellNameTransactionData;
 import data.transaction.CreatePollTransactionData;
+import data.transaction.IssueAssetTransactionData;
 import data.transaction.MessageTransactionData;
 import data.transaction.PaymentTransactionData;
 import data.transaction.RegisterNameTransactionData;
 import data.transaction.SellNameTransactionData;
+import data.transaction.TransferAssetTransactionData;
 import data.transaction.UpdateNameTransactionData;
 import data.transaction.VoteOnPollTransactionData;
 import data.voting.PollData;
@@ -38,15 +42,18 @@ import qora.block.BlockChain;
 import qora.transaction.BuyNameTransaction;
 import qora.transaction.CancelSellNameTransaction;
 import qora.transaction.CreatePollTransaction;
+import qora.transaction.IssueAssetTransaction;
 import qora.transaction.MessageTransaction;
 import qora.transaction.PaymentTransaction;
 import qora.transaction.RegisterNameTransaction;
 import qora.transaction.SellNameTransaction;
 import qora.transaction.Transaction;
 import qora.transaction.Transaction.ValidationResult;
+import qora.transaction.TransferAssetTransaction;
 import qora.transaction.UpdateNameTransaction;
 import qora.transaction.VoteOnPollTransaction;
 import repository.AccountRepository;
+import repository.AssetRepository;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryFactory;
@@ -63,8 +70,8 @@ public class TransactionTests {
 	private static final byte[] senderSeed = HashCode.fromString("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").asBytes();
 	private static final byte[] recipientSeed = HashCode.fromString("fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210").asBytes();
 
-	private static final BigDecimal generatorBalance = BigDecimal.valueOf(1_000_000_000L);
-	private static final BigDecimal senderBalance = BigDecimal.valueOf(1_000_000L);
+	private static final BigDecimal initialGeneratorBalance = BigDecimal.valueOf(1_000_000_000L);
+	private static final BigDecimal initialSenderBalance = BigDecimal.valueOf(1_000_000L);
 
 	private Repository repository;
 	private AccountRepository accountRepository;
@@ -73,6 +80,7 @@ public class TransactionTests {
 	private PrivateKeyAccount generator;
 	private byte[] reference;
 
+	@SuppressWarnings("unchecked")
 	public void createTestAccounts(Long genesisTimestamp) throws DataException {
 		RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
 		RepositoryManager.setRepositoryFactory(repositoryFactory);
@@ -82,10 +90,11 @@ public class TransactionTests {
 		}
 
 		// [Un]set genesis timestamp as required by test
+		JSONObject settingsJSON = new JSONObject();
 		if (genesisTimestamp != null)
-			Settings.getInstance().setGenesisTimestamp(genesisTimestamp);
-		else
-			Settings.getInstance().unsetGenesisTimestamp();
+			settingsJSON.put("testnetstamp", genesisTimestamp);
+
+		Settings.test(settingsJSON);
 
 		// This needs to be called outside of acquiring our own repository or it will deadlock
 		BlockChain.validate();
@@ -101,7 +110,7 @@ public class TransactionTests {
 		// Create test generator account
 		generator = new PrivateKeyAccount(repository, generatorSeed);
 		accountRepository.save(new AccountData(generator.getAddress(), generatorSeed));
-		accountRepository.save(new AccountBalanceData(generator.getAddress(), Asset.QORA, generatorBalance));
+		accountRepository.save(new AccountBalanceData(generator.getAddress(), Asset.QORA, initialGeneratorBalance));
 
 		// Create test sender account
 		sender = new PrivateKeyAccount(repository, senderSeed);
@@ -111,7 +120,7 @@ public class TransactionTests {
 		accountRepository.save(new AccountData(sender.getAddress(), reference));
 
 		// Mock balance
-		accountRepository.save(new AccountBalanceData(sender.getAddress(), Asset.QORA, senderBalance));
+		accountRepository.save(new AccountBalanceData(sender.getAddress(), Asset.QORA, initialSenderBalance));
 
 		repository.saveChanges();
 	}
@@ -163,12 +172,12 @@ public class TransactionTests {
 		repository.saveChanges();
 
 		// Check sender's balance
-		BigDecimal expectedBalance = senderBalance.subtract(amount).subtract(fee);
+		BigDecimal expectedBalance = initialSenderBalance.subtract(amount).subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
-		expectedBalance = generatorBalance.add(fee);
+		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
@@ -176,6 +185,22 @@ public class TransactionTests {
 		expectedBalance = amount;
 		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+
+		// Check recipient's reference
+		byte[] recipientsReference = recipient.getLastReference();
+		assertTrue("Recipient's new reference incorrect", Arrays.equals(paymentTransaction.getTransactionData().getSignature(), recipientsReference));
+
+		// Orphan block
+		block.orphan();
+		repository.saveChanges();
+
+		// Check sender's balance
+		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
+
+		// Check generator's balance
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Generator's new balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
 	}
 
 	@Test
@@ -208,12 +233,12 @@ public class TransactionTests {
 		repository.saveChanges();
 
 		// Check sender's balance
-		BigDecimal expectedBalance = senderBalance.subtract(fee);
+		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
-		expectedBalance = generatorBalance.add(fee);
+		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
@@ -445,7 +470,7 @@ public class TransactionTests {
 	@Test
 	public void testCreatePollTransaction() throws DataException {
 		// This test requires GenesisBlock's timestamp is set to something after BlockChain.VOTING_RELEASE_TIMESTAMP
-		createTestAccounts(BlockChain.VOTING_RELEASE_TIMESTAMP + 1_000L);
+		createTestAccounts(BlockChain.getVotingReleaseTimestamp() + 1_000L);
 
 		// Make a new create poll transaction
 		String pollName = "test poll";
@@ -479,12 +504,12 @@ public class TransactionTests {
 		repository.saveChanges();
 
 		// Check sender's balance
-		BigDecimal expectedBalance = senderBalance.subtract(fee);
+		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
-		expectedBalance = generatorBalance.add(fee);
+		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
@@ -575,12 +600,174 @@ public class TransactionTests {
 
 	@Test
 	public void testIssueAssetTransaction() throws DataException {
-		// TODO
+		createTestAccounts(null);
+
+		// Create new asset
+		String assetName = "test asset";
+		String description = "test asset description";
+		long quantity = 1_000_000L;
+		boolean isDivisible = false;
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+
+		IssueAssetTransactionData issueAssetTransactionData = new IssueAssetTransactionData(sender.getPublicKey(), sender.getAddress(), assetName, description,
+				quantity, isDivisible, fee, timestamp, reference);
+
+		Transaction issueAssetTransaction = new IssueAssetTransaction(repository, issueAssetTransactionData);
+		issueAssetTransaction.calcSignature(sender);
+		assertTrue(issueAssetTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, issueAssetTransaction.isValid());
+
+		// Forge new block with payment transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(issueAssetTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check sender's balance
+		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+
+		// Fee should be in generator's balance
+		expectedBalance = initialGeneratorBalance.add(fee);
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+
+		// Check we now have an assetId
+		Long assetId = issueAssetTransactionData.getAssetId();
+		assertNotNull(assetId);
+		// Should NOT collide with Asset.QORA
+		assertFalse(assetId == Asset.QORA);
+
+		// Check asset now exists
+		AssetRepository assetRepo = this.repository.getAssetRepository();
+		assertTrue(assetRepo.assetExists(assetId));
+		assertTrue(assetRepo.assetExists(assetName));
+		// Check asset data
+		AssetData assetData = assetRepo.fromAssetId(assetId);
+		assertNotNull(assetData);
+		assertEquals(assetName, assetData.getName());
+		assertEquals(description, assetData.getDescription());
+
+		// Orphan block
+		block.orphan();
+		repository.saveChanges();
+
+		// Check sender's balance
+		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
+
+		// Check generator's balance
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Generator's reverted balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
+
+		// Check asset no longer exists
+		assertFalse(assetRepo.assetExists(assetId));
+		assertFalse(assetRepo.assetExists(assetName));
+		assetData = assetRepo.fromAssetId(assetId);
+		assertNull(assetData);
+
+		// Re-process block for use by other tests
+		block.process();
+		repository.saveChanges();
+
+		// Update variables for use by other tests
+		reference = sender.getLastReference();
+		parentBlockData = block.getBlockData();
 	}
 
 	@Test
 	public void testTransferAssetTransaction() throws DataException {
-		// TODO
+		// Issue asset using another test
+		testIssueAssetTransaction();
+
+		String assetName = "test asset";
+		AssetRepository assetRepo = this.repository.getAssetRepository();
+		AssetData originalAssetData = assetRepo.fromAssetName(assetName);
+		long assetId = originalAssetData.getAssetId();
+		BigDecimal originalSenderBalance = sender.getConfirmedBalance(Asset.QORA);
+		BigDecimal originalGeneratorBalance = generator.getConfirmedBalance(Asset.QORA);
+
+		// Transfer asset to new recipient
+		Account recipient = new PublicKeyAccount(repository, recipientSeed);
+		BigDecimal amount = BigDecimal.valueOf(1_000L).setScale(8);
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+
+		TransferAssetTransactionData transferAssetTransactionData = new TransferAssetTransactionData(sender.getPublicKey(), recipient.getAddress(), amount,
+				assetId, fee, timestamp, reference);
+
+		Transaction transferAssetTransaction = new TransferAssetTransaction(repository, transferAssetTransactionData);
+		transferAssetTransaction.calcSignature(sender);
+		assertTrue(transferAssetTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, transferAssetTransaction.isValid());
+
+		// Forge new block with payment transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(transferAssetTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check sender's balance
+		BigDecimal expectedBalance = originalSenderBalance.subtract(fee);
+		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+
+		// Fee should be in generator's balance
+		expectedBalance = originalGeneratorBalance.add(fee);
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+
+		// Check asset balances
+		BigDecimal actualSenderAssetBalance = sender.getConfirmedBalance(assetId);
+		assertNotNull(actualSenderAssetBalance);
+		BigDecimal expectedSenderAssetBalance = BigDecimal.valueOf(originalAssetData.getQuantity()).setScale(8).subtract(amount);
+		assertEquals(expectedSenderAssetBalance, actualSenderAssetBalance);
+
+		BigDecimal actualRecipientAssetBalance = recipient.getConfirmedBalance(assetId);
+		assertNotNull(actualRecipientAssetBalance);
+		assertEquals(amount, actualRecipientAssetBalance);
+
+		// Orphan block
+		block.orphan();
+		repository.saveChanges();
+
+		// Check sender's balance
+		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Sender's reverted balance incorrect", originalSenderBalance.compareTo(actualBalance) == 0);
+
+		// Check generator's balance
+		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
+		assertTrue("Generator's reverted balance incorrect", originalGeneratorBalance.compareTo(actualBalance) == 0);
+
+		// Check asset balances
+		actualSenderAssetBalance = sender.getConfirmedBalance(assetId);
+		assertNotNull(actualSenderAssetBalance);
+		expectedSenderAssetBalance = BigDecimal.valueOf(originalAssetData.getQuantity()).setScale(8);
+		assertEquals(expectedSenderAssetBalance, actualSenderAssetBalance);
+
+		actualRecipientAssetBalance = recipient.getConfirmedBalance(assetId);
+		if (actualRecipientAssetBalance != null)
+			assertEquals(BigDecimal.ZERO.setScale(8), actualRecipientAssetBalance);
+
+		// Re-process block for use by other tests
+		block.process();
+		repository.saveChanges();
+
+		// Update variables for use by other tests
+		reference = sender.getLastReference();
+		parentBlockData = block.getBlockData();
 	}
 
 	@Test
@@ -600,7 +787,7 @@ public class TransactionTests {
 
 	@Test
 	public void testMessageTransaction() throws DataException, UnsupportedEncodingException {
-		createTestAccounts(null);
+		createTestAccounts(1431861220336L); // timestamp taken from main blockchain block 99000
 
 		// Make a new message transaction
 		Account recipient = new PublicKeyAccount(repository, recipientSeed);
@@ -632,12 +819,12 @@ public class TransactionTests {
 		repository.saveChanges();
 
 		// Check sender's balance
-		BigDecimal expectedBalance = senderBalance.subtract(amount).subtract(fee);
+		BigDecimal expectedBalance = initialSenderBalance.subtract(amount).subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
-		expectedBalance = generatorBalance.add(fee);
+		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 

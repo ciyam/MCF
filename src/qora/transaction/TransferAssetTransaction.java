@@ -85,7 +85,7 @@ public class TransferAssetTransaction extends Transaction {
 		TransferAssetTransactionData transferAssetTransactionData = (TransferAssetTransactionData) this.transactionData;
 
 		// Are IssueAssetTransactions even allowed at this point?
-		if (NTP.getTime() < BlockChain.ASSETS_RELEASE_TIMESTAMP)
+		if (NTP.getTime() < BlockChain.getAssetsReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check reference is correct

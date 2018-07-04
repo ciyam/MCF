@@ -39,6 +39,26 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	public AssetData fromAssetName(String assetName) throws DataException {
+		try {
+			ResultSet resultSet = this.repository
+					.checkedExecute("SELECT owner, asset_id, description, quantity, is_divisible, reference FROM Assets WHERE asset_name = ?", assetName);
+			if (resultSet == null)
+				return null;
+
+			String owner = resultSet.getString(1);
+			long assetId = resultSet.getLong(2);
+			String description = resultSet.getString(3);
+			long quantity = resultSet.getLong(4);
+			boolean isDivisible = resultSet.getBoolean(5);
+			byte[] reference = resultSet.getBytes(6);
+
+			return new AssetData(assetId, owner, assetName, description, quantity, isDivisible, reference);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch asset from repository", e);
+		}
+	}
+
 	public boolean assetExists(long assetId) throws DataException {
 		try {
 			return this.repository.exists("Assets", "asset_id = ?", assetId);
@@ -73,7 +93,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	public void delete(long assetId) throws DataException {
 		try {
-			this.repository.delete("Assets", "assetId = ?", assetId);
+			this.repository.delete("Assets", "asset_id = ?", assetId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete asset from repository", e);
 		}

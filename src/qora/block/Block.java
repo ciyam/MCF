@@ -155,9 +155,9 @@ public class Block {
 	 * @return 1, 2 or 3
 	 */
 	public int getNextBlockVersion() {
-		if (this.blockData.getHeight() < BlockChain.AT_BLOCK_HEIGHT_RELEASE)
+		if (this.blockData.getHeight() < BlockChain.getATReleaseHeight())
 			return 1;
-		else if (this.blockData.getTimestamp() < BlockChain.POWFIX_RELEASE_TIMESTAMP)
+		else if (this.blockData.getTimestamp() < BlockChain.getPowFixReleaseTimestamp())
 			return 2;
 		else
 			return 3;

@@ -46,9 +46,9 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 		HSQLDBSaver saveHelper = new HSQLDBSaver("IssueAssetTransactions");
 
 		saveHelper.bind("signature", issueAssetTransactionData.getSignature()).bind("issuer", issueAssetTransactionData.getIssuerPublicKey())
-				.bind("asset_name", issueAssetTransactionData.getAssetName()).bind("description", issueAssetTransactionData.getDescription())
-				.bind("quantity", issueAssetTransactionData.getQuantity()).bind("is_divisible", issueAssetTransactionData.getIsDivisible())
-				.bind("asset_id", issueAssetTransactionData.getAssetId());
+				.bind("owner", issueAssetTransactionData.getOwner()).bind("asset_name", issueAssetTransactionData.getAssetName())
+				.bind("description", issueAssetTransactionData.getDescription()).bind("quantity", issueAssetTransactionData.getQuantity())
+				.bind("is_divisible", issueAssetTransactionData.getIsDivisible()).bind("asset_id", issueAssetTransactionData.getAssetId());
 
 		try {
 			saveHelper.execute(this.repository);

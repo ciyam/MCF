@@ -10,6 +10,7 @@ import repository.BlockRepository;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
+import settings.Settings;
 
 /**
  * Class representing the blockchain as a whole.
@@ -31,11 +32,11 @@ public class BlockChain {
 	public static final long BLOCK_TIMESTAMP_MARGIN = 500L;
 
 	// Various release timestamps / block heights
-	public static final int MESSAGE_RELEASE_HEIGHT = 99000;
-	public static final int AT_BLOCK_HEIGHT_RELEASE = 99000;
-	public static final long POWFIX_RELEASE_TIMESTAMP = 1456426800000L; // Block Version 3 // 2016-02-25T19:00:00+00:00
-	public static final long ASSETS_RELEASE_TIMESTAMP = 0L; // From Qora epoch
-	public static final long VOTING_RELEASE_TIMESTAMP = 1403715600000L; // 2014-06-25T17:00:00+00:00
+	private static final int MESSAGE_RELEASE_HEIGHT = 99000;
+	private static final int AT_RELEASE_HEIGHT = 99000;
+	private static final long POWFIX_RELEASE_TIMESTAMP = 1456426800000L; // Block Version 3 // 2016-02-25T19:00:00+00:00
+	private static final long ASSETS_RELEASE_TIMESTAMP = 0L; // From Qora epoch
+	private static final long VOTING_RELEASE_TIMESTAMP = 1403715600000L; // 2014-06-25T17:00:00+00:00
 
 	/**
 	 * Some sort start-up/initialization/checking method.
@@ -94,6 +95,41 @@ public class BlockChain {
 			return MAX_BALANCE;
 
 		return balance;
+	}
+
+	public static int getMessageReleaseHeight() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return MESSAGE_RELEASE_HEIGHT;
+	}
+
+	public static int getATReleaseHeight() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return AT_RELEASE_HEIGHT;
+	}
+
+	public static long getPowFixReleaseTimestamp() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return POWFIX_RELEASE_TIMESTAMP;
+	}
+
+	public static long getAssetsReleaseTimestamp() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return ASSETS_RELEASE_TIMESTAMP;
+	}
+
+	public static long getVotingReleaseTimestamp() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return VOTING_RELEASE_TIMESTAMP;
 	}
 
 }

@@ -90,7 +90,7 @@ public class MultiPaymentTransaction extends Transaction {
 		List<PaymentData> payments = multiPaymentTransactionData.getPayments();
 
 		// Are MultiPaymentTransactions even allowed at this point?
-		if (NTP.getTime() < BlockChain.ASSETS_RELEASE_TIMESTAMP)
+		if (NTP.getTime() < BlockChain.getAssetsReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check number of payments
@@ -105,7 +105,7 @@ public class MultiPaymentTransaction extends Transaction {
 
 		// Check sender has enough funds for fee
 		// NOTE: in Gen1 pre-POWFIX-RELEASE transactions didn't have this check
-		if (multiPaymentTransactionData.getTimestamp() >= BlockChain.POWFIX_RELEASE_TIMESTAMP
+		if (multiPaymentTransactionData.getTimestamp() >= BlockChain.getPowFixReleaseTimestamp()
 				&& sender.getConfirmedBalance(Asset.QORA).compareTo(multiPaymentTransactionData.getFee()) == -1)
 			return ValidationResult.NO_BALANCE;
 

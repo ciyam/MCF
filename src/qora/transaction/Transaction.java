@@ -206,7 +206,7 @@ public abstract class Transaction {
 	 * @return transaction version number, likely 1 or 3
 	 */
 	public static int getVersionByTimestamp(long timestamp) {
-		if (timestamp < BlockChain.POWFIX_RELEASE_TIMESTAMP) {
+		if (timestamp < BlockChain.getPowFixReleaseTimestamp()) {
 			return 1;
 		} else {
 			return 3;

@@ -115,7 +115,7 @@ public class CreateOrderTransaction extends Transaction {
 
 			// Check creator has enough funds for fee in QORA
 			// NOTE: in Gen1 pre-POWFIX-RELEASE transactions didn't have this check
-			if (createOrderTransactionData.getTimestamp() >= BlockChain.POWFIX_RELEASE_TIMESTAMP
+			if (createOrderTransactionData.getTimestamp() >= BlockChain.getPowFixReleaseTimestamp()
 					&& creator.getConfirmedBalance(Asset.QORA).compareTo(createOrderTransactionData.getFee()) == -1)
 				return ValidationResult.NO_BALANCE;
 		}

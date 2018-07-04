@@ -128,7 +128,7 @@ public class Payment {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Update sender's balance due to fee
-		sender.setConfirmedBalance(Asset.QORA, sender.getConfirmedBalance(Asset.QORA).subtract(fee));
+		sender.setConfirmedBalance(Asset.QORA, sender.getConfirmedBalance(Asset.QORA).add(fee));
 
 		// Update sender's reference
 		sender.setLastReference(reference);

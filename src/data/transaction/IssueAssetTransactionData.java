@@ -36,6 +36,11 @@ public class IssueAssetTransactionData extends TransactionData {
 		this(null, issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference, signature);
 	}
 
+	public IssueAssetTransactionData(byte[] issuerPublicKey, String owner, String assetName, String description, long quantity, boolean isDivisible,
+			BigDecimal fee, long timestamp, byte[] reference) {
+		this(null, issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference, null);
+	}
+
 	// Getters/Setters
 
 	public Long getAssetId() {
