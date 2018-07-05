@@ -18,10 +18,14 @@ import data.PaymentData;
 import data.account.AccountBalanceData;
 import data.account.AccountData;
 import data.assets.AssetData;
+import data.assets.OrderData;
+import data.assets.TradeData;
 import data.block.BlockData;
 import data.naming.NameData;
 import data.transaction.BuyNameTransactionData;
+import data.transaction.CancelOrderTransactionData;
 import data.transaction.CancelSellNameTransactionData;
+import data.transaction.CreateOrderTransactionData;
 import data.transaction.CreatePollTransactionData;
 import data.transaction.IssueAssetTransactionData;
 import data.transaction.MessageTransactionData;
@@ -42,7 +46,9 @@ import qora.assets.Asset;
 import qora.block.Block;
 import qora.block.BlockChain;
 import qora.transaction.BuyNameTransaction;
+import qora.transaction.CancelOrderTransaction;
 import qora.transaction.CancelSellNameTransaction;
+import qora.transaction.CreateOrderTransaction;
 import qora.transaction.CreatePollTransaction;
 import qora.transaction.IssueAssetTransaction;
 import qora.transaction.MessageTransaction;
@@ -73,8 +79,9 @@ public class TransactionTests {
 	private static final byte[] senderSeed = HashCode.fromString("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").asBytes();
 	private static final byte[] recipientSeed = HashCode.fromString("fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210").asBytes();
 
-	private static final BigDecimal initialGeneratorBalance = BigDecimal.valueOf(1_000_000_000L);
-	private static final BigDecimal initialSenderBalance = BigDecimal.valueOf(1_000_000L);
+	private static final BigDecimal initialGeneratorBalance = BigDecimal.valueOf(1_000_000_000L).setScale(8);
+	private static final BigDecimal initialSenderBalance = BigDecimal.valueOf(1_000_000L).setScale(8);
+	private static final BigDecimal genericPaymentAmount = BigDecimal.valueOf(1_000L).setScale(8);
 
 	private Repository repository;
 	private AccountRepository accountRepository;
@@ -135,7 +142,7 @@ public class TransactionTests {
 
 	private Transaction createPayment(PrivateKeyAccount sender, String recipient) throws DataException {
 		// Make a new payment transaction
-		BigDecimal amount = BigDecimal.valueOf(1_000L);
+		BigDecimal amount = genericPaymentAmount;
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(sender.getPublicKey(), recipient, amount, fee, timestamp, reference);
@@ -163,7 +170,7 @@ public class TransactionTests {
 		assertTrue(paymentTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, paymentTransaction.isValid());
 
-		// Forge new block with payment transaction
+		// Forge new block with transaction
 		Block block = new Block(repository, parentBlockData, generator, null, null);
 		block.addTransaction(paymentTransactionData);
 		block.sign();
@@ -591,7 +598,7 @@ public class TransactionTests {
 		lastBlock.orphan();
 		repository.saveChanges();
 
-		// Recheck poll's votes
+		// Re-check poll's votes
 		votes = repository.getVotingRepository().getVotes(pollName);
 		assertNotNull(votes);
 
@@ -621,7 +628,7 @@ public class TransactionTests {
 		assertTrue(issueAssetTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, issueAssetTransaction.isValid());
 
-		// Forge new block with payment transaction
+		// Forge new block with transaction
 		Block block = new Block(repository, parentBlockData, generator, null, null);
 		block.addTransaction(issueAssetTransactionData);
 		block.sign();
@@ -711,7 +718,7 @@ public class TransactionTests {
 		assertTrue(transferAssetTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, transferAssetTransaction.isValid());
 
-		// Forge new block with payment transaction
+		// Forge new block with transaction
 		Block block = new Block(repository, parentBlockData, generator, null, null);
 		block.addTransaction(transferAssetTransactionData);
 		block.sign();
@@ -775,12 +782,267 @@ public class TransactionTests {
 
 	@Test
 	public void testCreateAssetOrderTransaction() throws DataException {
-		// TODO
+		// Issue asset using another test
+		testIssueAssetTransaction();
+
+		// Asset info
+		String assetName = "test asset";
+		AssetRepository assetRepo = this.repository.getAssetRepository();
+		AssetData originalAssetData = assetRepo.fromAssetName(assetName);
+		long assetId = originalAssetData.getAssetId();
+
+		// Buyer
+		PrivateKeyAccount buyer = new PrivateKeyAccount(repository, recipientSeed);
+
+		// Send buyer some funds so they have a reference
+		Transaction somePaymentTransaction = createPayment(sender, buyer.getAddress());
+		byte[] buyersReference = somePaymentTransaction.getTransactionData().getSignature();
+
+		// Forge new block with transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(somePaymentTransaction.getTransactionData());
+		block.sign();
+
+		block.process();
+		repository.saveChanges();
+		parentBlockData = block.getBlockData();
+
+		// Order: buyer has 10 QORA and wants to buy "test asset" at a price of 50 "test asset" per QORA.
+		long haveAssetId = Asset.QORA;
+		BigDecimal amount = BigDecimal.valueOf(10).setScale(8);
+		long wantAssetId = assetId;
+		BigDecimal price = BigDecimal.valueOf(50).setScale(8);
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+
+		CreateOrderTransactionData createOrderTransactionData = new CreateOrderTransactionData(buyer.getPublicKey(), haveAssetId, wantAssetId, amount, price,
+				fee, timestamp, buyersReference);
+		Transaction createOrderTransaction = new CreateOrderTransaction(this.repository, createOrderTransactionData);
+		createOrderTransaction.calcSignature(buyer);
+		assertTrue(createOrderTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());
+
+		// Forge new block with transaction
+		block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(createOrderTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check order was created
+		byte[] orderId = createOrderTransactionData.getSignature();
+		OrderData orderData = assetRepo.fromOrderId(orderId);
+		assertNotNull(orderData);
+
+		// Check buyer's balance reduced
+		BigDecimal expectedBalance = genericPaymentAmount.subtract(amount).subtract(fee);
+		BigDecimal actualBalance = buyer.getConfirmedBalance(haveAssetId);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0);
+
+		// Orphan transaction
+		block.orphan();
+		repository.saveChanges();
+
+		// Check order no longer exists
+		orderData = assetRepo.fromOrderId(orderId);
+		assertNull(orderData);
+
+		// Check buyer's balance restored
+		expectedBalance = genericPaymentAmount;
+		actualBalance = buyer.getConfirmedBalance(haveAssetId);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0);
+
+		// Re-process to allow use by other tests
+		block.process();
+		repository.saveChanges();
+
+		// Update variables for use by other tests
+		reference = sender.getLastReference();
+		parentBlockData = block.getBlockData();
 	}
 
 	@Test
 	public void testCancelAssetOrderTransaction() throws DataException {
-		// TODO
+		// Issue asset and create order using another test
+		testCreateAssetOrderTransaction();
+
+		// Asset info
+		String assetName = "test asset";
+		AssetRepository assetRepo = this.repository.getAssetRepository();
+		AssetData originalAssetData = assetRepo.fromAssetName(assetName);
+		long assetId = originalAssetData.getAssetId();
+
+		// Buyer
+		PrivateKeyAccount buyer = new PrivateKeyAccount(repository, recipientSeed);
+
+		// Fetch orders
+		long haveAssetId = Asset.QORA;
+		long wantAssetId = assetId;
+		List<OrderData> orders = assetRepo.getOpenOrders(haveAssetId, wantAssetId);
+
+		assertNotNull(orders);
+		assertEquals(1, orders.size());
+
+		OrderData originalOrderData = orders.get(0);
+		assertNotNull(originalOrderData);
+		assertFalse(originalOrderData.getIsClosed());
+
+		// Create cancel order transaction
+		byte[] orderId = originalOrderData.getOrderId();
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+		byte[] buyersReference = buyer.getLastReference();
+		CancelOrderTransactionData cancelOrderTransactionData = new CancelOrderTransactionData(buyer.getPublicKey(), orderId, fee, timestamp, buyersReference);
+
+		Transaction cancelOrderTransaction = new CancelOrderTransaction(this.repository, cancelOrderTransactionData);
+		cancelOrderTransaction.calcSignature(buyer);
+		assertTrue(cancelOrderTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, cancelOrderTransaction.isValid());
+
+		// Forge new block with transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(cancelOrderTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check order is marked as cancelled
+		OrderData cancelledOrderData = assetRepo.fromOrderId(orderId);
+		assertNotNull(cancelledOrderData);
+		assertTrue(cancelledOrderData.getIsClosed());
+
+		// Orphan
+		block.orphan();
+		repository.saveChanges();
+
+		// Check order is no longer marked as cancelled
+		OrderData uncancelledOrderData = assetRepo.fromOrderId(orderId);
+		assertNotNull(uncancelledOrderData);
+		assertFalse(uncancelledOrderData.getIsClosed());
+
+	}
+
+	@Test
+	public void testMatchingCreateAssetOrderTransaction() throws DataException {
+		// Issue asset and create order using another test
+		testCreateAssetOrderTransaction();
+
+		// Asset info
+		String assetName = "test asset";
+		AssetRepository assetRepo = this.repository.getAssetRepository();
+		AssetData originalAssetData = assetRepo.fromAssetName(assetName);
+		long assetId = originalAssetData.getAssetId();
+
+		// Buyer
+		PrivateKeyAccount buyer = new PrivateKeyAccount(repository, recipientSeed);
+
+		// Fetch orders
+		long originalHaveAssetId = Asset.QORA;
+		long originalWantAssetId = assetId;
+		List<OrderData> orders = assetRepo.getOpenOrders(originalHaveAssetId, originalWantAssetId);
+
+		assertNotNull(orders);
+		assertEquals(1, orders.size());
+
+		OrderData originalOrderData = orders.get(0);
+		assertNotNull(originalOrderData);
+		assertFalse(originalOrderData.getIsClosed());
+
+		// Original asset owner (sender) will sell asset to "buyer"
+
+		// Order: seller has 40 "test asset" and wants to buy QORA at a price of 1/60 QORA per "test asset".
+		// This order should be a partial match for original order, and at a better price than asked
+		long haveAssetId = Asset.QORA;
+		BigDecimal amount = BigDecimal.valueOf(40).setScale(8);
+		long wantAssetId = assetId;
+		BigDecimal price = BigDecimal.ONE.setScale(8).divide(BigDecimal.valueOf(60).setScale(8));
+		BigDecimal fee = BigDecimal.ONE;
+		long timestamp = parentBlockData.getTimestamp() + 1_000;
+
+		CreateOrderTransactionData createOrderTransactionData = new CreateOrderTransactionData(sender.getPublicKey(), haveAssetId, wantAssetId, amount, price,
+				fee, timestamp, reference);
+		Transaction createOrderTransaction = new CreateOrderTransaction(this.repository, createOrderTransactionData);
+		createOrderTransaction.calcSignature(sender);
+		assertTrue(createOrderTransaction.isSignatureValid());
+		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());
+
+		// Forge new block with transaction
+		Block block = new Block(repository, parentBlockData, generator, null, null);
+		block.addTransaction(createOrderTransactionData);
+		block.sign();
+
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+
+		block.process();
+		repository.saveChanges();
+
+		// Check order was created
+		byte[] orderId = createOrderTransactionData.getSignature();
+		OrderData orderData = assetRepo.fromOrderId(orderId);
+		assertNotNull(orderData);
+		assertFalse(orderData.getIsFulfilled());
+
+		// Check order has trades
+		List<TradeData> trades = assetRepo.getOrdersTrades(orderId);
+		assertNotNull(trades);
+		assertEquals(1, trades.size());
+		TradeData tradeData = trades.get(0);
+
+		// Check trade has correct values
+		BigDecimal expectedAmount = amount.multiply(price);
+		BigDecimal actualAmount = tradeData.getAmount();
+		assertTrue(expectedAmount.compareTo(actualAmount) == 0);
+
+		BigDecimal expectedPrice = originalOrderData.getPrice().multiply(amount);
+		BigDecimal actualPrice = tradeData.getPrice();
+		assertTrue(expectedPrice.compareTo(actualPrice) == 0);
+
+		// Check seller's "test asset" balance
+		BigDecimal expectedBalance = BigDecimal.valueOf(1_000_000L).setScale(8).subtract(amount);
+		BigDecimal actualBalance = sender.getConfirmedBalance(haveAssetId);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0);
+
+		// Check buyer's "test asset" balance
+		expectedBalance = amount;
+		actualBalance = buyer.getConfirmedBalance(haveAssetId);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0);
+
+		// Check seller's QORA balance
+		expectedBalance = initialSenderBalance.subtract(BigDecimal.ONE).subtract(BigDecimal.ONE);
+		actualBalance = sender.getConfirmedBalance(wantAssetId);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0);
+
+		// Orphan transaction
+		block.orphan();
+		repository.saveChanges();
+
+		// Check order no longer exists
+		orderData = assetRepo.fromOrderId(orderId);
+		assertNull(orderData);
+
+		// Check trades no longer exist
+		trades = assetRepo.getOrdersTrades(orderId);
+		assertNotNull(trades);
+		assertEquals(0, trades.size());
+
+		// Check seller's "test asset" balance restored
+		expectedBalance = BigDecimal.valueOf(1_000_000L).setScale(8);
+		actualBalance = sender.getConfirmedBalance(haveAssetId);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0);
+
+		// Check buyer's "test asset" balance restored
+		expectedBalance = BigDecimal.ZERO.setScale(8);
+		actualBalance = buyer.getConfirmedBalance(haveAssetId);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0);
 	}
 
 	@Test

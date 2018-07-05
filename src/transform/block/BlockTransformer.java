@@ -16,11 +16,11 @@ import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
+import data.assets.TradeData;
 import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
 import qora.assets.Order;
-import qora.assets.Trade;
 import qora.block.Block;
 import qora.transaction.CreateOrderTransaction;
 import qora.transaction.Transaction;
@@ -224,6 +224,8 @@ public class BlockTransformer extends Transformer {
 
 		// Add transaction info
 		JSONArray transactionsJson = new JSONArray();
+
+		// XXX this should be moved out to API as it requires repository access
 		boolean tradesHappened = false;
 
 		try {
@@ -234,10 +236,10 @@ public class BlockTransformer extends Transformer {
 				if (transaction.getTransactionData().getType() == Transaction.TransactionType.CREATE_ASSET_ORDER) {
 					CreateOrderTransaction orderTransaction = (CreateOrderTransaction) transaction;
 					Order order = orderTransaction.getOrder();
-					List<Trade> trades = order.getTrades();
+					List<TradeData> trades = order.getTrades();
 
-					// Filter out trades with timestamps that don't match order transaction's timestamp
-					trades.removeIf((Trade trade) -> trade.getTimestamp() != order.getOrderData().getTimestamp());
+					// Filter out trades with initiatingOrderId that doesn't match this order
+					trades.removeIf((TradeData tradeData) -> !Arrays.equals(tradeData.getInitiator(), order.getOrderData().getOrderId()));
 
 					// Any trades left?
 					if (!trades.isEmpty()) {

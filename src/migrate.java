@@ -133,19 +133,19 @@ public class migrate {
 		PreparedStatement registerNamePStmt = c
 				.prepareStatement("INSERT INTO RegisterNameTransactions " + formatWithPlaceholders("signature", "registrant", "name", "owner", "data"));
 		PreparedStatement updateNamePStmt = c
-				.prepareStatement("INSERT INTO UpdateNameTransactions " + formatWithPlaceholders("signature", "owner", "name", "new_owner", "new_data"));
+				.prepareStatement("INSERT INTO UpdateNameTransactions " + formatWithPlaceholders("signature", "owner", "name", "new_owner", "new_data", "name_reference"));
 		PreparedStatement sellNamePStmt = c
 				.prepareStatement("INSERT INTO SellNameTransactions " + formatWithPlaceholders("signature", "owner", "name", "amount"));
 		PreparedStatement cancelSellNamePStmt = c
 				.prepareStatement("INSERT INTO CancelSellNameTransactions " + formatWithPlaceholders("signature", "owner", "name"));
 		PreparedStatement buyNamePStmt = c
-				.prepareStatement("INSERT INTO BuyNameTransactions " + formatWithPlaceholders("signature", "buyer", "name", "seller", "amount"));
+				.prepareStatement("INSERT INTO BuyNameTransactions " + formatWithPlaceholders("signature", "buyer", "name", "seller", "amount", "name_reference"));
 		PreparedStatement createPollPStmt = c
-				.prepareStatement("INSERT INTO CreatePollTransactions " + formatWithPlaceholders("signature", "creator", "owner", "poll", "description"));
+				.prepareStatement("INSERT INTO CreatePollTransactions " + formatWithPlaceholders("signature", "creator", "owner", "poll_name", "description"));
 		PreparedStatement createPollOptionPStmt = c
-				.prepareStatement("INSERT INTO CreatePollTransactionOptions " + formatWithPlaceholders("signature", "option"));
+				.prepareStatement("INSERT INTO CreatePollTransactionOptions " + formatWithPlaceholders("signature", "option_name"));
 		PreparedStatement voteOnPollPStmt = c
-				.prepareStatement("INSERT INTO VoteOnPollTransactions " + formatWithPlaceholders("signature", "voter", "poll", "option_index"));
+				.prepareStatement("INSERT INTO VoteOnPollTransactions " + formatWithPlaceholders("signature", "voter", "poll_name", "option_index"));
 		PreparedStatement arbitraryPStmt = c
 				.prepareStatement("INSERT INTO ArbitraryTransactions " + formatWithPlaceholders("signature", "creator", "service", "data_hash"));
 		PreparedStatement issueAssetPStmt = c.prepareStatement("INSERT INTO IssueAssetTransactions "
@@ -396,6 +396,7 @@ public class migrate {
 						updateNamePStmt.setString(3, (String) transaction.get("name"));
 						updateNamePStmt.setString(4, (String) transaction.get("newOwner"));
 						updateNamePStmt.setString(5, (String) transaction.get("newValue"));
+						updateNamePStmt.setBytes(6, txSignature); // dummy value for name_reference
 
 						updateNamePStmt.execute();
 						updateNamePStmt.clearParameters();
@@ -426,6 +427,7 @@ public class migrate {
 						buyNamePStmt.setString(3, (String) transaction.get("name"));
 						buyNamePStmt.setString(4, (String) transaction.get("seller"));
 						buyNamePStmt.setBigDecimal(5, BigDecimal.valueOf(Double.valueOf((String) transaction.get("amount")).doubleValue()));
+						buyNamePStmt.setBytes(6, txSignature); // dummy value for name_reference
 
 						buyNamePStmt.execute();
 						buyNamePStmt.clearParameters();

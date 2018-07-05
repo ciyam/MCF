@@ -13,9 +13,10 @@ public class OrderData implements Comparable<OrderData> {
 	private BigDecimal price;
 	private long timestamp;
 	private boolean isClosed;
+	private boolean isFulfilled;
 
 	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal price,
-			long timestamp, boolean isClosed) {
+			long timestamp, boolean isClosed, boolean isFulfilled) {
 		this.orderId = orderId;
 		this.creatorPublicKey = creatorPublicKey;
 		this.haveAssetId = haveAssetId;
@@ -25,10 +26,11 @@ public class OrderData implements Comparable<OrderData> {
 		this.price = price;
 		this.timestamp = timestamp;
 		this.isClosed = isClosed;
+		this.isFulfilled = isFulfilled;
 	}
 
 	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, long timestamp) {
-		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, BigDecimal.ZERO.setScale(8), price, timestamp, false);
+		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, BigDecimal.ZERO.setScale(8), price, timestamp, false, false);
 	}
 
 	public byte[] getOrderId() {
@@ -73,6 +75,14 @@ public class OrderData implements Comparable<OrderData> {
 
 	public void setIsClosed(boolean isClosed) {
 		this.isClosed = isClosed;
+	}
+
+	public boolean getIsFulfilled() {
+		return this.isFulfilled;
+	}
+
+	public void setIsFulfilled(boolean isFulfilled) {
+		this.isFulfilled = isFulfilled;
 	}
 
 	@Override

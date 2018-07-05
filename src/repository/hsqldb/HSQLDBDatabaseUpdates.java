@@ -300,16 +300,24 @@ public class HSQLDBDatabaseUpdates {
 				// Asset Orders
 				stmt.execute(
 						"CREATE TABLE AssetOrders (asset_order_id AssetOrderID, creator QoraPublicKey NOT NULL, have_asset_id AssetID NOT NULL, want_asset_id AssetID NOT NULL, "
-								+ "amount QoraAmount NOT NULL, fulfilled QoraAmount NOT NULL, price QoraAmount NOT NULL, ordered TIMESTAMP NOT NULL, is_closed BOOLEAN NOT NULL, "
-								+ "PRIMARY KEY (asset_order_id))");
-				// For quick matching of orders. is_closed included so inactive orders can be filtered out.
-				stmt.execute("CREATE INDEX AssetOrderHaveIndex on AssetOrders (have_asset_id, is_closed)");
-				stmt.execute("CREATE INDEX AssetOrderWantIndex on AssetOrders (want_asset_id, is_closed)");
+								+ "amount QoraAmount NOT NULL, fulfilled QoraAmount NOT NULL, price QoraAmount NOT NULL, "
+								+ "ordered TIMESTAMP NOT NULL, is_closed BOOLEAN NOT NULL, is_fulfilled BOOLEAN NOT NULL, " + "PRIMARY KEY (asset_order_id))");
+				// For quick matching of orders. is_closed are is_fulfilled included so inactive orders can be filtered out.
+				stmt.execute("CREATE INDEX AssetOrderMatchingIndex on AssetOrders (have_asset_id, want_asset_id, is_closed, is_fulfilled)");
 				// For when a user wants to look up their current/historic orders. is_closed included so user can filter by active/inactive orders.
 				stmt.execute("CREATE INDEX AssetOrderCreatorIndex on AssetOrders (creator, is_closed)");
 				break;
 
 			case 24:
+				// Asset Trades
+				stmt.execute("CREATE TABLE AssetTrades (initiating_order_id AssetOrderId NOT NULL, target_order_id AssetOrderId NOT NULL, "
+						+ "amount QoraAmount NOT NULL, price QoraAmount NOT NULL, traded TIMESTAMP NOT NULL)");
+				// For looking up historic trades based on orders
+				stmt.execute("CREATE INDEX AssetTradeBuyOrderIndex on AssetTrades (initiating_order_id, traded)");
+				stmt.execute("CREATE INDEX AssetTradeSellOrderIndex on AssetTrades (target_order_id, traded)");
+				break;
+
+			case 25:
 				// Polls/Voting
 				stmt.execute(
 						"CREATE TABLE Polls (poll_name PollName, description VARCHAR(4000) NOT NULL, creator QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
@@ -324,7 +332,7 @@ public class HSQLDBDatabaseUpdates {
 				stmt.execute("CREATE INDEX PollOwnerIndex on Polls (owner)");
 				break;
 
-			case 25:
+			case 26:
 				// Registered Names
 				stmt.execute(
 						"CREATE TABLE Names (name RegisteredName, data VARCHAR(4000) NOT NULL, registrant QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
