@@ -42,5 +42,10 @@
   		<artifactId>commons-net</artifactId>
   		<version>3.3</version>
   	</dependency>
+    <dependency>
+        <groupId>org.glassfish.jersey.core</groupId>
+        <artifactId>jersey-server</artifactId>
+        <version>2.27</version>
+    </dependency>
   </dependencies>
 </project>
