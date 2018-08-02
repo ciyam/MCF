@@ -76,6 +76,9 @@ public class HSQLDBDatabaseUpdates {
 			case 0:
 				// create from new
 				stmt.execute("SET DATABASE DEFAULT TABLE TYPE CACHED");
+				stmt.execute("SET DATABASE COLLATION SQL_TEXT NO PAD");
+				stmt.execute("CREATE COLLATION SQL_TEXT_UCC_NO_PAD FOR SQL_TEXT FROM SQL_TEXT_UCC NO PAD");
+				stmt.execute("CREATE COLLATION SQL_TEXT_NO_PAD FOR SQL_TEXT FROM SQL_TEXT NO PAD");
 				stmt.execute("SET FILES SPACE TRUE");
 				stmt.execute("CREATE TABLE DatabaseInfo ( version INTEGER NOT NULL )");
 				stmt.execute("INSERT INTO DatabaseInfo VALUES ( 0 )");
@@ -84,17 +87,17 @@ public class HSQLDBDatabaseUpdates {
 				stmt.execute("CREATE TYPE QoraAddress AS VARCHAR(36)");
 				stmt.execute("CREATE TYPE QoraPublicKey AS VARBINARY(32)");
 				stmt.execute("CREATE TYPE QoraAmount AS DECIMAL(19, 8)");
-				stmt.execute("CREATE TYPE RegisteredName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
+				stmt.execute("CREATE TYPE RegisteredName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
 				stmt.execute("CREATE TYPE NameData AS VARCHAR(4000)");
-				stmt.execute("CREATE TYPE PollName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
-				stmt.execute("CREATE TYPE PollOption AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
+				stmt.execute("CREATE TYPE PollName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
+				stmt.execute("CREATE TYPE PollOption AS VARCHAR(400) COLLATE SQL_TEXT_UCC_NO_PAD");
 				stmt.execute("CREATE TYPE PollOptionIndex AS INTEGER");
-				stmt.execute("CREATE TYPE DataHash AS VARCHAR(100)");
+				stmt.execute("CREATE TYPE DataHash AS VARBINARY(32)");
 				stmt.execute("CREATE TYPE AssetID AS BIGINT");
-				stmt.execute("CREATE TYPE AssetName AS VARCHAR(400) COLLATE SQL_TEXT_UCC");
+				stmt.execute("CREATE TYPE AssetName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
 				stmt.execute("CREATE TYPE AssetOrderID AS VARBINARY(64)");
-				stmt.execute("CREATE TYPE ATName AS VARCHAR(200) COLLATE SQL_TEXT_UCC");
-				stmt.execute("CREATE TYPE ATType AS VARCHAR(200) COLLATE SQL_TEXT_UCC");
+				stmt.execute("CREATE TYPE ATName AS VARCHAR(200) COLLATE SQL_TEXT_UCC_NO_PAD");
+				stmt.execute("CREATE TYPE ATType AS VARCHAR(200) COLLATE SQL_TEXT_UCC_NO_PAD");
 				break;
 
 			case 1:
@@ -200,8 +203,8 @@ public class HSQLDBDatabaseUpdates {
 						+ "poll_name PollName NOT NULL, description VARCHAR(4000) NOT NULL, "
 						+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				// Poll options. NB: option is implicitly NON NULL and UNIQUE due to being part of compound primary key
-				stmt.execute("CREATE TABLE CreatePollTransactionOptions (signature Signature, option_name PollOption, "
-						+ "PRIMARY KEY (signature, option_name), FOREIGN KEY (signature) REFERENCES CreatePollTransactions (signature) ON DELETE CASCADE)");
+				stmt.execute("CREATE TABLE CreatePollTransactionOptions (signature Signature, option_index TINYINT NOT NULL, option_name PollOption, "
+						+ "PRIMARY KEY (signature, option_index), FOREIGN KEY (signature) REFERENCES CreatePollTransactions (signature) ON DELETE CASCADE)");
 				// For the future: add flag to polls to allow one or multiple votes per voter
 				break;
 
@@ -221,8 +224,8 @@ public class HSQLDBDatabaseUpdates {
 
 			case 13:
 				// Arbitrary Transactions
-				stmt.execute("CREATE TABLE ArbitraryTransactions (signature Signature, creator QoraPublicKey NOT NULL, service TINYINT NOT NULL, "
-						+ "data_hash DataHash NOT NULL, "
+				stmt.execute("CREATE TABLE ArbitraryTransactions (signature Signature, sender QoraPublicKey NOT NULL, version TINYINT NOT NULL, "
+						+ "service TINYINT NOT NULL, data_hash DataHash NOT NULL, "
 						+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 				// NB: Actual data payload stored elsewhere
 				// For the future: data payload should be encrypted, at the very least with transaction's reference as the seed for the encryption key

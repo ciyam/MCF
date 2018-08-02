@@ -118,7 +118,7 @@ public class UpdateNameTransaction extends Transaction {
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check issuer has enough funds
-		if (owner.getConfirmedBalance(Asset.QORA).compareTo(updateNameTransactionData.getFee()) == -1)
+		if (owner.getConfirmedBalance(Asset.QORA).compareTo(updateNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

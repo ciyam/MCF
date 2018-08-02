@@ -2,9 +2,9 @@ package qora.transaction;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
@@ -18,7 +18,6 @@ import repository.DataException;
 import repository.Repository;
 import settings.Settings;
 import transform.TransformationException;
-import transform.Transformer;
 import transform.transaction.TransactionTransformer;
 
 public abstract class Transaction {
@@ -126,6 +125,9 @@ public abstract class Transaction {
 
 			case VOTE_ON_POLL:
 				return new VoteOnPollTransaction(repository, transactionData);
+
+			case ARBITRARY:
+				return new ArbitraryTransaction(repository, transactionData);
 
 			case ISSUE_ASSET:
 				return new IssueAssetTransaction(repository, transactionData);
@@ -322,30 +324,14 @@ public abstract class Transaction {
 		return this.repository.getTransactionRepository().fromReference(signature);
 	}
 
-	/**
-	 * Serialize transaction as byte[], stripping off trailing signature.
-	 * <p>
-	 * Used by signature-related methods such as {@link TransactionHandler#calcSignature(PrivateKeyAccount)} and {@link TransactionHandler#isSignatureValid()}
-	 * 
-	 * @return byte[]
-	 */
-	private byte[] toBytesLessSignature() {
-		try {
-			byte[] bytes = TransactionTransformer.toBytes(this.transactionData);
-
-			if (this.transactionData.getSignature() == null)
-				return bytes;
-
-			return Arrays.copyOf(bytes, bytes.length - Transformer.SIGNATURE_LENGTH);
-		} catch (TransformationException e) {
-			throw new RuntimeException("Unable to transform transaction to signature-less byte array", e);
-		}
-	}
-
 	// Processing
 
-	public void calcSignature(PrivateKeyAccount signer) {
-		this.transactionData.setSignature(signer.sign(this.toBytesLessSignature()));
+	public void sign(PrivateKeyAccount signer) {
+		try {
+			this.transactionData.setSignature(signer.sign(TransactionTransformer.toBytesForSigning(transactionData)));
+		} catch (TransformationException e) {
+			throw new RuntimeException("Unable to transform transaction to byte array for signing", e);
+		}
 	}
 
 	public boolean isSignatureValid() {
@@ -353,7 +339,11 @@ public abstract class Transaction {
 		if (signature == null)
 			return false;
 
-		return PublicKeyAccount.verify(this.transactionData.getCreatorPublicKey(), signature, this.toBytesLessSignature());
+		try {
+			return PublicKeyAccount.verify(this.transactionData.getCreatorPublicKey(), signature, TransactionTransformer.toBytesForSigning(transactionData));
+		} catch (TransformationException e) {
+			throw new RuntimeException("Unable to transform transaction to byte array for verification", e);
+		}
 	}
 
 	/**

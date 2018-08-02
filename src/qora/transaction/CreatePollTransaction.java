@@ -137,7 +137,7 @@ public class CreatePollTransaction extends Transaction {
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check issuer has enough funds
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(createPollTransactionData.getFee()) == -1)
+		if (creator.getConfirmedBalance(Asset.QORA).compareTo(createPollTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

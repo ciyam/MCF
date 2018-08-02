@@ -23,6 +23,7 @@ public class BuyNameTransactionData extends TransactionData {
 		this.name = name;
 		this.amount = amount;
 		this.seller = seller;
+		this.nameReference = nameReference;
 	}
 
 	public BuyNameTransactionData(byte[] buyerPublicKey, String name, BigDecimal amount, String seller, BigDecimal fee, long timestamp, byte[] reference,

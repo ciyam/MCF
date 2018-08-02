@@ -64,6 +64,7 @@ public class CreateOrderTransaction extends Transaction {
 
 	// Processing
 
+	@Override
 	public ValidationResult isValid() throws DataException {
 		long haveAssetId = createOrderTransactionData.getHaveAssetId();
 		long wantAssetId = createOrderTransactionData.getWantAssetId();
@@ -106,17 +107,17 @@ public class CreateOrderTransaction extends Transaction {
 		// If asset is QORA then we need to check amount + fee in one go
 		if (haveAssetId == Asset.QORA) {
 			// Check creator has enough funds for amount + fee in QORA
-			if (creator.getConfirmedBalance(Asset.QORA).compareTo(createOrderTransactionData.getAmount().add(createOrderTransactionData.getFee())) == -1)
+			if (creator.getConfirmedBalance(Asset.QORA).compareTo(createOrderTransactionData.getAmount().add(createOrderTransactionData.getFee())) < 0)
 				return ValidationResult.NO_BALANCE;
 		} else {
 			// Check creator has enough funds for amount in whatever asset
-			if (creator.getConfirmedBalance(haveAssetId).compareTo(createOrderTransactionData.getAmount()) == -1)
+			if (creator.getConfirmedBalance(haveAssetId).compareTo(createOrderTransactionData.getAmount()) < 0)
 				return ValidationResult.NO_BALANCE;
 
 			// Check creator has enough funds for fee in QORA
 			// NOTE: in Gen1 pre-POWFIX-RELEASE transactions didn't have this check
 			if (createOrderTransactionData.getTimestamp() >= BlockChain.getPowFixReleaseTimestamp()
-					&& creator.getConfirmedBalance(Asset.QORA).compareTo(createOrderTransactionData.getFee()) == -1)
+					&& creator.getConfirmedBalance(Asset.QORA).compareTo(createOrderTransactionData.getFee()) < 0)
 				return ValidationResult.NO_BALANCE;
 		}
 
@@ -132,6 +133,7 @@ public class CreateOrderTransaction extends Transaction {
 		return ValidationResult.OK;
 	}
 
+	@Override
 	public void process() throws DataException {
 		Account creator = getCreator();
 
@@ -155,6 +157,7 @@ public class CreateOrderTransaction extends Transaction {
 		new Order(this.repository, orderData).process();
 	}
 
+	@Override
 	public void orphan() throws DataException {
 		Account creator = getCreator();
 

@@ -110,7 +110,7 @@ public class VoteOnPollTransaction extends Transaction {
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check voter has enough funds
-		if (voter.getConfirmedBalance(Asset.QORA).compareTo(voteOnPollTransactionData.getFee()) == -1)
+		if (voter.getConfirmedBalance(Asset.QORA).compareTo(voteOnPollTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

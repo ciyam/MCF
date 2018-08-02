@@ -8,7 +8,6 @@ import java.util.List;
 import data.PaymentData;
 import data.transaction.TransactionData;
 import data.transaction.TransferAssetTransactionData;
-import utils.NTP;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
@@ -82,10 +81,9 @@ public class TransferAssetTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		TransferAssetTransactionData transferAssetTransactionData = (TransferAssetTransactionData) this.transactionData;
-
 		// Are IssueAssetTransactions even allowed at this point?
-		if (NTP.getTime() < BlockChain.getAssetsReleaseTimestamp())
+		// XXX In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used?
+		if (this.transferAssetTransactionData.getTimestamp() < BlockChain.getVotingReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check reference is correct
@@ -100,8 +98,6 @@ public class TransferAssetTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		TransferAssetTransactionData transferAssetTransactionData = (TransferAssetTransactionData) this.transactionData;
-
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
@@ -112,8 +108,6 @@ public class TransferAssetTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		TransferAssetTransactionData transferAssetTransactionData = (TransferAssetTransactionData) this.transactionData;
-
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(this.transactionData);
 

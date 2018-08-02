@@ -37,6 +37,10 @@ public class BlockChain {
 	private static final long POWFIX_RELEASE_TIMESTAMP = 1456426800000L; // Block Version 3 // 2016-02-25T19:00:00+00:00
 	private static final long ASSETS_RELEASE_TIMESTAMP = 0L; // From Qora epoch
 	private static final long VOTING_RELEASE_TIMESTAMP = 1403715600000L; // 2014-06-25T17:00:00+00:00
+	private static final long ARBITRARY_RELEASE_TIMESTAMP = 1405702800000L; // 2014-07-18T17:00:00+00:00
+	private static final long CREATE_POLL_V2_TIMESTAMP = 1552500000000L; // 2019-03-13T18:00:00+00:00 // Future Qora v2 CREATE POLL transactions
+	private static final long ISSUE_ASSET_V2_TIMESTAMP = 1552500000000L; // 2019-03-13T18:00:00+00:00 // Future Qora v2 ISSUE ASSET transactions
+	private static final long CREATE_ORDER_V2_TIMESTAMP = 1552500000000L; // 2019-03-13T18:00:00+00:00 // Future Qora v2 CREATE ORDER transactions
 
 	/**
 	 * Some sort start-up/initialization/checking method.
@@ -130,6 +134,34 @@ public class BlockChain {
 			return 0;
 
 		return VOTING_RELEASE_TIMESTAMP;
+	}
+
+	public static long getArbitraryReleaseTimestamp() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return ARBITRARY_RELEASE_TIMESTAMP;
+	}
+
+	public static long getCreatePollV2Timestamp() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return CREATE_POLL_V2_TIMESTAMP;
+	}
+
+	public static long getIssueAssetV2Timestamp() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return ISSUE_ASSET_V2_TIMESTAMP;
+	}
+
+	public static long getCreateOrderV2Timestamp() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return CREATE_ORDER_V2_TIMESTAMP;
 	}
 
 }

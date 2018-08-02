@@ -18,6 +18,7 @@ public class Settings {
 	private static Settings instance;
 	private long genesisTimestamp = GenesisBlock.GENESIS_TIMESTAMP;
 	private int maxBytePerFee = 1024;
+	private String userpath = "";
 
 	// Constants
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -66,6 +67,8 @@ public class Settings {
 				}
 
 				process(settingsJSON);
+
+				this.userpath = path;
 				break;
 			} while (true);
 		} catch (IOException | ClassCastException e) {
@@ -113,6 +116,10 @@ public class Settings {
 
 	public long getGenesisTimestamp() {
 		return this.genesisTimestamp;
+	}
+
+	public String getUserpath() {
+		return this.userpath;
 	}
 
 }

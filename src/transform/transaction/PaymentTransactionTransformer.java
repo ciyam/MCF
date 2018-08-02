@@ -27,16 +27,15 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransformationException("Byte data too short for PaymentTransaction");
-
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
 
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
+
 		String recipient = Serialization.deserializeAddress(byteBuffer);
+
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);

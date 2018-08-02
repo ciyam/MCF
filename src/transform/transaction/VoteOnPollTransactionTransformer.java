@@ -24,14 +24,10 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 	// Property lengths
 	private static final int VOTER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
-	private static final int OPTION_LENGTH = INT_LENGTH;
 
 	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + VOTER_LENGTH + NAME_SIZE_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_DATALESS_LENGTH)
-			throw new TransformationException("Byte data too short for VoteOnPollTransaction");
-
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
@@ -41,17 +37,9 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 
 		String pollName = Serialization.deserializeSizedString(byteBuffer, Poll.MAX_NAME_SIZE);
 
-		// Make sure there are enough bytes left for poll options
-		if (byteBuffer.remaining() < OPTION_LENGTH)
-			throw new TransformationException("Byte data too short for VoteOnPollTransaction");
-
 		int optionIndex = byteBuffer.getInt();
 		if (optionIndex < 0 || optionIndex >= Poll.MAX_OPTIONS)
 			throw new TransformationException("Invalid option number for VoteOnPollTransaction");
-
-		// Still need to make sure there are enough bytes left for remaining fields
-		if (byteBuffer.remaining() < FEE_LENGTH + SIGNATURE_LENGTH)
-			throw new TransformationException("Byte data too short for VoteOnPollTransaction");
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 
@@ -81,7 +69,7 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(voteOnPollTransactionData.getVoterPublicKey());
 			Serialization.serializeSizedString(bytes, voteOnPollTransactionData.getPollName());
-			bytes.write(voteOnPollTransactionData.getOptionIndex());
+			bytes.write(Ints.toByteArray(voteOnPollTransactionData.getOptionIndex()));
 
 			Serialization.serializeBigDecimal(bytes, voteOnPollTransactionData.getFee());
 

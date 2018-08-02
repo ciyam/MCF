@@ -28,9 +28,6 @@ public class CancelSellNameTransactionTransformer extends TransactionTransformer
 	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_DATALESS_LENGTH)
-			throw new TransformationException("Byte data too short for CancelSellNameTransaction");
-
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
@@ -39,10 +36,6 @@ public class CancelSellNameTransactionTransformer extends TransactionTransformer
 		byte[] ownerPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
 		String name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
-
-		// Still need to make sure there are enough bytes left for remaining fields
-		if (byteBuffer.remaining() < FEE_LENGTH + SIGNATURE_LENGTH)
-			throw new TransformationException("Byte data too short for CancelSellNameTransaction");
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 

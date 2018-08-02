@@ -9,6 +9,7 @@ import data.transaction.TransactionData;
 import data.transaction.UpdateNameTransactionData;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
+import qora.assets.Asset;
 import repository.DataException;
 import repository.Repository;
 
@@ -152,9 +153,15 @@ public class Name {
 		// Mark not for-sale but leave price in case we want to orphan
 		this.nameData.setIsForSale(false);
 
+		// Update seller's balance
+		Account seller = new Account(this.repository, this.nameData.getOwner());
+		seller.setConfirmedBalance(Asset.QORA, seller.getConfirmedBalance(Asset.QORA).add(buyNameTransactionData.getAmount()));
+
 		// Set new owner
 		Account buyer = new PublicKeyAccount(this.repository, buyNameTransactionData.getBuyerPublicKey());
 		this.nameData.setOwner(buyer.getAddress());
+		// Update buyer's balance
+		buyer.setConfirmedBalance(Asset.QORA, buyer.getConfirmedBalance(Asset.QORA).subtract(buyNameTransactionData.getAmount()));
 
 		// Update reference in transaction data
 		buyNameTransactionData.setNameReference(this.nameData.getReference());
@@ -173,8 +180,16 @@ public class Name {
 		// Previous name reference is taken from this transaction's cached copy
 		this.nameData.setReference(buyNameTransactionData.getNameReference());
 
+		// Revert buyer's balance
+		Account buyer = new PublicKeyAccount(this.repository, buyNameTransactionData.getBuyerPublicKey());
+		buyer.setConfirmedBalance(Asset.QORA, buyer.getConfirmedBalance(Asset.QORA).add(buyNameTransactionData.getAmount()));
+
 		// Previous Name's owner and/or data taken from referenced transaction
 		this.revert();
+
+		// Revert seller's balance
+		Account seller = new Account(this.repository, this.nameData.getOwner());
+		seller.setConfirmedBalance(Asset.QORA, seller.getConfirmedBalance(Asset.QORA).subtract(buyNameTransactionData.getAmount()));
 
 		// Save reverted name data
 		this.repository.getNameRepository().save(this.nameData);

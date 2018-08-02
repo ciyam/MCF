@@ -28,6 +28,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBBuyNameTransactionRepository buyNameTransactionRepository;
 	private HSQLDBCreatePollTransactionRepository createPollTransactionRepository;
 	private HSQLDBVoteOnPollTransactionRepository voteOnPollTransactionRepository;
+	private HSQLDBArbitraryTransactionRepository arbitraryTransactionRepository;
 	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
 	private HSQLDBTransferAssetTransactionRepository transferAssetTransactionRepository;
 	private HSQLDBCreateOrderTransactionRepository createOrderTransactionRepository;
@@ -46,6 +47,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.buyNameTransactionRepository = new HSQLDBBuyNameTransactionRepository(repository);
 		this.createPollTransactionRepository = new HSQLDBCreatePollTransactionRepository(repository);
 		this.voteOnPollTransactionRepository = new HSQLDBVoteOnPollTransactionRepository(repository);
+		this.arbitraryTransactionRepository = new HSQLDBArbitraryTransactionRepository(repository);
 		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
 		this.transferAssetTransactionRepository = new HSQLDBTransferAssetTransactionRepository(repository);
 		this.createOrderTransactionRepository = new HSQLDBCreateOrderTransactionRepository(repository);
@@ -122,6 +124,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case VOTE_ON_POLL:
 				return this.voteOnPollTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case ARBITRARY:
+				return this.arbitraryTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case ISSUE_ASSET:
 				return this.issueAssetTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
@@ -271,6 +276,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case VOTE_ON_POLL:
 				this.voteOnPollTransactionRepository.save(transactionData);
+				break;
+
+			case ARBITRARY:
+				this.arbitraryTransactionRepository.save(transactionData);
 				break;
 
 			case ISSUE_ASSET:

@@ -29,7 +29,8 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 			String pollName = rs.getString(2);
 			String description = rs.getString(3);
 
-			rs = this.repository.checkedExecute("SELECT option_name FROM CreatePollTransactionOptions where signature = ?", signature);
+			rs = this.repository.checkedExecute("SELECT option_name FROM CreatePollTransactionOptions where signature = ? ORDER BY option_index ASC",
+					signature);
 			if (rs == null)
 				return null;
 
@@ -65,10 +66,14 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 		}
 
 		// Now attempt to save poll options
-		for (PollOptionData pollOptionData : createPollTransactionData.getPollOptions()) {
+		List<PollOptionData> pollOptions = createPollTransactionData.getPollOptions();
+		for (int optionIndex = 0; optionIndex < pollOptions.size(); ++optionIndex) {
+			PollOptionData pollOptionData = pollOptions.get(optionIndex);
+
 			HSQLDBSaver optionSaveHelper = new HSQLDBSaver("CreatePollTransactionOptions");
 
-			optionSaveHelper.bind("signature", createPollTransactionData.getSignature()).bind("option_name", pollOptionData.getOptionName());
+			optionSaveHelper.bind("signature", createPollTransactionData.getSignature()).bind("option_name", pollOptionData.getOptionName())
+					.bind("option_index", optionIndex);
 
 			try {
 				optionSaveHelper.execute(this.repository);

@@ -72,6 +72,7 @@ public class PaymentTransaction extends Transaction {
 		return new PaymentData(paymentTransactionData.getRecipient(), Asset.QORA, paymentTransactionData.getAmount());
 	}
 
+	@Override
 	public ValidationResult isValid() throws DataException {
 		// Check reference is correct
 		Account sender = getSender();
@@ -82,6 +83,7 @@ public class PaymentTransaction extends Transaction {
 		return new Payment(this.repository).isValid(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee());
 	}
 
+	@Override
 	public void process() throws DataException {
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
@@ -91,6 +93,7 @@ public class PaymentTransaction extends Transaction {
 				paymentTransactionData.getSignature());
 	}
 
+	@Override
 	public void orphan() throws DataException {
 		// Delete this transaction
 		this.repository.getTransactionRepository().delete(this.transactionData);

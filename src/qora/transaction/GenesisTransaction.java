@@ -76,7 +76,7 @@ public class GenesisTransaction extends Transaction {
 	 * @throws IllegalStateException
 	 */
 	@Override
-	public void calcSignature(PrivateKeyAccount signer) {
+	public void sign(PrivateKeyAccount signer) {
 		throw new IllegalStateException("There is no private key for genesis transactions");
 	}
 
@@ -115,7 +115,7 @@ public class GenesisTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() {
 		// Check amount is zero or positive
-		if (genesisTransactionData.getAmount().compareTo(BigDecimal.ZERO) == -1)
+		if (genesisTransactionData.getAmount().compareTo(BigDecimal.ZERO) >= 0)
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check recipient address is valid

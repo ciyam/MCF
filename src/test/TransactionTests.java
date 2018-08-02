@@ -148,7 +148,7 @@ public class TransactionTests {
 		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(sender.getPublicKey(), recipient, amount, fee, timestamp, reference);
 
 		Transaction paymentTransaction = new PaymentTransaction(repository, paymentTransactionData);
-		paymentTransaction.calcSignature(sender);
+		paymentTransaction.sign(sender);
 
 		return paymentTransaction;
 	}
@@ -166,7 +166,7 @@ public class TransactionTests {
 				reference);
 
 		Transaction paymentTransaction = new PaymentTransaction(repository, paymentTransactionData);
-		paymentTransaction.calcSignature(sender);
+		paymentTransaction.sign(sender);
 		assertTrue(paymentTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, paymentTransaction.isValid());
 
@@ -227,7 +227,7 @@ public class TransactionTests {
 				timestamp, reference);
 
 		Transaction registerNameTransaction = new RegisterNameTransaction(repository, registerNameTransactionData);
-		registerNameTransaction.calcSignature(sender);
+		registerNameTransaction.sign(sender);
 		assertTrue(registerNameTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, registerNameTransaction.isValid());
 
@@ -283,7 +283,7 @@ public class TransactionTests {
 				nameReference, fee, timestamp, reference);
 
 		Transaction updateNameTransaction = new UpdateNameTransaction(repository, updateNameTransactionData);
-		updateNameTransaction.calcSignature(sender);
+		updateNameTransaction.sign(sender);
 		assertTrue(updateNameTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, updateNameTransaction.isValid());
 
@@ -328,7 +328,7 @@ public class TransactionTests {
 		SellNameTransactionData sellNameTransactionData = new SellNameTransactionData(sender.getPublicKey(), name, amount, fee, timestamp, reference);
 
 		Transaction sellNameTransaction = new SellNameTransaction(repository, sellNameTransactionData);
-		sellNameTransaction.calcSignature(sender);
+		sellNameTransaction.sign(sender);
 		assertTrue(sellNameTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, sellNameTransaction.isValid());
 
@@ -379,7 +379,7 @@ public class TransactionTests {
 		CancelSellNameTransactionData cancelSellNameTransactionData = new CancelSellNameTransactionData(sender.getPublicKey(), name, fee, timestamp, reference);
 
 		Transaction cancelSellNameTransaction = new CancelSellNameTransaction(repository, cancelSellNameTransactionData);
-		cancelSellNameTransaction.calcSignature(sender);
+		cancelSellNameTransaction.sign(sender);
 		assertTrue(cancelSellNameTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, cancelSellNameTransaction.isValid());
 
@@ -445,7 +445,7 @@ public class TransactionTests {
 				nameReference, fee, timestamp, buyersReference);
 
 		Transaction buyNameTransaction = new BuyNameTransaction(repository, buyNameTransactionData);
-		buyNameTransaction.calcSignature(buyer);
+		buyNameTransaction.sign(buyer);
 		assertTrue(buyNameTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, buyNameTransaction.isValid());
 
@@ -498,7 +498,7 @@ public class TransactionTests {
 				description, pollOptions, fee, timestamp, reference);
 
 		Transaction createPollTransaction = new CreatePollTransaction(repository, createPollTransactionData);
-		createPollTransaction.calcSignature(sender);
+		createPollTransaction.sign(sender);
 		assertTrue(createPollTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, createPollTransaction.isValid());
 
@@ -552,7 +552,7 @@ public class TransactionTests {
 					reference);
 
 			Transaction voteOnPollTransaction = new VoteOnPollTransaction(repository, voteOnPollTransactionData);
-			voteOnPollTransaction.calcSignature(sender);
+			voteOnPollTransaction.sign(sender);
 			assertTrue(voteOnPollTransaction.isSignatureValid());
 
 			if (optionIndex == pollOptionsSize) {
@@ -624,7 +624,7 @@ public class TransactionTests {
 				quantity, isDivisible, fee, timestamp, reference);
 
 		Transaction issueAssetTransaction = new IssueAssetTransaction(repository, issueAssetTransactionData);
-		issueAssetTransaction.calcSignature(sender);
+		issueAssetTransaction.sign(sender);
 		assertTrue(issueAssetTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, issueAssetTransaction.isValid());
 
@@ -714,7 +714,7 @@ public class TransactionTests {
 				assetId, fee, timestamp, reference);
 
 		Transaction transferAssetTransaction = new TransferAssetTransaction(repository, transferAssetTransactionData);
-		transferAssetTransaction.calcSignature(sender);
+		transferAssetTransaction.sign(sender);
 		assertTrue(transferAssetTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, transferAssetTransaction.isValid());
 
@@ -818,7 +818,7 @@ public class TransactionTests {
 		CreateOrderTransactionData createOrderTransactionData = new CreateOrderTransactionData(buyer.getPublicKey(), haveAssetId, wantAssetId, amount, price,
 				fee, timestamp, buyersReference);
 		Transaction createOrderTransaction = new CreateOrderTransaction(this.repository, createOrderTransactionData);
-		createOrderTransaction.calcSignature(buyer);
+		createOrderTransaction.sign(buyer);
 		assertTrue(createOrderTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());
 
@@ -899,7 +899,7 @@ public class TransactionTests {
 		CancelOrderTransactionData cancelOrderTransactionData = new CancelOrderTransactionData(buyer.getPublicKey(), orderId, fee, timestamp, buyersReference);
 
 		Transaction cancelOrderTransaction = new CancelOrderTransaction(this.repository, cancelOrderTransactionData);
-		cancelOrderTransaction.calcSignature(buyer);
+		cancelOrderTransaction.sign(buyer);
 		assertTrue(cancelOrderTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, cancelOrderTransaction.isValid());
 
@@ -970,7 +970,7 @@ public class TransactionTests {
 		CreateOrderTransactionData createOrderTransactionData = new CreateOrderTransactionData(sender.getPublicKey(), haveAssetId, wantAssetId, amount, price,
 				fee, timestamp, reference);
 		Transaction createOrderTransaction = new CreateOrderTransaction(this.repository, createOrderTransactionData);
-		createOrderTransaction.calcSignature(sender);
+		createOrderTransaction.sign(sender);
 		assertTrue(createOrderTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());
 
@@ -1073,7 +1073,7 @@ public class TransactionTests {
 		MultiPaymentTransactionData multiPaymentTransactionData = new MultiPaymentTransactionData(sender.getPublicKey(), payments, fee, timestamp, reference);
 
 		Transaction multiPaymentTransaction = new MultiPaymentTransaction(repository, multiPaymentTransactionData);
-		multiPaymentTransaction.calcSignature(sender);
+		multiPaymentTransaction.sign(sender);
 		assertTrue(multiPaymentTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, multiPaymentTransaction.isValid());
 
@@ -1143,7 +1143,7 @@ public class TransactionTests {
 				data, isText, isEncrypted, fee, timestamp, reference);
 
 		Transaction messageTransaction = new MessageTransaction(repository, messageTransactionData);
-		messageTransaction.calcSignature(sender);
+		messageTransaction.sign(sender);
 		assertTrue(messageTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, messageTransaction.isValid());
 

@@ -1,10 +1,16 @@
 package transform.transaction;
 
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 import org.json.simple.JSONObject;
 
+import com.google.common.hash.HashCode;
+
 import data.transaction.TransactionData;
+import qora.account.PrivateKeyAccount;
+import qora.transaction.Transaction;
 import qora.transaction.Transaction.TransactionType;
 import transform.TransformationException;
 import transform.Transformer;
@@ -24,60 +30,69 @@ public class TransactionTransformer extends Transformer {
 		if (bytes.length < TYPE_LENGTH)
 			throw new TransformationException("Byte data too short to determine transaction type");
 
+		System.out.println("v1 tx hex: " + HashCode.fromBytes(bytes).toString());
+
 		ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
 
 		TransactionType type = TransactionType.valueOf(byteBuffer.getInt());
 		if (type == null)
 			return null;
 
-		switch (type) {
-			case GENESIS:
-				return GenesisTransactionTransformer.fromByteBuffer(byteBuffer);
+		try {
+			switch (type) {
+				case GENESIS:
+					return GenesisTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case PAYMENT:
-				return PaymentTransactionTransformer.fromByteBuffer(byteBuffer);
+				case PAYMENT:
+					return PaymentTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case REGISTER_NAME:
-				return RegisterNameTransactionTransformer.fromByteBuffer(byteBuffer);
+				case REGISTER_NAME:
+					return RegisterNameTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case UPDATE_NAME:
-				return UpdateNameTransactionTransformer.fromByteBuffer(byteBuffer);
+				case UPDATE_NAME:
+					return UpdateNameTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case SELL_NAME:
-				return SellNameTransactionTransformer.fromByteBuffer(byteBuffer);
+				case SELL_NAME:
+					return SellNameTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case CANCEL_SELL_NAME:
-				return CancelSellNameTransactionTransformer.fromByteBuffer(byteBuffer);
+				case CANCEL_SELL_NAME:
+					return CancelSellNameTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case BUY_NAME:
-				return BuyNameTransactionTransformer.fromByteBuffer(byteBuffer);
+				case BUY_NAME:
+					return BuyNameTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case CREATE_POLL:
-				return CreatePollTransactionTransformer.fromByteBuffer(byteBuffer);
+				case CREATE_POLL:
+					return CreatePollTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case VOTE_ON_POLL:
-				return VoteOnPollTransactionTransformer.fromByteBuffer(byteBuffer);
+				case VOTE_ON_POLL:
+					return VoteOnPollTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case ISSUE_ASSET:
-				return IssueAssetTransactionTransformer.fromByteBuffer(byteBuffer);
+				case ARBITRARY:
+					return ArbitraryTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case TRANSFER_ASSET:
-				return TransferAssetTransactionTransformer.fromByteBuffer(byteBuffer);
+				case ISSUE_ASSET:
+					return IssueAssetTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case CREATE_ASSET_ORDER:
-				return CreateOrderTransactionTransformer.fromByteBuffer(byteBuffer);
+				case TRANSFER_ASSET:
+					return TransferAssetTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case CANCEL_ASSET_ORDER:
-				return CancelOrderTransactionTransformer.fromByteBuffer(byteBuffer);
+				case CREATE_ASSET_ORDER:
+					return CreateOrderTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case MULTIPAYMENT:
-				return MultiPaymentTransactionTransformer.fromByteBuffer(byteBuffer);
+				case CANCEL_ASSET_ORDER:
+					return CancelOrderTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			case MESSAGE:
-				return MessageTransactionTransformer.fromByteBuffer(byteBuffer);
+				case MULTIPAYMENT:
+					return MultiPaymentTransactionTransformer.fromByteBuffer(byteBuffer);
 
-			default:
-				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
+				case MESSAGE:
+					return MessageTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				default:
+					throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
+			}
+		} catch (BufferUnderflowException e) {
+			throw new TransformationException("Byte data too short for transaction type [" + type.value + "]");
 		}
 	}
 
@@ -109,6 +124,9 @@ public class TransactionTransformer extends Transformer {
 
 			case VOTE_ON_POLL:
 				return VoteOnPollTransactionTransformer.getDataLength(transactionData);
+
+			case ARBITRARY:
+				return ArbitraryTransactionTransformer.getDataLength(transactionData);
 
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.getDataLength(transactionData);
@@ -162,6 +180,9 @@ public class TransactionTransformer extends Transformer {
 			case VOTE_ON_POLL:
 				return VoteOnPollTransactionTransformer.toBytes(transactionData);
 
+			case ARBITRARY:
+				return ArbitraryTransactionTransformer.toBytes(transactionData);
+
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.toBytes(transactionData);
 
@@ -182,6 +203,91 @@ public class TransactionTransformer extends Transformer {
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes");
+		}
+	}
+
+	/**
+	 * Serialize transaction as byte[], stripping off trailing signature ready for signing/verification.
+	 * <p>
+	 * Used by signature-related methods such as {@link Transaction#sign(PrivateKeyAccount)} and {@link Transaction#isSignatureValid()}
+	 * 
+	 * @param transactionData
+	 * @return byte[] of transaction, without trailing signature
+	 * @throws TransformationException
+	 */
+	public static byte[] toBytesForSigning(TransactionData transactionData) throws TransformationException {
+		switch (transactionData.getType()) {
+			case GENESIS:
+				return GenesisTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case PAYMENT:
+				return PaymentTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case REGISTER_NAME:
+				return RegisterNameTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case UPDATE_NAME:
+				return UpdateNameTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case SELL_NAME:
+				return SellNameTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case CANCEL_SELL_NAME:
+				return CancelSellNameTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case BUY_NAME:
+				return BuyNameTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case CREATE_POLL:
+				return CreatePollTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case VOTE_ON_POLL:
+				return VoteOnPollTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case ARBITRARY:
+				return ArbitraryTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case ISSUE_ASSET:
+				return IssueAssetTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case TRANSFER_ASSET:
+				return TransferAssetTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case CREATE_ASSET_ORDER:
+				return CreateOrderTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case CANCEL_ASSET_ORDER:
+				return CancelOrderTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case MULTIPAYMENT:
+				return MultiPaymentTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case MESSAGE:
+				return MessageTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			default:
+				throw new TransformationException(
+						"Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes for signing");
+		}
+	}
+
+	/**
+	 * Generic serialization of transaction as byte[], stripping off trailing signature ready for signing/verification.
+	 * 
+	 * @param transactionData
+	 * @return byte[] of transaction, without trailing signature
+	 * @throws TransformationException
+	 */
+	protected static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
+		try {
+			byte[] bytes = TransactionTransformer.toBytes(transactionData);
+
+			if (transactionData.getSignature() == null)
+				return bytes;
+
+			return Arrays.copyOf(bytes, bytes.length - Transformer.SIGNATURE_LENGTH);
+		} catch (TransformationException e) {
+			throw new RuntimeException("Unable to transform transaction to byte array for signing", e);
 		}
 	}
 
@@ -213,6 +319,9 @@ public class TransactionTransformer extends Transformer {
 
 			case VOTE_ON_POLL:
 				return VoteOnPollTransactionTransformer.toJSON(transactionData);
+
+			case ARBITRARY:
+				return ArbitraryTransactionTransformer.toJSON(transactionData);
 
 			case ISSUE_ASSET:
 				return IssueAssetTransactionTransformer.toJSON(transactionData);

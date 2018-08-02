@@ -28,17 +28,17 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + ASSET_ID_LENGTH + AMOUNT_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransformationException("Byte data too short for TransferAssetTransaction");
-
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
 
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
+
 		String recipient = Serialization.deserializeAddress(byteBuffer);
+
 		long assetId = byteBuffer.getLong();
+
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);

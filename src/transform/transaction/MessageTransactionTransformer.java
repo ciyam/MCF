@@ -37,22 +37,15 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 			+ DATA_SIZE_LENGTH + IS_TEXT_LENGTH + IS_ENCRYPTED_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_DATALESS_LENGTH_V1)
-			throw new TransformationException("Byte data too short for MessageTransaction");
-
 		long timestamp = byteBuffer.getLong();
+
 		int version = MessageTransaction.getVersionByTimestamp(timestamp);
-
-		int minimumRemaining = version == 1 ? TYPELESS_DATALESS_LENGTH_V1 : TYPELESS_DATALESS_LENGTH_V3;
-		minimumRemaining -= TIMESTAMP_LENGTH; // Already read above
-
-		if (byteBuffer.remaining() < minimumRemaining)
-			throw new TransformationException("Byte data too short for MessageTransaction");
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
 
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
+
 		String recipient = Serialization.deserializeAddress(byteBuffer);
 
 		long assetId;
@@ -71,11 +64,8 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		byte[] data = new byte[dataSize];
 		byteBuffer.get(data);
 
-		// Still need to make sure there are enough bytes left for remaining fields
-		if (byteBuffer.remaining() < IS_ENCRYPTED_LENGTH + IS_TEXT_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH)
-			throw new TransformationException("Byte data too short for MessageTransaction");
-
 		boolean isEncrypted = byteBuffer.get() != 0;
+
 		boolean isText = byteBuffer.get() != 0;
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);

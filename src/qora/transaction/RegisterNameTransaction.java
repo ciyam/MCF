@@ -108,7 +108,7 @@ public class RegisterNameTransaction extends Transaction {
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check issuer has enough funds
-		if (registrant.getConfirmedBalance(Asset.QORA).compareTo(registerNameTransactionData.getFee()) == -1)
+		if (registrant.getConfirmedBalance(Asset.QORA).compareTo(registerNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

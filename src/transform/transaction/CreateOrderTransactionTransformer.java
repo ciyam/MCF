@@ -13,6 +13,7 @@ import com.google.common.primitives.Longs;
 
 import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
+import qora.block.BlockChain;
 import data.transaction.CreateOrderTransactionData;
 import transform.TransformationException;
 import utils.Serialization;
@@ -27,9 +28,6 @@ public class CreateOrderTransactionTransformer extends TransactionTransformer {
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + (ASSET_ID_LENGTH + AMOUNT_LENGTH) * 2;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransformationException("Byte data too short for CreateOrderTransaction");
-
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
@@ -38,9 +36,11 @@ public class CreateOrderTransactionTransformer extends TransactionTransformer {
 		byte[] creatorPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
 		long haveAssetId = byteBuffer.getLong();
+
 		long wantAssetId = byteBuffer.getLong();
 
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
+
 		BigDecimal price = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
@@ -75,6 +75,43 @@ public class CreateOrderTransactionTransformer extends TransactionTransformer {
 
 			if (createOrderTransactionData.getSignature() != null)
 				bytes.write(createOrderTransactionData.getSignature());
+
+			return bytes.toByteArray();
+		} catch (IOException | ClassCastException e) {
+			throw new TransformationException(e);
+		}
+	}
+
+	/**
+	 * In Qora v1, the bytes used for verification have mangled price so we need to test for v1-ness and adjust the bytes accordingly.
+	 * 
+	 * @param transactionData
+	 * @return byte[]
+	 * @throws TransformationException
+	 */
+	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
+		if (transactionData.getTimestamp() >= BlockChain.getCreateOrderV2Timestamp())
+			return TransactionTransformer.toBytesForSigningImpl(transactionData);
+
+		// Special v1 version
+		try {
+			CreateOrderTransactionData createOrderTransactionData = (CreateOrderTransactionData) transactionData;
+
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+			bytes.write(Ints.toByteArray(createOrderTransactionData.getType().value));
+			bytes.write(Longs.toByteArray(createOrderTransactionData.getTimestamp()));
+			bytes.write(createOrderTransactionData.getReference());
+
+			bytes.write(createOrderTransactionData.getCreatorPublicKey());
+			bytes.write(Longs.toByteArray(createOrderTransactionData.getHaveAssetId()));
+			bytes.write(Longs.toByteArray(createOrderTransactionData.getWantAssetId()));
+			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getAmount(), AMOUNT_LENGTH);
+
+			// This is the crucial difference
+			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getPrice(), FEE_LENGTH);
+
+			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getFee());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

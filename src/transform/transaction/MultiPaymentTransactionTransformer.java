@@ -31,21 +31,14 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + PAYMENTS_COUNT_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransformationException("Byte data too short for MultiPaymentTransaction");
-
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
 
 		byte[] senderPublicKey = Serialization.deserializePublicKey(byteBuffer);
-		int paymentsCount = byteBuffer.getInt();
 
-		// Check remaining buffer size
-		int minRemaining = paymentsCount * PaymentTransformer.getDataLength() + FEE_LENGTH + SIGNATURE_LENGTH;
-		if (byteBuffer.remaining() < minRemaining)
-			throw new TransformationException("Byte data too short for MultiPaymentTransaction");
+		int paymentsCount = byteBuffer.getInt();
 
 		List<PaymentData> payments = new ArrayList<PaymentData>();
 		for (int i = 0; i < paymentsCount; ++i)

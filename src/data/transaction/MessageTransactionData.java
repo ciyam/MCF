@@ -8,14 +8,14 @@ import qora.transaction.Transaction.TransactionType;
 public class MessageTransactionData extends TransactionData {
 
 	// Properties
-	protected int version;
-	protected byte[] senderPublicKey;
-	protected String recipient;
-	protected Long assetId;
-	protected BigDecimal amount;
-	protected byte[] data;
-	protected boolean isText;
-	protected boolean isEncrypted;
+	private int version;
+	private byte[] senderPublicKey;
+	private String recipient;
+	private Long assetId;
+	private BigDecimal amount;
+	private byte[] data;
+	private boolean isText;
+	private boolean isEncrypted;
 
 	// Constructors
 

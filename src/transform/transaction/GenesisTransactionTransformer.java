@@ -25,11 +25,10 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 	private static final int TYPELESS_LENGTH = TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_LENGTH)
-			throw new TransformationException("Byte data too short for GenesisTransaction");
-
 		long timestamp = byteBuffer.getLong();
+
 		String recipient = Serialization.deserializeAddress(byteBuffer);
+
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
 		return new GenesisTransactionData(recipient, amount, timestamp);

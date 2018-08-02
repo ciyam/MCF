@@ -56,7 +56,10 @@ public class BuyNameTransaction extends Transaction {
 		BigDecimal amount = BigDecimal.ZERO.setScale(8);
 
 		if (address.equals(this.getBuyer().getAddress()))
-			amount = amount.subtract(this.transactionData.getFee());
+			amount = amount.subtract(this.transactionData.getFee()).subtract(this.buyNameTransactionData.getAmount());
+
+		if (address.equals(this.buyNameTransactionData.getSeller()))
+			amount = amount.add(this.buyNameTransactionData.getAmount());
 
 		return amount;
 	}
@@ -112,7 +115,7 @@ public class BuyNameTransaction extends Transaction {
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check issuer has enough funds
-		if (buyer.getConfirmedBalance(Asset.QORA).compareTo(buyNameTransactionData.getFee()) == -1)
+		if (buyer.getConfirmedBalance(Asset.QORA).compareTo(buyNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;

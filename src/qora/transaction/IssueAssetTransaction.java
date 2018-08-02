@@ -76,6 +76,7 @@ public class IssueAssetTransaction extends Transaction {
 
 	// Processing
 
+	@Override
 	public ValidationResult isValid() throws DataException {
 		// Are IssueAssetTransactions even allowed at this point?
 		// XXX In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used?
@@ -112,7 +113,7 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check issuer has enough funds
-		if (issuer.getConfirmedBalance(Asset.QORA).compareTo(issueAssetTransactionData.getFee()) == -1)
+		if (issuer.getConfirmedBalance(Asset.QORA).compareTo(issueAssetTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		// XXX: Surely we want to check the asset name isn't already taken? This check is not present in gen1.
@@ -122,6 +123,7 @@ public class IssueAssetTransaction extends Transaction {
 		return ValidationResult.OK;
 	}
 
+	@Override
 	public void process() throws DataException {
 		// Issue asset
 		Asset asset = new Asset(this.repository, issueAssetTransactionData);
@@ -145,6 +147,7 @@ public class IssueAssetTransaction extends Transaction {
 		owner.setConfirmedBalance(issueAssetTransactionData.getAssetId(), BigDecimal.valueOf(issueAssetTransactionData.getQuantity()).setScale(8));
 	}
 
+	@Override
 	public void orphan() throws DataException {
 		// Remove asset from owner
 		Account owner = getOwner();

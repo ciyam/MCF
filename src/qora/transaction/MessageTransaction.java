@@ -85,6 +85,7 @@ public class MessageTransaction extends Transaction {
 		return new PaymentData(messageTransactionData.getRecipient(), Asset.QORA, messageTransactionData.getAmount());
 	}
 
+	@Override
 	public ValidationResult isValid() throws DataException {
 		// Are message transactions even allowed at this point?
 		if (messageTransactionData.getVersion() != MessageTransaction.getVersionByTimestamp(messageTransactionData.getTimestamp()))
@@ -110,6 +111,7 @@ public class MessageTransaction extends Transaction {
 				isZeroAmountValid);
 	}
 
+	@Override
 	public void process() throws DataException {
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
@@ -119,6 +121,7 @@ public class MessageTransaction extends Transaction {
 				messageTransactionData.getSignature());
 	}
 
+	@Override
 	public void orphan() throws DataException {
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(this.transactionData);

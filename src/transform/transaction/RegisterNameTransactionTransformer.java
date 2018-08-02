@@ -30,9 +30,6 @@ public class RegisterNameTransactionTransformer extends TransactionTransformer {
 	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + REGISTRANT_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DATA_SIZE_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TYPELESS_DATALESS_LENGTH)
-			throw new TransformationException("Byte data too short for RegisterNameTransaction");
-
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
@@ -43,11 +40,8 @@ public class RegisterNameTransactionTransformer extends TransactionTransformer {
 		String owner = Serialization.deserializeAddress(byteBuffer);
 
 		String name = Serialization.deserializeSizedString(byteBuffer, Name.MAX_NAME_SIZE);
-		String data = Serialization.deserializeSizedString(byteBuffer, Name.MAX_DATA_SIZE);
 
-		// Still need to make sure there are enough bytes left for remaining fields
-		if (byteBuffer.remaining() < FEE_LENGTH + SIGNATURE_LENGTH)
-			throw new TransformationException("Byte data too short for RegisterNameTransaction");
+		String data = Serialization.deserializeSizedString(byteBuffer, Name.MAX_DATA_SIZE);
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 

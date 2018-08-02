@@ -94,6 +94,19 @@ public class Block {
 		this.generator = new PublicKeyAccount(repository, blockData.getGeneratorPublicKey());
 	}
 
+	// When receiving a block over network?
+	public Block(Repository repository, BlockData blockData, List<TransactionData> transactions) throws DataException {
+		this(repository, blockData);
+
+		this.transactions = new ArrayList<Transaction>();
+
+		// We have to sum fees too
+		for (TransactionData transactionData : transactions) {
+			this.transactions.add(Transaction.fromData(repository, transactionData));
+			this.blockData.setTotalFees(this.blockData.getTotalFees().add(transactionData.getFee()));
+		}
+	}
+
 	// For creating a new block?
 	public Block(Repository repository, int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PrivateKeyAccount generator,
 			byte[] atBytes, BigDecimal atFees) {
@@ -211,8 +224,11 @@ public class Block {
 		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance()) * BlockChain.BLOCK_RETARGET_INTERVAL * 1000;
 
 		// Finally, scale generating balance such that faster than expected previous intervals produce larger generating balances.
-		BigDecimal multiplier = BigDecimal.valueOf((double) expectedGeneratingTime / (double) previousGeneratingTime);
-		this.cachedNextGeneratingBalance = BlockChain.minMaxBalance(this.blockData.getGeneratingBalance().multiply(multiplier));
+		// NOTE: we have to use doubles and longs here to keep compatibility with Qora v1 results
+		double multiplier = (double) expectedGeneratingTime / (double) previousGeneratingTime;
+		long nextGeneratingBalance = (long) (this.blockData.getGeneratingBalance().doubleValue() * multiplier);
+
+		this.cachedNextGeneratingBalance = BlockChain.minMaxBalance(BigDecimal.valueOf(nextGeneratingBalance).setScale(8));
 
 		return this.cachedNextGeneratingBalance;
 	}
@@ -257,9 +273,9 @@ public class Block {
 		byte[] hashData;
 
 		if (this.blockData.getVersion() < 3)
-			hashData = this.blockData.getSignature();
+			hashData = this.blockData.getGeneratorSignature();
 		else
-			hashData = Bytes.concat(this.blockData.getSignature(), generator.getPublicKey());
+			hashData = Bytes.concat(this.blockData.getReference(), generator.getPublicKey());
 
 		// Calculate 32-byte hash as pseudo-random, but deterministic, integer (unique to this generator for v3+ blocks)
 		byte[] hash = Crypto.digest(hashData);
@@ -501,11 +517,11 @@ public class Block {
 			return ValidationResult.FEATURE_NOT_YET_RELEASED;
 
 		// Check generating balance
-		if (this.blockData.getGeneratingBalance() != parentBlock.calcNextBlockGeneratingBalance())
+		if (this.blockData.getGeneratingBalance().compareTo(parentBlock.calcNextBlockGeneratingBalance()) != 0)
 			return ValidationResult.GENERATING_BALANCE_INCORRECT;
 
 		// Check generator is allowed to forge this block at this time
-		BigInteger hashValue = parentBlock.calcBlockHash();
+		BigInteger hashValue = this.calcBlockHash();
 		BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
 
 		// Multiply target by guesses
@@ -547,15 +563,19 @@ public class Block {
 
 				// Check transaction is even valid
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
-				if (transaction.isValid() != Transaction.ValidationResult.OK)
+				Transaction.ValidationResult validationResult = transaction.isValid();
+				if (validationResult != Transaction.ValidationResult.OK) {
+					System.err.println("Error during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
+							+ validationResult.value);
 					return ValidationResult.TRANSACTION_INVALID;
+				}
 
 				// Process transaction to make sure other transactions validate properly
 				try {
 					transaction.process();
 				} catch (Exception e) {
-					// LOGGER.error("Exception during transaction processing, tx " + Base58.encode(transaction.getSignature()), e);
-					System.err.println("Exception during transaction processing, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
+					// LOGGER.error("Exception during transaction validation, tx " + Base58.encode(transaction.getSignature()), e);
+					System.err.println("Exception during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
 							+ e.getMessage());
 					e.printStackTrace();
 					return ValidationResult.TRANSACTION_PROCESSING_FAILED;
@@ -587,7 +607,7 @@ public class Block {
 
 		// If fees are non-zero then add fees to generator's balance
 		BigDecimal blockFee = this.blockData.getTotalFees();
-		if (blockFee.compareTo(BigDecimal.ZERO) == 1)
+		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
 			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFee));
 
 		// Link block into blockchain by fetching signature of highest block and setting that as our reference
@@ -629,7 +649,7 @@ public class Block {
 
 		// If fees are non-zero then remove fees from generator's balance
 		BigDecimal blockFee = this.blockData.getTotalFees();
-		if (blockFee.compareTo(BigDecimal.ZERO) == 1)
+		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
 			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(blockFee));
 
 		// Delete block from blockchain
