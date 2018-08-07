@@ -44,21 +44,14 @@ public class migrate {
 	private static Map<String, byte[]> publicKeyByAddress = new HashMap<String, byte[]>();
 
 	public static Object fetchBlockJSON(int height) throws IOException {
-		InputStream is;
-
-		try {
-			is = new URL("http://localhost:9085/blocks/byheight/" + height).openStream();
+		try (InputStream is = new URL("http://localhost:9085/blocks/byheight/" + height).openStream();
+				InputStreamReader isr = new InputStreamReader(is, Charset.forName("UTF-8"));
+				BufferedReader reader = new BufferedReader(isr)) {
+			return JSONValue.parseWithException(reader);
 		} catch (IOException e) {
 			return null;
-		}
-
-		try {
-			BufferedReader reader = new BufferedReader(new InputStreamReader(is, Charset.forName("UTF-8")));
-			return JSONValue.parseWithException(reader);
 		} catch (ParseException e) {
 			return null;
-		} finally {
-			is.close();
 		}
 	}
 
@@ -69,8 +62,8 @@ public class migrate {
 
 		InputStream is = new URL("http://localhost:9085/addresses/publickey/" + address).openStream();
 
-		try {
-			String publicKey58 = CharStreams.toString(new InputStreamReader(is, Charset.forName("UTF-8")));
+		try (InputStreamReader isr = new InputStreamReader(is, Charset.forName("UTF-8"))) {
+			String publicKey58 = CharStreams.toString(isr);
 
 			byte[] publicKey = Base58.decode(publicKey58);
 			publicKeyByAddress.put(address, publicKey);
@@ -81,12 +74,12 @@ public class migrate {
 	}
 
 	public static void savePublicKeys(Connection connection) throws SQLException {
-		PreparedStatement pStmt = connection.prepareStatement("INSERT IGNORE INTO Test_public_keys VALUES (?, ?)");
-
-		for (Entry<String, byte[]> entry : publicKeyByAddress.entrySet()) {
-			pStmt.setString(1, entry.getKey());
-			pStmt.setBytes(2, entry.getValue());
-			pStmt.execute();
+		try (PreparedStatement pStmt = connection.prepareStatement("INSERT IGNORE INTO Test_public_keys VALUES (?, ?)")) {
+			for (Entry<String, byte[]> entry : publicKeyByAddress.entrySet()) {
+				pStmt.setString(1, entry.getKey());
+				pStmt.setBytes(2, entry.getValue());
+				pStmt.execute();
+			}
 		}
 	}
 
@@ -103,6 +96,7 @@ public class migrate {
 		return output.toString();
 	}
 
+	@SuppressWarnings("resource")
 	public static void main(String args[]) throws SQLException, DataException, IOException {
 		// Genesis public key
 		publicKeyByAddress.put(GENESIS_ADDRESS, GENESIS_PUBLICKEY);
@@ -132,14 +126,14 @@ public class migrate {
 				.prepareStatement("INSERT INTO PaymentTransactions " + formatWithPlaceholders("signature", "sender", "recipient", "amount"));
 		PreparedStatement registerNamePStmt = c
 				.prepareStatement("INSERT INTO RegisterNameTransactions " + formatWithPlaceholders("signature", "registrant", "name", "owner", "data"));
-		PreparedStatement updateNamePStmt = c
-				.prepareStatement("INSERT INTO UpdateNameTransactions " + formatWithPlaceholders("signature", "owner", "name", "new_owner", "new_data", "name_reference"));
+		PreparedStatement updateNamePStmt = c.prepareStatement(
+				"INSERT INTO UpdateNameTransactions " + formatWithPlaceholders("signature", "owner", "name", "new_owner", "new_data", "name_reference"));
 		PreparedStatement sellNamePStmt = c
 				.prepareStatement("INSERT INTO SellNameTransactions " + formatWithPlaceholders("signature", "owner", "name", "amount"));
 		PreparedStatement cancelSellNamePStmt = c
 				.prepareStatement("INSERT INTO CancelSellNameTransactions " + formatWithPlaceholders("signature", "owner", "name"));
-		PreparedStatement buyNamePStmt = c
-				.prepareStatement("INSERT INTO BuyNameTransactions " + formatWithPlaceholders("signature", "buyer", "name", "seller", "amount", "name_reference"));
+		PreparedStatement buyNamePStmt = c.prepareStatement(
+				"INSERT INTO BuyNameTransactions " + formatWithPlaceholders("signature", "buyer", "name", "seller", "amount", "name_reference"));
 		PreparedStatement createPollPStmt = c
 				.prepareStatement("INSERT INTO CreatePollTransactions " + formatWithPlaceholders("signature", "creator", "owner", "poll_name", "description"));
 		PreparedStatement createPollOptionPStmt = c

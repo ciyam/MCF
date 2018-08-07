@@ -35,10 +35,12 @@ public class CreatePollTransaction extends Transaction {
 
 	// More information
 
+	@Override
 	public List<Account> getRecipientAccounts() throws DataException {
 		return Collections.singletonList(getOwner());
 	}
 
+	@Override
 	public boolean isInvolved(Account account) throws DataException {
 		String address = account.getAddress();
 
@@ -51,6 +53,7 @@ public class CreatePollTransaction extends Transaction {
 		return false;
 	}
 
+	@Override
 	public BigDecimal getAmount(Account account) throws DataException {
 		String address = account.getAddress();
 		BigDecimal amount = BigDecimal.ZERO.setScale(8);
@@ -63,6 +66,7 @@ public class CreatePollTransaction extends Transaction {
 
 	// Navigation
 
+	@Override
 	public Account getCreator() throws DataException {
 		return new PublicKeyAccount(this.repository, this.createPollTransactionData.getCreatorPublicKey());
 	}

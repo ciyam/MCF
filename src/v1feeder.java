@@ -36,27 +36,27 @@ public class v1feeder extends Thread {
 	private static final int DEFAULT_PORT = 9084;
 
 	private static final int MAGIC_LENGTH = 4;
-	private static final int TYPE_LENGTH = 4;
+	// private static final int TYPE_LENGTH = 4;
 	private static final int HAS_ID_LENGTH = 1;
-	private static final int ID_LENGTH = 4;
-	private static final int DATA_SIZE_LENGTH = 4;
+	// private static final int ID_LENGTH = 4;
+	// private static final int DATA_SIZE_LENGTH = 4;
 	private static final int CHECKSUM_LENGTH = 4;
 
 	private static final int SIGNATURE_LENGTH = 128;
 
 	private static final byte[] MAINNET_MAGIC = { 0x12, 0x34, 0x56, 0x78 };
 
-	private static final int GET_PEERS_TYPE = 1;
-	private static final int PEERS_TYPE = 2;
+	// private static final int GET_PEERS_TYPE = 1;
+	// private static final int PEERS_TYPE = 2;
 	private static final int HEIGHT_TYPE = 3;
 	private static final int GET_SIGNATURES_TYPE = 4;
 	private static final int SIGNATURES_TYPE = 5;
 	private static final int GET_BLOCK_TYPE = 6;
 	private static final int BLOCK_TYPE = 7;
-	private static final int TRANSACTION_TYPE = 8;
+	// private static final int TRANSACTION_TYPE = 8;
 	private static final int PING_TYPE = 9;
 	private static final int VERSION_TYPE = 10;
-	private static final int FIND_MYSELF_TYPE = 11;
+	// private static final int FIND_MYSELF_TYPE = 11;
 
 	private Socket socket;
 	private OutputStream out;
@@ -237,7 +237,7 @@ public class v1feeder extends Thread {
 				break;
 
 			case VERSION_TYPE:
-				long timestamp = byteBuffer.getLong();
+				@SuppressWarnings("unused") long timestamp = byteBuffer.getLong();
 				int versionLength = byteBuffer.getInt();
 				byte[] versionBytes = new byte[versionLength];
 				byteBuffer.get(versionBytes);
@@ -299,6 +299,7 @@ public class v1feeder extends Thread {
 		return newBufferEnd;
 	}
 
+	@Override
 	public void run() {
 		try {
 			DataInputStream in = new DataInputStream(socket.getInputStream());

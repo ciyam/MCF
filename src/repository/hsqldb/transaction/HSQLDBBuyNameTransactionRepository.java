@@ -17,16 +17,15 @@ public class HSQLDBBuyNameTransactionRepository extends HSQLDBTransactionReposit
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] buyerPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT name, amount, seller, name_reference FROM BuyNameTransactions WHERE signature = ?",
-					signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT name, amount, seller, name_reference FROM BuyNameTransactions WHERE signature = ?",
+				signature)) {
+			if (resultSet == null)
 				return null;
 
-			String name = rs.getString(1);
-			BigDecimal amount = rs.getBigDecimal(2);
-			String seller = rs.getString(3);
-			byte[] nameReference = rs.getBytes(4);
+			String name = resultSet.getString(1);
+			BigDecimal amount = resultSet.getBigDecimal(2);
+			String seller = resultSet.getString(3);
+			byte[] nameReference = resultSet.getBytes(4);
 
 			return new BuyNameTransactionData(buyerPublicKey, name, amount, seller, nameReference, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

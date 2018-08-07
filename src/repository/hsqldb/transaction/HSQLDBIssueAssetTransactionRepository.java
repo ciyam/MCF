@@ -17,20 +17,18 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute(
-					"SELECT issuer, owner, asset_name, description, quantity, is_divisible, asset_id FROM IssueAssetTransactions WHERE signature = ?",
-					signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT issuer, owner, asset_name, description, quantity, is_divisible, asset_id FROM IssueAssetTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			byte[] issuerPublicKey = rs.getBytes(1);
-			String owner = rs.getString(2);
-			String assetName = rs.getString(3);
-			String description = rs.getString(4);
-			long quantity = rs.getLong(5);
-			boolean isDivisible = rs.getBoolean(6);
-			Long assetId = rs.getLong(7);
+			byte[] issuerPublicKey = resultSet.getBytes(1);
+			String owner = resultSet.getString(2);
+			String assetName = resultSet.getString(3);
+			String description = resultSet.getString(4);
+			long quantity = resultSet.getLong(5);
+			boolean isDivisible = resultSet.getBoolean(6);
+			Long assetId = resultSet.getLong(7);
 
 			return new IssueAssetTransactionData(assetId, issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference,
 					signature);

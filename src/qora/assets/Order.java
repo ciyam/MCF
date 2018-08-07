@@ -163,7 +163,7 @@ public class Order {
 
 			// Trade can go ahead!
 
-			// Calculate the total cost to us based on their price
+			// Calculate the total cost to us, in have-asset, based on their price
 			BigDecimal tradePrice = matchedAmount.multiply(theirOrderData.getPrice()).setScale(8);
 
 			// Construct trade
@@ -174,7 +174,7 @@ public class Order {
 			trade.process();
 
 			// Update our order in terms of fulfilment, etc. but do not save into repository as that's handled by Trade above
-			this.orderData.setFulfilled(this.orderData.getFulfilled().add(matchedAmount));
+			this.orderData.setFulfilled(this.orderData.getFulfilled().add(tradePrice));
 
 			// Continue on to process other open orders in case we still have amount left to match
 		}

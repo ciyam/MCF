@@ -17,9 +17,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		this.repository = repository;
 	}
 
+	@Override
 	public AccountData getAccount(String address) throws DataException {
-		try {
-			ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", address);
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", address)) {
 			if (resultSet == null)
 				return null;
 
@@ -29,6 +29,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
+	@Override
 	public void save(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 		saveHelper.bind("account", accountData.getAddress()).bind("reference", accountData.getReference());
@@ -40,9 +41,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
+	@Override
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException {
-		try {
-			ResultSet resultSet = this.repository.checkedExecute("SELECT balance FROM AccountBalances WHERE account = ? and asset_id = ?", address, assetId);
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT balance FROM AccountBalances WHERE account = ? and asset_id = ?", address, assetId)) {
 			if (resultSet == null)
 				return null;
 
@@ -54,6 +55,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
+	@Override
 	public void save(AccountBalanceData accountBalanceData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountBalances");
 		saveHelper.bind("account", accountBalanceData.getAddress()).bind("asset_id", accountBalanceData.getAssetId()).bind("balance",
@@ -66,6 +68,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		}
 	}
 
+	@Override
 	public void delete(String address, long assetId) throws DataException {
 		try {
 			this.repository.delete("AccountBalances", "account = ? and asset_id = ?", address, assetId);

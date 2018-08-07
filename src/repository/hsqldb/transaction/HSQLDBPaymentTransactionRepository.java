@@ -17,14 +17,13 @@ public class HSQLDBPaymentTransactionRepository extends HSQLDBTransactionReposit
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			byte[] senderPublicKey = rs.getBytes(1);
-			String recipient = rs.getString(2);
-			BigDecimal amount = rs.getBigDecimal(3);
+			byte[] senderPublicKey = resultSet.getBytes(1);
+			String recipient = resultSet.getString(2);
+			BigDecimal amount = resultSet.getBigDecimal(3);
 
 			return new PaymentTransactionData(senderPublicKey, recipient, amount, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.json.simple.JSONArray;
@@ -16,6 +17,7 @@ import com.google.common.primitives.Longs;
 
 import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
+import qora.block.BlockChain;
 import qora.transaction.ArbitraryTransaction;
 import data.PaymentData;
 import data.transaction.ArbitraryTransactionData;
@@ -118,6 +120,34 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
+	}
+
+	/**
+	 * In Qora v1, the bytes used for verification are really mangled so we need to test for v1-ness and adjust the bytes accordingly.
+	 * 
+	 * @param transactionData
+	 * @return byte[]
+	 * @throws TransformationException
+	 */
+	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
+		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
+
+		if (arbitraryTransactionData.getVersion() == 1 || transactionData.getTimestamp() >= BlockChain.getArbitraryTransactionV2Timestamp())
+			return bytes;
+
+		// Special v1 version
+
+		// In v1, a coding error means that all bytes prior to final payment entry are lost!
+		// If there are no payments then we can skip mangling
+		if (arbitraryTransactionData.getPayments().size() == 0)
+			return bytes;
+
+		// So we're left with: final payment entry, service, data size, data, fee
+		int v1Length = PaymentTransformer.getDataLength() + SERVICE_LENGTH + DATA_SIZE_LENGTH + arbitraryTransactionData.getData().length + FEE_LENGTH;
+		int v1Start = bytes.length - v1Length;
+
+		return Arrays.copyOfRange(bytes, v1Start, bytes.length);
 	}
 
 	@SuppressWarnings("unchecked")

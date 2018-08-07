@@ -18,17 +18,16 @@ public class PaymentTransformer extends Transformer {
 	// Property lengths
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
 	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
-	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
+	private static final int AMOUNT_LENGTH = 12;
 
 	private static final int TOTAL_LENGTH = RECIPIENT_LENGTH + ASSET_ID_LENGTH + AMOUNT_LENGTH;
 
 	public static PaymentData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
-		if (byteBuffer.remaining() < TOTAL_LENGTH)
-			throw new TransformationException("Byte data too short for payment information");
-
 		String recipient = Serialization.deserializeAddress(byteBuffer);
+
 		long assetId = byteBuffer.getLong();
-		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
+
+		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
 
 		return new PaymentData(recipient, assetId, amount);
 	}
@@ -42,8 +41,10 @@ public class PaymentTransformer extends Transformer {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
 			Serialization.serializeAddress(bytes, paymentData.getRecipient());
+
 			bytes.write(Longs.toByteArray(paymentData.getAssetId()));
-			Serialization.serializeBigDecimal(bytes, paymentData.getAmount());
+
+			Serialization.serializeBigDecimal(bytes, paymentData.getAmount(), AMOUNT_LENGTH);
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

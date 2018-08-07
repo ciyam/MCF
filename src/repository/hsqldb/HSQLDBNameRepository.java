@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Calendar;
 
 import data.naming.NameData;
 import repository.NameRepository;
@@ -19,19 +20,18 @@ public class HSQLDBNameRepository implements NameRepository {
 
 	@Override
 	public NameData fromName(String name) throws DataException {
-		try {
-			ResultSet resultSet = this.repository
-					.checkedExecute("SELECT registrant, owner, data, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE name = ?", name);
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT registrant, owner, data, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE name = ?", name)) {
 			if (resultSet == null)
 				return null;
 
 			byte[] registrantPublicKey = resultSet.getBytes(1);
 			String owner = resultSet.getString(2);
 			String data = resultSet.getString(3);
-			long registered = resultSet.getTimestamp(4).getTime();
+			long registered = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 			// Special handling for possibly-NULL "updated" column
-			Timestamp updatedTimestamp = resultSet.getTimestamp(5);
+			Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
 			Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
 
 			byte[] reference = resultSet.getBytes(6);

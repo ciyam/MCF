@@ -7,7 +7,6 @@ import qora.transaction.Transaction.TransactionType;
 public class CreateOrderTransactionData extends TransactionData {
 
 	// Properties
-	private byte[] creatorPublicKey;
 	private long haveAssetId;
 	private long wantAssetId;
 	private BigDecimal amount;
@@ -19,7 +18,6 @@ public class CreateOrderTransactionData extends TransactionData {
 			long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.CREATE_ASSET_ORDER, fee, creatorPublicKey, timestamp, reference, signature);
 
-		this.creatorPublicKey = creatorPublicKey;
 		this.haveAssetId = haveAssetId;
 		this.wantAssetId = wantAssetId;
 		this.amount = amount;
@@ -32,10 +30,6 @@ public class CreateOrderTransactionData extends TransactionData {
 	}
 
 	// Getters/Setters
-
-	public byte[] getCreatorPublicKey() {
-		return this.creatorPublicKey;
-	}
 
 	public long getHaveAssetId() {
 		return this.haveAssetId;

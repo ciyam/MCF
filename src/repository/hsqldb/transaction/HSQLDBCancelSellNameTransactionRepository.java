@@ -17,12 +17,11 @@ public class HSQLDBCancelSellNameTransactionRepository extends HSQLDBTransaction
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] ownerPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT name FROM CancelSellNameTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT name FROM CancelSellNameTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			String name = rs.getString(1);
+			String name = resultSet.getString(1);
 
 			return new CancelSellNameTransactionData(ownerPublicKey, name, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

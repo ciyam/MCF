@@ -20,30 +20,31 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT owner, poll_name, description FROM CreatePollTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT owner, poll_name, description FROM CreatePollTransactions WHERE signature = ?",
+				signature)) {
+			if (resultSet == null)
 				return null;
 
-			String owner = rs.getString(1);
-			String pollName = rs.getString(2);
-			String description = rs.getString(3);
+			String owner = resultSet.getString(1);
+			String pollName = resultSet.getString(2);
+			String description = resultSet.getString(3);
 
-			rs = this.repository.checkedExecute("SELECT option_name FROM CreatePollTransactionOptions where signature = ? ORDER BY option_index ASC",
-					signature);
-			if (rs == null)
-				return null;
+			try (ResultSet optionsResultSet = this.repository
+					.checkedExecute("SELECT option_name FROM CreatePollTransactionOptions where signature = ? ORDER BY option_index ASC", signature)) {
+				if (optionsResultSet == null)
+					return null;
 
-			List<PollOptionData> pollOptions = new ArrayList<PollOptionData>();
+				List<PollOptionData> pollOptions = new ArrayList<PollOptionData>();
 
-			// NOTE: do-while because checkedExecute() above has already called rs.next() for us
-			do {
-				String optionName = rs.getString(1);
+				// NOTE: do-while because checkedExecute() above has already called rs.next() for us
+				do {
+					String optionName = optionsResultSet.getString(1);
 
-				pollOptions.add(new PollOptionData(optionName));
-			} while (rs.next());
+					pollOptions.add(new PollOptionData(optionName));
+				} while (optionsResultSet.next());
 
-			return new CreatePollTransactionData(creatorPublicKey, owner, pollName, description, pollOptions, fee, timestamp, reference, signature);
+				return new CreatePollTransactionData(creatorPublicKey, owner, pollName, description, pollOptions, fee, timestamp, reference, signature);
+			}
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create poll transaction from repository", e);
 		}

@@ -10,7 +10,8 @@ import repository.hsqldb.HSQLDBRepositoryFactory;
 
 public class Common {
 
-	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true;close_result=true;sql.strict_exec=true;sql.enforce_names=true;sql.syntax_mys=true;sql.pad_space=false";
+	// public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true;close_result=true;sql.strict_exec=true;sql.enforce_names=true;sql.syntax_mys=true;sql.pad_space=false";
+	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
 
 	@BeforeClass
 	public static void setRepository() throws DataException {

@@ -79,10 +79,12 @@ public class BlockTransformer extends Transformer {
 		byteBuffer.get(reference);
 
 		BigDecimal generatingBalance = BigDecimal.valueOf(byteBuffer.getLong()).setScale(8);
+
 		byte[] generatorPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
 		byte[] transactionsSignature = new byte[TRANSACTIONS_SIGNATURE_LENGTH];
 		byteBuffer.get(transactionsSignature);
+
 		byte[] generatorSignature = new byte[GENERATOR_SIGNATURE_LENGTH];
 		byteBuffer.get(generatorSignature);
 
@@ -105,13 +107,16 @@ public class BlockTransformer extends Transformer {
 		// Parse transactions now, compared to deferred parsing in Gen1, so we can throw ParseException if need be.
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
+
 		for (int t = 0; t < transactionCount; ++t) {
 			if (byteBuffer.remaining() < TRANSACTION_SIZE_LENGTH)
 				throw new TransformationException("Byte data too short for Block Transaction length");
 
 			int transactionLength = byteBuffer.getInt();
+
 			if (byteBuffer.remaining() < transactionLength)
 				throw new TransformationException("Byte data too short for Block Transaction");
+
 			if (transactionLength > Block.MAX_BLOCK_BYTES)
 				throw new TransformationException("Byte data too long for Block Transaction");
 
@@ -293,7 +298,7 @@ public class BlockTransformer extends Transformer {
 
 			for (Transaction transaction : block.getTransactions()) {
 				if (!transaction.isSignatureValid())
-					return null;
+					throw new TransformationException("Transaction signature invalid when building block's transactions signature");
 
 				bytes.write(transaction.getTransactionData().getSignature());
 			}

@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 import data.block.BlockData;
@@ -25,23 +26,23 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		this.repository = repository;
 	}
 
-	private BlockData getBlockFromResultSet(ResultSet rs) throws DataException {
-		if (rs == null)
+	private BlockData getBlockFromResultSet(ResultSet resultSet) throws DataException {
+		if (resultSet == null)
 			return null;
 
 		try {
-			int version = rs.getInt(1);
-			byte[] reference = rs.getBytes(2);
-			int transactionCount = rs.getInt(3);
-			BigDecimal totalFees = rs.getBigDecimal(4);
-			byte[] transactionsSignature = rs.getBytes(5);
-			int height = rs.getInt(6);
-			long timestamp = rs.getTimestamp(7).getTime();
-			BigDecimal generatingBalance = rs.getBigDecimal(8);
-			byte[] generatorPublicKey = rs.getBytes(9);
-			byte[] generatorSignature = rs.getBytes(10);
-			byte[] atBytes = rs.getBytes(11);
-			BigDecimal atFees = rs.getBigDecimal(12);
+			int version = resultSet.getInt(1);
+			byte[] reference = resultSet.getBytes(2);
+			int transactionCount = resultSet.getInt(3);
+			BigDecimal totalFees = resultSet.getBigDecimal(4);
+			byte[] transactionsSignature = resultSet.getBytes(5);
+			int height = resultSet.getInt(6);
+			long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			BigDecimal generatingBalance = resultSet.getBigDecimal(8);
+			byte[] generatorPublicKey = resultSet.getBytes(9);
+			byte[] generatorSignature = resultSet.getBytes(10);
+			byte[] atBytes = resultSet.getBytes(11);
+			BigDecimal atFees = resultSet.getBigDecimal(12);
 
 			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
 					generatorPublicKey, generatorSignature, atBytes, atFees);
@@ -50,76 +51,77 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		}
 	}
 
+	@Override
 	public BlockData fromSignature(byte[] signature) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature);
-			return getBlockFromResultSet(rs);
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature)) {
+			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error loading data from DB", e);
 		}
 	}
 
+	@Override
 	public BlockData fromReference(byte[] reference) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", reference);
-			return getBlockFromResultSet(rs);
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", reference)) {
+			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error loading data from DB", e);
 		}
 	}
 
+	@Override
 	public BlockData fromHeight(int height) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", height);
-			return getBlockFromResultSet(rs);
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", height)) {
+			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error loading data from DB", e);
 		}
 	}
 
+	@Override
 	public int getHeightFromSignature(byte[] signature) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT height FROM Blocks WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return 0;
 
-			return rs.getInt(1);
+			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Error obtaining block height from repository", e);
 		}
 	}
 
+	@Override
 	public int getBlockchainHeight() throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT MAX(height) FROM Blocks");
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT MAX(height) FROM Blocks")) {
+			if (resultSet == null)
 				return 0;
 
-			return rs.getInt(1);
+			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Error obtaining blockchain height from repository", e);
 		}
 	}
 
+	@Override
 	public BlockData getLastBlock() throws DataException {
 		return fromHeight(getBlockchainHeight());
 	}
 
+	@Override
 	public List<TransactionData> getTransactionsFromSignature(byte[] signature) throws DataException {
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ?", signature)) {
+			if (resultSet == null)
 				return transactions; // No transactions in this block
 
 			TransactionRepository transactionRepo = this.repository.getTransactionRepository();
 
 			// NB: do-while loop because .checkedExecute() implicitly calls ResultSet.next() for us
 			do {
-				byte[] transactionSignature = rs.getBytes(1);
+				byte[] transactionSignature = resultSet.getBytes(1);
 				transactions.add(transactionRepo.fromSignature(transactionSignature));
-			} while (rs.next());
+			} while (resultSet.next());
 		} catch (SQLException e) {
 			throw new DataException(e);
 		}
@@ -127,6 +129,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		return transactions;
 	}
 
+	@Override
 	public void save(BlockData blockData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Blocks");
 
@@ -144,6 +147,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		}
 	}
 
+	@Override
 	public void delete(BlockData blockData) throws DataException {
 		try {
 			this.repository.delete("Blocks", "signature = ?", blockData.getSignature());
@@ -152,6 +156,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		}
 	}
 
+	@Override
 	public void save(BlockTransactionData blockTransactionData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("BlockTransactions");
 		saveHelper.bind("block_signature", blockTransactionData.getBlockSignature()).bind("sequence", blockTransactionData.getSequence())
@@ -164,6 +169,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		}
 	}
 
+	@Override
 	public void delete(BlockTransactionData blockTransactionData) throws DataException {
 		try {
 			this.repository.delete("BlockTransactions", "block_signature = ? AND sequence = ? AND transaction_signature = ?",

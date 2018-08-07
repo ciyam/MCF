@@ -17,16 +17,15 @@ public class HSQLDBCreateOrderTransactionRepository extends HSQLDBTransactionRep
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository
-					.checkedExecute("SELECT have_asset_id, amount, want_asset_id, price FROM CreateAssetOrderTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT have_asset_id, amount, want_asset_id, price FROM CreateAssetOrderTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			long haveAssetId = rs.getLong(1);
-			BigDecimal amount = rs.getBigDecimal(2);
-			long wantAssetId = rs.getLong(3);
-			BigDecimal price = rs.getBigDecimal(4);
+			long haveAssetId = resultSet.getLong(1);
+			BigDecimal amount = resultSet.getBigDecimal(2);
+			long wantAssetId = resultSet.getLong(3);
+			BigDecimal price = resultSet.getBigDecimal(4);
 
 			return new CreateOrderTransactionData(creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

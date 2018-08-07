@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 import data.assets.AssetData;
@@ -23,10 +24,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	// Assets
 
+	@Override
 	public AssetData fromAssetId(long assetId) throws DataException {
-		try {
-			ResultSet resultSet = this.repository
-					.checkedExecute("SELECT owner, asset_name, description, quantity, is_divisible, reference FROM Assets WHERE asset_id = ?", assetId);
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT owner, asset_name, description, quantity, is_divisible, reference FROM Assets WHERE asset_id = ?", assetId)) {
 			if (resultSet == null)
 				return null;
 
@@ -43,10 +44,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	@Override
 	public AssetData fromAssetName(String assetName) throws DataException {
-		try {
-			ResultSet resultSet = this.repository
-					.checkedExecute("SELECT owner, asset_id, description, quantity, is_divisible, reference FROM Assets WHERE asset_name = ?", assetName);
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT owner, asset_id, description, quantity, is_divisible, reference FROM Assets WHERE asset_name = ?", assetName)) {
 			if (resultSet == null)
 				return null;
 
@@ -63,6 +64,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	@Override
 	public boolean assetExists(long assetId) throws DataException {
 		try {
 			return this.repository.exists("Assets", "asset_id = ?", assetId);
@@ -71,6 +73,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	@Override
 	public boolean assetExists(String assetName) throws DataException {
 		try {
 			return this.repository.exists("Assets", "asset_name = ?", assetName);
@@ -79,6 +82,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	@Override
 	public void save(AssetData assetData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Assets");
 
@@ -89,13 +93,21 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		try {
 			saveHelper.execute(this.repository);
 
-			if (assetData.getAssetId() == null)
-				assetData.setAssetId(this.repository.callIdentity());
+			if (assetData.getAssetId() == null) {
+				// Fetch new assetId
+				try (ResultSet resultSet = this.repository.checkedExecute("SELECT asset_id FROM Assets WHERE reference = ?", assetData.getReference())) {
+					if (resultSet == null)
+						throw new DataException("Unable to fetch new asset ID from repository");
+
+					assetData.setAssetId(resultSet.getLong(1));
+				}
+			}
 		} catch (SQLException e) {
 			throw new DataException("Unable to save asset into repository", e);
 		}
 	}
 
+	@Override
 	public void delete(long assetId) throws DataException {
 		try {
 			this.repository.delete("Assets", "asset_id = ?", assetId);
@@ -106,11 +118,11 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	// Orders
 
+	@Override
 	public OrderData fromOrderId(byte[] orderId) throws DataException {
-		try {
-			ResultSet resultSet = this.repository.checkedExecute(
-					"SELECT creator, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE asset_order_id = ?",
-					orderId);
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT creator, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE asset_order_id = ?",
+				orderId)) {
 			if (resultSet == null)
 				return null;
 
@@ -120,7 +132,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			BigDecimal amount = resultSet.getBigDecimal(4);
 			BigDecimal fulfilled = resultSet.getBigDecimal(5);
 			BigDecimal price = resultSet.getBigDecimal(6);
-			long timestamp = resultSet.getTimestamp(7).getTime();
+			long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			boolean isClosed = resultSet.getBoolean(8);
 			boolean isFulfilled = resultSet.getBoolean(9);
 
@@ -130,14 +142,14 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	@Override
 	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId) throws DataException {
 		List<OrderData> orders = new ArrayList<OrderData>();
 
-		try {
-			ResultSet resultSet = this.repository.checkedExecute(
-					"SELECT creator, asset_order_id, amount, fulfilled, price, ordered FROM AssetOrders "
-							+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE ORDER BY price ASC",
-					haveAssetId, wantAssetId);
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT creator, asset_order_id, amount, fulfilled, price, ordered FROM AssetOrders "
+						+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE ORDER BY price ASC",
+				haveAssetId, wantAssetId)) {
 			if (resultSet == null)
 				return orders;
 
@@ -147,7 +159,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				BigDecimal amount = resultSet.getBigDecimal(3);
 				BigDecimal fulfilled = resultSet.getBigDecimal(4);
 				BigDecimal price = resultSet.getBigDecimal(5);
-				long timestamp = resultSet.getTimestamp(6).getTime();
+				long timestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 				boolean isClosed = false;
 				boolean isFulfilled = false;
 
@@ -162,6 +174,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	@Override
 	public void save(OrderData orderData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AssetOrders");
 
@@ -177,6 +190,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	@Override
 	public void delete(byte[] orderId) throws DataException {
 		try {
 			this.repository.delete("AssetOrders", "asset_order_id = ?", orderId);
@@ -187,12 +201,12 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	// Trades
 
+	@Override
 	public List<TradeData> getOrdersTrades(byte[] initiatingOrderId) throws DataException {
 		List<TradeData> trades = new ArrayList<TradeData>();
 
-		try {
-			ResultSet resultSet = this.repository.checkedExecute("SELECT target_order_id, amount, price, traded FROM AssetTrades WHERE initiating_order_id = ?",
-					initiatingOrderId);
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT target_order_id, amount, price, traded FROM AssetTrades WHERE initiating_order_id = ?", initiatingOrderId)) {
 			if (resultSet == null)
 				return trades;
 
@@ -200,7 +214,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				byte[] targetOrderId = resultSet.getBytes(1);
 				BigDecimal amount = resultSet.getBigDecimal(2);
 				BigDecimal price = resultSet.getBigDecimal(3);
-				long timestamp = resultSet.getTimestamp(4).getTime();
+				long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 				TradeData trade = new TradeData(initiatingOrderId, targetOrderId, amount, price, timestamp);
 				trades.add(trade);
@@ -212,6 +226,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	@Override
 	public void save(TradeData tradeData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AssetTrades");
 
@@ -225,6 +240,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		}
 	}
 
+	@Override
 	public void delete(TradeData tradeData) throws DataException {
 		try {
 			this.repository.delete("AssetTrades", "initiating_order_id = ? AND target_order_id = ? AND amount = ? AND price = ?", tradeData.getInitiator(),

@@ -3,6 +3,7 @@ package repository.hsqldb;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Properties;
 
 import org.hsqldb.jdbc.JDBCPool;
 
@@ -22,6 +23,14 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		this.connectionPool = new JDBCPool();
 		this.connectionPool.setUrl(this.connectionUrl);
 
+		Properties properties = new Properties();
+		properties.setProperty("close_result", "true"); // Auto-close old ResultSet if Statement creates new ResultSet
+		properties.setProperty("sql.strict_exec", "true"); // No multi-SQL execute() or DDL/DML executeQuery()
+		properties.setProperty("sql.enforce_names", "true"); // SQL keywords cannot be used as DB object names, e.g. table names
+		properties.setProperty("sql.syntax_mys", "true"); // Required for our use of INSERT ... ON DUPLICATE KEY UPDATE ... syntax
+		properties.setProperty("sql.pad_space", "false"); // Do not pad strings to same length before comparison
+		this.connectionPool.setProperties(properties);
+
 		// Perform DB updates?
 		try (final Connection connection = this.connectionPool.getConnection()) {
 			HSQLDBDatabaseUpdates.updateDatabase(connection);
@@ -30,6 +39,7 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		}
 	}
 
+	@Override
 	public Repository getRepository() throws DataException {
 		try {
 			return new HSQLDBRepository(this.getConnection());
@@ -41,22 +51,23 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 	private Connection getConnection() throws SQLException {
 		Connection connection = this.connectionPool.getConnection();
 
-		// start transaction
+		// Set transaction level
 		connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
 		connection.setAutoCommit(false);
 
 		return connection;
 	}
 
+	@Override
 	public void close() throws DataException {
 		try {
 			// Close all existing connections immediately
 			this.connectionPool.close(0);
 
 			// Now that all connections are closed, create a dedicated connection to shut down repository
-			Connection connection = DriverManager.getConnection(this.connectionUrl);
-			connection.createStatement().execute("SHUTDOWN");
-			connection.close();
+			try (Connection connection = DriverManager.getConnection(this.connectionUrl)) {
+				connection.createStatement().execute("SHUTDOWN");
+			}
 		} catch (SQLException e) {
 			throw new DataException("Error during repository shutdown", e);
 		}

@@ -34,6 +34,7 @@ public class MultiPaymentTransaction extends Transaction {
 
 	// More information
 
+	@Override
 	public List<Account> getRecipientAccounts() throws DataException {
 		List<Account> recipients = new ArrayList<Account>();
 
@@ -43,6 +44,7 @@ public class MultiPaymentTransaction extends Transaction {
 		return recipients;
 	}
 
+	@Override
 	public boolean isInvolved(Account account) throws DataException {
 		String address = account.getAddress();
 
@@ -56,6 +58,7 @@ public class MultiPaymentTransaction extends Transaction {
 		return false;
 	}
 
+	@Override
 	public BigDecimal getAmount(Account account) throws DataException {
 		String address = account.getAddress();
 		BigDecimal amount = BigDecimal.ZERO.setScale(8);

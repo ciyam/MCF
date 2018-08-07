@@ -131,8 +131,8 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		// Special v1 version
 
 		// Zero duplicate signature/reference
-		int start = bytes.length - TransactionTransformer.SIGNATURE_LENGTH - TransactionTransformer.BIG_DECIMAL_LENGTH;
-		int end = start + TransactionTransformer.SIGNATURE_LENGTH;
+		int start = bytes.length - SIGNATURE_LENGTH - BIG_DECIMAL_LENGTH;
+		int end = start + SIGNATURE_LENGTH;
 		Arrays.fill(bytes, start, end, (byte) 0);
 
 		return bytes;

@@ -17,14 +17,13 @@ public class HSQLDBRegisterNameTransactionRepository extends HSQLDBTransactionRe
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] registrantPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT owner, name, data FROM RegisterNameTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT owner, name, data FROM RegisterNameTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			String owner = rs.getString(1);
-			String name = rs.getString(2);
-			String data = rs.getString(3);
+			String owner = resultSet.getString(1);
+			String name = resultSet.getString(2);
+			String data = resultSet.getString(3);
 
 			return new RegisterNameTransactionData(registrantPublicKey, owner, name, data, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

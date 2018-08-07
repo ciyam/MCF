@@ -17,16 +17,15 @@ public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionR
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT sender, recipient, asset_id, amount FROM TransferAssetTransactions WHERE signature = ?",
-					signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT sender, recipient, asset_id, amount FROM TransferAssetTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			byte[] senderPublicKey = rs.getBytes(1);
-			String recipient = rs.getString(2);
-			long assetId = rs.getLong(3);
-			BigDecimal amount = rs.getBigDecimal(4);
+			byte[] senderPublicKey = resultSet.getBytes(1);
+			String recipient = resultSet.getString(2);
+			long assetId = resultSet.getLong(3);
+			BigDecimal amount = resultSet.getBigDecimal(4);
 
 			return new TransferAssetTransactionData(senderPublicKey, recipient, amount, assetId, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

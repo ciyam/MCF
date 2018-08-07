@@ -17,20 +17,19 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute(
-					"SELECT version, sender, recipient, is_text, is_encrypted, amount, asset_id, data FROM MessageTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT version, sender, recipient, is_text, is_encrypted, amount, asset_id, data FROM MessageTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			int version = rs.getInt(1);
-			byte[] senderPublicKey = rs.getBytes(2);
-			String recipient = rs.getString(3);
-			boolean isText = rs.getBoolean(4);
-			boolean isEncrypted = rs.getBoolean(5);
-			BigDecimal amount = rs.getBigDecimal(6);
-			Long assetId = rs.getLong(7);
-			byte[] data = rs.getBytes(8);
+			int version = resultSet.getInt(1);
+			byte[] senderPublicKey = resultSet.getBytes(2);
+			String recipient = resultSet.getString(3);
+			boolean isText = resultSet.getBoolean(4);
+			boolean isEncrypted = resultSet.getBoolean(5);
+			BigDecimal amount = resultSet.getBigDecimal(6);
+			Long assetId = resultSet.getLong(7);
+			byte[] data = resultSet.getBytes(8);
 
 			return new MessageTransactionData(version, senderPublicKey, recipient, assetId, amount, data, isText, isEncrypted, fee, timestamp, reference,
 					signature);

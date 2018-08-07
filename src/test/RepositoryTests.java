@@ -35,15 +35,16 @@ public class RepositoryTests extends Common {
 
 	@Test
 	public void testAccessAfterClose() throws DataException {
-		Repository repository = RepositoryManager.getRepository();
-		assertNotNull(repository);
+		try (Repository repository = RepositoryManager.getRepository()) {
+			assertNotNull(repository);
 
-		repository.close();
+			repository.close();
 
-		try {
-			repository.discardChanges();
-			fail();
-		} catch (NullPointerException | DataException e) {
+			try {
+				repository.discardChanges();
+				fail();
+			} catch (NullPointerException | DataException e) {
+			}
 		}
 	}
 

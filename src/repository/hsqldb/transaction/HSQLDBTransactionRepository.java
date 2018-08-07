@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 import data.PaymentData;
@@ -59,17 +60,18 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	protected HSQLDBTransactionRepository() {
 	}
 
+	@Override
 	public TransactionData fromSignature(byte[] signature) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?",
+				signature)) {
+			if (resultSet == null)
 				return null;
 
-			TransactionType type = TransactionType.valueOf(rs.getInt(1));
-			byte[] reference = rs.getBytes(2);
-			byte[] creatorPublicKey = rs.getBytes(3);
-			long timestamp = rs.getTimestamp(4).getTime();
-			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
+			TransactionType type = TransactionType.valueOf(resultSet.getInt(1));
+			byte[] reference = resultSet.getBytes(2);
+			byte[] creatorPublicKey = resultSet.getBytes(3);
+			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
 
 			return this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
 		} catch (SQLException e) {
@@ -77,17 +79,18 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
+	@Override
 	public TransactionData fromReference(byte[] reference) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT type, signature, creator, creation, fee FROM Transactions WHERE reference = ?", reference);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT type, signature, creator, creation, fee FROM Transactions WHERE reference = ?",
+				reference)) {
+			if (resultSet == null)
 				return null;
 
-			TransactionType type = TransactionType.valueOf(rs.getInt(1));
-			byte[] signature = rs.getBytes(2);
-			byte[] creatorPublicKey = rs.getBytes(3);
-			long timestamp = rs.getTimestamp(4).getTime();
-			BigDecimal fee = rs.getBigDecimal(5).setScale(8);
+			TransactionType type = TransactionType.valueOf(resultSet.getInt(1));
+			byte[] signature = resultSet.getBytes(2);
+			byte[] creatorPublicKey = resultSet.getBytes(3);
+			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
 
 			return this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
 		} catch (SQLException e) {
@@ -152,21 +155,21 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	protected List<PaymentData> getPaymentsFromSignature(byte[] signature) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT recipient, amount, asset_id FROM SharedTransactionPayments WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT recipient, amount, asset_id FROM SharedTransactionPayments WHERE signature = ?",
+				signature)) {
+			if (resultSet == null)
 				return null;
 
 			List<PaymentData> payments = new ArrayList<PaymentData>();
 
 			// NOTE: do-while because checkedExecute() above has already called rs.next() for us
 			do {
-				String recipient = rs.getString(1);
-				BigDecimal amount = rs.getBigDecimal(2);
-				long assetId = rs.getLong(3);
+				String recipient = resultSet.getString(1);
+				BigDecimal amount = resultSet.getBigDecimal(2);
+				long assetId = resultSet.getLong(3);
 
 				payments.add(new PaymentData(recipient, assetId, amount));
-			} while (rs.next());
+			} while (resultSet.next());
 
 			return payments;
 		} catch (SQLException e) {
@@ -194,16 +197,15 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		if (signature == null)
 			return 0;
 
-		// in one go?
-		try {
-			ResultSet rs = this.repository.checkedExecute(
-					"SELECT height from BlockTransactions JOIN Blocks ON Blocks.signature = BlockTransactions.block_signature WHERE transaction_signature = ? LIMIT 1",
-					signature);
+		// Fetch height using join via block's transactions
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT height from BlockTransactions JOIN Blocks ON Blocks.signature = BlockTransactions.block_signature WHERE transaction_signature = ? LIMIT 1",
+				signature)) {
 
-			if (rs == null)
+			if (resultSet == null)
 				return 0;
 
-			return rs.getInt(1);
+			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction's height from repository", e);
 		}
@@ -215,12 +217,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return null;
 
 		// Fetch block signature (if any)
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT block_signature from BlockTransactions WHERE transaction_signature = ? LIMIT 1", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT block_signature from BlockTransactions WHERE transaction_signature = ? LIMIT 1",
+				signature)) {
+			if (resultSet == null)
 				return null;
 
-			byte[] blockSignature = rs.getBytes(1);
+			byte[] blockSignature = resultSet.getBytes(1);
 
 			return this.repository.getBlockRepository().fromSignature(blockSignature);
 		} catch (SQLException | DataException e) {

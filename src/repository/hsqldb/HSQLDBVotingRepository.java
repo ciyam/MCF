@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 import data.voting.PollData;
@@ -22,36 +23,39 @@ public class HSQLDBVotingRepository implements VotingRepository {
 
 	// Polls
 
+	@Override
 	public PollData fromPollName(String pollName) throws DataException {
-		try {
-			ResultSet resultSet = this.repository.checkedExecute("SELECT description, creator, owner, published FROM Polls WHERE poll_name = ?", pollName);
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT description, creator, owner, published FROM Polls WHERE poll_name = ?", pollName)) {
 			if (resultSet == null)
 				return null;
 
 			String description = resultSet.getString(1);
 			byte[] creatorPublicKey = resultSet.getBytes(2);
 			String owner = resultSet.getString(3);
-			long published = resultSet.getTimestamp(4).getTime();
+			long published = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
-			resultSet = this.repository.checkedExecute("SELECT option_name FROM PollOptions where poll_name = ? ORDER BY option_index ASC", pollName);
-			if (resultSet == null)
-				return null;
+			try (ResultSet optionsResultSet = this.repository
+					.checkedExecute("SELECT option_name FROM PollOptions where poll_name = ? ORDER BY option_index ASC", pollName)) {
+				if (optionsResultSet == null)
+					return null;
 
-			List<PollOptionData> pollOptions = new ArrayList<PollOptionData>();
+				List<PollOptionData> pollOptions = new ArrayList<PollOptionData>();
 
-			// NOTE: do-while because checkedExecute() above has already called rs.next() for us
-			do {
-				String optionName = resultSet.getString(1);
+				// NOTE: do-while because checkedExecute() above has already called rs.next() for us
+				do {
+					String optionName = optionsResultSet.getString(1);
 
-				pollOptions.add(new PollOptionData(optionName));
-			} while (resultSet.next());
+					pollOptions.add(new PollOptionData(optionName));
+				} while (optionsResultSet.next());
 
-			return new PollData(creatorPublicKey, owner, pollName, description, pollOptions, published);
+				return new PollData(creatorPublicKey, owner, pollName, description, pollOptions, published);
+			}
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch poll from repository", e);
 		}
 	}
 
+	@Override
 	public boolean pollExists(String pollName) throws DataException {
 		try {
 			return this.repository.exists("Polls", "poll_name = ?", pollName);
@@ -60,6 +64,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 		}
 	}
 
+	@Override
 	public void save(PollData pollData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Polls");
 
@@ -89,6 +94,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 		}
 	}
 
+	@Override
 	public void delete(String pollName) throws DataException {
 		// NOTE: The corresponding rows in PollOptions are deleted automatically by the database thanks to "ON DELETE CASCADE" in the PollOptions' FOREIGN KEY
 		// definition.
@@ -101,11 +107,11 @@ public class HSQLDBVotingRepository implements VotingRepository {
 
 	// Votes
 
+	@Override
 	public List<VoteOnPollData> getVotes(String pollName) throws DataException {
 		List<VoteOnPollData> votes = new ArrayList<VoteOnPollData>();
 
-		try {
-			ResultSet resultSet = this.repository.checkedExecute("SELECT voter, option_index FROM PollVotes WHERE poll_name = ?", pollName);
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT voter, option_index FROM PollVotes WHERE poll_name = ?", pollName)) {
 			if (resultSet == null)
 				return votes;
 
@@ -123,10 +129,10 @@ public class HSQLDBVotingRepository implements VotingRepository {
 		}
 	}
 
+	@Override
 	public VoteOnPollData getVote(String pollName, byte[] voterPublicKey) throws DataException {
-		try {
-			ResultSet resultSet = this.repository.checkedExecute("SELECT option_index FROM PollVotes WHERE poll_name = ? AND voter = ?", pollName,
-					voterPublicKey);
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT option_index FROM PollVotes WHERE poll_name = ? AND voter = ?", pollName,
+				voterPublicKey)) {
 			if (resultSet == null)
 				return null;
 
@@ -138,6 +144,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 		}
 	}
 
+	@Override
 	public void save(VoteOnPollData voteOnPollData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("PollVotes");
 
@@ -151,6 +158,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 		}
 	}
 
+	@Override
 	public void delete(String pollName, byte[] voterPublicKey) throws DataException {
 		try {
 			this.repository.delete("PollVotes", "poll_name = ? AND voter = ?", pollName, voterPublicKey);

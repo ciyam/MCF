@@ -20,16 +20,15 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT sender, version, service, data_hash from ArbitraryTransactions WHERE signature = ?",
-					signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT sender, version, service, data_hash from ArbitraryTransactions WHERE signature = ?",
+				signature)) {
+			if (resultSet == null)
 				return null;
 
-			byte[] senderPublicKey = rs.getBytes(1);
-			int version = rs.getInt(2);
-			int service = rs.getInt(3);
-			byte[] dataHash = rs.getBytes(4);
+			byte[] senderPublicKey = resultSet.getBytes(1);
+			int version = resultSet.getInt(2);
+			int service = resultSet.getInt(3);
+			byte[] dataHash = resultSet.getBytes(4);
 
 			List<PaymentData> payments = this.getPaymentsFromSignature(signature);
 
@@ -51,7 +50,8 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ArbitraryTransactions");
 
 		saveHelper.bind("signature", arbitraryTransactionData.getSignature()).bind("sender", arbitraryTransactionData.getSenderPublicKey())
-				.bind("version", arbitraryTransactionData.getVersion()).bind("service", arbitraryTransactionData.getService()).bind("data_hash", arbitraryTransactionData.getData());
+				.bind("version", arbitraryTransactionData.getVersion()).bind("service", arbitraryTransactionData.getService())
+				.bind("data_hash", arbitraryTransactionData.getData());
 
 		try {
 			saveHelper.execute(this.repository);

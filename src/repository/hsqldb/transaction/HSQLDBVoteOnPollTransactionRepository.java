@@ -17,15 +17,14 @@ public class HSQLDBVoteOnPollTransactionRepository extends HSQLDBTransactionRepo
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository
-					.checkedExecute("SELECT poll_name, option_index, previous_option_index FROM VoteOnPollTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT poll_name, option_index, previous_option_index FROM VoteOnPollTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			String pollName = rs.getString(1);
-			int optionIndex = rs.getInt(2);
-			Integer previousOptionIndex = rs.getInt(3);
+			String pollName = resultSet.getString(1);
+			int optionIndex = resultSet.getInt(2);
+			Integer previousOptionIndex = resultSet.getInt(3);
 
 			return new VoteOnPollTransactionData(creatorPublicKey, pollName, optionIndex, previousOptionIndex, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

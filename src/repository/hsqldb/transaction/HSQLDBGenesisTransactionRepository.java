@@ -17,13 +17,12 @@ public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionReposit
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT recipient, amount FROM GenesisTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			String recipient = rs.getString(1);
-			BigDecimal amount = rs.getBigDecimal(2).setScale(8);
+			String recipient = resultSet.getString(1);
+			BigDecimal amount = resultSet.getBigDecimal(2).setScale(8);
 
 			return new GenesisTransactionData(recipient, amount, timestamp, signature);
 		} catch (SQLException e) {

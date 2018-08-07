@@ -32,14 +32,17 @@ public class CancelOrderTransaction extends Transaction {
 
 	// More information
 
+	@Override
 	public List<Account> getRecipientAccounts() {
 		return new ArrayList<Account>();
 	}
 
+	@Override
 	public boolean isInvolved(Account account) throws DataException {
 		return account.getAddress().equals(this.getCreator().getAddress());
 	}
 
+	@Override
 	public BigDecimal getAmount(Account account) throws DataException {
 		BigDecimal amount = BigDecimal.ZERO.setScale(8);
 
@@ -51,6 +54,7 @@ public class CancelOrderTransaction extends Transaction {
 
 	// Navigation
 
+	@Override
 	public Account getCreator() throws DataException {
 		return new PublicKeyAccount(this.repository, cancelOrderTransactionData.getCreatorPublicKey());
 	}

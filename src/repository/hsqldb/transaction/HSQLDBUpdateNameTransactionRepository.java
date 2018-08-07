@@ -17,15 +17,15 @@ public class HSQLDBUpdateNameTransactionRepository extends HSQLDBTransactionRepo
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] ownerPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT new_owner, name, new_data, name_reference FROM UpdateNameTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT new_owner, name, new_data, name_reference FROM UpdateNameTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			String newOwner = rs.getString(1);
-			String name = rs.getString(2);
-			String newData = rs.getString(3);
-			byte[] nameReference = rs.getBytes(4);
+			String newOwner = resultSet.getString(1);
+			String name = resultSet.getString(2);
+			String newData = resultSet.getString(3);
+			byte[] nameReference = resultSet.getBytes(4);
 
 			return new UpdateNameTransactionData(ownerPublicKey, newOwner, name, newData, nameReference, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

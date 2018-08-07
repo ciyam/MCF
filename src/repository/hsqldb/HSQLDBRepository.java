@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.TimeZone;
 
 import repository.AccountRepository;
 import repository.AssetRepository;
@@ -18,6 +19,8 @@ import repository.VotingRepository;
 import repository.hsqldb.transaction.HSQLDBTransactionRepository;
 
 public class HSQLDBRepository implements Repository {
+
+	public static final TimeZone UTC = TimeZone.getTimeZone("UTC");
 
 	protected Connection connection;
 
@@ -74,24 +77,22 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
-	// TODO prevent leaking of connections if .close() is not called before garbage collection of the repository.
-	// Maybe use PhantomReference to call .close() on connection after repository destruction?
 	@Override
 	public void close() throws DataException {
-		try {
+		try (Statement stmt = this.connection.createStatement()) {
 			// Diagnostic check for uncommitted changes
-			Statement stmt = this.connection.createStatement();
 			if (!stmt.execute("SELECT transaction, transaction_size FROM information_schema.system_sessions")) // TRANSACTION_SIZE() broken?
 				throw new DataException("Unable to check repository status during close");
 
-			ResultSet rs = stmt.getResultSet();
-			if (rs == null || !rs.next())
-				throw new DataException("Unable to check repository status during close");
+			try (ResultSet resultSet = stmt.getResultSet()) {
+				if (resultSet == null || !resultSet.next())
+					System.out.println("Unable to check repository status during close");
 
-			boolean inTransaction = rs.getBoolean(1);
-			int transactionCount = rs.getInt(2);
-			if (inTransaction && transactionCount != 0)
-				System.out.println("Uncommitted changes (" + transactionCount + ") during repository close");
+				boolean inTransaction = resultSet.getBoolean(1);
+				int transactionCount = resultSet.getInt(2);
+				if (inTransaction && transactionCount != 0)
+					System.out.println("Uncommitted changes (" + transactionCount + ") during repository close");
+			}
 
 			// give connection back to the pool
 			this.connection.close();
@@ -115,9 +116,12 @@ public class HSQLDBRepository implements Repository {
 	 * @return ResultSet, or null if there are no found rows
 	 * @throws SQLException
 	 */
+	@SuppressWarnings("resource")
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
-
+		// Close the PreparedStatement when the ResultSet is closed otherwise there's a potential resource leak.
+		// We can't use try-with-resources here as closing the PreparedStatement on return would also prematurely close the ResultSet.
+		preparedStatement.closeOnCompletion();
 		return this.checkedExecuteResultSet(preparedStatement, objects);
 	}
 
@@ -198,12 +202,13 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public Long callIdentity() throws SQLException {
-		PreparedStatement preparedStatement = this.connection.prepareStatement("CALL IDENTITY()");
-		ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement);
-		if (resultSet == null)
-			return null;
+		try (PreparedStatement preparedStatement = this.connection.prepareStatement("CALL IDENTITY()");
+				ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement)) {
+			if (resultSet == null)
+				return null;
 
-		return resultSet.getLong(1);
+			return resultSet.getLong(1);
+		}
 	}
 
 	/**
@@ -224,12 +229,13 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
-		PreparedStatement preparedStatement = this.connection.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " LIMIT 1");
-		ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects);
-		if (resultSet == null)
-			return false;
+		try (PreparedStatement preparedStatement = this.connection.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " LIMIT 1");
+				ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects)) {
+			if (resultSet == null)
+				return false;
 
-		return true;
+			return true;
+		}
 	}
 
 	/**
@@ -241,8 +247,9 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public void delete(String tableName, String whereClause, Object... objects) throws SQLException {
-		PreparedStatement preparedStatement = this.connection.prepareStatement("DELETE FROM " + tableName + " WHERE " + whereClause);
-		this.checkedExecuteUpdateCount(preparedStatement, objects);
+		try (PreparedStatement preparedStatement = this.connection.prepareStatement("DELETE FROM " + tableName + " WHERE " + whereClause)) {
+			this.checkedExecuteUpdateCount(preparedStatement, objects);
+		}
 	}
 
 }

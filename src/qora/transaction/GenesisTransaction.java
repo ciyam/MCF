@@ -36,10 +36,12 @@ public class GenesisTransaction extends Transaction {
 
 	// More information
 
+	@Override
 	public List<Account> getRecipientAccounts() throws DataException {
 		return Collections.singletonList(new Account(this.repository, genesisTransactionData.getRecipient()));
 	}
 
+	@Override
 	public boolean isInvolved(Account account) throws DataException {
 		String address = account.getAddress();
 
@@ -52,6 +54,7 @@ public class GenesisTransaction extends Transaction {
 		return false;
 	}
 
+	@Override
 	public BigDecimal getAmount(Account account) throws DataException {
 		String address = account.getAddress();
 		BigDecimal amount = BigDecimal.ZERO.setScale(8);

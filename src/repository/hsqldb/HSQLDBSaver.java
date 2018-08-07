@@ -3,8 +3,10 @@ package repository.hsqldb;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 
 /**
@@ -56,11 +58,11 @@ public class HSQLDBSaver {
 	 */
 	public boolean execute(HSQLDBRepository repository) throws SQLException {
 		String sql = this.formatInsertWithPlaceholders();
-		PreparedStatement preparedStatement = repository.connection.prepareStatement(sql);
+		try (PreparedStatement preparedStatement = repository.connection.prepareStatement(sql)) {
+			this.bindValues(preparedStatement);
 
-		this.bindValues(preparedStatement);
-
-		return preparedStatement.execute();
+			return preparedStatement.execute();
+		}
 	}
 
 	/**
@@ -107,11 +109,15 @@ public class HSQLDBSaver {
 		for (int i = 0; i < this.objects.size(); ++i) {
 			Object object = this.objects.get(i);
 
-			// Special treatment for BigDecimals so that they retain their "scale",
-			// which would otherwise be assumed as 0.
 			if (object instanceof BigDecimal) {
+				// Special treatment for BigDecimals so that they retain their "scale",
+				// which would otherwise be assumed as 0.
 				preparedStatement.setBigDecimal(i + 1, (BigDecimal) object);
 				preparedStatement.setBigDecimal(i + this.objects.size() + 1, (BigDecimal) object);
+			} else if (object instanceof Timestamp) {
+				// Special treatment for Timestamps so that they are stored as UTC
+				preparedStatement.setTimestamp(i + 1, (Timestamp) object, Calendar.getInstance(HSQLDBRepository.UTC));
+				preparedStatement.setTimestamp(i + this.objects.size() + 1, (Timestamp) object, Calendar.getInstance(HSQLDBRepository.UTC));
 			} else {
 				preparedStatement.setObject(i + 1, object);
 				preparedStatement.setObject(i + this.objects.size() + 1, object);

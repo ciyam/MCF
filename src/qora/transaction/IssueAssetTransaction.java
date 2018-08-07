@@ -36,10 +36,12 @@ public class IssueAssetTransaction extends Transaction {
 
 	// More information
 
+	@Override
 	public List<Account> getRecipientAccounts() throws DataException {
 		return Collections.singletonList(getOwner());
 	}
 
+	@Override
 	public boolean isInvolved(Account account) throws DataException {
 		String address = account.getAddress();
 
@@ -52,6 +54,7 @@ public class IssueAssetTransaction extends Transaction {
 		return false;
 	}
 
+	@Override
 	public BigDecimal getAmount(Account account) throws DataException {
 		String address = account.getAddress();
 		BigDecimal amount = BigDecimal.ZERO.setScale(8);
@@ -117,8 +120,9 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.NO_BALANCE;
 
 		// XXX: Surely we want to check the asset name isn't already taken? This check is not present in gen1.
-		if (this.repository.getAssetRepository().assetExists(issueAssetTransactionData.getAssetName()))
-			return ValidationResult.ASSET_ALREADY_EXISTS;
+		if (issueAssetTransactionData.getTimestamp() >= BlockChain.getIssueAssetV2Timestamp())
+			if (this.repository.getAssetRepository().assetExists(issueAssetTransactionData.getAssetName()))
+				return ValidationResult.ASSET_ALREADY_EXISTS;
 
 		return ValidationResult.OK;
 	}

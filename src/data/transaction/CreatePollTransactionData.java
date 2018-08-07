@@ -9,7 +9,6 @@ import qora.transaction.Transaction;
 public class CreatePollTransactionData extends TransactionData {
 
 	// Properties
-	private byte[] creatorPublicKey;
 	private String owner;
 	private String pollName;
 	private String description;
@@ -21,7 +20,6 @@ public class CreatePollTransactionData extends TransactionData {
 			BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(Transaction.TransactionType.CREATE_POLL, fee, creatorPublicKey, timestamp, reference, signature);
 
-		this.creatorPublicKey = creatorPublicKey;
 		this.owner = owner;
 		this.pollName = pollName;
 		this.description = description;
@@ -34,10 +32,6 @@ public class CreatePollTransactionData extends TransactionData {
 	}
 
 	// Getters/setters
-
-	public byte[] getCreatorPublicKey() {
-		return this.creatorPublicKey;
-	}
 
 	public String getOwner() {
 		return this.owner;

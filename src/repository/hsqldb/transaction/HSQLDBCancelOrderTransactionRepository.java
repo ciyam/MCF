@@ -17,12 +17,11 @@ public class HSQLDBCancelOrderTransactionRepository extends HSQLDBTransactionRep
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT asset_order_id FROM CancelAssetOrderTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT asset_order_id FROM CancelAssetOrderTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			byte[] assetOrderId = rs.getBytes(1);
+			byte[] assetOrderId = resultSet.getBytes(1);
 
 			return new CancelOrderTransactionData(creatorPublicKey, assetOrderId, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

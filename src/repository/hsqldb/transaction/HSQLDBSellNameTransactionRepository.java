@@ -17,13 +17,12 @@ public class HSQLDBSellNameTransactionRepository extends HSQLDBTransactionReposi
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] ownerPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try {
-			ResultSet rs = this.repository.checkedExecute("SELECT name, amount FROM SellNameTransactions WHERE signature = ?", signature);
-			if (rs == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT name, amount FROM SellNameTransactions WHERE signature = ?", signature)) {
+			if (resultSet == null)
 				return null;
 
-			String name = rs.getString(1);
-			BigDecimal amount = rs.getBigDecimal(2);
+			String name = resultSet.getString(1);
+			BigDecimal amount = resultSet.getBigDecimal(2);
 
 			return new SellNameTransactionData(ownerPublicKey, name, amount, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

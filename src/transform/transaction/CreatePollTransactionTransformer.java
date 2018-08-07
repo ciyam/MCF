@@ -155,7 +155,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 		// Special v1 version
 
 		// Replace transaction type with incorrect Register Name value
-		System.arraycopy(Ints.toByteArray(TransactionType.REGISTER_NAME.value), 0, bytes, 0, TransactionTransformer.INT_LENGTH);
+		System.arraycopy(Ints.toByteArray(TransactionType.REGISTER_NAME.value), 0, bytes, 0, INT_LENGTH);
 
 		System.out.println(HashCode.fromBytes(bytes).toString());
 
