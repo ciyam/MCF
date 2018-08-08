@@ -28,7 +28,11 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 			String description = resultSet.getString(4);
 			long quantity = resultSet.getLong(5);
 			boolean isDivisible = resultSet.getBoolean(6);
+
+			// Special null-checking for asset ID
 			Long assetId = resultSet.getLong(7);
+			if (resultSet.wasNull())
+				assetId = null;
 
 			return new IssueAssetTransactionData(assetId, issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference,
 					signature);

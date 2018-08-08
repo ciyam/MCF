@@ -24,7 +24,11 @@ public class HSQLDBVoteOnPollTransactionRepository extends HSQLDBTransactionRepo
 
 			String pollName = resultSet.getString(1);
 			int optionIndex = resultSet.getInt(2);
+
+			// Special null-checking for previous option index
 			Integer previousOptionIndex = resultSet.getInt(3);
+			if (resultSet.wasNull())
+				previousOptionIndex = null;
 
 			return new VoteOnPollTransactionData(creatorPublicKey, pollName, optionIndex, previousOptionIndex, fee, timestamp, reference, signature);
 		} catch (SQLException e) {

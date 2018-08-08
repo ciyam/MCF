@@ -94,7 +94,8 @@ public class Payment {
 		return isValid(senderPublicKey, paymentData, fee, false);
 	}
 
-	public void process(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature) throws DataException {
+	public void process(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, boolean alwaysInitializeRecipientReference)
+			throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Update sender's balance due to fee
@@ -117,16 +118,18 @@ public class Payment {
 				recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId).add(amount));
 
 				// For QORA amounts only: if recipient has no reference yet, then this is their starting reference
-				if (assetId == Asset.QORA && recipient.getLastReference() == null)
+				if ((alwaysInitializeRecipientReference || assetId == Asset.QORA) && recipient.getLastReference() == null)
 					recipient.setLastReference(signature);
 			}
 	}
 
-	public void process(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature) throws DataException {
-		process(senderPublicKey, Collections.singletonList(paymentData), fee, signature);
+	public void process(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature, boolean alwaysInitializeRecipientReference)
+			throws DataException {
+		process(senderPublicKey, Collections.singletonList(paymentData), fee, signature, alwaysInitializeRecipientReference);
 	}
 
-	public void orphan(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, byte[] reference) throws DataException {
+	public void orphan(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, byte[] reference,
+			boolean alwaysUninitializeRecipientReference) throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
 		// Update sender's balance due to fee
@@ -152,13 +155,14 @@ public class Payment {
 				 * For QORA amounts only: If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own
 				 * (which would have changed their last reference) thus this is their first reference so remove it.
 				 */
-				if (assetId == Asset.QORA && Arrays.equals(recipient.getLastReference(), signature))
+				if ((alwaysUninitializeRecipientReference || assetId == Asset.QORA) && Arrays.equals(recipient.getLastReference(), signature))
 					recipient.setLastReference(null);
 			}
 	}
 
-	public void orphan(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature, byte[] reference) throws DataException {
-		orphan(senderPublicKey, Collections.singletonList(paymentData), fee, signature, reference);
+	public void orphan(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature, byte[] reference,
+			boolean alwaysUninitializeRecipientReference) throws DataException {
+		orphan(senderPublicKey, Collections.singletonList(paymentData), fee, signature, reference, alwaysUninitializeRecipientReference);
 	}
 
 }

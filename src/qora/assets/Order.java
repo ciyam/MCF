@@ -5,6 +5,11 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.google.common.hash.HashCode;
+
 import data.assets.AssetData;
 import data.assets.OrderData;
 import data.assets.TradeData;
@@ -15,6 +20,8 @@ import repository.DataException;
 import repository.Repository;
 
 public class Order {
+
+	private static final Logger LOGGER = LogManager.getLogger(Order.class);
 
 	// Properties
 	private Repository repository;
@@ -104,10 +111,14 @@ public class Order {
 		this.repository.getAssetRepository().save(this.orderData);
 
 		// Attempt to match orders
+		LOGGER.debug("Processing our order " + HashCode.fromBytes(this.orderData.getOrderId()).toString());
+		LOGGER.trace("We have: " + this.orderData.getAmount().toPlainString() + " " + haveAssetData.getName());
+		LOGGER.trace("We want " + this.orderData.getPrice().toPlainString() + " " + wantAssetData.getName() + " per " + haveAssetData.getName());
 
 		// Fetch corresponding open orders that might potentially match, hence reversed want/have assetId args.
 		// Returned orders are sorted with lowest "price" first.
 		List<OrderData> orders = assetRepository.getOpenOrders(wantAssetId, haveAssetId);
+		LOGGER.trace("Open orders fetched from repository: " + orders.size());
 
 		/*
 		 * Our order example:
@@ -123,6 +134,11 @@ public class Order {
 		BigDecimal ourPrice = this.orderData.getPrice();
 
 		for (OrderData theirOrderData : orders) {
+			LOGGER.trace("Considering order " + HashCode.fromBytes(theirOrderData.getOrderId()).toString());
+			// Note swapped use of have/want asset data as this is from 'their' perspective.
+			LOGGER.trace("They have: " + theirOrderData.getAmount().toPlainString() + " " + wantAssetData.getName());
+			LOGGER.trace("They want " + theirOrderData.getPrice().toPlainString() + " " + haveAssetData.getName() + " per " + wantAssetData.getName());
+
 			/*
 			 * Potential matching order example:
 			 * 
@@ -137,6 +153,7 @@ public class Order {
 
 			// Round down otherwise their buyingPrice would be better than advertised and cause issues
 			BigDecimal theirBuyingPrice = BigDecimal.ONE.setScale(8).divide(theirOrderData.getPrice(), RoundingMode.DOWN);
+			LOGGER.trace("theirBuyingPrice: " + theirBuyingPrice.toPlainString() + " " + wantAssetData.getName() + " per " + haveAssetData.getName());
 
 			// If their buyingPrice is less than what we're willing to pay then we're done as prices only get worse as we iterate through list of orders
 			if (theirBuyingPrice.compareTo(ourPrice) < 0)
@@ -144,10 +161,13 @@ public class Order {
 
 			// Calculate how many want-asset we could buy at their price
 			BigDecimal ourAmountLeft = this.getAmountLeft().multiply(theirBuyingPrice).setScale(8, RoundingMode.DOWN);
-			// How many want-asset is left available in this order
+			LOGGER.trace("ourAmountLeft (max we could buy at their price): " + ourAmountLeft.toPlainString() + " " + wantAssetData.getName());
+			// How many want-asset is remaining available in this order
 			BigDecimal theirAmountLeft = Order.getAmountLeft(theirOrderData);
+			LOGGER.trace("theirAmountLeft (max amount remaining in order): " + theirAmountLeft.toPlainString() + " " + wantAssetData.getName());
 			// So matchable want-asset amount is the minimum of above two values
 			BigDecimal matchedAmount = ourAmountLeft.min(theirAmountLeft);
+			LOGGER.trace("matchedAmount: " + matchedAmount.toPlainString() + " " + wantAssetData.getName());
 
 			// If we can't buy anything then we're done
 			if (matchedAmount.compareTo(BigDecimal.ZERO) <= 0)
@@ -155,7 +175,9 @@ public class Order {
 
 			// Calculate amount granularity based on both assets' divisibility
 			BigDecimal increment = this.calculateAmountGranularity(haveAssetData, wantAssetData, theirOrderData);
+			LOGGER.trace("increment (want-asset amount granularity): " + increment.toPlainString() + " " + wantAssetData.getName());
 			matchedAmount = matchedAmount.subtract(matchedAmount.remainder(increment));
+			LOGGER.trace("matchedAmount adjusted for granularity: " + matchedAmount.toPlainString() + " " + wantAssetData.getName());
 
 			// If we can't buy anything then we're done
 			if (matchedAmount.compareTo(BigDecimal.ZERO) <= 0)
@@ -165,6 +187,7 @@ public class Order {
 
 			// Calculate the total cost to us, in have-asset, based on their price
 			BigDecimal tradePrice = matchedAmount.multiply(theirOrderData.getPrice()).setScale(8);
+			LOGGER.trace("tradePrice ('want' trade agreed): " + tradePrice.toPlainString() + " " + haveAssetData.getName());
 
 			// Construct trade
 			TradeData tradeData = new TradeData(this.orderData.getOrderId(), theirOrderData.getOrderId(), matchedAmount, tradePrice,
@@ -175,8 +198,12 @@ public class Order {
 
 			// Update our order in terms of fulfilment, etc. but do not save into repository as that's handled by Trade above
 			this.orderData.setFulfilled(this.orderData.getFulfilled().add(tradePrice));
+			LOGGER.trace("Updated our order's fulfilled amount to: " + this.orderData.getFulfilled().toPlainString() + " " + haveAssetData.getName());
+			LOGGER.trace("Our order's amount remaining: " + this.getAmountLeft().toPlainString() + " " + haveAssetData.getName());
 
-			// Continue on to process other open orders in case we still have amount left to match
+			// Continue on to process other open orders if we still have amount left to match
+			if (this.getAmountLeft().compareTo(BigDecimal.ZERO) <= 0)
+				break;
 		}
 	}
 

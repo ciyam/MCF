@@ -104,9 +104,9 @@ public class TransferAssetTransaction extends Transaction {
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
-		// Wrap asset transfer as a payment and delegate processing to Payment class
+		// Wrap asset transfer as a payment and delegate processing to Payment class. Only update recipient's last reference if transferring QORA.
 		new Payment(this.repository).process(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee(),
-				transferAssetTransactionData.getSignature());
+				transferAssetTransactionData.getSignature(), false);
 	}
 
 	@Override
@@ -114,9 +114,9 @@ public class TransferAssetTransaction extends Transaction {
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(this.transactionData);
 
-		// Wrap asset transfer as a payment and delegate processing to Payment class
+		// Wrap asset transfer as a payment and delegate processing to Payment class. Only revert recipient's last reference if transferring QORA.
 		new Payment(this.repository).orphan(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee(),
-				transferAssetTransactionData.getSignature(), transferAssetTransactionData.getReference());
+				transferAssetTransactionData.getSignature(), transferAssetTransactionData.getReference(), false);
 	}
 
 }

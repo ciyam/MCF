@@ -91,9 +91,9 @@ public class PaymentTransaction extends Transaction {
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
-		// Wrap and delegate payment processing to Payment class
+		// Wrap and delegate payment processing to Payment class. Only update recipient's last reference if transferring QORA.
 		new Payment(this.repository).process(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
-				paymentTransactionData.getSignature());
+				paymentTransactionData.getSignature(), false);
 	}
 
 	@Override
@@ -101,9 +101,9 @@ public class PaymentTransaction extends Transaction {
 		// Delete this transaction
 		this.repository.getTransactionRepository().delete(this.transactionData);
 
-		// Wrap and delegate payment processing to Payment class
+		// Wrap and delegate payment processing to Payment class. Only revert recipient's last reference if transferring QORA.
 		new Payment(this.repository).orphan(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
-				paymentTransactionData.getSignature(), paymentTransactionData.getReference());
+				paymentTransactionData.getSignature(), paymentTransactionData.getReference(), false);
 	}
 
 }

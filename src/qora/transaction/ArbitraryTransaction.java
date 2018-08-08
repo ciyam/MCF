@@ -166,9 +166,9 @@ public class ArbitraryTransaction extends Transaction {
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
-		// Wrap and delegate payment processing to Payment class
+		// Wrap and delegate payment processing to Payment class. Always update recipients' last references regardless of asset.
 		new Payment(this.repository).process(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
-				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature());
+				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), true);
 	}
 
 	@Override
@@ -190,9 +190,9 @@ public class ArbitraryTransaction extends Transaction {
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(this.transactionData);
 
-		// Wrap and delegate payment processing to Payment class
+		// Wrap and delegate payment processing to Payment class. Always revert recipients' last references regardless of asset.
 		new Payment(this.repository).orphan(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
-				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference());
+				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference(), true);
 	}
 
 }

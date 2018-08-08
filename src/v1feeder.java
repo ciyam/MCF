@@ -13,6 +13,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.google.common.primitives.Ints;
 
 import data.block.BlockData;
@@ -29,6 +32,8 @@ import transform.block.BlockTransformer;
 import utils.Pair;
 
 public class v1feeder extends Thread {
+
+	private static final Logger LOGGER = LogManager.getLogger(v1feeder.class);
 
 	private static final int INACTIVITY_TIMEOUT = 60 * 1000; // milliseconds
 	private static final int CONNECTION_TIMEOUT = 2 * 1000; // milliseconds
@@ -86,11 +91,11 @@ public class v1feeder extends Thread {
 					this.socket.connect(socketAddress, CONNECTION_TIMEOUT);
 					break;
 				} catch (SocketTimeoutException e) {
-					System.err.println("Timed out trying to connect to " + address + " - retrying");
+					LOGGER.info("Timed out trying to connect to " + address + " - retrying");
 					Thread.sleep(1000);
 					this.socket = null;
 				} catch (Exception e) {
-					System.err.println("Failed to connect to " + address + ": " + e.getMessage());
+					LOGGER.error("Failed to connect to " + address, e);
 					return;
 				}
 
@@ -110,9 +115,9 @@ public class v1feeder extends Thread {
 			// Start main communication thread
 			this.start();
 		} catch (SocketException e) {
-			System.err.println("Failed to set socket timeout for address " + address + ": " + e.getMessage());
+			LOGGER.error("Failed to set socket timeout for address " + address, e);
 		} catch (IOException e) {
-			System.err.println("Failed to get output stream for address " + address + ": " + e.getMessage());
+			LOGGER.error("Failed to get output stream for address " + address, e);
 		}
 	}
 
@@ -145,7 +150,7 @@ public class v1feeder extends Thread {
 			bytes.write(data);
 		}
 
-		// System.out.println("Creating message type [" + type + "] with " + (hasId ? "id [" + id + "]" : "no id") + " and data length " + data.length);
+		LOGGER.trace("Creating message type [" + type + "] with " + (hasId ? "id [" + id + "]" : "no id") + " and data length " + data.length);
 
 		return bytes.toByteArray();
 	}
@@ -158,14 +163,14 @@ public class v1feeder extends Thread {
 	}
 
 	private void processMessage(int type, int id, byte[] data) throws IOException {
-		// System.out.println("Received message type [" + type + "] with id [" + id + "] and data length " + data.length);
+		LOGGER.trace("Received message type [" + type + "] with id [" + id + "] and data length " + data.length);
 
 		ByteBuffer byteBuffer = ByteBuffer.wrap(data);
 		switch (type) {
 			case HEIGHT_TYPE:
 				int height = byteBuffer.getInt();
 
-				System.out.println("Peer height: " + height);
+				LOGGER.info("Peer height: " + height);
 				break;
 
 			case SIGNATURES_TYPE:
@@ -178,7 +183,7 @@ public class v1feeder extends Thread {
 					signatures.add(signature);
 				}
 
-				// System.out.println("We now have " + signatures.size() + " signature(s) to process");
+				LOGGER.trace("We now have " + signatures.size() + " signature(s) to process");
 
 				feederState = HAVE_HEADERS_STATE;
 				break;
@@ -191,7 +196,7 @@ public class v1feeder extends Thread {
 				// read block and process
 				int claimedHeight = byteBuffer.getInt();
 
-				System.out.println("Received block allegedly at height " + claimedHeight);
+				LOGGER.info("Received block allegedly at height " + claimedHeight);
 
 				byte[] blockBytes = new byte[byteBuffer.remaining()];
 				byteBuffer.get(blockBytes);
@@ -201,53 +206,54 @@ public class v1feeder extends Thread {
 				try {
 					blockInfo = BlockTransformer.fromBytes(blockBytes);
 				} catch (TransformationException e) {
-					System.err.println("Couldn't parse block bytes from peer: " + e.getMessage());
-					System.exit(3);
+					LOGGER.error("Couldn't parse block bytes from peer", e);
+					throw new RuntimeException("Couldn't parse block bytes from peer", e);
 				}
 
 				try (final Repository repository = RepositoryManager.getRepository()) {
 					Block block = new Block(repository, blockInfo.getA(), blockInfo.getB());
 
 					if (!block.isSignatureValid()) {
-						System.err.println("Invalid block signature");
-						System.exit(4);
+						LOGGER.error("Invalid block signature");
+						throw new RuntimeException("Invalid block signature");
 					}
 
 					ValidationResult result = block.isValid();
 
 					if (result != ValidationResult.OK) {
-						System.err.println("Invalid block, validation result code: " + result.value);
-						System.exit(4);
+						LOGGER.error("Invalid block, validation result code: " + result.value);
+						throw new RuntimeException("Invalid block, validation result code: " + result.value);
 					}
 
 					block.process();
 					repository.saveChanges();
 				} catch (DataException e) {
-					System.err.println("Unable to process block: " + e.getMessage());
-					e.printStackTrace();
+					LOGGER.error("Unable to process block", e);
+					throw new RuntimeException("Unable to process block", e);
 				}
 
 				feederState = HAVE_BLOCK_STATE;
 				break;
 
 			case PING_TYPE:
-				// System.out.println("Sending pong for ping [" + id + "]");
+				LOGGER.trace("Sending pong for ping [" + id + "]");
 				byte[] pongMessage = createMessage(PING_TYPE, true, id, null);
 				sendMessage(pongMessage);
 				break;
 
 			case VERSION_TYPE:
-				@SuppressWarnings("unused") long timestamp = byteBuffer.getLong();
+				@SuppressWarnings("unused")
+				long timestamp = byteBuffer.getLong();
 				int versionLength = byteBuffer.getInt();
 				byte[] versionBytes = new byte[versionLength];
 				byteBuffer.get(versionBytes);
 				String version = new String(versionBytes, Charset.forName("UTF-8"));
 
-				System.out.println("Peer version info: " + version);
+				LOGGER.info("Peer version info: " + version);
 				break;
 
 			default:
-				System.out.println("Discarding message type [" + type + "] with id [" + id + "] and data length " + data.length);
+				LOGGER.trace("Discarding message type [" + type + "] with id [" + id + "] and data length " + data.length);
 		}
 	}
 
@@ -309,7 +315,7 @@ public class v1feeder extends Thread {
 			// Send our height
 			try (final Repository repository = RepositoryManager.getRepository()) {
 				int height = repository.getBlockRepository().getBlockchainHeight();
-				System.out.println("Sending our height " + height + " to peer");
+				LOGGER.trace("Sending our height " + height + " to peer");
 				byte[] heightMessage = createMessage(HEIGHT_TYPE, false, null, Ints.toByteArray(height));
 				sendMessage(heightMessage);
 			}
@@ -321,7 +327,7 @@ public class v1feeder extends Thread {
 					int numRead = in.read(buffer, bufferEnd, in.available());
 					if (numRead == -1) {
 						// input EOF
-						System.out.println("Socket EOF");
+						LOGGER.info("Socket EOF");
 						return;
 					}
 
@@ -353,11 +359,11 @@ public class v1feeder extends Thread {
 
 						// done?
 						if (signature == null) {
-							System.out.println("No last block in repository?");
+							LOGGER.warn("No last block in repository?");
 							return;
 						}
 
-						System.out.println("Requesting more signatures...");
+						LOGGER.trace("Requesting more signatures...");
 						byte[] getSignaturesMessage = createMessage(GET_SIGNATURES_TYPE, true, null, signature);
 						sendMessage(getSignaturesMessage);
 						feederState = AWAITING_HEADERS_STATE;
@@ -371,7 +377,7 @@ public class v1feeder extends Thread {
 							break;
 						}
 
-						System.out.println("Requesting next block...");
+						LOGGER.trace("Requesting next block...");
 						signature = signatures.remove(0);
 						this.messageId = (int) ((Math.random() * 1000000) + 1);
 						byte[] getBlockMessage = createMessage(GET_BLOCK_TYPE, true, this.messageId, signature);
@@ -380,9 +386,9 @@ public class v1feeder extends Thread {
 						break;
 				}
 			}
-		} catch (IOException | DataException e) {
+		} catch (IOException | DataException | RuntimeException e) {
 			// give up
-			System.err.println("Exiting due to: " + e.getMessage());
+			LOGGER.info("Exiting", e);
 		}
 
 		try {
@@ -401,14 +407,14 @@ public class v1feeder extends Thread {
 		try {
 			test.Common.setRepository();
 		} catch (DataException e) {
-			System.err.println("Couldn't connect to repository: " + e.getMessage());
+			LOGGER.error("Couldn't connect to repository", e);
 			System.exit(2);
 		}
 
 		try {
 			BlockChain.validate();
 		} catch (DataException e) {
-			System.err.println("Couldn't validate repository: " + e.getMessage());
+			LOGGER.error("Couldn't validate repository", e);
 			System.exit(2);
 		}
 
@@ -422,7 +428,7 @@ public class v1feeder extends Thread {
 			e.printStackTrace();
 		}
 
-		System.out.println("Exiting v1feeder");
+		LOGGER.info("Exiting v1feeder");
 
 		try {
 			test.Common.closeRepository();

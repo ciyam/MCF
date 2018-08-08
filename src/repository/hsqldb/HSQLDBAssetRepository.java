@@ -148,7 +148,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 		try (ResultSet resultSet = this.repository.checkedExecute(
 				"SELECT creator, asset_order_id, amount, fulfilled, price, ordered FROM AssetOrders "
-						+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE ORDER BY price ASC",
+						+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE "
+						+ "ORDER BY price ASC, ordered ASC",
 				haveAssetId, wantAssetId)) {
 			if (resultSet == null)
 				return orders;

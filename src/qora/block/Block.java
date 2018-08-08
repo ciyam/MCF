@@ -10,6 +10,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.google.common.primitives.Bytes;
 
 import data.block.BlockData;
@@ -80,6 +83,7 @@ public class Block {
 	protected PublicKeyAccount generator;
 
 	// Other properties
+	private static final Logger LOGGER = LogManager.getLogger(Block.class);
 	protected List<Transaction> transactions;
 	protected BigDecimal cachedNextGeneratingBalance;
 
@@ -565,7 +569,7 @@ public class Block {
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
 				Transaction.ValidationResult validationResult = transaction.isValid();
 				if (validationResult != Transaction.ValidationResult.OK) {
-					System.err.println("Error during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
+					LOGGER.error("Error during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
 							+ validationResult.value);
 					return ValidationResult.TRANSACTION_INVALID;
 				}
@@ -574,9 +578,7 @@ public class Block {
 				try {
 					transaction.process();
 				} catch (Exception e) {
-					// LOGGER.error("Exception during transaction validation, tx " + Base58.encode(transaction.getSignature()), e);
-					System.err.println("Exception during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
-							+ e.getMessage());
+					LOGGER.error("Exception during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()), e);
 					e.printStackTrace();
 					return ValidationResult.TRANSACTION_PROCESSING_FAILED;
 				}

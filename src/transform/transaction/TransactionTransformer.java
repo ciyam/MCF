@@ -4,6 +4,8 @@ import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
 
 import com.google.common.hash.HashCode;
@@ -18,6 +20,8 @@ import utils.Base58;
 
 public class TransactionTransformer extends Transformer {
 
+	private static final Logger LOGGER = LogManager.getLogger(TransactionTransformer.class);
+
 	protected static final int TYPE_LENGTH = INT_LENGTH;
 	protected static final int REFERENCE_LENGTH = SIGNATURE_LENGTH;
 	protected static final int FEE_LENGTH = BIG_DECIMAL_LENGTH;
@@ -30,7 +34,7 @@ public class TransactionTransformer extends Transformer {
 		if (bytes.length < TYPE_LENGTH)
 			throw new TransformationException("Byte data too short to determine transaction type");
 
-		System.out.println("v1 tx hex: " + HashCode.fromBytes(bytes).toString());
+		LOGGER.trace("tx hex: " + HashCode.fromBytes(bytes).toString());
 
 		ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
 

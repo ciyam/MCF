@@ -309,7 +309,7 @@ public class HSQLDBDatabaseUpdates {
 									+ "ordered TIMESTAMP WITH TIME ZONE NOT NULL, is_closed BOOLEAN NOT NULL, is_fulfilled BOOLEAN NOT NULL, "
 									+ "PRIMARY KEY (asset_order_id))");
 					// For quick matching of orders. is_closed are is_fulfilled included so inactive orders can be filtered out.
-					stmt.execute("CREATE INDEX AssetOrderMatchingIndex on AssetOrders (have_asset_id, want_asset_id, is_closed, is_fulfilled)");
+					stmt.execute("CREATE INDEX AssetOrderMatchingIndex on AssetOrders (have_asset_id, want_asset_id, is_closed, is_fulfilled, price, ordered)");
 					// For when a user wants to look up their current/historic orders. is_closed included so user can filter by active/inactive orders.
 					stmt.execute("CREATE INDEX AssetOrderCreatorIndex on AssetOrders (creator, is_closed)");
 					break;

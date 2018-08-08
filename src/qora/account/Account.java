@@ -2,6 +2,9 @@ package qora.account;
 
 import java.math.BigDecimal;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import data.account.AccountBalanceData;
 import data.account.AccountData;
 import data.block.BlockData;
@@ -14,6 +17,8 @@ import repository.DataException;
 import repository.Repository;
 
 public class Account {
+
+	private static final Logger LOGGER = LogManager.getLogger(Account.class);
 
 	public static final int ADDRESS_LENGTH = 25;
 
@@ -128,6 +133,8 @@ public class Account {
 	public void setConfirmedBalance(long assetId, BigDecimal balance) throws DataException {
 		AccountBalanceData accountBalanceData = new AccountBalanceData(this.accountData.getAddress(), assetId, balance);
 		this.repository.getAccountRepository().save(accountBalanceData);
+
+		LOGGER.trace(this.accountData.getAddress() + " balance now: " + balance.toPlainString() + " [assetId " + assetId + "]");
 	}
 
 	public void deleteBalance(long assetId) throws DataException {

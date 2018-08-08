@@ -28,7 +28,12 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 			boolean isText = resultSet.getBoolean(4);
 			boolean isEncrypted = resultSet.getBoolean(5);
 			BigDecimal amount = resultSet.getBigDecimal(6);
+
+			// Special null-checking for asset ID
 			Long assetId = resultSet.getLong(7);
+			if (resultSet.wasNull())
+				assetId = null;
+
 			byte[] data = resultSet.getBytes(8);
 
 			return new MessageTransactionData(version, senderPublicKey, recipient, assetId, amount, data, isText, isEncrypted, fee, timestamp, reference,

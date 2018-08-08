@@ -8,6 +8,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.TimeZone;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import repository.AccountRepository;
 import repository.AssetRepository;
 import repository.BlockRepository;
@@ -19,6 +22,8 @@ import repository.VotingRepository;
 import repository.hsqldb.transaction.HSQLDBTransactionRepository;
 
 public class HSQLDBRepository implements Repository {
+
+	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
 
 	public static final TimeZone UTC = TimeZone.getTimeZone("UTC");
 
@@ -86,12 +91,12 @@ public class HSQLDBRepository implements Repository {
 
 			try (ResultSet resultSet = stmt.getResultSet()) {
 				if (resultSet == null || !resultSet.next())
-					System.out.println("Unable to check repository status during close");
+					LOGGER.warn("Unable to check repository status during close");
 
 				boolean inTransaction = resultSet.getBoolean(1);
 				int transactionCount = resultSet.getInt(2);
 				if (inTransaction && transactionCount != 0)
-					System.out.println("Uncommitted changes (" + transactionCount + ") during repository close");
+					LOGGER.warn("Uncommitted changes (" + transactionCount + ") during repository close");
 			}
 
 			// give connection back to the pool

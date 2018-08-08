@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.google.common.base.Utf8;
 
 import data.transaction.TransactionData;
@@ -22,6 +25,8 @@ import repository.Repository;
 import repository.VotingRepository;
 
 public class VoteOnPollTransaction extends Transaction {
+
+	private static final Logger LOGGER = LogManager.getLogger(VoteOnPollTransaction.class);
 
 	// Properties
 	private VoteOnPollTransactionData voteOnPollTransactionData;
@@ -130,13 +135,18 @@ public class VoteOnPollTransaction extends Transaction {
 		// Check for previous vote so we can save option in case of orphaning
 		VoteOnPollData previousVoteOnPollData = votingRepository.getVote(voteOnPollTransactionData.getPollName(),
 				voteOnPollTransactionData.getVoterPublicKey());
-		if (previousVoteOnPollData != null)
+		if (previousVoteOnPollData != null) {
 			voteOnPollTransactionData.setPreviousOptionIndex(previousVoteOnPollData.getOptionIndex());
+			LOGGER.trace("Previous vote by " + voter.getAddress() + " on poll \"" + voteOnPollTransactionData.getPollName() + "\" was option index "
+					+ previousVoteOnPollData.getOptionIndex());
+		}
 
 		// Save this transaction, now with possible previous vote
 		this.repository.getTransactionRepository().save(voteOnPollTransactionData);
 
 		// Apply vote to poll
+		LOGGER.trace("Vote by " + voter.getAddress() + " on poll \"" + voteOnPollTransactionData.getPollName() + "\" with option index "
+				+ voteOnPollTransactionData.getOptionIndex());
 		VoteOnPollData newVoteOnPollData = new VoteOnPollData(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey(),
 				voteOnPollTransactionData.getOptionIndex());
 		votingRepository.save(newVoteOnPollData);
@@ -156,11 +166,15 @@ public class VoteOnPollTransaction extends Transaction {
 		Integer previousOptionIndex = voteOnPollTransactionData.getPreviousOptionIndex();
 		if (previousOptionIndex != null) {
 			// Reinstate previous vote
+			LOGGER.trace("Reinstating previous vote by " + voter.getAddress() + " on poll \"" + voteOnPollTransactionData.getPollName()
+					+ "\" with option index " + previousOptionIndex);
 			VoteOnPollData previousVoteOnPollData = new VoteOnPollData(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey(),
 					previousOptionIndex);
 			votingRepository.save(previousVoteOnPollData);
 		} else {
 			// Delete vote
+			LOGGER.trace("Deleting vote by " + voter.getAddress() + " on poll \"" + voteOnPollTransactionData.getPollName() + "\" with option index "
+					+ voteOnPollTransactionData.getOptionIndex());
 			votingRepository.delete(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey());
 		}
 
