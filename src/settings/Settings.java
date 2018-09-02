@@ -2,8 +2,12 @@ package settings;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 
@@ -20,9 +24,15 @@ public class Settings {
 	private int maxBytePerFee = 1024;
 	private String userpath = "";
 
+	//RPC
+	private int rpcPort = 9085;
+	private List<String> rpcAllowed = new ArrayList<String>(Arrays.asList("127.0.0.1"));
+	private boolean rpcEnabled = true;
+	
 	// Constants
 	private static final String SETTINGS_FILENAME = "settings.json";
 
+	
 	// Constructors
 
 	private Settings() {
@@ -102,6 +112,23 @@ public class Settings {
 				this.genesisTimestamp = ((Long) json.get("testnetstamp")).longValue();
 			}
 		}
+		
+		// RPC
+		if(json.containsKey("rpcport"))
+		{
+			this.rpcPort = ((Long) json.get("rpcport")).intValue();
+		}
+
+		if(json.containsKey("rpcallowed"))
+		{
+			JSONArray allowedArray = (JSONArray) json.get("rpcallowed");
+			this.rpcAllowed = new ArrayList<String>(allowedArray);	
+		}
+		
+		if(json.containsKey("rpcenabled"))
+		{
+			this.rpcEnabled = ((Boolean) json.get("rpcenabled")).booleanValue();
+		}
 	}
 
 	public boolean isTestNet() {
@@ -122,4 +149,18 @@ public class Settings {
 		return this.userpath;
 	}
 
+	public int getRpcPort()
+	{
+		return this.rpcPort;
+	}
+	
+	public List<String> getRpcAllowed()
+	{
+		return this.rpcAllowed;
+	}
+
+	public boolean isRpcEnabled() 
+	{
+		return this.rpcEnabled;
+	}
 }
