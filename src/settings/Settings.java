@@ -26,7 +26,7 @@ public class Settings {
 
 	//RPC
 	private int rpcPort = 9085;
-	private List<String> rpcAllowed = new ArrayList<String>(Arrays.asList("127.0.0.1"));
+	private List<String> rpcAllowed = new ArrayList<String>(Arrays.asList("127.0.0.1", "::1")); // ipv4, ipv6
 	private boolean rpcEnabled = true;
 	
 	// Constants
