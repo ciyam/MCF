@@ -21,6 +21,7 @@ public class BlocksResource {
 
     @GET
     @Path("/height")
+    @UsageDescription("Returns the height of the blockchain")
     public static String getHeight() 
     {
         try (final Repository repository = RepositoryManager.getRepository()) {

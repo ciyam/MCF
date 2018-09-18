@@ -17,13 +17,14 @@ import settings.Settings;
 
 public class ApiService {
     private Server server;
+    private Set<Class<?>> resources;
 
     public ApiService()
     {
         // resources to register
-        Set<Class<?>> s = new HashSet<Class<?>>();
-        s.add(BlocksResource.class);
-        ResourceConfig config = new ResourceConfig(s);     
+        resources = new HashSet<Class<?>>();
+        resources.add(BlocksResource.class);
+        ResourceConfig config = new ResourceConfig(resources);     
 
         // create RPC server
         this.server = new Server(Settings.getInstance().getRpcPort());
@@ -44,14 +45,11 @@ public class ApiService {
         ServletHolder apiServlet = new ServletHolder(container);
         apiServlet.setInitOrder(1);
         context.addServlet(apiServlet, "/api/*");
-
-        /*
-        // Setup Swagger servlet
-        ServletHolder swaggerServlet = context.addServlet(DefaultJaxrsConfig.class, "/swagger-core");
-        swaggerServlet.setInitOrder(2);
-        swaggerServlet.setInitParameter("api.version", "1.0.0");
-        */
-
+    }
+    
+    Iterable<Class<?>> getResources()
+    {
+        return resources;
     }
 
     public void start()

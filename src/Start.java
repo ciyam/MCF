@@ -1,4 +1,5 @@
 
+import api.ApiClient;
 import api.ApiService;
 import repository.DataException;
 import repository.RepositoryFactory;
@@ -16,5 +17,8 @@ public class Start {
         
         ApiService apiService = new ApiService();
         apiService.start();
+        
+        ApiClient client = new ApiClient(apiService);
+        String test = client.executeCommand("help GET blocks/height");
     }
 }
