@@ -19,6 +19,7 @@ public class Start {
         apiService.start();
         
         ApiClient client = new ApiClient(apiService);
-        String test = client.executeCommand("help GET blocks/height");
+        String test = client.executeCommand("help ALL");
+        System.out.println(test);
     }
 }

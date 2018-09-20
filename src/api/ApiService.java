@@ -1,7 +1,7 @@
 package api;
 
-//import io.swagger.jaxrs.config.DefaultJaxrsConfig;
-
+import io.swagger.v3.jaxrs2.integration.OpenApiServlet;
+import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -24,6 +24,7 @@ public class ApiService {
         // resources to register
         resources = new HashSet<Class<?>>();
         resources.add(BlocksResource.class);
+        resources.add(OpenApiResource.class); // swagger
         ResourceConfig config = new ResourceConfig(resources);     
 
         // create RPC server
@@ -44,7 +45,7 @@ public class ApiService {
         ServletContainer container = new ServletContainer(config);
         ServletHolder apiServlet = new ServletHolder(container);
         apiServlet.setInitOrder(1);
-        context.addServlet(apiServlet, "/api/*");
+        context.addServlet(apiServlet, "/*");
     }
     
     Iterable<Class<?>> getResources()

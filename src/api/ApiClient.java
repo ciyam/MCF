@@ -1,12 +1,12 @@
 package api;
 
+import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
+import io.swagger.v3.oas.annotations.Operation;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.ws.rs.Path;
@@ -33,7 +33,7 @@ public class ApiClient {
     }
     
     private static final Pattern HELP_COMMAND_PATTERN = Pattern.compile("^ *help *(?<command>.*)$", Pattern.CASE_INSENSITIVE);
-    private static final List<Class<? extends Annotation>> REST_METHOD_ANNOTATIONS = Arrays.asList(
+    private static final List<Class<? extends Annotation>> HTTP_METHOD_ANNOTATIONS = Arrays.asList(
         GET.class,
         POST.class,
         PUT.class,
@@ -54,25 +54,31 @@ public class ApiClient {
     {
         List<HelpString> result = new ArrayList<>();
         
+        // scan each resource class
         for (Class<?> resource : resources) {
+            if(OpenApiResource.class.isAssignableFrom(resource))
+                continue; // ignore swagger resources
+            
             Path resourcePath = resource.getDeclaredAnnotation(Path.class);
             if(resourcePath == null)
                 continue;
             
             String resourcePathString = resourcePath.value();
             
+            // scan each method
             for(Method method : resource.getDeclaredMethods())
             {
-                UsageDescription usageDescription = method.getAnnotation(UsageDescription.class);
-                if(usageDescription == null)
+                Operation operationAnnotation = method.getAnnotation(Operation.class);
+                if(operationAnnotation == null)
                     continue;
                 
-                String usageDescriptionString = usageDescription.value();
+                String description = operationAnnotation.description();
                 
                 Path methodPath = method.getDeclaredAnnotation(Path.class);
                 String methodPathString = (methodPath != null) ? methodPath.value() : "";
 
-                for(Class<? extends Annotation> restMethodAnnotation : REST_METHOD_ANNOTATIONS)
+                // scan for each potential http method
+                for(Class<? extends Annotation> restMethodAnnotation : HTTP_METHOD_ANNOTATIONS)
                 {
                     Annotation annotation = method.getDeclaredAnnotation(restMethodAnnotation);
                     if(annotation == null)
@@ -81,21 +87,37 @@ public class ApiClient {
                     HttpMethod httpMethod = annotation.annotationType().getDeclaredAnnotation(HttpMethod.class);
                     String httpMethodString = httpMethod.value();
 
-                    Pattern pattern = Pattern.compile("^ *" + httpMethodString + " *" + getRegexPatternForPath(resourcePathString + methodPathString));
                     String fullPath = httpMethodString + " " + resourcePathString + methodPathString;
-                    result.add(new HelpString(pattern, fullPath, usageDescriptionString));
+                    Pattern pattern = Pattern.compile("^ *(" + httpMethodString + " *)?" + getHelpPatternForPath(resourcePathString + methodPathString));
+                    result.add(new HelpString(pattern, fullPath, description));
                 }
             }
         }
         
+        // sort by path
+        result.sort((h1, h2)-> h1.fullPath.compareTo(h2.fullPath));
+        
         return result;
     }
     
-    private String getRegexPatternForPath(String path)
-    {
-        return path
-            .replaceAll("\\.", "\\.")       // escapes "." as "\."
-            .replaceAll("\\{.*?\\}", ".*?");  // replace placeholders "{...}" by the "ungreedy match anything" pattern ".*?"
+    private String getHelpPatternForPath(String path)
+    {        
+        path = path
+            .replaceAll("\\.", "\\.")        // escapes "." as "\."
+            .replaceAll("\\{.*?\\}", ".*?"); // replace placeholders "{...}" by the "ungreedy match anything" pattern ".*?"
+
+        // arrange the regex pattern so that it also matches partial
+        StringBuilder result = new StringBuilder();
+        String[] parts = path.split("/");
+        for(int i = 0; i < parts.length; i++)
+        {
+            if(i!=0)
+                result.append("(/"); // opening bracket
+            result.append(parts[i]);
+        }
+        for(int i = 0; i < parts.length - 1; i++)
+            result.append(")?"); // closing bracket
+        return result.toString();
     }
     
     public String executeCommand(String command)
@@ -104,20 +126,23 @@ public class ApiClient {
         if(helpMatch.matches())
         {
             command = helpMatch.group("command");
-            StringBuilder help = new StringBuilder();
-            
+            StringBuilder result = new StringBuilder();
+         
+            boolean showAll = command.trim().equalsIgnoreCase("all");
             for(HelpString helpString : helpStrings)
             {
-                if(helpString.pattern.matcher(command).matches())
-                {
-                    help.append(helpString.fullPath + "\n");
-                    help.append(helpString.description + "\n");
-                }
+                if(showAll || helpString.pattern.matcher(command).matches())
+                    appendHelp(result, helpString);
             }
             
-            return help.toString();
+            return result.toString();
         }
         
         return null;
+    }
+
+    private void appendHelp(StringBuilder builder, HelpString helpString) {
+        builder.append(helpString.fullPath + "\n");
+        builder.append(helpString.description + "\n");
     }
 }
