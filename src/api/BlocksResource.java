@@ -40,11 +40,12 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "The blocks"
-			//content = @Content(schema = @Schema(implementation = ???))
+				//content = @Content(schema = @Schema(implementation = ???))
 			),
 			@ApiResponse(
 				responseCode = "422",
-				description = "Wallet does not exist"
+				description = "Error: 201 - Wallet does not exist",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			)
 		}
 	)
@@ -65,15 +66,18 @@ public class BlocksResource {
 			),
 			@ApiResponse(
 				responseCode = "400",
-				description = "Invalid address"
+				description = "102 - Invalid address",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			),
 			@ApiResponse(
 				responseCode = "422",
-				description = "Wallet does not exist"
+				description = "201 - Wallet does not exist",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			),
 			@ApiResponse(
 				responseCode = "422",
-				description = "Address does not exist in wallet"
+				description = "202 - Address does not exist in wallet",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			)
 		}
 	)
@@ -94,11 +98,13 @@ public class BlocksResource {
 			),
 			@ApiResponse(
 				responseCode = "400",
-				description = "Invalid signature"
+				description = "101 - Invalid signature",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			),
 			@ApiResponse(
 				responseCode = "422",
-				description = "Block does not exist"
+				description = "301 - Block does not exist",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			)
 		}
 	)
@@ -153,11 +159,13 @@ public class BlocksResource {
 			),
 			@ApiResponse(
 				responseCode = "400",
-				description = "Invalid signature"
+				description = "101 - Invalid signature",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			),
 			@ApiResponse(
 				responseCode = "422",
-				description = "Block does not exist"
+				description = "301 - Block does not exist",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			)
 		}
 	)
@@ -195,11 +203,13 @@ public class BlocksResource {
 			),
 			@ApiResponse(
 				responseCode = "400",
-				description = "Invalid signature"
+				description = "101 - Invalid signature",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			),
 			@ApiResponse(
 				responseCode = "422",
-				description = "Block does not exist"
+				description = "301 - Block does not exist",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			)
 		}
 	)
@@ -275,11 +285,13 @@ public class BlocksResource {
 			),
 			@ApiResponse(
 				responseCode = "400",
-				description = "Invalid signature"
+				description = "101 - Invalid signature",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			),
 			@ApiResponse(
 				responseCode = "422",
-				description = "Block does not exist"
+				description = "301 - Block does not exist",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			)
 		}
 	)
@@ -300,7 +312,8 @@ public class BlocksResource {
 			),
 			@ApiResponse(
 				responseCode = "422",
-				description = "Block does not exist"
+				description = "301 - Block does not exist",
+				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class))
 			)
 		}
 	)
