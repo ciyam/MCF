@@ -18,6 +18,13 @@
   </build>
   <dependencies>
   	<dependency>
+  		<groupId>org.hsqldb</groupId>
+  		<artifactId>hsqldb</artifactId>
+  		<version>r5836</version>
+  		<scope>system</scope>
+  		<systemPath>${project.basedir}/lib/hsqldb-r5836.jar</systemPath>
+  	</dependency>
+  	<dependency>
   		<groupId>com.googlecode.json-simple</groupId>
   		<artifactId>json-simple</artifactId>
   		<version>1.1.1</version>
