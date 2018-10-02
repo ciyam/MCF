@@ -59,9 +59,9 @@ public class GlobalizationTests {
 			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
 			"<localization>\n" +
 			"	<context locale=\"en-GB\">\n" +
-			"		<context path=\"path1\">\n" +
-			"			<context path=\"path2/path3\">\n" +
-			"				<translation key=\"key1\" template=\"1\" />\n" +
+			"		<context path=\"path1/\">\n" +
+			"			<translation key=\"key1\" template=\"1\" />\n" +
+			"			<context path=\"./path2//path3\">\n" +
 			"				<translation key=\"key2\" template=\"2\" />\n" +
 			"			</context>\n" +
 			"		</context>\n" +
@@ -69,7 +69,7 @@ public class GlobalizationTests {
 			"</localization>\n";
 		
 		List<TranslationEntry> expected = new ArrayList<TranslationEntry>();
-		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/path2/path3/key1", "1"));
+		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/key1", "1"));
 		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/path2/path3/key2", "2"));
 		
 		InputStream is = new ByteArrayInputStream(xml.getBytes(Charset.forName("UTF-8")));

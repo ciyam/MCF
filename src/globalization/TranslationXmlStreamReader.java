@@ -179,7 +179,7 @@ public class TranslationXmlStreamReader {
 			String value = attribute.getValue(); 
 			switch(name.toString()) {
 				case TRANSLATION_KEY_ATTRIBUTE_NAME:
-					assureIsValidPathExtension(value);
+					assureIsValidKey(value);
 					path = combinePaths(state.path, value);
 					break;
 				case TRANSLATION_TEMPLATE_ATTRIBUTE_NAME:
@@ -218,8 +218,13 @@ public class TranslationXmlStreamReader {
 		}
 	}
 
+	private void assureIsValidKey(String value) throws XMLStreamException {
+		if(value.contains("/"))
+			throw new javax.xml.stream.XMLStreamException("Key must not contain /");
+	}
+
 	private String combinePaths(String left, String right) {
-		return Paths.get(left, right).toString();
+		return Paths.get(left, right).normalize().toString();
 	}
 	
 	private void assureStartElement(XMLEvent event, String name) throws XMLStreamException {
