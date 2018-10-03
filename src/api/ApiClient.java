@@ -3,6 +3,8 @@ package api;
 import globalization.Translator;
 import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -30,16 +32,20 @@ import settings.Settings;
 
 public class ApiClient {
 
-	private class HelpString {
+	private class HelpInfo {
 
 		public final Pattern pattern;
 		public final String fullPath;
 		public final String description;
+		public final List<String> success;
+		public final List<String> errors;
 
-		public HelpString(Pattern pattern, String fullPath, String description) {
+		public HelpInfo(Pattern pattern, String fullPath, String description, List<String> success, List<String> errors) {
 			this.pattern = pattern;
 			this.fullPath = fullPath;
 			this.description = description;
+			this.success = success;
+			this.errors = errors;
 		}
 	}
 
@@ -55,11 +61,12 @@ public class ApiClient {
 
 	ApiService apiService;
 	private Translator translator;
-	List<HelpString> helpStrings;
+	List<HelpInfo> helpInfos;
 
 	public ApiClient(ApiService apiService, Translator translator) {
 		this.apiService = apiService;
-		this.helpStrings = getHelpStrings(apiService.getResources());
+		this.translator = translator;
+		this.helpInfos = getHelpInfos(apiService.getResources());
 	}
 
 	//XXX: replace singleton pattern by dependency injection?
@@ -73,9 +80,11 @@ public class ApiClient {
 		return instance;
 	}
 	
-	private List<HelpString> getHelpStrings(Iterable<Class<?>> resources) {
-		List<HelpString> result = new ArrayList<>();
+	private List<HelpInfo> getHelpInfos(Iterable<Class<?>> resources) {
+		List<HelpInfo> result = new ArrayList<>();
 
+		// TODO: need some way to realize translation from resource annotations
+		
 		// scan each resource class
 		for (Class<?> resource : resources) {
 			if (OpenApiResource.class.isAssignableFrom(resource)) {
@@ -96,6 +105,38 @@ public class ApiClient {
 				}
 
 				String description = operationAnnotation.description();
+				
+				// extract responses
+				ArrayList success = new ArrayList();
+				ArrayList errors = new ArrayList();
+				for(ApiResponse response : operationAnnotation.responses()) {
+					String responseDescription = response.description();
+					if(StringUtils.isBlank(responseDescription))
+						continue; // ignore responses without description
+					
+					try {
+						// try to identify response type by status code
+						int responseCode = Integer.parseInt(response.responseCode());
+						if(responseCode >= 400) {
+							errors.add(responseDescription);
+						} else {
+							success.add(responseDescription);
+						}
+					} catch (NumberFormatException e) {						
+						// try to identify response type by content
+						if(response.content().length > 0) {
+							Content content = response.content()[0];
+							Class<?> implementation = content.schema().implementation();
+							if(implementation != null && ApiErrorMessage.class.isAssignableFrom(implementation)) {
+								errors.add(responseDescription);
+							} else {
+								success.add(responseDescription);
+							}
+						} else {
+							success.add(responseDescription);
+						}
+					}
+				}
 
 				Path methodPath = method.getDeclaredAnnotation(Path.class);
 				String methodPathString = (methodPath != null) ? methodPath.value() : "";
@@ -110,9 +151,10 @@ public class ApiClient {
 					HttpMethod httpMethod = annotation.annotationType().getDeclaredAnnotation(HttpMethod.class);
 					String httpMethodString = httpMethod.value();
 
-					String fullPath = httpMethodString + " " + resourcePathString + methodPathString;
+					String fullPath = httpMethodString + " " + resourcePathString + methodPathString;			
+					
 					Pattern pattern = Pattern.compile("^ *(" + httpMethodString + " *)?" + getHelpPatternForPath(resourcePathString + methodPathString));
-					result.add(new HelpString(pattern, fullPath, description));
+					result.add(new HelpInfo(pattern, fullPath, description, success, errors));
 				}
 			}
 		}
@@ -151,7 +193,7 @@ public class ApiClient {
 			StringBuilder result = new StringBuilder();
 
 			boolean showAll = command.trim().equalsIgnoreCase("all");
-			for (HelpString helpString : helpStrings) {
+			for (HelpInfo helpString : helpInfos) {
 				if (showAll || helpString.pattern.matcher(command).matches()) {
 					appendHelp(result, helpString);
 				}
@@ -194,8 +236,20 @@ public class ApiClient {
 		return result.toString();
 	}
 
-	private void appendHelp(StringBuilder builder, HelpString helpString) {
-		builder.append(helpString.fullPath + "\n");
-		builder.append(helpString.description + "\n");
+	private void appendHelp(StringBuilder builder, HelpInfo help) {
+		builder.append(help.fullPath + "\n");
+		builder.append("    " + help.description + "\n");
+		if(help.success != null && help.success.size() > 0) {
+			builder.append("    On success returns:\n");
+			for(String content : help.success) {
+				builder.append("        " + content + "\n");
+			}
+		}
+		if(help.errors != null && help.errors.size() > 0) {
+			builder.append("    On failure returns:\n");
+			for(String content : help.errors) {
+				builder.append("        " + content + "\n");
+			}
+		}
 	}
 }

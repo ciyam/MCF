@@ -150,14 +150,27 @@ public class ApiErrorFactory {
 		String templateKey = String.format("%s: ApiError.%s message", ApiErrorFactory.class.getSimpleName(), errorCode.name());
 		return new ErrorMessageEntry(templateKey, defaultTemplate, templateValues);
 	}
+	
+	public String getErrorMessage(Locale locale, ApiError error) {
+		ErrorMessageEntry errorMessage = this.errorMessages.get(error);
+		String message = this.translator.translate(locale, errorMessage.templateKey, errorMessage.defaultTemplate, errorMessage.templateValues);
+		return message;
+	}
 
 	public ApiException createError(ApiError error) {
 		return createError(error, null);
 	}
 	
+	public ApiException createError(Locale locale, ApiError error) {
+		return createError(locale, error, null);
+	}
+	
 	public ApiException createError(ApiError error, Throwable throwable) {
-		Locale locale = Locale.ENGLISH; // XXX: should this be in local language?
-
+		Locale locale = Locale.ENGLISH; // default locale
+		return createError(locale, error, throwable);
+	}
+	
+	public ApiException createError(Locale locale, ApiError error, Throwable throwable) {
 		// TODO: handle AT errors
 // old AT error handling
 //		JSONObject jsonObject = new JSONObject();
@@ -173,9 +186,8 @@ public class ApiErrorFactory {
 //		
 //		
 //		return new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity(jsonObject.toJSONString()).build());
-		ErrorMessageEntry errorMessage = this.errorMessages.get(error);
-		String message = this.translator.translate(locale, errorMessage.templateKey, errorMessage.defaultTemplate, errorMessage.templateValues);
 
+		String message = getErrorMessage(locale, error);
 		return new ApiException(error.getStatus(), error.getCode(), message, throwable);
 	}
 }
