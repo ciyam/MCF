@@ -27,7 +27,7 @@ public class BlocksResource {
 	private ApiErrorFactory apiErrorFactory;
 
 	public BlocksResource() {
-		this(new ApiErrorFactory(new Translator()));
+		this(new ApiErrorFactory(Translator.getInstance()));
 	}
 
 	public BlocksResource(ApiErrorFactory apiErrorFactory) {

@@ -24,10 +24,14 @@ public class Settings {
 	private int maxBytePerFee = 1024;
 	private String userpath = "";
 
-	//RPC
+	// RPC
 	private int rpcPort = 9085;
 	private List<String> rpcAllowed = new ArrayList<String>(Arrays.asList("127.0.0.1", "::1")); // ipv4, ipv6
 	private boolean rpcEnabled = true;
+	
+	// Globalization
+	private String translationsPath = "globalization/";
+	private String[] translationsDefaultLocales = {"en-GB"};
 	
 	// Constants
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -129,6 +133,17 @@ public class Settings {
 		{
 			this.rpcEnabled = ((Boolean) json.get("rpcenabled")).booleanValue();
 		}
+		
+		// Globalization
+		if(json.containsKey("translationspath"))
+		{
+			this.translationsPath = ((String) json.get("translationspath"));
+		}
+
+		if(json.containsKey("translationsdefaultlocales"))
+		{
+			this.translationsDefaultLocales = ((String[]) json.get("translationsdefaultlocales"));
+		}
 	}
 
 	public boolean isTestNet() {
@@ -162,5 +177,15 @@ public class Settings {
 	public boolean isRpcEnabled() 
 	{
 		return this.rpcEnabled;
+	}
+	
+	public String translationsPath()
+	{
+		return this.translationsPath;
+	}
+	
+	public String[] translationsDefaultLocales()
+	{
+		return this.translationsDefaultLocales;
 	}
 }
