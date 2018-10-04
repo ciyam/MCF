@@ -27,6 +27,8 @@ public class SaveTests extends Common {
 					BigDecimal.ONE, Instant.now().getEpochSecond(), reference, signature);
 
 			repository.getTransactionRepository().save(paymentTransactionData);
+
+			repository.discardChanges();
 		}
 	}
 

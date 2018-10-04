@@ -35,6 +35,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBCreateOrderTransactionRepository createOrderTransactionRepository;
 	private HSQLDBCancelOrderTransactionRepository cancelOrderTransactionRepository;
 	private HSQLDBMultiPaymentTransactionRepository multiPaymentTransactionRepository;
+	private HSQLDBDeployATTransactionRepository deployATTransactionRepository;
 	private HSQLDBMessageTransactionRepository messageTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
@@ -54,6 +55,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.createOrderTransactionRepository = new HSQLDBCreateOrderTransactionRepository(repository);
 		this.cancelOrderTransactionRepository = new HSQLDBCancelOrderTransactionRepository(repository);
 		this.multiPaymentTransactionRepository = new HSQLDBMultiPaymentTransactionRepository(repository);
+		this.deployATTransactionRepository = new HSQLDBDeployATTransactionRepository(repository);
 		this.messageTransactionRepository = new HSQLDBMessageTransactionRepository(repository);
 	}
 
@@ -145,6 +147,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case MULTIPAYMENT:
 				return this.multiPaymentTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case DEPLOY_AT:
+				return this.deployATTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case MESSAGE:
 				return this.messageTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
@@ -302,6 +307,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case MULTIPAYMENT:
 				this.multiPaymentTransactionRepository.save(transactionData);
+				break;
+
+			case DEPLOY_AT:
+				this.deployATTransactionRepository.save(transactionData);
 				break;
 
 			case MESSAGE:

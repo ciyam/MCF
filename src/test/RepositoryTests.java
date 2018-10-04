@@ -2,6 +2,8 @@ package test;
 
 import static org.junit.Assert.*;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.Test;
 
 import repository.DataException;
@@ -9,6 +11,8 @@ import repository.Repository;
 import repository.RepositoryManager;
 
 public class RepositoryTests extends Common {
+
+	private static final Logger LOGGER = LogManager.getLogger(RepositoryTests.class);
 
 	@Test
 	public void testGetRepository() throws DataException {
@@ -45,6 +49,8 @@ public class RepositoryTests extends Common {
 				fail();
 			} catch (NullPointerException | DataException e) {
 			}
+
+			LOGGER.warn("Expect \"repository already closed\" complaint below");
 		}
 	}
 

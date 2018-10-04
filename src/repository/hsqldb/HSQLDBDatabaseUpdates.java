@@ -77,7 +77,8 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("SET DATABASE COLLATION SQL_TEXT NO PAD");
 					stmt.execute("CREATE COLLATION SQL_TEXT_UCC_NO_PAD FOR SQL_TEXT FROM SQL_TEXT_UCC NO PAD");
 					stmt.execute("CREATE COLLATION SQL_TEXT_NO_PAD FOR SQL_TEXT FROM SQL_TEXT NO PAD");
-					stmt.execute("SET FILES SPACE TRUE");
+					stmt.execute("SET FILES SPACE TRUE"); // Enable per-table block space within .data file, useful for CACHED table types
+					stmt.execute("SET FILES LOB SCALE 1"); // LOB granularity is 1KB
 					stmt.execute("CREATE TABLE DatabaseInfo ( version INTEGER NOT NULL )");
 					stmt.execute("INSERT INTO DatabaseInfo VALUES ( 0 )");
 					stmt.execute("CREATE TYPE BlockSignature AS VARBINARY(128)");
@@ -96,6 +97,9 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE AssetOrderID AS VARBINARY(64)");
 					stmt.execute("CREATE TYPE ATName AS VARCHAR(200) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE ATType AS VARCHAR(200) COLLATE SQL_TEXT_UCC_NO_PAD");
+					stmt.execute("CREATE TYPE ATCode AS BLOB(64K)"); // 16bit * 1
+					stmt.execute("CREATE TYPE ATState AS BLOB(1M)"); // 16bit * 8 + 16bit * 4 + 16bit * 4
+					stmt.execute("CREATE TYPE ATMessage AS VARBINARY(256)");
 					break;
 
 				case 1:
@@ -269,7 +273,7 @@ public class HSQLDBDatabaseUpdates {
 					// Deploy CIYAM AT Transactions
 					stmt.execute("CREATE TABLE DeployATTransactions (signature Signature, creator QoraPublicKey NOT NULL, AT_name ATName NOT NULL, "
 							+ "description VARCHAR(2000) NOT NULL, AT_type ATType NOT NULL, AT_tags VARCHAR(200) NOT NULL, "
-							+ "creation_bytes VARBINARY(100000) NOT NULL, amount QoraAmount NOT NULL, "
+							+ "creation_bytes VARBINARY(100000) NOT NULL, amount QoraAmount NOT NULL, AT_address QoraAddress, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
@@ -344,6 +348,22 @@ public class HSQLDBDatabaseUpdates {
 							"CREATE TABLE Names (name RegisteredName, data VARCHAR(4000) NOT NULL, registrant QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
 									+ "registered TIMESTAMP WITH TIME ZONE NOT NULL, updated TIMESTAMP WITH TIME ZONE, reference Signature, is_for_sale BOOLEAN NOT NULL, sale_price QoraAmount, "
 									+ "PRIMARY KEY (name))");
+					break;
+
+				case 27:
+					// CIYAM Automated Transactions
+					stmt.execute("CREATE TABLE ATs (AT_address QoraAddress, version INTEGER NOT NULL, code_bytes ATCode NOT NULL, "
+							+ "is_sleeping BOOLEAN NOT NULL, sleep_until_height INTEGER, is_finished BOOLEAN NOT NULL, had_fatal_error BOOLEAN NOT NULL, "
+							+ "is_frozen BOOLEAN NOT NULL, frozen_balance QoraAmount, deploy_signature Signature NOT NULL, PRIMARY key (AT_address))");
+					// For finding executable ATs
+					stmt.execute("CREATE INDEX ATIndex on ATs (is_finished, AT_address)");
+					// AT state on a per-block basis
+					stmt.execute("CREATE TABLE ATStates (AT_address QoraAddress, height INTEGER NOT NULL, state_data ATState, "
+							+ "PRIMARY KEY (AT_address, height), FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
+					// Generated AT Transactions
+					stmt.execute(
+							"CREATE TABLE ATTransactions (signature Signature, sender QoraPublicKey NOT NULL, recipient QoraAddress, amount QoraAmount NOT NULL, message ATMessage, "
+									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
 				default:

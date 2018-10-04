@@ -2,6 +2,8 @@ package repository;
 
 public interface Repository extends AutoCloseable {
 
+	public ATRepository getATRepository();
+
 	public AccountRepository getAccountRepository();
 
 	public AssetRepository getAssetRepository();

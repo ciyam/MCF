@@ -4,6 +4,7 @@ import static org.junit.Assert.*;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -616,7 +617,7 @@ public class TransactionTests {
 		String assetName = "test asset";
 		String description = "test asset description";
 		long quantity = 1_000_000L;
-		boolean isDivisible = false;
+		boolean isDivisible = true;
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 
@@ -956,16 +957,20 @@ public class TransactionTests {
 		assertNotNull(originalOrderData);
 		assertFalse(originalOrderData.getIsClosed());
 
+		// Unfulfilled order: "buyer" has 10 QORA and wants to buy "test asset" at a price of 50 "test asset" per QORA.
+		// buyer's order: have=QORA, amount=10, want=test-asset, price=50 (test-asset per QORA, so max return is 500 test-asset)
+
 		// Original asset owner (sender) will sell asset to "buyer"
 
 		// Order: seller has 40 "test asset" and wants to buy QORA at a price of 1/60 QORA per "test asset".
 		// This order should be a partial match for original order, and at a better price than asked
-		long haveAssetId = Asset.QORA;
+		long haveAssetId = assetId;
 		BigDecimal amount = BigDecimal.valueOf(40).setScale(8);
-		long wantAssetId = assetId;
-		BigDecimal price = BigDecimal.ONE.setScale(8).divide(BigDecimal.valueOf(60).setScale(8));
+		long wantAssetId = Asset.QORA;
+		BigDecimal price = BigDecimal.ONE.setScale(8).divide(BigDecimal.valueOf(60).setScale(8), RoundingMode.DOWN);
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
+		BigDecimal senderPreTradeWantBalance = sender.getConfirmedBalance(wantAssetId);
 
 		CreateOrderTransactionData createOrderTransactionData = new CreateOrderTransactionData(sender.getPublicKey(), haveAssetId, wantAssetId, amount, price,
 				fee, timestamp, reference);
@@ -989,20 +994,19 @@ public class TransactionTests {
 		byte[] orderId = createOrderTransactionData.getSignature();
 		OrderData orderData = assetRepo.fromOrderId(orderId);
 		assertNotNull(orderData);
-		assertFalse(orderData.getIsFulfilled());
 
 		// Check order has trades
 		List<TradeData> trades = assetRepo.getOrdersTrades(orderId);
 		assertNotNull(trades);
-		assertEquals(1, trades.size());
+		assertEquals("Trade didn't happen", 1, trades.size());
 		TradeData tradeData = trades.get(0);
 
 		// Check trade has correct values
-		BigDecimal expectedAmount = amount.multiply(price);
+		BigDecimal expectedAmount = amount.divide(originalOrderData.getPrice()).setScale(8);
 		BigDecimal actualAmount = tradeData.getAmount();
 		assertTrue(expectedAmount.compareTo(actualAmount) == 0);
 
-		BigDecimal expectedPrice = originalOrderData.getPrice().multiply(amount);
+		BigDecimal expectedPrice = amount;
 		BigDecimal actualPrice = tradeData.getPrice();
 		assertTrue(expectedPrice.compareTo(actualPrice) == 0);
 
@@ -1017,9 +1021,16 @@ public class TransactionTests {
 		assertTrue(expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check seller's QORA balance
-		expectedBalance = initialSenderBalance.subtract(BigDecimal.ONE).subtract(BigDecimal.ONE);
+		expectedBalance = senderPreTradeWantBalance.subtract(BigDecimal.ONE).add(expectedAmount);
 		actualBalance = sender.getConfirmedBalance(wantAssetId);
 		assertTrue(expectedBalance.compareTo(actualBalance) == 0);
+
+		// Check seller's order is correctly fulfilled
+		assertTrue(orderData.getIsFulfilled());
+
+		// Check buyer's order is still not fulfilled
+		OrderData buyersOrderData = assetRepo.fromOrderId(originalOrderData.getOrderId());
+		assertFalse(buyersOrderData.getIsFulfilled());
 
 		// Orphan transaction
 		block.orphan();

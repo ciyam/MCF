@@ -84,9 +84,9 @@ public class TransferAssetTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Are IssueAssetTransactions even allowed at this point?
+		// Are TransferAssetTransactions even allowed at this point?
 		// XXX In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used?
-		if (this.transferAssetTransactionData.getTimestamp() < BlockChain.getVotingReleaseTimestamp())
+		if (this.transferAssetTransactionData.getTimestamp() < BlockChain.getAssetsReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check reference is correct

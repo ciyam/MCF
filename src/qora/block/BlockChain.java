@@ -43,6 +43,7 @@ public class BlockChain {
 	private static final long ISSUE_ASSET_V2_TIMESTAMP = 1552500000000L; // 2019-03-13T18:00:00+00:00 // Future Qora v2 ISSUE ASSET transactions
 	private static final long CREATE_ORDER_V2_TIMESTAMP = 1552500000000L; // 2019-03-13T18:00:00+00:00 // Future Qora v2 CREATE ORDER transactions
 	private static final long ARBITRARY_TRANSACTION_V2_TIMESTAMP = 1552500000000L; // 2019-03-13T18:00:00+00:00 // Future Qora v2 ARBITRARY transactions
+	private static final long DEPLOY_AT_V2_TIMESTAMP = 1552500000000L; // 2019-03-13T18:00:00+00:00 // Future Qora v2 DEPLOY AT transactions
 
 	/**
 	 * Some sort start-up/initialization/checking method.
@@ -171,6 +172,13 @@ public class BlockChain {
 			return 0;
 
 		return ARBITRARY_TRANSACTION_V2_TIMESTAMP;
+	}
+
+	public static long getDeployATV2Timestamp() {
+		if (Settings.getInstance().isTestNet())
+			return 0;
+
+		return DEPLOY_AT_V2_TIMESTAMP;
 	}
 
 }

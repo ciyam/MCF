@@ -10,7 +10,8 @@ public class ArbitraryTransactionData extends TransactionData {
 
 	// "data" field types
 	public enum DataType {
-		RAW_DATA, DATA_HASH;
+		RAW_DATA,
+		DATA_HASH;
 	}
 
 	// Properties

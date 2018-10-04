@@ -289,6 +289,24 @@ public class BlockTransformer extends Transformer {
 		}
 	}
 
+	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, BigDecimal generatingBalance, PublicKeyAccount generator)
+			throws TransformationException {
+		try {
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH);
+
+			bytes.write(generatorSignature);
+
+			bytes.write(Longs.toByteArray(generatingBalance.longValue()));
+
+			// We're padding here just in case the generator is the genesis account whose public key is only 8 bytes long.
+			bytes.write(Bytes.ensureCapacity(generator.getPublicKey(), GENERATOR_LENGTH, 0));
+
+			return bytes.toByteArray();
+		} catch (IOException e) {
+			throw new TransformationException(e);
+		}
+	}
+
 	public static byte[] getBytesForTransactionsSignature(Block block) throws TransformationException {
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream(
 				GENERATOR_SIGNATURE_LENGTH + block.getBlockData().getTransactionCount() * TransactionTransformer.SIGNATURE_LENGTH);

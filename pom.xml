@@ -107,5 +107,16 @@
 			<artifactId>jersey-media-moxy</artifactId>
 			<version>2.27</version>
 		</dependency>
+		<dependency>
+			<groupId>org.ciyam</groupId>
+			<artifactId>at</artifactId>
+			<version>1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.hsqldb</groupId>
+			<artifactId>sqltool</artifactId>
+			<version>2.4.1</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 </project>

@@ -11,6 +11,7 @@ import java.util.TimeZone;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import repository.ATRepository;
 import repository.AccountRepository;
 import repository.AssetRepository;
 import repository.BlockRepository;
@@ -32,6 +33,11 @@ public class HSQLDBRepository implements Repository {
 	// NB: no visibility modifier so only callable from within same package
 	HSQLDBRepository(Connection connection) {
 		this.connection = connection;
+	}
+
+	@Override
+	public ATRepository getATRepository() {
+		return new HSQLDBATRepository(this);
 	}
 
 	@Override
@@ -84,6 +90,12 @@ public class HSQLDBRepository implements Repository {
 
 	@Override
 	public void close() throws DataException {
+		// Already closed? No need to do anything but maybe report double-call
+		if (this.connection == null) {
+			LOGGER.warn("HSQLDBRepository.close() called when repository already closed", new Exception("Repository already closed"));
+			return;
+		}
+
 		try (Statement stmt = this.connection.createStatement()) {
 			// Diagnostic check for uncommitted changes
 			if (!stmt.execute("SELECT transaction, transaction_size FROM information_schema.system_sessions")) // TRANSACTION_SIZE() broken?
@@ -96,7 +108,7 @@ public class HSQLDBRepository implements Repository {
 				boolean inTransaction = resultSet.getBoolean(1);
 				int transactionCount = resultSet.getInt(2);
 				if (inTransaction && transactionCount != 0)
-					LOGGER.warn("Uncommitted changes (" + transactionCount + ") during repository close");
+					LOGGER.warn("Uncommitted changes (" + transactionCount + ") during repository close", new Exception("Uncommitted repository changes"));
 			}
 
 			// give connection back to the pool

@@ -118,7 +118,7 @@ public class GenesisTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() {
 		// Check amount is zero or positive
-		if (genesisTransactionData.getAmount().compareTo(BigDecimal.ZERO) >= 0)
+		if (genesisTransactionData.getAmount().compareTo(BigDecimal.ZERO) < 0)
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check recipient address is valid

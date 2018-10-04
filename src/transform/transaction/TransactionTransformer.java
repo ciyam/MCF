@@ -92,6 +92,9 @@ public class TransactionTransformer extends Transformer {
 				case MESSAGE:
 					return MessageTransactionTransformer.fromByteBuffer(byteBuffer);
 
+				case DEPLOY_AT:
+					return DeployATTransactionTransformer.fromByteBuffer(byteBuffer);
+
 				default:
 					throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
 			}
@@ -150,6 +153,9 @@ public class TransactionTransformer extends Transformer {
 			case MESSAGE:
 				return MessageTransactionTransformer.getDataLength(transactionData);
 
+			case DEPLOY_AT:
+				return DeployATTransactionTransformer.getDataLength(transactionData);
+
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] when requesting byte length");
 		}
@@ -204,6 +210,9 @@ public class TransactionTransformer extends Transformer {
 
 			case MESSAGE:
 				return MessageTransactionTransformer.toBytes(transactionData);
+
+			case DEPLOY_AT:
+				return DeployATTransactionTransformer.toBytes(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes");
@@ -268,6 +277,9 @@ public class TransactionTransformer extends Transformer {
 
 			case MESSAGE:
 				return MessageTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case DEPLOY_AT:
+				return DeployATTransactionTransformer.toBytesForSigningImpl(transactionData);
 
 			default:
 				throw new TransformationException(
@@ -344,6 +356,9 @@ public class TransactionTransformer extends Transformer {
 
 			case MESSAGE:
 				return MessageTransactionTransformer.toJSON(transactionData);
+
+			case DEPLOY_AT:
+				return DeployATTransactionTransformer.toJSON(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to JSON");

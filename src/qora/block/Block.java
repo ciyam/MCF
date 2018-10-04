@@ -60,9 +60,21 @@ public class Block {
 
 	// Validation results
 	public enum ValidationResult {
-		OK(1), REFERENCE_MISSING(10), PARENT_DOES_NOT_EXIST(11), BLOCKCHAIN_NOT_EMPTY(12), TIMESTAMP_OLDER_THAN_PARENT(20), TIMESTAMP_IN_FUTURE(
-				21), TIMESTAMP_MS_INCORRECT(22), VERSION_INCORRECT(30), FEATURE_NOT_YET_RELEASED(31), GENERATING_BALANCE_INCORRECT(40), GENERATOR_NOT_ACCEPTED(
-						41), GENESIS_TRANSACTIONS_INVALID(50), TRANSACTION_TIMESTAMP_INVALID(51), TRANSACTION_INVALID(52), TRANSACTION_PROCESSING_FAILED(53);
+		OK(1),
+		REFERENCE_MISSING(10),
+		PARENT_DOES_NOT_EXIST(11),
+		BLOCKCHAIN_NOT_EMPTY(12),
+		TIMESTAMP_OLDER_THAN_PARENT(20),
+		TIMESTAMP_IN_FUTURE(21),
+		TIMESTAMP_MS_INCORRECT(22),
+		VERSION_INCORRECT(30),
+		FEATURE_NOT_YET_RELEASED(31),
+		GENERATING_BALANCE_INCORRECT(40),
+		GENERATOR_NOT_ACCEPTED(41),
+		GENESIS_TRANSACTIONS_INVALID(50),
+		TRANSACTION_TIMESTAMP_INVALID(51),
+		TRANSACTION_INVALID(52),
+		TRANSACTION_PROCESSING_FAILED(53);
 
 		public final int value;
 
@@ -123,6 +135,7 @@ public class Block {
 		this.transactions = new ArrayList<Transaction>();
 	}
 
+	/** Construct a new block for use in tests */
 	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount generator, byte[] atBytes, BigDecimal atFees) throws DataException {
 		this.repository = repository;
 		this.generator = generator;
@@ -131,13 +144,20 @@ public class Block {
 
 		int version = parentBlock.getNextBlockVersion();
 		byte[] reference = parentBlockData.getSignature();
-		long timestamp = parentBlock.calcNextBlockTimestamp(generator);
 		BigDecimal generatingBalance = parentBlock.calcNextBlockGeneratingBalance();
 
-		this.blockData = new BlockData(version, reference, 0, BigDecimal.ZERO.setScale(8), null, 0, timestamp, generatingBalance, generator.getPublicKey(),
-				null, atBytes, atFees);
+		byte[] generatorSignature;
+		try {
+			generatorSignature = generator
+					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator));
+		} catch (TransformationException e) {
+			throw new DataException("Unable to calculate next block generator signature", e);
+		}
 
-		calcGeneratorSignature();
+		long timestamp = parentBlock.calcNextBlockTimestamp(version, generatorSignature, generator);
+
+		this.blockData = new BlockData(version, reference, 0, BigDecimal.ZERO.setScale(8), null, 0, timestamp, generatingBalance, generator.getPublicKey(),
+				generatorSignature, atBytes, atFees);
 
 		this.transactions = new ArrayList<Transaction>();
 	}
@@ -288,8 +308,23 @@ public class Block {
 		return new BigInteger(1, hash);
 	}
 
-	private long calcNextBlockTimestamp(Account nextBlockGenerator) throws DataException {
-		BigInteger hashValue = calcBlockHash();
+	private BigInteger calcNextBlockHash(int nextBlockVersion, byte[] preVersion3GeneratorSignature, PublicKeyAccount nextBlockGenerator) {
+		byte[] hashData;
+
+		if (nextBlockVersion < 3)
+			hashData = preVersion3GeneratorSignature;
+		else
+			hashData = Bytes.concat(this.blockData.getSignature(), nextBlockGenerator.getPublicKey());
+
+		// Calculate 32-byte hash as pseudo-random, but deterministic, integer (unique to this generator for v3+ blocks)
+		byte[] hash = Crypto.digest(hashData);
+
+		// Convert hash to BigInteger form
+		return new BigInteger(1, hash);
+	}
+
+	private long calcNextBlockTimestamp(int nextBlockVersion, byte[] nextBlockGeneratorSignature, PrivateKeyAccount nextBlockGenerator) throws DataException {
+		BigInteger hashValue = calcNextBlockHash(nextBlockVersion, nextBlockGeneratorSignature, nextBlockGenerator);
 		BigInteger target = calcGeneratorsTarget(nextBlockGenerator);
 
 		// If target is zero then generator has no balance so return longest value
@@ -417,6 +452,12 @@ public class Block {
 	 * Recalculate block's generator signature.
 	 * <p>
 	 * Requires block's {@code generator} being a {@code PrivateKeyAccount}.
+	 * <p>
+	 * Generator signature is made by the generator signing the following data:
+	 * <p>
+	 * previous block's generator signature + this block's generating balance + generator's public key
+	 * <p>
+	 * (Previous block's generator signature is extracted from this block's reference).
 	 * 
 	 * @throws IllegalStateException
 	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
@@ -538,11 +579,12 @@ public class Block {
 			return ValidationResult.GENERATOR_NOT_ACCEPTED;
 
 		// XXX Odd gen1 test: "CHECK IF FIRST BLOCK OF USER"
-		// Is the comment wrong and this each second elapsed allows generator to test a new "target" window against hashValue?
+		// Is the comment wrong? Does each second elapsed allows generator to test a new "target" window against hashValue?
 		if (hashValue.compareTo(lowerTarget) < 0)
 			return ValidationResult.GENERATOR_NOT_ACCEPTED;
 
-		// Check CIYAM AT
+		// Process CIYAM ATs, prepending AT-Transactions to block then compare post-execution checksums
+		// XXX We should pre-calculate, and cache, next block's AT-transactions after processing each block to save repeated work
 		if (this.blockData.getAtBytes() != null && this.blockData.getAtBytes().length > 0) {
 			// TODO
 			// try {
@@ -591,8 +633,8 @@ public class Block {
 				this.repository.discardChanges();
 			} catch (DataException e) {
 				/*
-				 * Discard failure most likely due to prior DataException, so catch discardChanges' DataException and discard. Prior DataException propagates to
-				 * caller. Successful completion of try-block continues on after discard.
+				 * discardChanges failure most likely due to prior DataException, so catch discardChanges' DataException and ignore. Prior DataException
+				 * propagates to caller.
 				 */
 			}
 		}

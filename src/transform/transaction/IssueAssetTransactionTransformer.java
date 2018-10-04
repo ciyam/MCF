@@ -99,9 +99,14 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getQuantity()));
 			bytes.write((byte) (issueAssetTransactionData.getIsDivisible() ? 1 : 0));
 
-			// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes reference.
-			if (transactionData.getTimestamp() < BlockChain.getIssueAssetV2Timestamp())
-				bytes.write(issueAssetTransactionData.getSignature());
+			// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes Asset's reference which is the IssueAssetTransaction's signature
+			if (transactionData.getTimestamp() < BlockChain.getIssueAssetV2Timestamp()) {
+				byte[] assetReference = issueAssetTransactionData.getSignature();
+				if (assetReference != null)
+					bytes.write(assetReference);
+				else
+					bytes.write(new byte[ASSET_REFERENCE_LENGTH]);
+			}
 
 			Serialization.serializeBigDecimal(bytes, issueAssetTransactionData.getFee());
 
