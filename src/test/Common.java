@@ -1,7 +1,9 @@
 package test;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterAll;
 
 import repository.DataException;
 import repository.RepositoryFactory;
@@ -13,13 +15,13 @@ public class Common {
 	// public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true;close_result=true;sql.strict_exec=true;sql.enforce_names=true;sql.syntax_mys=true;sql.pad_space=false";
 	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
 
-	@BeforeClass
+	@BeforeAll
 	public static void setRepository() throws DataException {
 		RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
 		RepositoryManager.setRepositoryFactory(repositoryFactory);
 	}
 
-	@AfterClass
+	@AfterAll
 	public static void closeRepository() throws DataException {
 		RepositoryManager.closeRepositoryFactory();
 	}

@@ -18,8 +18,8 @@ public class Start {
 		apiService.start();
 
 		//// testing the API client
-		ApiClient client = ApiClient.getInstance();
-		String test = client.executeCommand("GET blocks/height");
-		System.out.println(test);
+		//ApiClient client = ApiClient.getInstance();
+		//String test = client.executeCommand("GET blocks/height");
+		//System.out.println(test);
 	}
 }

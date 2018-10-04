@@ -1,8 +1,7 @@
 package test;
 
-import static org.junit.Assert.*;
-
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import data.transaction.PaymentTransactionData;
 import data.transaction.TransactionData;
@@ -21,25 +20,25 @@ public class LoadTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TransactionRepository transactionRepository = repository.getTransactionRepository();
 
-			assertTrue("Migrate from old database to at least block 49778 before running this test",
-					repository.getBlockRepository().getBlockchainHeight() >= 49778);
+			assertTrue(repository.getBlockRepository().getBlockchainHeight() >= 49778,
+				"Migrate from old database to at least block 49778 before running this test");
 
 			String signature58 = "1211ZPwG3hk5evWzXCZi9hMDRpwumWmkENjwWkeTCik9xA5uoYnxzF7rwR5hmHH3kG2RXo7ToCAaRc7dvnynByJt";
 			byte[] signature = Base58.decode(signature58);
 
 			TransactionData transactionData = transactionRepository.fromSignature(signature);
-			assertNotNull("Transaction data not loaded from repository", transactionData);
-			assertEquals("Transaction data not PAYMENT type", TransactionType.PAYMENT, transactionData.getType());
-			assertEquals(PublicKeyAccount.getAddress(transactionData.getCreatorPublicKey()), "QXwu8924WdgPoRmtiWQBUMF6eedmp1Hu2E");
+			assertNotNull(transactionData, "Transaction data not loaded from repository");
+			assertEquals(TransactionType.PAYMENT, transactionData.getType(), "Transaction data not PAYMENT type");
+			assertEquals("QXwu8924WdgPoRmtiWQBUMF6eedmp1Hu2E", PublicKeyAccount.getAddress(transactionData.getCreatorPublicKey()));
 
 			PaymentTransactionData paymentTransactionData = (PaymentTransactionData) transactionData;
 
 			assertNotNull(paymentTransactionData);
-			assertEquals(PublicKeyAccount.getAddress(paymentTransactionData.getSenderPublicKey()), "QXwu8924WdgPoRmtiWQBUMF6eedmp1Hu2E");
-			assertEquals(paymentTransactionData.getRecipient(), "QZsv8vbJ6QfrBNba4LMp5UtHhAzhrxvVUU");
-			assertEquals(paymentTransactionData.getTimestamp(), 1416209264000L);
-			assertEquals(Base58.encode(paymentTransactionData.getReference()),
-					"31dC6kHHBeG5vYb8LMaZDjLEmhc9kQB2VUApVd8xWncSRiXu7yMejdprjYFMP2rUnzZxWd4KJhkq6LsV7rQvU1kY");
+			assertEquals("QXwu8924WdgPoRmtiWQBUMF6eedmp1Hu2E", PublicKeyAccount.getAddress(paymentTransactionData.getSenderPublicKey()));
+			assertEquals("QZsv8vbJ6QfrBNba4LMp5UtHhAzhrxvVUU", paymentTransactionData.getRecipient());
+			assertEquals(1416209264000L, paymentTransactionData.getTimestamp());
+			assertEquals("31dC6kHHBeG5vYb8LMaZDjLEmhc9kQB2VUApVd8xWncSRiXu7yMejdprjYFMP2rUnzZxWd4KJhkq6LsV7rQvU1kY",
+				Base58.encode(paymentTransactionData.getReference()));
 		}
 	}
 
@@ -48,8 +47,8 @@ public class LoadTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TransactionRepository transactionRepository = repository.getTransactionRepository();
 
-			assertTrue("Migrate from old database to at least block 49778 before running this test",
-					repository.getBlockRepository().getBlockchainHeight() >= 49778);
+			assertTrue(repository.getBlockRepository().getBlockchainHeight() >= 49778,
+				"Migrate from old database to at least block 49778 before running this test");
 
 			String signature58 = "1211ZPwG3hk5evWzXCZi9hMDRpwumWmkENjwWkeTCik9xA5uoYnxzF7rwR5hmHH3kG2RXo7ToCAaRc7dvnynByJt";
 			byte[] signature = Base58.decode(signature58);

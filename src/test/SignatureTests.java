@@ -1,10 +1,9 @@
 package test;
 
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.math.BigDecimal;
-
-import org.junit.Test;
 
 import data.block.BlockData;
 import qora.account.PrivateKeyAccount;

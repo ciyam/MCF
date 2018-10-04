@@ -212,10 +212,8 @@ public class TranslationXmlStreamReader {
 	}
 	
 	private void assureIsValidPathExtension(String value) throws XMLStreamException {
-		for(String part : value.split("/")) {
-			if(part.equalsIgnoreCase(".."))
-				throw new javax.xml.stream.XMLStreamException("Parent reference .. is not allowed");
-		}
+		if(ContextPaths.containsParentReference(value))
+			throw new javax.xml.stream.XMLStreamException("Parent reference .. is not allowed");
 	}
 
 	private void assureIsValidKey(String value) throws XMLStreamException {

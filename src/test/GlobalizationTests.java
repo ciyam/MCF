@@ -11,11 +11,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import javax.xml.stream.XMLStreamException;
-import org.junit.Assert;
-import static org.junit.Assert.*;
-import static test.utils.AssertExtensions.*;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
+import static org.junit.jupiter.api.Assertions.*;
+
+import static test.utils.AssertExtensions.*;
 import test.utils.EqualityComparer;
 
 public class GlobalizationTests {
@@ -54,7 +57,7 @@ public class GlobalizationTests {
 	}
 
 	@Test
-	public void TestTranslationXmlReader() throws XMLStreamException {
+	public void TestTranslationXmlReaderContextPaths() throws XMLStreamException {
 		String xml = 
 			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
 			"<localization>\n" +
@@ -64,6 +67,9 @@ public class GlobalizationTests {
 			"			<context path=\"./path2//path3\">\n" +
 			"				<translation key=\"key2\" template=\"2\" />\n" +
 			"			</context>\n" +
+			"			<context path=\"/path4\">\n" +
+			"				<translation key=\"key3\" template=\"3\" />\n" +
+			"			</context>\n" +
 			"		</context>\n" +
 			"	</context>\n" +
 			"</localization>\n";
@@ -71,12 +77,99 @@ public class GlobalizationTests {
 		List<TranslationEntry> expected = new ArrayList<TranslationEntry>();
 		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/key1", "1"));
 		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/path2/path3/key2", "2"));
+		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/path4/key3", "3"));
 		
 		InputStream is = new ByteArrayInputStream(xml.getBytes(Charset.forName("UTF-8")));
 		TranslationXmlStreamReader reader = new TranslationXmlStreamReader();
 		Iterable<TranslationEntry> actual = reader.ReadFrom(is);		
 		
-		assertSetEquals(expected, actual, new TranslationEntryEqualityComparer());
+		for(TranslationEntry i:expected)System.out.println(i);for(TranslationEntry i:actual)System.out.println(i);
+		assertItemsEqual(expected, actual, new TranslationEntryEqualityComparer());
 	}
 	
+	@Test
+	public void TestTranslationXmlReaderLocales() throws XMLStreamException {
+		String xml = 
+			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+			"<localization>\n" +
+			"	<translation key=\"key1\" template=\"1\" />\n" +
+			"	<context locale=\"en-GB\" path=\"path1\">\n" +
+			"		<translation key=\"key2\" template=\"2\" />\n" +
+			"		<context locale=\"de-DE\" path=\"path2/\">\n" +
+			"			<translation key=\"key3\" template=\"3\" />\n" +
+			"		</context>\n" +
+			"	</context>\n" +
+			"</localization>\n";
+		
+		List<TranslationEntry> expected = new ArrayList<TranslationEntry>();
+		expected.add(new TranslationEntry(Locale.forLanguageTag("default"), "/key1", "1"));
+		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/key2", "2"));
+		expected.add(new TranslationEntry(Locale.forLanguageTag("de-DE"), "/path1/path2/key3", "3"));
+		
+		InputStream is = new ByteArrayInputStream(xml.getBytes(Charset.forName("UTF-8")));
+		TranslationXmlStreamReader reader = new TranslationXmlStreamReader();
+		Iterable<TranslationEntry> actual = reader.ReadFrom(is);		
+
+		assertItemsEqual(expected, actual, new TranslationEntryEqualityComparer());
+	}
+	
+	@Test
+	public void TestTranslationXmlReader_BadPath() {
+		String xml = 
+			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+			"<localization>\n" +
+			"	<context locale=\"en-GB\">\n" +
+			"		<context path=\"path1\">\n" +
+			"			<context path=\"../path2\">\n" +
+			"				<translation key=\"key1\" template=\"1\" />\n" +
+			"			</context>\n" +
+			"		</context>\n" +
+			"	</context>\n" +
+			"</localization>\n";
+		
+		InputStream is = new ByteArrayInputStream(xml.getBytes(Charset.forName("UTF-8")));
+		TranslationXmlStreamReader reader = new TranslationXmlStreamReader();
+		
+		assertThrows(XMLStreamException.class, () -> reader.ReadFrom(is));
+	}
+	
+	@Test
+	public void TestTranslationXmlReader_BadKey1() {
+		String xml = 
+			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+			"<localization>\n" +
+			"	<context locale=\"en-GB\">\n" +
+			"		<context path=\"path1\">\n" +
+			"			<context path=\"path2\">\n" +
+			"				<translation key=\"path3/key1\" template=\"1\" />\n" +
+			"			</context>\n" +
+			"		</context>\n" +
+			"	</context>\n" +
+			"</localization>\n";
+		
+		InputStream is = new ByteArrayInputStream(xml.getBytes(Charset.forName("UTF-8")));
+		TranslationXmlStreamReader reader = new TranslationXmlStreamReader();
+		
+		assertThrows(XMLStreamException.class, () -> reader.ReadFrom(is));
+	}
+	
+	@Test
+	public void TestTranslationXmlReader_BadKey2() {
+		String xml = 
+			"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+			"<localization>\n" +
+			"	<context locale=\"en-GB\">\n" +
+			"		<context path=\"path1\">\n" +
+			"			<context path=\"path2\">\n" +
+			"				<translation key=\"..\" template=\"1\" />\n" +
+			"			</context>\n" +
+			"		</context>\n" +
+			"	</context>\n" +
+			"</localization>\n";
+		
+		InputStream is = new ByteArrayInputStream(xml.getBytes(Charset.forName("UTF-8")));
+		TranslationXmlStreamReader reader = new TranslationXmlStreamReader();
+		
+		assertThrows(XMLStreamException.class, () -> reader.ReadFrom(is));
+	}
 }
