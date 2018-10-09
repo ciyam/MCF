@@ -6,16 +6,12 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import javax.xml.stream.XMLStreamException;
 
 import org.junit.jupiter.api.Test;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.*;
 
 import static test.utils.AssertExtensions.*;
@@ -74,7 +70,7 @@ public class GlobalizationTests {
 			"	</context>\n" +
 			"</localization>\n";
 		
-		List<TranslationEntry> expected = new ArrayList<TranslationEntry>();
+		List<TranslationEntry> expected = new ArrayList<>();
 		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/key1", "1"));
 		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/path2/path3/key2", "2"));
 		expected.add(new TranslationEntry(Locale.forLanguageTag("en-GB"), "/path1/path4/key3", "3"));
