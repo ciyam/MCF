@@ -23,8 +23,9 @@ public class ApiService {
 		this.resources = new HashSet<Class<?>>();
 		this.resources.add(BlocksResource.class);
 		this.resources.add(OpenApiResource.class); // swagger
+		this.resources.add(AnnotationPostProcessor.class); // for API resource annotations
 		ResourceConfig config = new ResourceConfig(this.resources);
-
+		
 		// create RPC server
 		this.server = new Server(Settings.getInstance().getRpcPort());
 
