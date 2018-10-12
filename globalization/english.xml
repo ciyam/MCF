@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <localization>	
-	<context locale="en-GB">
+	<context locale="en">
 		<context path="Api">
 			<context path="ApiError">
 				<translation key="0" template="unknown error" />
 				<translation key="1" template="failed to parse json message" />
 				<translation key="2" template="not enough balance" />
 				<translation key="3" template="that feature is not yet released" />
+
+				<translation key="201" template="wallet does not exist" />
 			</context>
 			
 			<context path="BlocksResource">

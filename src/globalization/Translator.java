@@ -73,6 +73,7 @@ public class Translator {
 					Logger.getLogger(Translator.class.getName()).log(Level.SEVERE, String.format("Duplicate entry for locale '%s' and path '%s' in translation file '%s'. Falling back to default translations.", entry.locale(), entry.path(), file));
 					return;
 				}
+				localTranslations.put(entry.path(), entry.template());
 			}
 		}
 
