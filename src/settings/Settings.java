@@ -31,7 +31,7 @@ public class Settings {
 	
 	// Globalization
 	private String translationsPath = "globalization/";
-	private String[] translationsDefaultLocales = {"en-GB"};
+	private String[] translationsDefaultLocales = {"en"};
 	
 	// Constants
 	private static final String SETTINGS_FILENAME = "settings.json";

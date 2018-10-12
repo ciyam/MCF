@@ -137,6 +137,7 @@ public class AnnotationPostProcessor implements ReaderListener {
 				String key = keys.get(prop.keyName());
 				if(key != null) {
 					String originalValue = prop.getValue(item);
+					// XXX: use configurable or browser locale instead english?
 					String translation = translator.translate(Locale.ENGLISH, context.path, key, originalValue);
 					prop.setValue(item, translation);
 				}
