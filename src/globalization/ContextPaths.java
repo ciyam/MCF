@@ -1,7 +1,6 @@
 package globalization;
 
 import java.nio.file.Paths;
-import javax.xml.stream.XMLStreamException;
 
 public class ContextPaths {
 	
@@ -18,6 +17,8 @@ public class ContextPaths {
 	}
 	
 	public static String combinePaths(String left, String right) {
+		left = (left != null) ? left : "";
+		right = (right != null) ? right : "";
 		return Paths.get("/", left, right).normalize().toString();
 	}
 	

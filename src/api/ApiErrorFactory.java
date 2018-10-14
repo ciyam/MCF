@@ -101,16 +101,16 @@ public class ApiErrorFactory {
 //		this.errorMessages.put(ApiError.NAME_FOR_SALE, createErrorMessageEntry(ApiError.NAME_FOR_SALE, NameResult.NAME_FOR_SALE.getStatusMessage()));
 //		this.errorMessages.put(ApiError.NAME_WITH_SPACE, createErrorMessageEntry(ApiError.NAME_WITH_SPACE, NameResult.NAME_WITH_SPACE.getStatusMessage()));
 		//AT
-		this.errorMessages.put(ApiError.INVALID_CREATION_BYTES, createErrorMessageEntry(ApiError.INVALID_CREATION_BYTES, "error in creation bytes"));
 // TODO
 //		this.errorMessages.put(ApiError.INVALID_DESC_LENGTH, createErrorMessageEntry(ApiError.INVALID_DESC_LENGTH, 
 //                    "invalid description length. max length ${MAX_LENGTH}", 
 //                    new AbstractMap.SimpleEntry<String, Object>("MAX_LENGTH", AT_Constants.DESC_MAX_LENGTH));
 		this.errorMessages.put(ApiError.EMPTY_CODE, createErrorMessageEntry(ApiError.EMPTY_CODE, "code is empty"));
 		this.errorMessages.put(ApiError.DATA_SIZE, createErrorMessageEntry(ApiError.DATA_SIZE, "invalid data length"));
+		this.errorMessages.put(ApiError.NULL_PAGES, createErrorMessageEntry(ApiError.NULL_PAGES, "invalid pages"));
 		this.errorMessages.put(ApiError.INVALID_TYPE_LENGTH, createErrorMessageEntry(ApiError.INVALID_TYPE_LENGTH, "invalid type length"));
 		this.errorMessages.put(ApiError.INVALID_TAGS_LENGTH, createErrorMessageEntry(ApiError.INVALID_TAGS_LENGTH, "invalid tags length"));
-		this.errorMessages.put(ApiError.NULL_PAGES, createErrorMessageEntry(ApiError.NULL_PAGES, "invalid pages"));
+		this.errorMessages.put(ApiError.INVALID_CREATION_BYTES, createErrorMessageEntry(ApiError.INVALID_CREATION_BYTES, "error in creation bytes"));
 
 		//BLOG
 		this.errorMessages.put(ApiError.BODY_EMPTY, createErrorMessageEntry(ApiError.BODY_EMPTY, "invalid body it must not be empty"));
@@ -166,8 +166,7 @@ public class ApiErrorFactory {
 	}
 	
 	public ApiException createError(ApiError error, Throwable throwable) {
-		Locale locale = Locale.ENGLISH; // default locale
-		return createError(locale, error, throwable);
+		return createError(null, error, throwable);
 	}
 	
 	public ApiException createError(Locale locale, ApiError error, Throwable throwable) {

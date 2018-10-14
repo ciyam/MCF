@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<localization>	
+	<context locale="de">
+		<context path="Api">
+			<context path="ApiError">
+				<translation key="0" template="Unbekannter Fehler" />
+				<translation key="1" template="JSON Nachricht konnte nicht geparsed werden" />
+				<translation key="2" template="Guthaben ungenügend" />
+				<translation key="3" template="Feature wurde noch nicht veröffentlicht" />
+
+				<translation key="101" template="Ungültige Signatur" />
+				<translation key="102" template="Ungültige Adresse" />
+				<translation key="103" template="Ungültiger Seed" />
+				<translation key="104" template="Ungültiger Betrag" />
+				<translation key="105" template="Ungültige Gebühr" />
+				<translation key="106" template="Ungültiger Sender" />
+				<translation key="107" template="Ungültiger Empfänger" />
+				<translation key="108" template="Ungültige Namenslänge" />
+				<translation key="109" template="Ungültige Wertlänge" />
+				<translation key="110" template="Ungültiger Namensbesitzer" />
+				<translation key="111" template="Ungültiger Käufer" />
+				<translation key="112" template="Ungültiger Public Key" />
+				<translation key="113" template="Ungültige Optionen-Länge" />
+				<translation key="114" template="Ungültige Optionslänge" />
+				<translation key="115" template="Ungültige Daten" />
+				<translation key="116" template="Ungültige Datenlänge" />
+				<translation key="117" template="Ungültiger Update-Wert" />
+				<translation key="118" template="Der Schlüssel existiert bereits, Editieren ist deaktiviert" />
+				<translation key="119" template="Der Schlüssel existiert nicht" />
+				<translation key="120" template="Du kannst den Schlüssel '${key}' nicht löschen, wenn er der einzige ist" />
+				<translation key="121" template="fee less required" />
+				<translation key="122" template="Das Wallet muss synchronisiert werden" />
+				<translation key="123" template="Ungültige Netzwerkadresse" />
+				
+				<translation key="201" template="Das Wallet existiert nicht" />
+				<translation key="202" template="Die Adresse existiert nicht im Wallet" />
+				<translation key="203" template="Das Wallet ist abgeschlossen" />
+				<translation key="204" template="Das Wallet existiert bereits" />
+				<translation key="205" template="Der Benutzer hat den API-Aufruf abgelehnt" />
+
+				<translation key="301" template="Der Block existiert nicht" />
+				<translation key="311" template="Die Transaktion existiert nicht" />
+				<translation key="304" template="Public Key wurde nicht gefunden" />
+
+				<translation key="401" template="Der Name existiert nicht" />
+				<translation key="402" template="Der Name existiert bereits" />
+				<translation key="403" template="Der Name steht bereits zum Verkauf" />
+				<translation key="404" template="Der Name muss aus Kleinbuchstaben bestehen" />
+				<translation key="410" template="Namensverkauf existiert nicht" />
+				<translation key="411" template="Der Käufer ist bereits Besitzer" />
+
+				<translation key="501" template="Die Abstimmung existiert nicht" />
+				<translation key="502" template="Die Abstimmung existiert bereits" />
+				<translation key="503" template="Nicht alle Optionen sind eindeutig" />
+				<translation key="504" template="Die option existiert nicht" />
+				<translation key="505" template="Bereits für diese Option abgestimmt" />
+
+				<translation key="601" template="Ungültige Asset ID" />
+
+				<!--
+				<translation key="701" template="?NAME_NOT_REGISTERED?" />
+				<translation key="702" template="?NAME_FOR_SALE?" />
+				<translation key="703" template="?NAME_WITH_SPACE?" />
+				-->
+
+				<translation key="801" template="Ungültige Beschreibungslänge. Max. Länge ${MAX_LENGTH}" />
+				<translation key="802" template="Der Code ist leer" />
+				<translation key="803" template="Ungültige Datenlänge" />
+				<translation key="804" template="Ungültige Seiten" />
+				<translation key="805" template="Ungültige Typlänge" />
+				<translation key="806" template="Ungültige Tag-Länge" />
+				<translation key="809" template="Fehler in Creation Bytes" />
+
+				<translation key="901" template="invalid body it must not be empty" />
+				<translation key="902" template="Dieser Blog ist deaktiviert" />
+				<translation key="903" template="the creator address does not own the author name" />
+				<translation key="904" template="the data size is too large - currently only ${BATCH_TX_AMOUNT} arbitrary transactions are allowed at once!" />
+				<translation key="905" template="transaction with this signature contains no entries!" />
+				<translation key="906" template="this blog is empty" />
+				<translation key="907" template="the attribute postid is empty! this is the signature of the post you want to comment" />
+				<translation key="908" template="for the given postid no blogpost to comment was found" />
+				<translation key="909" template="commenting is for this blog disabled" />
+				<translation key="910" template="for the given signature no comment was found" />
+				<translation key="911" template="invalid comment owner" />
+
+				<translation key="1001" template="the Message format is not hex - correct the text or use isTextMessage = true" />
+				<translation key="1002" template="The message attribute is missing or content is blank" />
+				<translation key="1003" template="The recipient has not yet performed any action in the blockchain.\nYou can't send an encrypted message to him." />
+				<translation key="1004" template="Message size exceeded!" />
+			</context>
+
+			<context path="ApiClient">
+				<translation key="invalid command" template="Ungültiger Befehl!\nGib 'help all' ein, um eine Liste aller gültigen Befehle zu erhalten." />
+				<translation key="error footer" template="Gib 'help all' ein, um eine Liste aller gültigen Befehle zu erhalten." />
+
+				<translation key="help: success responses" template="Antwort bei Erfolg:" />
+				<translation key="help: failure responses" template="Antwort bei Misserfolg:" />
+			</context>
+
+		</context>
+		
+	</context>
+
+</localization>

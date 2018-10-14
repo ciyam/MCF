@@ -117,4 +117,5 @@ public enum ApiError {
 	int getStatus() {
 		return this.status;
 	}
+	
 }

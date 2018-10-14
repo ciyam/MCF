@@ -94,8 +94,17 @@ public class Translator {
 		return translate(locale, contextPath, templateKey, map);
 	}
 
+	public String translate(String contextPath, String templateKey, AbstractMap.Entry<String, Object>... templateValues) {
+		Map<String, Object> map = createMap(templateValues);
+		return translate(contextPath, templateKey, map);
+	}
+
 	public String translate(Locale locale, String contextPath, String templateKey, Map<String, Object> templateValues) {
 		return translate(locale, contextPath, templateKey, null, templateValues);
+	}
+
+	public String translate(String contextPath, String templateKey, Map<String, Object> templateValues) {
+		return translate(contextPath, templateKey, null, templateValues);
 	}
 
 	public String translate(Locale locale, String contextPath, String templateKey, String defaultTemplate, AbstractMap.Entry<String, Object>... templateValues) {
@@ -103,23 +112,43 @@ public class Translator {
 		return translate(locale, contextPath, templateKey, defaultTemplate, map);
 	}
 
+	public String translate(String contextPath, String templateKey, String defaultTemplate, AbstractMap.Entry<String, Object>... templateValues) {
+		Map<String, Object> map = createMap(templateValues);
+		return translate(contextPath, templateKey, defaultTemplate, map);
+	}
+	
 	public String translate(Locale locale, String contextPath, String templateKey, String defaultTemplate, Map<String, Object> templateValues) {
 		// look for requested language
-		String template = getTemplateFromNearestPath(locale, contextPath, templateKey);
+		String template = null;
+		if(locale != null)
+			template = getTemplateFromNearestPath(locale, contextPath, templateKey);
 		
-		if(template == null) {
-			// scan default languages
-			for(String language : this.settings().translationsDefaultLocales()) {
-				Locale defaultLocale = Locale.forLanguageTag(language);
-				template = getTemplateFromNearestPath(defaultLocale, contextPath, templateKey);
-				if(template != null)
-					break;
-			}
+		if(template != null)
+			return substitute(template, templateValues);
+		
+		return translate(contextPath, templateKey, defaultTemplate, templateValues);
+	}
+
+	public String translate(String contextPath, String templateKey, String defaultTemplate, Map<String, Object> templateValues) {
+		// scan default languages
+		String template = null;
+		for(String language : this.settings().translationsDefaultLocales()) {
+			Locale defaultLocale = Locale.forLanguageTag(language);
+			template = getTemplateFromNearestPath(defaultLocale, contextPath, templateKey);
+			if(template != null)
+				break;
 		}
 		
 		if(template == null)
 			template = defaultTemplate; // fallback template
+		
+		return substitute(template, templateValues);
+	}
 
+	private String substitute(String template, Map<String, Object> templateValues) {
+		if(templateValues == null)
+			return template;
+		
 		StringSubstitutor sub = new StringSubstitutor(templateValues);
 		String result = sub.replace(template);
 

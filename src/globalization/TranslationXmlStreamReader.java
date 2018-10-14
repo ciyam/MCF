@@ -18,6 +18,7 @@ import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory; 
 import javax.xml.stream.XMLStreamException; 
 import javax.xml.stream.events.*; 
+import org.apache.commons.text.StringEscapeUtils;
 
 public class TranslationXmlStreamReader {
 
@@ -183,7 +184,7 @@ public class TranslationXmlStreamReader {
 					path = ContextPaths.combinePaths(state.path, value);
 					break;
 				case TRANSLATION_TEMPLATE_ATTRIBUTE_NAME:
-					template = value;
+					template = unescape(value);
 					break;
 				default:
 					throw new javax.xml.stream.XMLStreamException("Unexpected attribute: " + name);
@@ -209,6 +210,10 @@ public class TranslationXmlStreamReader {
 			throw new javax.xml.stream.XMLStreamException("Missing attribute: " + TRANSLATION_TEMPLATE_ATTRIBUTE_NAME);
 		
 		result.add(new TranslationEntry(state.locale, path, template));
+	}
+	
+	private String unescape(String value) {
+		return StringEscapeUtils.unescapeJava(value);
 	}
 	
 	private void assureIsValidPathExtension(String value) throws XMLStreamException {
