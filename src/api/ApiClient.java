@@ -89,8 +89,6 @@ public class ApiClient {
 	private List<HelpInfo> getHelpInfos(Iterable<Class<?>> resources) {
 		List<HelpInfo> result = new ArrayList<>();
 
-		// TODO: need some way to realize translation from resource annotations
-		
 		// scan each resource class
 		for (Class<?> resource : resources) {
 			if (OpenApiResource.class.isAssignableFrom(resource)) {
