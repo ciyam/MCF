@@ -295,8 +295,6 @@ public class ApiClient {
 		final int status = response.getStatus();
 		StringBuilder result = new StringBuilder();
 		if(status >= 400) {
-			result.append("HTTP Status ");
-			result.append(status);
 			if(StringUtils.isBlank(body)) {
 				result.append(
 					this.translator.translate(TRANSLATION_CONTEXT_PATH, "error without body", "HTTP Status ${STATUS}",
