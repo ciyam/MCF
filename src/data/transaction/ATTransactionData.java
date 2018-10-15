@@ -10,22 +10,25 @@ public class ATTransactionData extends TransactionData {
 	private byte[] senderPublicKey;
 	private String recipient;
 	private BigDecimal amount;
+	private Long assetId;
 	private byte[] message;
 
 	// Constructors
 
-	public ATTransactionData(byte[] senderPublicKey, String recipient, BigDecimal amount, byte[] message, BigDecimal fee, long timestamp, byte[] reference,
-			byte[] signature) {
+	public ATTransactionData(byte[] senderPublicKey, String recipient, BigDecimal amount, Long assetId, byte[] message, BigDecimal fee, long timestamp,
+			byte[] reference, byte[] signature) {
 		super(TransactionType.AT, fee, senderPublicKey, timestamp, reference, signature);
 
 		this.senderPublicKey = senderPublicKey;
 		this.recipient = recipient;
 		this.amount = amount;
+		this.assetId = assetId;
 		this.message = message;
 	}
 
-	public ATTransactionData(byte[] senderPublicKey, String recipient, BigDecimal amount, byte[] message, BigDecimal fee, long timestamp, byte[] reference) {
-		this(senderPublicKey, recipient, amount, message, fee, timestamp, reference, null);
+	public ATTransactionData(byte[] senderPublicKey, String recipient, BigDecimal amount, Long assetId, byte[] message, BigDecimal fee, long timestamp,
+			byte[] reference) {
+		this(senderPublicKey, recipient, amount, assetId, message, fee, timestamp, reference, null);
 	}
 
 	// Getters/Setters
@@ -40,6 +43,10 @@ public class ATTransactionData extends TransactionData {
 
 	public BigDecimal getAmount() {
 		return this.amount;
+	}
+
+	public Long getAssetId() {
+		return this.assetId;
 	}
 
 	public byte[] getMessage() {

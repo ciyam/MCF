@@ -612,7 +612,7 @@ public class Block {
 				Transaction.ValidationResult validationResult = transaction.isValid();
 				if (validationResult != Transaction.ValidationResult.OK) {
 					LOGGER.error("Error during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
-							+ validationResult.value);
+							+ validationResult.name());
 					return ValidationResult.TRANSACTION_INVALID;
 				}
 

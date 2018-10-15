@@ -69,7 +69,7 @@ public class HSQLDBATRepository implements ATRepository {
 	@Override
 	public void delete(String atAddress) throws DataException {
 		try {
-			this.repository.delete("ATs", "atAddress = ?", atAddress);
+			this.repository.delete("ATs", "AT_address = ?", atAddress);
 			// AT States also deleted via ON DELETE CASCADE
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete AT from repository", e);

@@ -11,6 +11,8 @@ public interface AccountRepository {
 
 	public void save(AccountData accountData) throws DataException;
 
+	public void delete(String address) throws DataException;
+
 	// Account balances
 
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException;

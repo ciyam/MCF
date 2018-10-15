@@ -17,6 +17,8 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		this.repository = repository;
 	}
 
+	// General account
+
 	@Override
 	public AccountData getAccount(String address) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", address)) {
@@ -40,6 +42,19 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			throw new DataException("Unable to save account info into repository", e);
 		}
 	}
+
+	@Override
+	public void delete(String address) throws DataException {
+		// NOTE: Account balances are deleted automatically by the database thanks to "ON DELETE CASCADE" in AccountBalances' FOREIGN KEY
+		// definition.
+		try {
+			this.repository.delete("Accounts", "account = ?", address);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete account from repository", e);
+		}
+	}
+
+	// Account balances
 
 	@Override
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException {

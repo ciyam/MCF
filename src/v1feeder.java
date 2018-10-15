@@ -221,8 +221,8 @@ public class v1feeder extends Thread {
 					ValidationResult result = block.isValid();
 
 					if (result != ValidationResult.OK) {
-						LOGGER.error("Invalid block, validation result code: " + result.value);
-						throw new RuntimeException("Invalid block, validation result code: " + result.value);
+						LOGGER.error("Invalid block, validation result: " + result.name());
+						throw new RuntimeException("Invalid block, validation result: " + result.name());
 					}
 
 					block.process();

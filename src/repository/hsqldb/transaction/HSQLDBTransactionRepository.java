@@ -37,6 +37,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBMultiPaymentTransactionRepository multiPaymentTransactionRepository;
 	private HSQLDBDeployATTransactionRepository deployATTransactionRepository;
 	private HSQLDBMessageTransactionRepository messageTransactionRepository;
+	private HSQLDBATTransactionRepository atTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
@@ -57,6 +58,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.multiPaymentTransactionRepository = new HSQLDBMultiPaymentTransactionRepository(repository);
 		this.deployATTransactionRepository = new HSQLDBDeployATTransactionRepository(repository);
 		this.messageTransactionRepository = new HSQLDBMessageTransactionRepository(repository);
+		this.atTransactionRepository = new HSQLDBATTransactionRepository(repository);
 	}
 
 	protected HSQLDBTransactionRepository() {
@@ -154,8 +156,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			case MESSAGE:
 				return this.messageTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
+			case AT:
+				return this.atTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
 			default:
-				throw new DataException("Unsupported transaction type [" + type.value + "] during fetch from HSQLDB repository");
+				throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 		}
 	}
 
@@ -317,8 +322,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				this.messageTransactionRepository.save(transactionData);
 				break;
 
+			case AT:
+				this.atTransactionRepository.save(transactionData);
+				break;
+
 			default:
-				throw new DataException("Unsupported transaction type [" + transactionData.getType().value + "] during save into HSQLDB repository");
+				throw new DataException("Unsupported transaction type [" + transactionData.getType().name() + "] during save into HSQLDB repository");
 		}
 	}
 
