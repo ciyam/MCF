@@ -8,7 +8,7 @@ import repository.hsqldb.HSQLDBRepositoryFactory;
 
 public class Start {
 
-	private static final String connectionUrl = "jdbc:hsqldb:mem:db/test;create=true;close_result=true;sql.strict_exec=true;sql.enforce_names=true;sql.syntax_mys=true";
+	private static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
 
 	public static void main(String args[]) throws DataException {
 		RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
@@ -19,7 +19,7 @@ public class Start {
 
 		//// testing the API client
 		//ApiClient client = ApiClient.getInstance();
-		//String test = client.executeCommand("GET blocks/height");
+		//String test = client.executeCommand("GET blocks/first");
 		//System.out.println(test);
 	}
 }

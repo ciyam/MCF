@@ -1,5 +1,6 @@
 package api;
 
+import data.block.BlockData;
 import globalization.Translator;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,6 +20,7 @@ import javax.ws.rs.core.MediaType;
 
 import repository.Repository;
 import repository.RepositoryManager;
+import utils.Base58;
 
 @Path("blocks")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
@@ -156,7 +158,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the block",
-				//content = @Content(schema = @Schema(implementation = ???)),
+				content = @Content(schema = @Schema(implementation = BlockData.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -191,10 +193,32 @@ public class BlocksResource {
 			)
 		}
 	)
-	public String getBlock(@PathParam("signature") String signature) {
+	public BlockData getBlock(@PathParam("signature") String signature) {
 		Security.checkApiCallAllowed("GET blocks", request);
 
-		throw new UnsupportedOperationException();
+		// decode signature
+		byte[] signatureBytes;
+		try
+		{
+			signatureBytes = Base58.decode(signature);
+		}
+		catch(Exception e)
+		{
+            throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+		}
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+				
+			// check if block exists
+			if(blockData == null)
+				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+
+			return blockData;
+
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -208,7 +232,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the block",
-				//content = @Content(schema = @Schema(implementation = ???)),
+				content = @Content(schema = @Schema(implementation = BlockData.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -217,10 +241,21 @@ public class BlocksResource {
 			)
 		}
 	)
-	public String getFirstBlock() {
+	public BlockData getFirstBlock() {
 		Security.checkApiCallAllowed("GET blocks/first", request);
 
-		throw new UnsupportedOperationException();
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            BlockData blockData = repository.getBlockRepository().fromHeight(1);
+				
+			// check if block exists
+			if(blockData == null)
+				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+
+			return blockData;
+
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -234,7 +269,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the block",
-				//content = @Content(schema = @Schema(implementation = ???)),
+				content = @Content(schema = @Schema(implementation = BlockData.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -243,10 +278,21 @@ public class BlocksResource {
 			)
 		}
 	)
-	public String getLastBlock() {
+	public BlockData getLastBlock() {
 		Security.checkApiCallAllowed("GET blocks/last", request);
 
-		throw new UnsupportedOperationException();
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            BlockData blockData = repository.getBlockRepository().getLastBlock();
+				
+			// check if block exists
+			if(blockData == null)
+				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+
+			return blockData;
+
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -295,10 +341,39 @@ public class BlocksResource {
 			)
 		}
 	)
-	public String getChild(@PathParam("signature") String signature) {
+	public BlockData getChild(@PathParam("signature") String signature) {
 		Security.checkApiCallAllowed("GET blocks/child", request);
 
-		throw new UnsupportedOperationException();
+		// decode signature
+		byte[] signatureBytes;
+		try
+		{
+			signatureBytes = Base58.decode(signature);
+		}
+		catch(Exception e)
+		{
+            throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+		}
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+				
+			// check if block exists
+			if(blockData == null)
+				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+
+			int height = blockData.getHeight();
+            BlockData childBlockData = repository.getBlockRepository().fromHeight(height + 1);
+
+			// check if child exists
+			if(childBlockData == null)
+				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+
+			return childBlockData;
+			
+        } catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -510,7 +585,29 @@ public class BlocksResource {
 	public int getHeight(@PathParam("signature") String signature) {
 		Security.checkApiCallAllowed("GET blocks/height", request);
 
-		throw new UnsupportedOperationException();
+		// decode signature
+		byte[] signatureBytes;
+		try
+		{
+			signatureBytes = Base58.decode(signature);
+		}
+		catch(Exception e)
+		{
+            throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+		}
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+				
+			// check if block exists
+			if(blockData == null)
+				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+
+			return blockData.getHeight();
+			
+        } catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -546,9 +643,20 @@ public class BlocksResource {
 			)
 		}
 	)
-	public String getbyHeight(@PathParam("height") int height) {
+	public BlockData getbyHeight(@PathParam("height") int height) {
 		Security.checkApiCallAllowed("GET blocks/byheight", request);
 
-		throw new UnsupportedOperationException();
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            BlockData blockData = repository.getBlockRepository().fromHeight(height);
+				
+			// check if block exists
+			if(blockData == null)
+				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+
+			return blockData;
+			
+        } catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 }
