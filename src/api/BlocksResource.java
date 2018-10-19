@@ -48,10 +48,15 @@ public class BlocksResource {
 	@Path("/{signature}")
 	@Operation(
 		description = "returns the block that matches the given signature",
-		extensions = @Extension(name = "translation", properties = {
-			@ExtensionProperty(name="path", value="GET signature"),
-			@ExtensionProperty(name="description.key", value="operation:description")
-		}),
+		extensions = {
+			@Extension(name = "translation", properties = {
+				@ExtensionProperty(name="path", value="GET signature"),
+				@ExtensionProperty(name="description.key", value="operation:description")
+			}),
+			@Extension(properties = {
+				@ExtensionProperty(name="apiErrors", value="[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]", parseValue = true),
+			})
+		},
 		responses = {
 			@ApiResponse(
 				description = "the block",
@@ -59,32 +64,6 @@ public class BlocksResource {
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
-					})
-				}
-			),
-			@ApiResponse(
-				responseCode = "400",
-				description = "invalid signature",
-				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class)),
-				extensions = {
-					@Extension(properties = {
-						@ExtensionProperty(name="apiErrorCode", value="101")
-					}),
-					@Extension(name = "translation", properties = {
-						@ExtensionProperty(name="description.key", value="ApiError/101")
-					})
-				}
-			),
-			@ApiResponse(
-				responseCode = "422",
-				description = "block does not exist",
-				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class)),
-				extensions = {
-					@Extension(properties = {
-						@ExtensionProperty(name="apiErrorCode", value="301")
-					}),
-					@Extension(name = "translation", properties = {
-						@ExtensionProperty(name="description.key", value="ApiError/301")
 					})
 				}
 			)
@@ -196,10 +175,15 @@ public class BlocksResource {
 	@Path("/child/{signature}")
 	@Operation(
 		description = "returns the child block of the block that matches the given signature",
-		extensions = @Extension(name = "translation", properties = {
-			@ExtensionProperty(name="path", value="GET child:signature"),
-			@ExtensionProperty(name="description.key", value="operation:description")
-		}),
+		extensions = {
+			@Extension(name = "translation", properties = {
+				@ExtensionProperty(name="path", value="GET child:signature"),
+				@ExtensionProperty(name="description.key", value="operation:description")
+			}),
+			@Extension(properties = {
+				@ExtensionProperty(name="apiErrors", value="[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]", parseValue = true),
+			})
+		},
 		responses = {
 			@ApiResponse(
 				description = "the block",
@@ -207,32 +191,6 @@ public class BlocksResource {
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
-					})
-				}
-			),
-			@ApiResponse(
-				responseCode = "400",
-				description = "invalid signature",
-				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class)),
-				extensions = {
-					@Extension(properties = {
-						@ExtensionProperty(name="apiErrorCode", value="101")
-					}),
-					@Extension(name = "translation", properties = {
-						@ExtensionProperty(name="description.key", value="ApiError/101")
-					})
-				}
-			),
-			@ApiResponse(
-				responseCode = "422",
-				description = "block does not exist",
-				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class)),
-				extensions = {
-					@Extension(properties = {
-						@ExtensionProperty(name="apiErrorCode", value="301")
-					}),
-					@Extension(name = "translation", properties = {
-						@ExtensionProperty(name="description.key", value="ApiError/301")
 					})
 				}
 			)
@@ -303,10 +261,15 @@ public class BlocksResource {
 	@Path("/generatingbalance/{signature}")
 	@Operation(
 		description = "calculates the generating balance of the block that will follow the block that matches the signature",
-		extensions = @Extension(name = "translation", properties = {
-			@ExtensionProperty(name="path", value="GET generatingbalance:signature"),
-			@ExtensionProperty(name="description.key", value="operation:description")
-		}),
+		extensions = {
+			@Extension(name = "translation", properties = {
+				@ExtensionProperty(name="path", value="GET generatingbalance:signature"),
+				@ExtensionProperty(name="description.key", value="operation:description")
+			}),
+			@Extension(properties = {
+				@ExtensionProperty(name="apiErrors", value="[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]", parseValue = true),
+			})
+		},
 		responses = {
 			@ApiResponse(
 				description = "the block",
@@ -314,32 +277,6 @@ public class BlocksResource {
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
-					})
-				}
-			),
-			@ApiResponse(
-				responseCode = "400",
-				description = "invalid signature",
-				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class)),
-				extensions = {
-					@Extension(properties = {
-						@ExtensionProperty(name="apiErrorCode", value="101")
-					}),
-					@Extension(name = "translation", properties = {
-						@ExtensionProperty(name="description.key", value="ApiError/101")
-					})
-				}
-			),
-			@ApiResponse(
-				responseCode = "422",
-				description = "block does not exist",
-				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class)),
-				extensions = {
-					@Extension(properties = {
-						@ExtensionProperty(name="apiErrorCode", value="301")
-					}),
-					@Extension(name = "translation", properties = {
-						@ExtensionProperty(name="description.key", value="ApiError/301")
 					})
 				}
 			)
@@ -437,10 +374,15 @@ public class BlocksResource {
 	@Path("/height/{signature}")
 	@Operation(
 		description = "returns the block height of the block that matches the given signature",
-		extensions = @Extension(name = "translation", properties = {
-			@ExtensionProperty(name="path", value="GET height:signature"),
-			@ExtensionProperty(name="description.key", value="operation:description")
-		}),
+		extensions = {
+			@Extension(name = "translation", properties = {
+				@ExtensionProperty(name="path", value="GET height:signature"),
+				@ExtensionProperty(name="description.key", value="operation:description")
+			}),
+			@Extension(properties = {
+				@ExtensionProperty(name="apiErrors", value="[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]", parseValue = true),
+			})
+		},
 		responses = {
 			@ApiResponse(
 				description = "the height",
@@ -448,32 +390,6 @@ public class BlocksResource {
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
-					})
-				}
-			),
-			@ApiResponse(
-				responseCode = "400",
-				description = "invalid signature",
-				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class)),
-				extensions = {
-					@Extension(properties = {
-						@ExtensionProperty(name="apiErrorCode", value="101")
-					}),
-					@Extension(name = "translation", properties = {
-						@ExtensionProperty(name="description.key", value="ApiError/101")
-					})
-				}
-			),
-			@ApiResponse(
-				responseCode = "422",
-				description = "block does not exist",
-				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class)),
-				extensions = {
-					@Extension(properties = {
-						@ExtensionProperty(name="apiErrorCode", value="301")
-					}),
-					@Extension(name = "translation", properties = {
-						@ExtensionProperty(name="description.key", value="ApiError/301")
 					})
 				}
 			)
@@ -511,10 +427,15 @@ public class BlocksResource {
 	@Path("/byheight/{height}")
 	@Operation(
 		description = "returns the block whith given height",
-		extensions = @Extension(name = "translation", properties = {
-			@ExtensionProperty(name="path", value="GET byheight:height"),
-			@ExtensionProperty(name="description.key", value="operation:description")
-		}),
+		extensions = {
+			@Extension(name = "translation", properties = {
+				@ExtensionProperty(name="path", value="GET byheight:height"),
+				@ExtensionProperty(name="description.key", value="operation:description")
+			}),
+			@Extension(properties = {
+				@ExtensionProperty(name="apiErrors", value="[\"BLOCK_NO_EXISTS\"]", parseValue = true),
+			})
+		},
 		responses = {
 			@ApiResponse(
 				description = "the block",
@@ -522,19 +443,6 @@ public class BlocksResource {
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
-					})
-				}
-			),
-			@ApiResponse(
-				responseCode = "422",
-				description = "block does not exist",
-				content = @Content(schema = @Schema(implementation = ApiErrorMessage.class)),
-				extensions = {
-					@Extension(properties = {
-						@ExtensionProperty(name="apiErrorCode", value="301")
-					}),
-					@Extension(name = "translation", properties = {
-						@ExtensionProperty(name="description.key", value="ApiError/301")
 					})
 				}
 			)

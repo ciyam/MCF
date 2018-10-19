@@ -8,7 +8,9 @@ import static java.util.Arrays.asList;
 import java.util.List;
 
 class Constants {
-
+	public static final String APIERROR_CONTEXT_PATH = "/Api";
+	public static final String APIERROR_KEY = "ApiError/%s";
+	
 	public static final String TRANSLATION_EXTENSION_NAME = "translation";
 	public static final String TRANSLATION_PATH_EXTENSION_NAME = "path";
 
@@ -17,8 +19,8 @@ class Constants {
 	public static final String TRANSLATION_ANNOTATION_TITLE_KEY = "title.key";
 	public static final String TRANSLATION_ANNOTATION_TERMS_OF_SERVICE_KEY = "termsOfService.key";
 
+	public static final String API_ERRORS_EXTENSION_NAME = "apiErrors";
 	public static final String API_ERROR_CODE_EXTENSION_NAME = "apiErrorCode";
-
 	
 	public static final List<TranslatableProperty<Info>> TRANSLATABLE_INFO_PROPERTIES = asList(
 		new TranslatableProperty<Info>() {

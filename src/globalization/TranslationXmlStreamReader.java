@@ -53,7 +53,7 @@ public class TranslationXmlStreamReader {
 		
 		State state = new State(Locale.forLanguageTag("default"), "/");
 		
-		List<TranslationEntry> result = new ArrayList<TranslationEntry>();
+		List<TranslationEntry> result = new ArrayList<>();
 		if (eventReader.hasNext()) 
         { 
 			XMLEvent event = eventReader.nextTag(); 

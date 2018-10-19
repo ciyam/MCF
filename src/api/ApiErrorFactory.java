@@ -147,13 +147,17 @@ public class ApiErrorFactory {
 	}
 	
 	private ErrorMessageEntry createErrorMessageEntry(ApiError errorCode, String defaultTemplate, AbstractMap.SimpleEntry<String, Object>... templateValues) {
-		String templateKey = String.format("%s: ApiError.%s message", ApiErrorFactory.class.getSimpleName(), errorCode.name());
+		String templateKey = String.format(Constants.APIERROR_KEY, errorCode.name());
 		return new ErrorMessageEntry(templateKey, defaultTemplate, templateValues);
+	}
+
+	public String getErrorMessage(ApiError error) {
+		return getErrorMessage(null, error);
 	}
 	
 	public String getErrorMessage(Locale locale, ApiError error) {
 		ErrorMessageEntry errorMessage = this.errorMessages.get(error);
-		String message = this.translator.translate(locale, errorMessage.templateKey, errorMessage.defaultTemplate, errorMessage.templateValues);
+		String message = this.translator.translate(locale, Constants.APIERROR_CONTEXT_PATH, errorMessage.templateKey, errorMessage.defaultTemplate, errorMessage.templateValues);
 		return message;
 	}
 

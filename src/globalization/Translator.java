@@ -89,52 +89,52 @@ public class Translator {
 		return map;
 	}
 
-	public String translate(Locale locale, String contextPath, String templateKey, AbstractMap.Entry<String, Object>... templateValues) {
+	public String translate(Locale locale, String contextPath, String keyPath, AbstractMap.Entry<String, Object>... templateValues) {
 		Map<String, Object> map = createMap(templateValues);
-		return translate(locale, contextPath, templateKey, map);
+		return translate(locale, contextPath, keyPath, map);
 	}
 
-	public String translate(String contextPath, String templateKey, AbstractMap.Entry<String, Object>... templateValues) {
+	public String translate(String contextPath, String keyPath, AbstractMap.Entry<String, Object>... templateValues) {
 		Map<String, Object> map = createMap(templateValues);
-		return translate(contextPath, templateKey, map);
+		return translate(contextPath, keyPath, map);
 	}
 
-	public String translate(Locale locale, String contextPath, String templateKey, Map<String, Object> templateValues) {
-		return translate(locale, contextPath, templateKey, null, templateValues);
+	public String translate(Locale locale, String contextPath, String keyPath, Map<String, Object> templateValues) {
+		return translate(locale, contextPath, keyPath, null, templateValues);
 	}
 
-	public String translate(String contextPath, String templateKey, Map<String, Object> templateValues) {
-		return translate(contextPath, templateKey, null, templateValues);
+	public String translate(String contextPath, String keyPath, Map<String, Object> templateValues) {
+		return translate(contextPath, keyPath, null, templateValues);
 	}
 
-	public String translate(Locale locale, String contextPath, String templateKey, String defaultTemplate, AbstractMap.Entry<String, Object>... templateValues) {
+	public String translate(Locale locale, String contextPath, String keyPath, String defaultTemplate, AbstractMap.Entry<String, Object>... templateValues) {
 		Map<String, Object> map = createMap(templateValues);
-		return translate(locale, contextPath, templateKey, defaultTemplate, map);
+		return translate(locale, contextPath, keyPath, defaultTemplate, map);
 	}
 
-	public String translate(String contextPath, String templateKey, String defaultTemplate, AbstractMap.Entry<String, Object>... templateValues) {
+	public String translate(String contextPath, String keyPath, String defaultTemplate, AbstractMap.Entry<String, Object>... templateValues) {
 		Map<String, Object> map = createMap(templateValues);
-		return translate(contextPath, templateKey, defaultTemplate, map);
+		return translate(contextPath, keyPath, defaultTemplate, map);
 	}
 	
-	public String translate(Locale locale, String contextPath, String templateKey, String defaultTemplate, Map<String, Object> templateValues) {
+	public String translate(Locale locale, String contextPath, String keyPath, String defaultTemplate, Map<String, Object> templateValues) {
 		// look for requested language
 		String template = null;
 		if(locale != null)
-			template = getTemplateFromNearestPath(locale, contextPath, templateKey);
+			template = getTemplateFromNearestPath(locale, contextPath, keyPath);
 		
 		if(template != null)
 			return substitute(template, templateValues);
 		
-		return translate(contextPath, templateKey, defaultTemplate, templateValues);
+		return translate(contextPath, keyPath, defaultTemplate, templateValues);
 	}
 
-	public String translate(String contextPath, String templateKey, String defaultTemplate, Map<String, Object> templateValues) {
+	public String translate(String contextPath, String keyPath, String defaultTemplate, Map<String, Object> templateValues) {
 		// scan default languages
 		String template = null;
 		for(String language : this.settings().translationsDefaultLocales()) {
 			Locale defaultLocale = Locale.forLanguageTag(language);
-			template = getTemplateFromNearestPath(defaultLocale, contextPath, templateKey);
+			template = getTemplateFromNearestPath(defaultLocale, contextPath, keyPath);
 			if(template != null)
 				break;
 		}
@@ -155,14 +155,14 @@ public class Translator {
 		return result;
 	}
 	
-	private String getTemplateFromNearestPath(Locale locale, String contextPath, String templateKey) {
+	private String getTemplateFromNearestPath(Locale locale, String contextPath, String keyPath) {
 		Map<String, String> localTranslations = this.translations.get(locale);
 		if(localTranslations == null)
 			return null;
 
 		String template = null;
 		while(true) {
-			String path = ContextPaths.combinePaths(contextPath, templateKey);
+			String path = ContextPaths.combinePaths(contextPath, keyPath);
 			template = localTranslations.get(path);
 			if(template != null)
 				break; // found template

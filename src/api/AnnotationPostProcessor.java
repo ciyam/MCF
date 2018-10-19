@@ -1,18 +1,26 @@
 
 package api;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import globalization.ContextPaths;
 import globalization.Translator;
+import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.jaxrs2.Reader;
 import io.swagger.v3.jaxrs2.ReaderListener;
+import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
+import io.swagger.v3.oas.models.examples.Example;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 
 public class AnnotationPostProcessor implements ReaderListener {
 
@@ -22,13 +30,15 @@ public class AnnotationPostProcessor implements ReaderListener {
 	}
 
 	private final Translator translator;
+	private final ApiErrorFactory apiErrorFactory;
 	
 	public AnnotationPostProcessor() {
-		this(Translator.getInstance());
+		this(Translator.getInstance(), ApiErrorFactory.getInstance());
 	}
 	
-	public AnnotationPostProcessor(Translator translator) {
+	public AnnotationPostProcessor(Translator translator, ApiErrorFactory apiErrorFactory) {
 		this.translator = translator;
+		this.apiErrorFactory = apiErrorFactory;
 	}
 	
 	@Override
@@ -41,31 +51,60 @@ public class AnnotationPostProcessor implements ReaderListener {
 		Info resourceInfo = openAPI.getInfo();
 		ContextInformation resourceContext = getContextInformation(openAPI.getExtensions());
 		removeTranslationAnnotations(openAPI.getExtensions());
-		TranslateProperty(Constants.TRANSLATABLE_INFO_PROPERTIES, resourceContext, resourceInfo);
+		TranslateProperties(Constants.TRANSLATABLE_INFO_PROPERTIES, resourceContext, resourceInfo);
 		
 		for (Map.Entry<String, PathItem> pathEntry : openAPI.getPaths().entrySet())
 		{
 			PathItem pathItem = pathEntry.getValue();
 			ContextInformation pathContext = getContextInformation(pathItem.getExtensions(), resourceContext);
 			removeTranslationAnnotations(pathItem.getExtensions());
-			TranslateProperty(Constants.TRANSLATABLE_PATH_ITEM_PROPERTIES, pathContext, pathItem);
+			TranslateProperties(Constants.TRANSLATABLE_PATH_ITEM_PROPERTIES, pathContext, pathItem);
 			
 			for (Operation operation : pathItem.readOperations()) {
 				ContextInformation operationContext = getContextInformation(operation.getExtensions(), pathContext);
 				removeTranslationAnnotations(operation.getExtensions());
-				TranslateProperty(Constants.TRANSLATABLE_OPERATION_PROPERTIES, operationContext, operation);
+				TranslateProperties(Constants.TRANSLATABLE_OPERATION_PROPERTIES, operationContext, operation);
 				
+				addApiErrorResponses(operation);
+				removeApiErrorsAnnotations(operation.getExtensions());
+
 				for (Map.Entry<String, ApiResponse> responseEntry : operation.getResponses().entrySet()) {
 					ApiResponse response = responseEntry.getValue();
 					ContextInformation responseContext = getContextInformation(response.getExtensions(), operationContext);
 					removeTranslationAnnotations(response.getExtensions());
-					TranslateProperty(Constants.TRANSLATABLE_API_RESPONSE_PROPERTIES, responseContext, response);
+					TranslateProperties(Constants.TRANSLATABLE_API_RESPONSE_PROPERTIES, responseContext, response);
 				}
 			}
 		}
 	}
 
-	private <T> void TranslateProperty(List<TranslatableProperty<T>> translatableProperties, ContextInformation context, T item) {
+	private void addApiErrorResponses(Operation operation) {
+		List<ApiError> apiErrors = getApiErrors(operation.getExtensions());
+		if(apiErrors != null) {
+			for(ApiError apiError : apiErrors) {
+				String statusCode = Integer.toString(apiError.getStatus());
+				ApiResponse apiResponse = operation.getResponses().get(statusCode);
+				if(apiResponse == null) {
+					Schema errorMessageSchema = ModelConverters.getInstance().readAllAsResolvedSchema(ApiErrorMessage.class).schema;
+					MediaType mediaType = new MediaType().schema(errorMessageSchema);
+					Content content = new Content().addMediaType(javax.ws.rs.core.MediaType.APPLICATION_JSON, mediaType);
+					apiResponse = new ApiResponse().content(content);
+					operation.getResponses().addApiResponse(statusCode, apiResponse);
+				}
+				
+				int apiErrorCode = apiError.getCode();
+				ApiErrorMessage apiErrorMessage = new ApiErrorMessage(apiErrorCode, this.apiErrorFactory.getErrorMessage(apiError));
+				Example example = new Example().value(apiErrorMessage);
+				
+				// XXX: addExamples(..) is not working in Swagger 2.0.4. This bug is referenced in https://github.com/swagger-api/swagger-ui/issues/2651
+				// Replace the call to .setExample(..) by .addExamples(..) when the bug is fixed.
+				apiResponse.getContent().get(javax.ws.rs.core.MediaType.APPLICATION_JSON).setExample(example);
+				//apiResponse.getContent().get(javax.ws.rs.core.MediaType.APPLICATION_JSON).addExamples(Integer.toString(apiErrorCode), example);
+			}
+		}
+	}
+
+	private <T> void TranslateProperties(List<TranslatableProperty<T>> translatableProperties, ContextInformation context, T item) {
 		if(context.keys != null) {
 			Map<String, String> keys = context.keys;
 			for(TranslatableProperty<T> prop : translatableProperties) {
@@ -78,6 +117,48 @@ public class AnnotationPostProcessor implements ReaderListener {
 				}
 			}
 		}
+	}
+
+	private List<ApiError> getApiErrors(Map<String, Object> extensions) {
+		if(extensions == null)
+			return null;
+
+		List<String> apiErrorStrings = new ArrayList();
+		try {
+			ArrayNode apiErrorsNode = (ArrayNode)extensions.get("x-" + Constants.API_ERRORS_EXTENSION_NAME);
+			if(apiErrorsNode == null)
+				return null;
+
+			for(int i = 0; i < apiErrorsNode.size(); i++) {
+				String errorString = apiErrorsNode.get(i).asText();
+				apiErrorStrings.add(errorString);
+			}
+		} catch(Exception e) {
+			// TODO: error logging
+			return null;
+		}
+		
+		List<ApiError> result = new ArrayList<>();
+		for(String apiErrorString : apiErrorStrings) {
+			ApiError apiError = null;
+			try {
+				apiError = ApiError.valueOf(apiErrorString);
+			} catch(IllegalArgumentException e) {
+				try {
+					int errorCodeInt = Integer.parseInt(apiErrorString);
+					apiError =  ApiError.fromCode(errorCodeInt);
+				} catch (NumberFormatException ex) {
+					return null;
+				}
+			}
+			
+			if(apiError == null)
+				return null;
+			
+			result.add(apiError);
+		}
+		
+		return result;
 	}
 
 	private ContextInformation getContextInformation(Map<String, Object> extensions) {
@@ -104,11 +185,21 @@ public class AnnotationPostProcessor implements ReaderListener {
 		return null;
 	}
 
+	private void removeApiErrorsAnnotations(Map<String, Object> extensions) {
+		String extensionName = Constants.API_ERRORS_EXTENSION_NAME;
+		removeExtension(extensions, extensionName);
+	}
+	
 	private void removeTranslationAnnotations(Map<String, Object> extensions) {
+		String extensionName = Constants.TRANSLATION_EXTENSION_NAME;
+		removeExtension(extensions, extensionName);
+	}
+	
+	private void removeExtension(Map<String, Object> extensions, String extensionName) {
 		if(extensions == null)
 			return;
 		
-		extensions.remove("x-" + Constants.TRANSLATION_EXTENSION_NAME);
+		extensions.remove("x-" + extensionName);
 	}
 	
 	private Map<String, String> getTranslationKeys(Map<String, Object> translationDefinitions) {

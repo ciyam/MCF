@@ -110,6 +110,15 @@ public enum ApiError {
 		this.status = status;
 	}
 
+	public static ApiError fromCode(int code) {
+		for(ApiError apiError : ApiError.values()) {
+			if(apiError.code == code)
+				return apiError;
+		}
+			
+		return null;
+	}
+	
 	int getCode() {
 		return this.code;
 	}
