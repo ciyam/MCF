@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import java.math.BigDecimal;
 import javax.servlet.http.HttpServletRequest;
 
 import javax.ws.rs.GET;
@@ -17,6 +18,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import qora.block.Block;
 
 import repository.Repository;
 import repository.RepositoryManager;
@@ -92,6 +94,8 @@ public class BlocksResource {
 
 			return blockData;
 
+		} catch (ApiException e) {
+			throw e;
 		} catch (Exception e) {
             throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
         }
@@ -122,13 +126,10 @@ public class BlocksResource {
 
         try (final Repository repository = RepositoryManager.getRepository()) {
             BlockData blockData = repository.getBlockRepository().fromHeight(1);
-				
-			// check if block exists
-			if(blockData == null)
-				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
-
 			return blockData;
 
+		} catch (ApiException e) {
+			throw e;
 		} catch (Exception e) {
             throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
         }
@@ -159,13 +160,10 @@ public class BlocksResource {
 
         try (final Repository repository = RepositoryManager.getRepository()) {
             BlockData blockData = repository.getBlockRepository().getLastBlock();
-				
-			// check if block exists
-			if(blockData == null)
-				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
-
 			return blockData;
 
+		} catch (ApiException e) {
+			throw e;
 		} catch (Exception e) {
             throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
         }
@@ -226,7 +224,9 @@ public class BlocksResource {
 
 			return childBlockData;
 			
-        } catch (Exception e) {
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
             throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
         }
 	}
@@ -242,7 +242,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the generating balance",
-				content = @Content(schema = @Schema(implementation = long.class)),
+				content = @Content(schema = @Schema(implementation = BigDecimal.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -251,10 +251,19 @@ public class BlocksResource {
 			)
 		}
 	)
-	public long getGeneratingBalance() {
+	public BigDecimal getGeneratingBalance() {
 		Security.checkApiCallAllowed("GET blocks/generatingbalance", request);
 
-		throw new UnsupportedOperationException();
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            BlockData blockData = repository.getBlockRepository().getLastBlock();
+			Block block = new Block(repository, blockData);
+			return block.calcNextBlockGeneratingBalance();
+			
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -273,7 +282,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the block",
-				content = @Content(schema = @Schema(implementation = long.class)),
+				content = @Content(schema = @Schema(implementation = BigDecimal.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -282,10 +291,35 @@ public class BlocksResource {
 			)
 		}
 	)
-	public long getGeneratingBalance(@PathParam("signature") String signature) {
+	public BigDecimal getGeneratingBalance(@PathParam("signature") String signature) {
 		Security.checkApiCallAllowed("GET blocks/generatingbalance", request);
 
-		throw new UnsupportedOperationException();
+		// decode signature
+		byte[] signatureBytes;
+		try
+		{
+			signatureBytes = Base58.decode(signature);
+		}
+		catch(Exception e)
+		{
+            throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+		}
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+				
+			// check if block exists
+			if(blockData == null)
+				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+
+			Block block = new Block(repository, blockData);
+			return block.calcNextBlockGeneratingBalance();
+			
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -298,7 +332,7 @@ public class BlocksResource {
 		}),
 		responses = {
 			@ApiResponse(
-				description = "the time", // in seconds?
+				description = "the time in seconds", // in seconds?
 				content = @Content(schema = @Schema(implementation = long.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
@@ -311,7 +345,15 @@ public class BlocksResource {
 	public long getTimePerBlock() {
 		Security.checkApiCallAllowed("GET blocks/time", request);
 
-		throw new UnsupportedOperationException();
+        try (final Repository repository = RepositoryManager.getRepository()) {
+            BlockData blockData = repository.getBlockRepository().getLastBlock();
+			return Block.calcForgingDelay(blockData.getGeneratingBalance());
+
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -334,10 +376,10 @@ public class BlocksResource {
 			)
 		}
 	)
-	public String getTimePerBlock(@PathParam("generating") long generatingbalance) {
+	public long getTimePerBlock(@PathParam("generating") BigDecimal generatingbalance) {
 		Security.checkApiCallAllowed("GET blocks/time", request);
 
-		throw new UnsupportedOperationException();
+		return Block.calcForgingDelay(generatingbalance);
 	}
 
 	@GET
@@ -365,7 +407,10 @@ public class BlocksResource {
 
         try (final Repository repository = RepositoryManager.getRepository()) {
             return repository.getBlockRepository().getBlockchainHeight();
-        } catch (Exception e) {
+
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
             throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
         }
 	}
@@ -418,7 +463,9 @@ public class BlocksResource {
 
 			return blockData.getHeight();
 			
-        } catch (Exception e) {
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
             throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
         }
 	}
@@ -460,7 +507,9 @@ public class BlocksResource {
 
 			return blockData;
 			
-        } catch (Exception e) {
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
             throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
         }
 	}
