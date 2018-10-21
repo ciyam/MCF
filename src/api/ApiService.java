@@ -25,6 +25,7 @@ public class ApiService {
 	public ApiService() {
 		// resources to register
 		this.resources = new HashSet<Class<?>>();
+		this.resources.add(AddressesResource.class);
 		this.resources.add(BlocksResource.class);
 		this.resources.add(OpenApiResource.class); // swagger
 		this.resources.add(AnnotationPostProcessor.class); // for API resource annotations
