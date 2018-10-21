@@ -1,9 +1,11 @@
 package api;
 
+import data.account.AccountData;
 import data.block.BlockData;
 import globalization.Translator;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.extensions.Extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -16,6 +18,11 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import qora.account.Account;
+import qora.crypto.Crypto;
+import repository.Repository;
+import repository.RepositoryManager;
+import utils.Base58;
 
 @Path("addresses")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
@@ -54,7 +61,7 @@ public class AddressesResource {
 		},
 		responses = {
 			@ApiResponse(
-				description = "the base58-encoded transaction signature",
+				description = "the base58-encoded transaction signature or \"false\"",
 				content = @Content(schema = @Schema(implementation = String.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
@@ -64,10 +71,30 @@ public class AddressesResource {
 			)
 		}
 	)
-	public String getLastReference(@PathParam("address") String address) {
+	public String getLastReference(
+		@Parameter(description = "a base58-encoded address", required = true) @PathParam("address") String address
+	) {
 		Security.checkApiCallAllowed("GET addresses/lastreference", request);
 
-		throw new UnsupportedOperationException();
+		if (!Crypto.isValidAddress(address))
+			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+
+		byte[] lastReference = null;
+        try (final Repository repository = RepositoryManager.getRepository()) {
+			Account account = new Account(repository, address);
+			account.getLastReference();
+			
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
+		
+		if(lastReference == null || lastReference.length == 0) {
+			return "false"; 
+		} else {
+			return Base58.encode(lastReference);
+		}
 	}
 	
 	@GET
