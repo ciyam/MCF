@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import java.math.BigDecimal;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -19,6 +20,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import qora.account.Account;
+import qora.assets.Asset;
 import qora.crypto.Crypto;
 import repository.Repository;
 import repository.RepositoryManager;
@@ -125,6 +127,8 @@ public class AddressesResource {
 	public String getLastReferenceUnconfirmed(@PathParam("address") String address) {
 		Security.checkApiCallAllowed("GET addresses/lastreference", request);
 
+		// XXX: is this method needed?
+		
 		throw new UnsupportedOperationException();
 	}
 
@@ -141,7 +145,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				//description = "",
-				content = @Content(schema = @Schema(implementation = String.class)),
+				content = @Content(schema = @Schema(implementation = Boolean.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -150,10 +154,10 @@ public class AddressesResource {
 			)
 		}
 	)
-	public String validate(@PathParam("address") String address) {
+	public boolean validate(@PathParam("address") String address) {
 		Security.checkApiCallAllowed("GET addresses/validate", request);
 
-		throw new UnsupportedOperationException();
+		return Crypto.isValidAddress(address);
 	}
 	
 	@GET
@@ -172,7 +176,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the generating balance",
-				content = @Content(schema = @Schema(implementation = String.class)),
+				content = @Content(schema = @Schema(implementation = BigDecimal.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -181,10 +185,21 @@ public class AddressesResource {
 			)
 		}
 	)
-	public String getGeneratingBalanceOfAddress(@PathParam("address") String address) {
+	public BigDecimal getGeneratingBalanceOfAddress(@PathParam("address") String address) {
 		Security.checkApiCallAllowed("GET addresses/generatingbalance", request);
-		
-		throw new UnsupportedOperationException();
+
+		if (!Crypto.isValidAddress(address))
+			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+			Account account = new Account(repository, address);
+			return account.getGeneratingBalance();
+			
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -203,7 +218,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the balance",
-				content = @Content(schema = @Schema(implementation = String.class)),
+				content = @Content(schema = @Schema(implementation = BigDecimal.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -212,10 +227,21 @@ public class AddressesResource {
 			)
 		}
 	)
-	public String getGeneratingBalance(@PathParam("address") String address) {
+	public BigDecimal getGeneratingBalance(@PathParam("address") String address) {
 		Security.checkApiCallAllowed("GET addresses/balance", request);
 		
-		throw new UnsupportedOperationException();
+		if (!Crypto.isValidAddress(address))
+			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+			Account account = new Account(repository, address);
+			return account.getConfirmedBalance(Asset.QORA);
+			
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
@@ -234,7 +260,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the balance",
-				content = @Content(schema = @Schema(implementation = String.class)),
+				content = @Content(schema = @Schema(implementation = BigDecimal.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -243,10 +269,21 @@ public class AddressesResource {
 			)
 		}
 	)
-	public String getAssetBalance(@PathParam("assetid") String assetid, @PathParam("address") String address) {
+	public BigDecimal getAssetBalance(@PathParam("assetid") long assetid, @PathParam("address") String address) {
 		Security.checkApiCallAllowed("GET addresses/assetbalance", request);
 		
-		throw new UnsupportedOperationException();
+		if (!Crypto.isValidAddress(address))
+			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+			Account account = new Account(repository, address);
+			return account.getConfirmedBalance(assetid);
+			
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
