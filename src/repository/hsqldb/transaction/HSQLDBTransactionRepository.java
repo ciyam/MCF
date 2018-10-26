@@ -164,13 +164,22 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
+	/**
+	 * Returns payments associated with a transaction's signature.
+	 * <p>
+	 * Used by various transaction types, like Payment, MultiPayment, ArbitraryTransaction.
+	 * 
+	 * @param signature
+	 * @return list of payments, empty if none found
+	 * @throws DataException
+	 */
 	protected List<PaymentData> getPaymentsFromSignature(byte[] signature) throws DataException {
+		List<PaymentData> payments = new ArrayList<PaymentData>();
+
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT recipient, amount, asset_id FROM SharedTransactionPayments WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
-				return null;
-
-			List<PaymentData> payments = new ArrayList<PaymentData>();
+				return payments;
 
 			// NOTE: do-while because checkedExecute() above has already called rs.next() for us
 			do {

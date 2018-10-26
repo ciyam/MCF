@@ -169,9 +169,9 @@ public class Order {
 			BigDecimal matchedAmount = ourAmountLeft.min(theirAmountLeft);
 			LOGGER.trace("matchedAmount: " + matchedAmount.toPlainString() + " " + wantAssetData.getName());
 
-			// If we can't buy anything then we're done
+			// If we can't buy anything then try another order
 			if (matchedAmount.compareTo(BigDecimal.ZERO) <= 0)
-				break;
+				continue;
 
 			// Calculate amount granularity based on both assets' divisibility
 			BigDecimal increment = this.calculateAmountGranularity(haveAssetData, wantAssetData, theirOrderData);
@@ -179,9 +179,9 @@ public class Order {
 			matchedAmount = matchedAmount.subtract(matchedAmount.remainder(increment));
 			LOGGER.trace("matchedAmount adjusted for granularity: " + matchedAmount.toPlainString() + " " + wantAssetData.getName());
 
-			// If we can't buy anything then we're done
+			// If we can't buy anything then try another order
 			if (matchedAmount.compareTo(BigDecimal.ZERO) <= 0)
-				break;
+				continue;
 
 			// Trade can go ahead!
 

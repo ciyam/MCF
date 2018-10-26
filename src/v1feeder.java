@@ -1,7 +1,9 @@
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;
@@ -9,17 +11,32 @@ import java.net.SocketTimeoutException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.JSONValue;
+import org.json.simple.parser.ParseException;
 
+import com.google.common.hash.HashCode;
+import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 
+import data.at.ATData;
+import data.at.ATStateData;
 import data.block.BlockData;
+import data.transaction.ATTransactionData;
 import data.transaction.TransactionData;
+import qora.assets.Asset;
 import qora.block.Block;
 import qora.block.Block.ValidationResult;
 import qora.block.BlockChain;
@@ -29,7 +46,10 @@ import repository.Repository;
 import repository.RepositoryManager;
 import transform.TransformationException;
 import transform.block.BlockTransformer;
+import transform.transaction.ATTransactionTransformer;
+import utils.Base58;
 import utils.Pair;
+import utils.Triple;
 
 public class v1feeder extends Thread {
 
@@ -76,6 +96,9 @@ public class v1feeder extends Thread {
 
 	private long lastPingTimestamp = System.currentTimeMillis();
 	private List<byte[]> signatures = new ArrayList<byte[]>();
+
+	private static Map<Pair<String, Integer>, BigDecimal> legacyATFees;
+	private static Map<Integer, List<TransactionData>> legacyATTransactions;
 
 	private v1feeder(String address, int port) throws InterruptedException {
 		try {
@@ -177,6 +200,9 @@ public class v1feeder extends Thread {
 				// shove into list
 				int numSignatures = byteBuffer.getInt();
 
+				if (numSignatures == 0)
+					throw new RuntimeException("No signatures from peer - are we up to date?");
+
 				while (numSignatures-- > 0) {
 					byte[] signature = new byte[SIGNATURE_LENGTH];
 					byteBuffer.get(signature);
@@ -201,7 +227,7 @@ public class v1feeder extends Thread {
 				byte[] blockBytes = new byte[byteBuffer.remaining()];
 				byteBuffer.get(blockBytes);
 
-				Pair<BlockData, List<TransactionData>> blockInfo = null;
+				Triple<BlockData, List<TransactionData>, List<ATStateData>> blockInfo = null;
 
 				try {
 					blockInfo = BlockTransformer.fromBytes(blockBytes);
@@ -211,7 +237,26 @@ public class v1feeder extends Thread {
 				}
 
 				try (final Repository repository = RepositoryManager.getRepository()) {
-					Block block = new Block(repository, blockInfo.getA(), blockInfo.getB());
+					BlockData blockData = blockInfo.getA();
+
+					// Adjust AT state data to include fees
+					List<ATStateData> atStates = new ArrayList<ATStateData>();
+					for (ATStateData atState : blockInfo.getC()) {
+						BigDecimal fees = legacyATFees.get(new Pair<String, Integer>(atState.getATAddress(), claimedHeight));
+						ATData atData = repository.getATRepository().fromATAddress(atState.getATAddress());
+
+						atStates.add(new ATStateData(atState.getATAddress(), claimedHeight, atData.getCreation(), null, atState.getStateHash(), fees));
+					}
+
+					// AT-Transaction injection goes here!
+					List<TransactionData> transactions = blockInfo.getB();
+					List<TransactionData> atTransactions = legacyATTransactions.get(claimedHeight);
+					if (atTransactions != null) {
+						transactions.addAll(0, atTransactions);
+						blockData.setTransactionCount(blockData.getTransactionCount() + atTransactions.size());
+					}
+
+					Block block = new Block(repository, blockData, transactions, atStates);
 
 					if (!block.isSignatureValid()) {
 						LOGGER.error("Invalid block signature");
@@ -398,11 +443,87 @@ public class v1feeder extends Thread {
 		}
 	}
 
+	private static void readLegacyATs(String legacyATPathname) {
+		legacyATFees = new HashMap<Pair<String, Integer>, BigDecimal>();
+		legacyATTransactions = new HashMap<Integer, List<TransactionData>>();
+
+		Path path = Paths.get(legacyATPathname);
+
+		JSONArray json = null;
+
+		try (BufferedReader in = Files.newBufferedReader(path)) {
+			json = (JSONArray) JSONValue.parseWithException(in);
+		} catch (IOException | ParseException e) {
+			throw new RuntimeException("Couldn't read legacy AT JSON file");
+		}
+
+		for (Object o : json) {
+			JSONObject entry = (JSONObject) o;
+
+			int height = Integer.parseInt((String) entry.get("height"));
+			long timestamp = (Long) entry.get("timestamp");
+
+			JSONArray transactionEntries = (JSONArray) entry.get("transactions");
+
+			List<TransactionData> transactions = new ArrayList<TransactionData>();
+
+			for (Object t : transactionEntries) {
+				JSONObject transactionEntry = (JSONObject) t;
+
+				String recipient = (String) transactionEntry.get("recipient");
+				String sender = (String) transactionEntry.get("sender");
+				BigDecimal amount = new BigDecimal((String) transactionEntry.get("amount")).setScale(8);
+
+				if (recipient.equals("1111111111111111111111111")) {
+					// fee
+					legacyATFees.put(new Pair<String, Integer>(sender, height), amount);
+				} else {
+					// Actual AT Transaction
+					String messageString = (String) transactionEntry.get("message");
+					byte[] message = messageString.isEmpty() ? new byte[0] : HashCode.fromString(messageString).asBytes();
+					int sequence = ((Long) transactionEntry.get("seq")).intValue();
+					byte[] reference = Base58.decode((String) transactionEntry.get("reference"));
+
+					// reference is AT's deploy tx signature
+					// sender's public key is genesis account
+					// zero fee
+					// timestamp is block's timestamp
+					// signature = duplicated hash of transaction data
+
+					BigDecimal fee = BigDecimal.ZERO.setScale(8);
+
+					TransactionData transactionData = new ATTransactionData(sender, recipient, amount, Asset.QORA, message, fee, timestamp, reference);
+					byte[] digest;
+					try {
+						digest = Crypto.digest(ATTransactionTransformer.toBytes(transactionData));
+						byte[] signature = Bytes.concat(digest, digest);
+
+						transactionData = new ATTransactionData(sender, recipient, amount, Asset.QORA, message, fee, timestamp, reference, signature);
+					} catch (TransformationException e) {
+						throw new RuntimeException("Couldn't transform AT Transaction into bytes", e);
+					}
+
+					if (sequence > transactions.size())
+						transactions.add(transactionData);
+					else
+						transactions.add(sequence, transactionData);
+				}
+			}
+
+			if (!transactions.isEmpty())
+				legacyATTransactions.put(height, transactions);
+		}
+	}
+
 	public static void main(String[] args) {
-		if (args.length == 0) {
-			System.err.println("usage: v1feeder v1-node-address [port]");
+		if (args.length < 2 || args.length > 3) {
+			System.err.println("usage: v1feeder legacy-AT-json v1-node-address [port]");
+			System.err.println("example: v1feeder legacy-ATs.json 10.0.0.100 9084");
 			System.exit(1);
 		}
+
+		String legacyATPathname = args[0];
+		readLegacyATs(legacyATPathname);
 
 		try {
 			test.Common.setRepository();
@@ -419,8 +540,8 @@ public class v1feeder extends Thread {
 		}
 
 		// connect to v1 node
-		String address = args[0];
-		int port = args.length > 1 ? Integer.valueOf(args[1]) : DEFAULT_PORT;
+		String address = args[1];
+		int port = args.length > 2 ? Integer.valueOf(args[2]) : DEFAULT_PORT;
 
 		try {
 			new v1feeder(address, port).join();

@@ -37,7 +37,7 @@ public class NavigationTests extends Common {
 
 			System.out.println("Block " + blockData.getHeight() + ", signature: " + Base58.encode(blockData.getSignature()));
 
-			assertEquals(49778, blockData.getHeight());
+			assertEquals((Integer) 49778, blockData.getHeight());
 		}
 	}
 

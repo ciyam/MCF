@@ -133,12 +133,13 @@ public class GenesisTransaction extends Transaction {
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
-		// Update recipient's balance
 		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
-		recipient.setConfirmedBalance(Asset.QORA, genesisTransactionData.getAmount());
 
-		// Set recipient's starting reference
+		// Set recipient's starting reference (also creates account)
 		recipient.setLastReference(genesisTransactionData.getSignature());
+
+		// Update recipient's balance
+		recipient.setConfirmedBalance(Asset.QORA, genesisTransactionData.getAmount());
 	}
 
 	@Override
@@ -146,12 +147,8 @@ public class GenesisTransaction extends Transaction {
 		// Delete this transaction
 		this.repository.getTransactionRepository().delete(this.transactionData);
 
-		// Delete recipient's balance
-		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
-		recipient.deleteBalance(Asset.QORA);
-
-		// Delete recipient's last reference
-		recipient.setLastReference(null);
+		// Delete recipient's account (and balance)
+		this.repository.getAccountRepository().delete(genesisTransactionData.getRecipient());
 	}
 
 }

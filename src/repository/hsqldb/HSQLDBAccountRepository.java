@@ -20,6 +20,19 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	// General account
 
 	@Override
+	public void create(String address) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
+		saveHelper.bind("account", address);
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to create account in repository", e);
+		}
+	}
+
+	@Override
 	public AccountData getAccount(String address) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", address)) {
 			if (resultSet == null)
@@ -34,6 +47,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public void save(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
 		saveHelper.bind("account", accountData.getAddress()).bind("reference", accountData.getReference());
 
 		try {
@@ -73,6 +87,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public void save(AccountBalanceData accountBalanceData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountBalances");
+
 		saveHelper.bind("account", accountBalanceData.getAddress()).bind("asset_id", accountBalanceData.getAssetId()).bind("balance",
 				accountBalanceData.getBalance());
 

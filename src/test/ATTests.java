@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import com.google.common.hash.HashCode;
 
+import data.at.ATStateData;
 import data.block.BlockData;
 import data.block.BlockTransactionData;
 import data.transaction.DeployATTransactionData;
@@ -70,13 +71,22 @@ public class ATTests extends Common {
 					long blockTimestamp = 1439997158336L;
 					BigDecimal generatingBalance = BigDecimal.valueOf(1440368826L).setScale(8);
 					byte[] generatorPublicKey = Base58.decode("X4s833bbtghh7gejmaBMbWqD44HrUobw93ANUuaNhFc");
-					byte[] atBytes = HashCode.fromString("17950a6c62d17ff0caa545651c054a105f1c464daca443df846cc6a3d58f764b78c09cff50f0fd9ec2").asBytes();
+					int atCount = 1;
 					BigDecimal atFees = BigDecimal.valueOf(50.0).setScale(8);
 
 					BlockData blockData = new BlockData(version, blockReference, transactionCount, totalFees, transactionsSignature, height, blockTimestamp,
-							generatingBalance, generatorPublicKey, generatorSignature, atBytes, atFees);
+							generatingBalance, generatorPublicKey, generatorSignature, atCount, atFees);
 
 					repository.getBlockRepository().save(blockData);
+
+					byte[] atBytes = HashCode.fromString("17950a6c62d17ff0caa545651c054a105f1c464daca443df846cc6a3d58f764b78c09cff50f0fd9ec2").asBytes();
+
+					String atAddress = Base58.encode(Arrays.copyOfRange(atBytes, 0, 25));
+					byte[] stateHash = Arrays.copyOfRange(atBytes, 25, atBytes.length);
+
+					ATStateData atStateData = new ATStateData(atAddress, height, timestamp, new byte[0], stateHash, atFees);
+
+					repository.getATRepository().save(atStateData);
 				}
 
 				int sequence = 0;

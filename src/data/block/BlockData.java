@@ -12,16 +12,16 @@ public class BlockData {
 	private int transactionCount;
 	private BigDecimal totalFees;
 	private byte[] transactionsSignature;
-	private int height;
+	private Integer height;
 	private long timestamp;
 	private BigDecimal generatingBalance;
 	private byte[] generatorPublicKey;
 	private byte[] generatorSignature;
-	private byte[] atBytes;
+	private int atCount;
 	private BigDecimal atFees;
 
-	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, int height, long timestamp,
-			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, byte[] atBytes, BigDecimal atFees) {
+	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
+			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees) {
 		this.version = version;
 		this.reference = reference;
 		this.transactionCount = transactionCount;
@@ -32,13 +32,33 @@ public class BlockData {
 		this.generatingBalance = generatingBalance;
 		this.generatorPublicKey = generatorPublicKey;
 		this.generatorSignature = generatorSignature;
-		this.atBytes = atBytes;
+		this.atCount = atCount;
 		this.atFees = atFees;
 
 		if (this.generatorSignature != null && this.transactionsSignature != null)
 			this.signature = Bytes.concat(this.generatorSignature, this.transactionsSignature);
 		else
 			this.signature = null;
+	}
+
+	public byte[] getSignature() {
+		return this.signature;
+	}
+
+	public void setSignature(byte[] signature) {
+		this.signature = signature;
+	}
+
+	public int getVersion() {
+		return this.version;
+	}
+
+	public byte[] getReference() {
+		return this.reference;
+	}
+
+	public void setReference(byte[] reference) {
+		this.reference = reference;
 	}
 
 	public int getTransactionCount() {
@@ -65,31 +85,11 @@ public class BlockData {
 		this.transactionsSignature = transactionsSignature;
 	}
 
-	public byte[] getSignature() {
-		return this.signature;
-	}
-
-	public void setSignature(byte[] signature) {
-		this.signature = signature;
-	}
-
-	public int getVersion() {
-		return this.version;
-	}
-
-	public byte[] getReference() {
-		return this.reference;
-	}
-
-	public void setReference(byte[] reference) {
-		this.reference = reference;
-	}
-
-	public int getHeight() {
+	public Integer getHeight() {
 		return this.height;
 	}
 
-	public void setHeight(int height) {
+	public void setHeight(Integer height) {
 		this.height = height;
 	}
 
@@ -113,12 +113,20 @@ public class BlockData {
 		this.generatorSignature = generatorSignature;
 	}
 
-	public byte[] getAtBytes() {
-		return this.atBytes;
+	public int getATCount() {
+		return this.atCount;
 	}
 
-	public BigDecimal getAtFees() {
+	public void setATCount(int atCount) {
+		this.atCount = atCount;
+	}
+
+	public BigDecimal getATFees() {
 		return this.atFees;
+	}
+
+	public void setATFees(BigDecimal atFees) {
+		this.atFees = atFees;
 	}
 
 }

@@ -7,6 +7,8 @@ public interface AccountRepository {
 
 	// General account
 
+	public void create(String address) throws DataException;
+
 	public AccountData getAccount(String address) throws DataException;
 
 	public void save(AccountData accountData) throws DataException;

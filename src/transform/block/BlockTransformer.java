@@ -17,6 +17,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
 import data.assets.TradeData;
+import data.at.ATStateData;
 import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
@@ -24,12 +25,13 @@ import qora.assets.Order;
 import qora.block.Block;
 import qora.transaction.CreateOrderTransaction;
 import qora.transaction.Transaction;
+import qora.transaction.Transaction.TransactionType;
 import repository.DataException;
 import transform.TransformationException;
 import transform.Transformer;
 import transform.transaction.TransactionTransformer;
 import utils.Base58;
-import utils.Pair;
+import utils.Triple;
 import utils.Serialization;
 
 public class BlockTransformer extends Transformer {
@@ -52,6 +54,9 @@ public class BlockTransformer extends Transformer {
 	protected static final int AT_FEES_LENGTH = LONG_LENGTH;
 	protected static final int AT_LENGTH = AT_FEES_LENGTH + AT_BYTES_LENGTH;
 
+	protected static final int V2_AT_ENTRY_LENGTH = ADDRESS_LENGTH + MD5_LENGTH;
+	protected static final int V4_AT_ENTRY_LENGTH = ADDRESS_LENGTH + SHA256_LENGTH + BIG_DECIMAL_LENGTH;
+
 	/**
 	 * Extract block data and transaction data from serialized bytes.
 	 * 
@@ -59,7 +64,7 @@ public class BlockTransformer extends Transformer {
 	 * @return BlockData and a List of transactions.
 	 * @throws TransformationException
 	 */
-	public static Pair<BlockData, List<TransactionData>> fromBytes(byte[] bytes) throws TransformationException {
+	public static Triple<BlockData, List<TransactionData>, List<ATStateData>> fromBytes(byte[] bytes) throws TransformationException {
 		if (bytes == null)
 			return null;
 
@@ -88,25 +93,74 @@ public class BlockTransformer extends Transformer {
 		byte[] generatorSignature = new byte[GENERATOR_SIGNATURE_LENGTH];
 		byteBuffer.get(generatorSignature);
 
-		byte[] atBytes = null;
-		BigDecimal atFees = null;
+		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
+
+		int atCount = 0;
+		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
+		List<ATStateData> atStates = new ArrayList<ATStateData>();
+
 		if (version >= 2) {
 			int atBytesLength = byteBuffer.getInt();
 
 			if (atBytesLength > Block.MAX_BLOCK_BYTES)
 				throw new TransformationException("Byte data too long for Block's AT info");
 
-			atBytes = new byte[atBytesLength];
-			byteBuffer.get(atBytes);
+			ByteBuffer atByteBuffer = byteBuffer.slice();
+			atByteBuffer.limit(atBytesLength);
 
-			atFees = BigDecimal.valueOf(byteBuffer.getLong()).setScale(8);
+			if (version < 4) {
+				// For versions < 4, read AT-address & MD5 pairs
+				if (atBytesLength % V2_AT_ENTRY_LENGTH != 0)
+					throw new TransformationException("AT byte data not a multiple of version 2+ entries");
+
+				while (atByteBuffer.hasRemaining()) {
+					byte[] atAddressBytes = new byte[ADDRESS_LENGTH];
+					atByteBuffer.get(atAddressBytes);
+					String atAddress = Base58.encode(atAddressBytes);
+
+					byte[] stateHash = new byte[MD5_LENGTH];
+					atByteBuffer.get(stateHash);
+
+					atStates.add(new ATStateData(atAddress, stateHash));
+				}
+
+				// Bump byteBuffer over AT states just read in slice
+				byteBuffer.position(byteBuffer.position() + atBytesLength);
+
+				// AT fees follow in versions < 4
+				atFees = Serialization.deserializeBigDecimal(byteBuffer);
+			} else {
+				// For block versions >= 4, read AT-address, SHA256 hash and fees
+				if (atBytesLength % V4_AT_ENTRY_LENGTH != 0)
+					throw new TransformationException("AT byte data not a multiple of version 4+ entries");
+
+				while (atByteBuffer.hasRemaining()) {
+					byte[] atAddressBytes = new byte[ADDRESS_LENGTH];
+					atByteBuffer.get(atAddressBytes);
+					String atAddress = Base58.encode(atAddressBytes);
+
+					byte[] stateHash = new byte[SHA256_LENGTH];
+					atByteBuffer.get(stateHash);
+
+					BigDecimal fees = Serialization.deserializeBigDecimal(atByteBuffer);
+					// Add this AT's fees to our total
+					atFees = atFees.add(fees);
+
+					atStates.add(new ATStateData(atAddress, stateHash, fees));
+				}
+			}
+
+			// AT count to reflect the number of states we have
+			atCount = atStates.size();
+
+			// Add AT fees to totalFees
+			totalFees = totalFees.add(atFees);
 		}
 
 		int transactionCount = byteBuffer.getInt();
 
 		// Parse transactions now, compared to deferred parsing in Gen1, so we can throw ParseException if need be.
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
-		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
 
 		for (int t = 0; t < transactionCount; ++t) {
 			if (byteBuffer.remaining() < TRANSACTION_SIZE_LENGTH)
@@ -126,26 +180,28 @@ public class BlockTransformer extends Transformer {
 			TransactionData transactionData = TransactionTransformer.fromBytes(transactionBytes);
 			transactions.add(transactionData);
 
-			totalFees.add(transactionData.getFee());
+			totalFees = totalFees.add(transactionData.getFee());
 		}
 
 		if (byteBuffer.hasRemaining())
 			throw new TransformationException("Excess byte data found after parsing Block");
 
-		// XXX we don't know height!
-		int height = 0;
+		// We don't have a height!
+		Integer height = null;
 		BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-				generatorPublicKey, generatorSignature, atBytes, atFees);
+				generatorPublicKey, generatorSignature, atCount, atFees);
 
-		return new Pair<BlockData, List<TransactionData>>(blockData, transactions);
+		return new Triple<BlockData, List<TransactionData>, List<ATStateData>>(blockData, transactions, atStates);
 	}
 
 	public static int getDataLength(Block block) throws TransformationException {
 		BlockData blockData = block.getBlockData();
 		int blockLength = BASE_LENGTH;
 
-		if (blockData.getVersion() >= 2 && blockData.getAtBytes() != null)
-			blockLength += AT_FEES_LENGTH + AT_BYTES_LENGTH + blockData.getAtBytes().length;
+		if (blockData.getVersion() >= 4)
+			blockLength += AT_BYTES_LENGTH + blockData.getATCount() * V4_AT_ENTRY_LENGTH;
+		else if (blockData.getVersion() >= 2)
+			blockLength += AT_FEES_LENGTH + AT_BYTES_LENGTH + blockData.getATCount() * V2_AT_ENTRY_LENGTH;
 
 		try {
 			// Short cut for no transactions
@@ -177,18 +233,29 @@ public class BlockTransformer extends Transformer {
 			bytes.write(blockData.getTransactionsSignature());
 			bytes.write(blockData.getGeneratorSignature());
 
-			if (blockData.getVersion() >= 2) {
-				byte[] atBytes = blockData.getAtBytes();
+			if (blockData.getVersion() >= 4) {
+				int atBytesLength = blockData.getATCount() * V4_AT_ENTRY_LENGTH;
+				bytes.write(Ints.toByteArray(atBytesLength));
 
-				if (atBytes != null) {
-					bytes.write(Ints.toByteArray(atBytes.length));
-					bytes.write(atBytes);
-					// NOTE: atFees serialized as long value, not as BigDecimal, for historic compatibility
-					bytes.write(Longs.toByteArray(blockData.getAtFees().longValue()));
-				} else {
-					bytes.write(Ints.toByteArray(0));
-					bytes.write(Longs.toByteArray(0L));
+				for (ATStateData atStateData : block.getATStates()) {
+					bytes.write(Base58.decode(atStateData.getATAddress()));
+					bytes.write(atStateData.getStateHash());
+					Serialization.serializeBigDecimal(bytes, atStateData.getFees());
 				}
+			} else if (blockData.getVersion() >= 2) {
+				int atBytesLength = blockData.getATCount() * V2_AT_ENTRY_LENGTH;
+				bytes.write(Ints.toByteArray(atBytesLength));
+
+				for (ATStateData atStateData : block.getATStates()) {
+					bytes.write(Base58.decode(atStateData.getATAddress()));
+					bytes.write(atStateData.getStateHash());
+				}
+
+				if (blockData.getATFees() != null)
+					// NOTE: atFees serialized as long value, not as BigDecimal, for historic compatibility
+					bytes.write(Longs.toByteArray(blockData.getATFees().longValue()));
+				else
+					bytes.write(Longs.toByteArray(0));
 			}
 
 			// Transactions
@@ -263,30 +330,39 @@ public class BlockTransformer extends Transformer {
 		json.put("assetTrades", tradesHappened);
 
 		// Add CIYAM AT info (if any)
-		if (blockData.getAtBytes() != null) {
-			json.put("blockATs", HashCode.fromBytes(blockData.getAtBytes()).toString());
-			json.put("atFees", blockData.getAtFees());
+		if (blockData.getATCount() > 0) {
+			JSONArray atsJson = new JSONArray();
+
+			try {
+				for (ATStateData atStateData : block.getATStates()) {
+					JSONObject atJson = new JSONObject();
+
+					atJson.put("AT", atStateData.getATAddress());
+					atJson.put("stateHash", HashCode.fromBytes(atStateData.getStateHash()).toString());
+
+					if (blockData.getVersion() >= 4)
+						atJson.put("fees", atStateData.getFees().toPlainString());
+
+					atsJson.add(atJson);
+				}
+			} catch (DataException e) {
+				throw new TransformationException("Unable to transform block into JSON", e);
+			}
+
+			json.put("ATs", atsJson);
+
+			if (blockData.getVersion() >= 2)
+				json.put("atFees", blockData.getATFees());
 		}
 
 		return json;
 	}
 
 	public static byte[] getBytesForGeneratorSignature(BlockData blockData) throws TransformationException {
-		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH);
+		byte[] generatorSignature = Arrays.copyOf(blockData.getReference(), GENERATOR_SIGNATURE_LENGTH);
+		PublicKeyAccount generator = new PublicKeyAccount(null, blockData.getGeneratorPublicKey());
 
-			// Only copy the generator signature from reference, which is the first 64 bytes.
-			bytes.write(Arrays.copyOf(blockData.getReference(), GENERATOR_SIGNATURE_LENGTH));
-
-			bytes.write(Longs.toByteArray(blockData.getGeneratingBalance().longValue()));
-
-			// We're padding here just in case the generator is the genesis account whose public key is only 8 bytes long.
-			bytes.write(Bytes.ensureCapacity(blockData.getGeneratorPublicKey(), GENERATOR_LENGTH, 0));
-
-			return bytes.toByteArray();
-		} catch (IOException e) {
-			throw new TransformationException(e);
-		}
+		return getBytesForGeneratorSignature(generatorSignature, blockData.getGeneratingBalance(), generator);
 	}
 
 	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, BigDecimal generatingBalance, PublicKeyAccount generator)
@@ -308,13 +384,18 @@ public class BlockTransformer extends Transformer {
 	}
 
 	public static byte[] getBytesForTransactionsSignature(Block block) throws TransformationException {
-		ByteArrayOutputStream bytes = new ByteArrayOutputStream(
-				GENERATOR_SIGNATURE_LENGTH + block.getBlockData().getTransactionCount() * TransactionTransformer.SIGNATURE_LENGTH);
-
 		try {
+			List<Transaction> transactions = block.getTransactions();
+
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + transactions.size() * TransactionTransformer.SIGNATURE_LENGTH);
+
 			bytes.write(block.getBlockData().getGeneratorSignature());
 
-			for (Transaction transaction : block.getTransactions()) {
+			for (Transaction transaction : transactions) {
+				// For legacy blocks, we don't include AT-Transactions
+				if (block.getBlockData().getVersion() < 4 && transaction.getTransactionData().getType() == TransactionType.AT)
+					continue;
+
 				if (!transaction.isSignatureValid())
 					throw new TransformationException("Transaction signature invalid when building block's transactions signature");
 

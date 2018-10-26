@@ -205,7 +205,6 @@ public class DeployATTransaction extends Transaction {
 
 		// Update AT's balance
 		atAccount.setConfirmedBalance(Asset.QORA, deployATTransactionData.getAmount());
-
 	}
 
 	@Override

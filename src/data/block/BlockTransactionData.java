@@ -3,9 +3,9 @@ package data.block;
 public class BlockTransactionData {
 
 	// Properties
-	protected byte[] blockSignature;
-	protected int sequence;
-	protected byte[] transactionSignature;
+	private byte[] blockSignature;
+	private int sequence;
+	private byte[] transactionSignature;
 
 	// Constructors
 
