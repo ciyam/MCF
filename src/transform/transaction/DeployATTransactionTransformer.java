@@ -97,7 +97,9 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 
 			Serialization.serializeSizedString(bytes, deployATTransactionData.getTags());
 
-			bytes.write(deployATTransactionData.getCreationBytes());
+			byte[] creationBytes = deployATTransactionData.getCreationBytes();
+			bytes.write(Ints.toByteArray(creationBytes.length));
+			bytes.write(creationBytes);
 
 			Serialization.serializeBigDecimal(bytes, deployATTransactionData.getAmount());
 
@@ -146,14 +148,13 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 
 			// Omitted: Serialization.serializeSizedString(bytes, deployATTransactionData.getTags());
 
-			bytes.write(deployATTransactionData.getCreationBytes());
+			byte[] creationBytes = deployATTransactionData.getCreationBytes();
+			bytes.write(Ints.toByteArray(creationBytes.length));
+			bytes.write(creationBytes);
 
 			Serialization.serializeBigDecimal(bytes, deployATTransactionData.getAmount());
 
 			Serialization.serializeBigDecimal(bytes, deployATTransactionData.getFee());
-
-			if (deployATTransactionData.getSignature() != null)
-				bytes.write(deployATTransactionData.getSignature());
 
 			return bytes.toByteArray();
 		} catch (IOException | ClassCastException e) {

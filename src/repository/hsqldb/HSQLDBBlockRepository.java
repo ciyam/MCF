@@ -18,7 +18,7 @@ import repository.TransactionRepository;
 public class HSQLDBBlockRepository implements BlockRepository {
 
 	private static final String BLOCK_DB_COLUMNS = "version, reference, transaction_count, total_fees, "
-			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, AT_data, AT_fees";
+			+ "transactions_signature, height, generation, generating_balance, generator, generator_signature, AT_count, AT_fees";
 
 	protected HSQLDBRepository repository;
 
@@ -41,11 +41,11 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			BigDecimal generatingBalance = resultSet.getBigDecimal(8);
 			byte[] generatorPublicKey = resultSet.getBytes(9);
 			byte[] generatorSignature = resultSet.getBytes(10);
-			byte[] atBytes = resultSet.getBytes(11);
+			int atCount = resultSet.getInt(11);
 			BigDecimal atFees = resultSet.getBigDecimal(12);
 
 			return new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
-					generatorPublicKey, generatorSignature, atBytes, atFees);
+					generatorPublicKey, generatorSignature, atCount, atFees);
 		} catch (SQLException e) {
 			throw new DataException("Error extracting data from result set", e);
 		}
@@ -62,7 +62,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public BlockData fromReference(byte[] reference) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", reference)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE reference = ?", reference)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error loading data from DB", e);
@@ -123,7 +123,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				transactions.add(transactionRepo.fromSignature(transactionSignature));
 			} while (resultSet.next());
 		} catch (SQLException e) {
-			throw new DataException(e);
+			throw new DataException("Unable to fetch block's transactions from repository", e);
 		}
 
 		return transactions;
@@ -138,7 +138,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 				.bind("transactions_signature", blockData.getTransactionsSignature()).bind("height", blockData.getHeight())
 				.bind("generation", new Timestamp(blockData.getTimestamp())).bind("generating_balance", blockData.getGeneratingBalance())
 				.bind("generator", blockData.getGeneratorPublicKey()).bind("generator_signature", blockData.getGeneratorSignature())
-				.bind("AT_data", blockData.getAtBytes()).bind("AT_fees", blockData.getAtFees());
+				.bind("AT_count", blockData.getATCount()).bind("AT_fees", blockData.getATFees());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -159,6 +159,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	@Override
 	public void save(BlockTransactionData blockTransactionData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("BlockTransactions");
+
 		saveHelper.bind("block_signature", blockTransactionData.getBlockSignature()).bind("sequence", blockTransactionData.getSequence())
 				.bind("transaction_signature", blockTransactionData.getTransactionSignature());
 

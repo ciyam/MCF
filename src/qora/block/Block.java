@@ -15,6 +15,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.common.primitives.Bytes;
 
+import data.at.ATStateData;
 import data.block.BlockData;
 import data.block.BlockTransactionData;
 import data.transaction.TransactionData;
@@ -25,6 +26,7 @@ import qora.assets.Asset;
 import qora.crypto.Crypto;
 import qora.transaction.GenesisTransaction;
 import qora.transaction.Transaction;
+import repository.ATRepository;
 import repository.BlockRepository;
 import repository.DataException;
 import repository.Repository;
@@ -64,6 +66,7 @@ public class Block {
 		REFERENCE_MISSING(10),
 		PARENT_DOES_NOT_EXIST(11),
 		BLOCKCHAIN_NOT_EMPTY(12),
+		PARENT_HAS_EXISTING_CHILD(13),
 		TIMESTAMP_OLDER_THAN_PARENT(20),
 		TIMESTAMP_IN_FUTURE(21),
 		TIMESTAMP_MS_INCORRECT(22),
@@ -74,7 +77,8 @@ public class Block {
 		GENESIS_TRANSACTIONS_INVALID(50),
 		TRANSACTION_TIMESTAMP_INVALID(51),
 		TRANSACTION_INVALID(52),
-		TRANSACTION_PROCESSING_FAILED(53);
+		TRANSACTION_PROCESSING_FAILED(53),
+		AT_STATES_MISMATCH(61);
 
 		public final int value;
 
@@ -97,6 +101,11 @@ public class Block {
 	// Other properties
 	private static final Logger LOGGER = LogManager.getLogger(Block.class);
 	protected List<Transaction> transactions;
+
+	protected List<ATStateData> atStates;
+	protected List<ATStateData> ourAtStates; // Generated locally
+	protected BigDecimal ourAtFees; // Generated locally
+
 	protected BigDecimal cachedNextGeneratingBalance;
 
 	// Other useful constants
@@ -104,39 +113,92 @@ public class Block {
 
 	// Constructors
 
+	/**
+	 * Constructs Block-handling object without loading transactions and AT states.
+	 * <p>
+	 * Transactions and AT states are loaded on first call to getTransactions() or getATStates() respectively.
+	 * 
+	 * @param repository
+	 * @param blockData
+	 * @throws DataException
+	 */
 	public Block(Repository repository, BlockData blockData) throws DataException {
 		this.repository = repository;
 		this.blockData = blockData;
 		this.generator = new PublicKeyAccount(repository, blockData.getGeneratorPublicKey());
 	}
 
-	// When receiving a block over network?
-	public Block(Repository repository, BlockData blockData, List<TransactionData> transactions) throws DataException {
+	/**
+	 * Constructs Block-handling object using passed transaction and AT states.
+	 * <p>
+	 * This constructor typically used when receiving a serialized block over the network.
+	 * 
+	 * @param repository
+	 * @param blockData
+	 * @param transactions
+	 * @param atStates
+	 * @throws DataException
+	 */
+	public Block(Repository repository, BlockData blockData, List<TransactionData> transactions, List<ATStateData> atStates) throws DataException {
 		this(repository, blockData);
 
 		this.transactions = new ArrayList<Transaction>();
 
+		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
+
 		// We have to sum fees too
 		for (TransactionData transactionData : transactions) {
 			this.transactions.add(Transaction.fromData(repository, transactionData));
-			this.blockData.setTotalFees(this.blockData.getTotalFees().add(transactionData.getFee()));
+			totalFees = totalFees.add(transactionData.getFee());
 		}
+
+		this.atStates = atStates;
+		for (ATStateData atState : atStates)
+			totalFees = totalFees.add(atState.getFees());
+
+		this.blockData.setTotalFees(totalFees);
 	}
 
-	// For creating a new block?
-	public Block(Repository repository, int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PrivateKeyAccount generator,
-			byte[] atBytes, BigDecimal atFees) {
+	/**
+	 * Constructs Block-handling object with basic, initial values.
+	 * <p>
+	 * This constructor typically used when generating a new block.
+	 * <p>
+	 * Note that CIYAM ATs will be executed and AT-Transactions prepended to this block, along with AT state data and fees.
+	 * 
+	 * @param repository
+	 * @param version
+	 * @param reference
+	 * @param timestamp
+	 * @param generatingBalance
+	 * @param generator
+	 * @throws DataException
+	 */
+	public Block(Repository repository, int version, byte[] reference, long timestamp, BigDecimal generatingBalance, PrivateKeyAccount generator)
+			throws DataException {
 		this.repository = repository;
 		this.generator = generator;
 
-		this.blockData = new BlockData(version, reference, 0, BigDecimal.ZERO.setScale(8), null, 0, timestamp, generatingBalance, generator.getPublicKey(),
-				null, atBytes, atFees);
+		int transactionCount = 0;
+		byte[] transactionsSignature = null;
+		Integer height = null;
+		byte[] generatorSignature = null;
+
+		this.executeATs();
+
+		int atCount = this.ourAtStates.size();
+		BigDecimal atFees = this.ourAtFees;
+		BigDecimal totalFees = atFees;
+
+		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+				generator.getPublicKey(), generatorSignature, atCount, atFees);
 
 		this.transactions = new ArrayList<Transaction>();
+		this.atStates = this.ourAtStates;
 	}
 
 	/** Construct a new block for use in tests */
-	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount generator, byte[] atBytes, BigDecimal atFees) throws DataException {
+	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount generator) throws DataException {
 		this.repository = repository;
 		this.generator = generator;
 
@@ -155,11 +217,18 @@ public class Block {
 		}
 
 		long timestamp = parentBlock.calcNextBlockTimestamp(version, generatorSignature, generator);
+		int transactionCount = 0;
+		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
+		byte[] transactionsSignature = null;
+		int height = parentBlockData.getHeight() + 1;
+		int atCount = 0;
+		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
 
-		this.blockData = new BlockData(version, reference, 0, BigDecimal.ZERO.setScale(8), null, 0, timestamp, generatingBalance, generator.getPublicKey(),
-				generatorSignature, atBytes, atFees);
+		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+				generator.getPublicKey(), generatorSignature, atCount, atFees);
 
 		this.transactions = new ArrayList<Transaction>();
+		this.atStates = new ArrayList<ATStateData>();
 	}
 
 	// Getters/setters
@@ -192,12 +261,17 @@ public class Block {
 	 * @return 1, 2 or 3
 	 */
 	public int getNextBlockVersion() {
+		if (this.blockData.getHeight() == null)
+			throw new IllegalStateException("Can't determine next block's version as this block has no height set");
+
 		if (this.blockData.getHeight() < BlockChain.getATReleaseHeight())
 			return 1;
 		else if (this.blockData.getTimestamp() < BlockChain.getPowFixReleaseTimestamp())
 			return 2;
-		else
+		else if (this.blockData.getTimestamp() < BlockChain.getDeployATV2Timestamp())
 			return 3;
+		else
+			return 4;
 	}
 
 	/**
@@ -212,8 +286,8 @@ public class Block {
 	 * @throws DataException
 	 */
 	public BigDecimal calcNextBlockGeneratingBalance() throws DataException {
-		if (this.blockData.getHeight() == 0)
-			throw new IllegalStateException("Block height is unset");
+		if (this.blockData.getHeight() == null)
+			throw new IllegalStateException("Can't calculate next block's generating balance as this block's height is unset");
 
 		// This block not at the start of an interval?
 		if (this.blockData.getHeight() % BlockChain.BLOCK_RETARGET_INTERVAL != 0)
@@ -346,7 +420,7 @@ public class Block {
 	/**
 	 * Return block's transactions.
 	 * <p>
-	 * If the block was loaded from repository then it's possible this method will call the repository to load the transactions if they are not already loaded.
+	 * If the block was loaded from repository then it's possible this method will call the repository to fetch the transactions if not done already.
 	 * 
 	 * @return
 	 * @throws DataException
@@ -369,6 +443,37 @@ public class Block {
 			this.transactions.add(Transaction.fromData(this.repository, transactionData));
 
 		return this.transactions;
+	}
+
+	/**
+	 * Return block's AT states.
+	 * <p>
+	 * If the block was loaded from repository then it's possible this method will call the repository to fetch the AT states if not done already.
+	 * <p>
+	 * <b>Note:</b> AT states fetched from repository only contain summary info, not actual data like serialized state data or AT creation timestamps!
+	 * 
+	 * @return
+	 * @throws DataException
+	 */
+	public List<ATStateData> getATStates() throws DataException {
+		// Already loaded?
+		if (this.atStates != null)
+			return this.atStates;
+
+		// If loading from repository, this block must have a height
+		if (this.blockData.getHeight() == null)
+			throw new IllegalStateException("Can't fetch block's AT states from repository without a block height");
+
+		// Allocate cache for results
+		List<ATStateData> atStateData = this.repository.getATRepository().getBlockATStatesFromHeight(this.blockData.getHeight());
+
+		// The number of AT states fetched from repository should correspond with Block's atCount
+		if (atStateData.size() != this.blockData.getATCount())
+			throw new IllegalStateException("Block's AT states from repository do not match block's AT count");
+
+		this.atStates = atStateData;
+
+		return this.atStates;
 	}
 
 	// Navigation
@@ -531,8 +636,6 @@ public class Block {
 	 * @throws DataException
 	 */
 	public ValidationResult isValid() throws DataException {
-		// TODO
-
 		// Check parent block exists
 		if (this.blockData.getReference() == null)
 			return ValidationResult.REFERENCE_MISSING;
@@ -542,6 +645,10 @@ public class Block {
 			return ValidationResult.PARENT_DOES_NOT_EXIST;
 
 		Block parentBlock = new Block(this.repository, parentBlockData);
+
+		// Check parent doesn't already have a child block
+		if (parentBlock.getChild() != null)
+			return ValidationResult.PARENT_HAS_EXISTING_CHILD;
 
 		// Check timestamp is newer than parent timestamp
 		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp())
@@ -558,7 +665,7 @@ public class Block {
 		// Check block version
 		if (this.blockData.getVersion() != parentBlock.getNextBlockVersion())
 			return ValidationResult.VERSION_INCORRECT;
-		if (this.blockData.getVersion() < 2 && (this.blockData.getAtBytes() != null || this.blockData.getAtFees() != null))
+		if (this.blockData.getVersion() < 2 && this.blockData.getATCount() != 0)
 			return ValidationResult.FEATURE_NOT_YET_RELEASED;
 
 		// Check generating balance
@@ -583,16 +690,34 @@ public class Block {
 		if (hashValue.compareTo(lowerTarget) < 0)
 			return ValidationResult.GENERATOR_NOT_ACCEPTED;
 
-		// Process CIYAM ATs, prepending AT-Transactions to block then compare post-execution checksums
-		// XXX We should pre-calculate, and cache, next block's AT-transactions after processing each block to save repeated work
-		if (this.blockData.getAtBytes() != null && this.blockData.getAtBytes().length > 0) {
-			// TODO
-			// try {
-			// AT_Block atBlock = AT_Controller.validateATs(this.getBlockATs(), BlockChain.getHeight() + 1);
-			// this.atFees = atBlock.getTotalFees();
-			// } catch (NoSuchAlgorithmException | AT_Exception e) {
-			// return false;
-			// }
+		// CIYAM ATs
+		if (this.blockData.getATCount() != 0) {
+			// Locally generated AT states should be valid so no need to re-execute them
+			if (this.ourAtStates != this.getATStates()) {
+				// Otherwise, check locally generated AT states against ones received from elsewhere?
+				this.executeATs();
+
+				if (this.ourAtStates.size() != this.blockData.getATCount())
+					return ValidationResult.AT_STATES_MISMATCH;
+
+				if (this.ourAtFees.compareTo(this.blockData.getATFees()) != 0)
+					return ValidationResult.AT_STATES_MISMATCH;
+
+				// Note: this.atStates fully loaded thanks to this.getATStates() call above
+				for (int s = 0; s < this.atStates.size(); ++s) {
+					ATStateData ourAtState = this.ourAtStates.get(s);
+					ATStateData theirAtState = this.atStates.get(s);
+
+					if (!ourAtState.getATAddress().equals(theirAtState.getATAddress()))
+						return ValidationResult.AT_STATES_MISMATCH;
+
+					if (!ourAtState.getStateHash().equals(theirAtState.getStateHash()))
+						return ValidationResult.AT_STATES_MISMATCH;
+
+					if (ourAtState.getFees().compareTo(theirAtState.getFees()) != 0)
+						return ValidationResult.AT_STATES_MISMATCH;
+				}
+			}
 		}
 
 		// Check transactions
@@ -612,7 +737,7 @@ public class Block {
 				Transaction.ValidationResult validationResult = transaction.isValid();
 				if (validationResult != Transaction.ValidationResult.OK) {
 					LOGGER.error("Error during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
-							+ validationResult.value);
+							+ validationResult.name());
 					return ValidationResult.TRANSACTION_INVALID;
 				}
 
@@ -643,8 +768,47 @@ public class Block {
 		return ValidationResult.OK;
 	}
 
+	/**
+	 * Execute CIYAM ATs for this block.
+	 * <p>
+	 * This needs to be done locally for all blocks, regardless of origin.<br>
+	 * This method is called by <tt>isValid</tt>.
+	 * <p>
+	 * After calling, AT-generated transactions are prepended to the block's transactions and AT state data is generated.
+	 * <p>
+	 * This method is not needed if fetching an existing block from the repository.
+	 * <p>
+	 * Updates <tt>this.ourAtStates</tt> and <tt>this.ourAtFees</tt>.
+	 * 
+	 * @see #isValid()
+	 * 
+	 * @throws DataException
+	 * 
+	 */
+	public void executeATs() throws DataException {
+		// We're expecting a lack of AT state data at this point.
+		if (this.ourAtStates != null)
+			throw new IllegalStateException("Attempted to execute ATs when block's local AT state data already exists");
+
+		// For old v1 CIYAM ATs we blindly accept them
+		if (this.blockData.getVersion() < 4) {
+			this.ourAtStates = this.atStates;
+			this.ourAtFees = this.blockData.getATFees();
+			return;
+		}
+
+		// Find all executable ATs, ordered by earliest creation date first
+
+		// Run each AT, appends AT-Transactions and corresponding AT states, to our lists
+
+		// Finally prepend our entire AT-Transactions/states to block's transactions/states, adjust fees, etc.
+
+		// Note: store locally-calculated AT states separately to this.atStates so we can compare them in isValid()
+	}
+
 	public void process() throws DataException {
 		// Process transactions (we'll link them to this block after saving the block itself)
+		// AT-generated transactions are already added to our transactions so no special handling is needed here.
 		List<Transaction> transactions = this.getTransactions();
 		for (Transaction transaction : transactions)
 			transaction.process();
@@ -653,6 +817,17 @@ public class Block {
 		BigDecimal blockFee = this.blockData.getTotalFees();
 		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
 			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFee));
+
+		// Process AT fees and save AT states into repository
+		ATRepository atRepository = this.repository.getATRepository();
+		for (ATStateData atState : this.getATStates()) {
+			Account atAccount = new Account(this.repository, atState.getATAddress());
+
+			// Subtract AT-generated fees from AT accounts
+			atAccount.setConfirmedBalance(Asset.QORA, atAccount.getConfirmedBalance(Asset.QORA).subtract(atState.getFees()));
+
+			atRepository.save(atState);
+		}
 
 		// Link block into blockchain by fetching signature of highest block and setting that as our reference
 		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
@@ -675,12 +850,8 @@ public class Block {
 	}
 
 	public void orphan() throws DataException {
-		// TODO
-
-		// Orphan block's CIYAM ATs
-		orphanAutomatedTransactions();
-
 		// Orphan transactions in reverse order, and unlink them from this block
+		// AT-generated transactions are already added to our transactions so no special handling is needed here.
 		List<Transaction> transactions = this.getTransactions();
 		for (int sequence = transactions.size() - 1; sequence >= 0; --sequence) {
 			Transaction transaction = transactions.get(sequence);
@@ -696,25 +867,19 @@ public class Block {
 		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
 			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(blockFee));
 
+		// Return AT fees and delete AT states from repository
+		ATRepository atRepository = this.repository.getATRepository();
+		for (ATStateData atState : this.getATStates()) {
+			Account atAccount = new Account(this.repository, atState.getATAddress());
+
+			// Return AT-generated fees to AT accounts
+			atAccount.setConfirmedBalance(Asset.QORA, atAccount.getConfirmedBalance(Asset.QORA).add(atState.getFees()));
+		}
+		// Delete ATStateData for this height
+		atRepository.deleteATStates(this.blockData.getHeight());
+
 		// Delete block from blockchain
 		this.repository.getBlockRepository().delete(this.blockData);
-	}
-
-	public void orphanAutomatedTransactions() throws DataException {
-		// TODO - CIYAM AT support
-		/*
-		 * LinkedHashMap< Tuple2<Integer, Integer> , AT_Transaction > atTxs = DBSet.getInstance().getATTransactionMap().getATTransactions(this.getHeight(db));
-		 * 
-		 * Iterator<AT_Transaction> iter = atTxs.values().iterator();
-		 * 
-		 * while ( iter.hasNext() ) { AT_Transaction key = iter.next(); Long amount = key.getAmount(); if (key.getRecipientId() != null &&
-		 * !Arrays.equals(key.getRecipientId(), new byte[ AT_Constants.AT_ID_SIZE ]) && !key.getRecipient().equalsIgnoreCase("1") ) { Account recipient = new
-		 * Account( key.getRecipient() ); recipient.setConfirmedBalance( recipient.getConfirmedBalance( db ).subtract( BigDecimal.valueOf( amount, 8 ) ) , db );
-		 * if ( Arrays.equals(recipient.getLastReference(db),new byte[64])) { recipient.removeReference(db); } } Account sender = new Account( key.getSender()
-		 * ); sender.setConfirmedBalance( sender.getConfirmedBalance( db ).add( BigDecimal.valueOf( amount, 8 ) ) , db );
-		 * 
-		 * }
-		 */
 	}
 
 }

@@ -17,6 +17,21 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		this.repository = repository;
 	}
 
+	// General account
+
+	@Override
+	public void create(String address) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
+		saveHelper.bind("account", address);
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to create account in repository", e);
+		}
+	}
+
 	@Override
 	public AccountData getAccount(String address) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", address)) {
@@ -32,6 +47,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public void save(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
 		saveHelper.bind("account", accountData.getAddress()).bind("reference", accountData.getReference());
 
 		try {
@@ -40,6 +56,19 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			throw new DataException("Unable to save account info into repository", e);
 		}
 	}
+
+	@Override
+	public void delete(String address) throws DataException {
+		// NOTE: Account balances are deleted automatically by the database thanks to "ON DELETE CASCADE" in AccountBalances' FOREIGN KEY
+		// definition.
+		try {
+			this.repository.delete("Accounts", "account = ?", address);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete account from repository", e);
+		}
+	}
+
+	// Account balances
 
 	@Override
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException {
@@ -58,6 +87,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public void save(AccountBalanceData accountBalanceData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountBalances");
+
 		saveHelper.bind("account", accountBalanceData.getAddress()).bind("asset_id", accountBalanceData.getAssetId()).bind("balance",
 				accountBalanceData.getBalance());
 

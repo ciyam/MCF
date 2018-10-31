@@ -149,9 +149,9 @@ public class ArbitraryTransaction extends Transaction {
 			// Make sure directory structure exists
 			try {
 				Files.createDirectories(dataPath.getParent());
-			} catch (IOException e1) {
+			} catch (IOException e) {
 				// TODO Auto-generated catch block
-				e1.printStackTrace();
+				e.printStackTrace();
 			}
 
 			// Output actual transaction data

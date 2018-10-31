@@ -2,14 +2,13 @@ package qora.account;
 
 import qora.crypto.Crypto;
 import qora.crypto.Ed25519;
-import repository.DataException;
 import repository.Repository;
 
 public class PublicKeyAccount extends Account {
 
 	protected byte[] publicKey;
 
-	public PublicKeyAccount(Repository repository, byte[] publicKey) throws DataException {
+	public PublicKeyAccount(Repository repository, byte[] publicKey) {
 		super(repository, Crypto.toAddress(publicKey));
 
 		this.publicKey = publicKey;

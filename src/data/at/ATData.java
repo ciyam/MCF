@@ -6,6 +6,8 @@ public class ATData {
 
 	// Properties
 	private String ATAddress;
+	private String creator;
+	private long creation;
 	private int version;
 	private byte[] codeBytes;
 	private boolean isSleeping;
@@ -14,13 +16,14 @@ public class ATData {
 	private boolean hadFatalError;
 	private boolean isFrozen;
 	private BigDecimal frozenBalance;
-	private byte[] deploySignature;
 
 	// Constructors
 
-	public ATData(String ATAddress, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError,
-			boolean isFrozen, BigDecimal frozenBalance, byte[] deploySignature) {
+	public ATData(String ATAddress, String creator, long creation, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight,
+			boolean isFinished, boolean hadFatalError, boolean isFrozen, BigDecimal frozenBalance) {
 		this.ATAddress = ATAddress;
+		this.creator = creator;
+		this.creation = creation;
 		this.version = version;
 		this.codeBytes = codeBytes;
 		this.isSleeping = isSleeping;
@@ -29,12 +32,11 @@ public class ATData {
 		this.hadFatalError = hadFatalError;
 		this.isFrozen = isFrozen;
 		this.frozenBalance = frozenBalance;
-		this.deploySignature = deploySignature;
 	}
 
-	public ATData(String ATAddress, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError,
-			boolean isFrozen, Long frozenBalance, byte[] deploySignature) {
-		this(ATAddress, version, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, (BigDecimal) null, deploySignature);
+	public ATData(String ATAddress, String creator, long creation, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight,
+			boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
+		this(ATAddress, creator, creation, version, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, (BigDecimal) null);
 
 		// Convert Long frozenBalance to BigDecimal
 		if (frozenBalance != null)
@@ -45,6 +47,14 @@ public class ATData {
 
 	public String getATAddress() {
 		return this.ATAddress;
+	}
+
+	public String getCreator() {
+		return this.creator;
+	}
+
+	public long getCreation() {
+		return this.creation;
 	}
 
 	public int getVersion() {
@@ -101,10 +111,6 @@ public class ATData {
 
 	public void setFrozenBalance(BigDecimal frozenBalance) {
 		this.frozenBalance = frozenBalance;
-	}
-
-	public byte[] getDeploySignature() {
-		return this.deploySignature;
 	}
 
 }

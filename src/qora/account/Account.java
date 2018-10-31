@@ -28,7 +28,7 @@ public class Account {
 	protected Account() {
 	}
 
-	public Account(Repository repository, String address) throws DataException {
+	public Account(Repository repository, String address) {
 		this.repository = repository;
 		this.accountData = new AccountData(address);
 	}
@@ -55,6 +55,7 @@ public class Account {
 		for (int i = 1; i < BlockChain.BLOCK_RETARGET_INTERVAL && blockData != null && blockData.getHeight() > 1; ++i) {
 			Block block = new Block(this.repository, blockData);
 
+			// CIYAM AT transactions should be fetched from repository so no special handling needed here
 			for (Transaction transaction : block.getTransactions()) {
 				if (transaction.isInvolved(this)) {
 					final BigDecimal amount = transaction.getAmount(this);
@@ -65,19 +66,10 @@ public class Account {
 				}
 			}
 
-			// TODO - CIYAM AT support needed
-			/*
-			 * LinkedHashMap<Tuple2<Integer, Integer>, AT_Transaction> atTxs = db.getATTransactionMap().getATTransactions(block.getHeight(db));
-			 * Iterator<AT_Transaction> iter = atTxs.values().iterator(); while (iter.hasNext()) { AT_Transaction key = iter.next();
-			 * 
-			 * if (key.getRecipient().equals(this.getAddress())) balance = balance.subtract(BigDecimal.valueOf(key.getAmount(), 8)); }
-			 */
-
 			blockData = block.getParent();
 		}
 
 		// Do not go below 0
-		// XXX: How would this even be possible?
 		balance = balance.max(BigDecimal.ZERO);
 
 		return balance;
@@ -102,18 +94,10 @@ public class Account {
 		for (int i = 1; i < confirmations && blockData != null && blockData.getHeight() > 1; ++i) {
 			Block block = new Block(this.repository, blockData);
 
+			// CIYAM AT transactions should be fetched from repository so no special handling needed here
 			for (Transaction transaction : block.getTransactions())
 				if (transaction.isInvolved(this))
 					balance = balance.subtract(transaction.getAmount(this));
-
-			// TODO - CIYAM AT support
-			/*
-			 * // Also check AT transactions for amounts received to this account LinkedHashMap<Tuple2<Integer, Integer>, AT_Transaction> atTxs =
-			 * db.getATTransactionMap().getATTransactions(block.getHeight(db)); Iterator<AT_Transaction> iter = atTxs.values().iterator(); while
-			 * (iter.hasNext()) { AT_Transaction key = iter.next();
-			 * 
-			 * if (key.getRecipient().equals(this.getAddress())) balance = balance.subtract(BigDecimal.valueOf(key.getAmount(), 8)); }
-			 */
 
 			blockData = block.getParent();
 		}
@@ -131,6 +115,9 @@ public class Account {
 	}
 
 	public void setConfirmedBalance(long assetId, BigDecimal balance) throws DataException {
+		// Can't have a balance without an account - make sure it exists!
+		this.repository.getAccountRepository().create(this.accountData.getAddress());
+
 		AccountBalanceData accountBalanceData = new AccountBalanceData(this.accountData.getAddress(), assetId, balance);
 		this.repository.getAccountRepository().save(accountBalanceData);
 

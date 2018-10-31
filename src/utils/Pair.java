@@ -29,4 +29,22 @@ public class Pair<T, U> {
 		return b;
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (o == this)
+			return true;
+
+		if (!(o instanceof Pair<?, ?>))
+			return false;
+
+		Pair<?, ?> other = (Pair<?, ?>) o;
+
+		return this.a.equals(other.getA()) && this.b.equals(other.getB());
+	}
+
+	@Override
+	public int hashCode() {
+		return this.a.hashCode() ^ this.b.hashCode();
+	}
+
 }

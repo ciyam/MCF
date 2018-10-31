@@ -193,11 +193,14 @@ public abstract class Transaction {
 			case MULTIPAYMENT:
 				return new MultiPaymentTransaction(repository, transactionData);
 
+			case DEPLOY_AT:
+				return new DeployATTransaction(repository, transactionData);
+
 			case MESSAGE:
 				return new MessageTransaction(repository, transactionData);
 
-			case DEPLOY_AT:
-				return new DeployATTransaction(repository, transactionData);
+			case AT:
+				return new ATTransaction(repository, transactionData);
 
 			default:
 				throw new IllegalStateException("Unsupported transaction type [" + transactionData.getType().value + "] during fetch from repository");

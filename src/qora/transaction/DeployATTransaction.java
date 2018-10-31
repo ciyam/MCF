@@ -75,6 +75,13 @@ public class DeployATTransaction extends Transaction {
 		return amount;
 	}
 
+	/** Returns AT version from the header bytes */
+	private short getVersion() {
+		byte[] creationBytes = deployATTransactionData.getCreationBytes();
+		short version = (short) (creationBytes[0] | (creationBytes[1] << 8)); // Little-endian
+		return version;
+	}
+
 	/** Make sure deployATTransactionData has an ATAddress */
 	private void ensureATAddress() throws DataException {
 		if (this.deployATTransactionData.getATAddress() != null)
@@ -82,7 +89,7 @@ public class DeployATTransaction extends Transaction {
 
 		int blockHeight = this.getHeight();
 		if (blockHeight == 0)
-			blockHeight = this.repository.getBlockRepository().getBlockchainHeight();
+			blockHeight = this.repository.getBlockRepository().getBlockchainHeight() + 1;
 
 		try {
 			byte[] name = this.deployATTransactionData.getName().getBytes("UTF-8");
@@ -163,11 +170,8 @@ public class DeployATTransaction extends Transaction {
 		if (creator.getConfirmedBalance(Asset.QORA).compareTo(minimumBalance) < 0)
 			return ValidationResult.NO_BALANCE;
 
-		// Check creation bytes are valid (for v3+)
-		byte[] creationBytes = deployATTransactionData.getCreationBytes();
-		short version = (short) (creationBytes[0] | (creationBytes[1] << 8)); // Little-endian
-
-		if (version >= 3) {
+		// Check creation bytes are valid (for v2+)
+		if (this.getVersion() >= 2) {
 			// Do actual validation
 		} else {
 			// Skip validation for old, dead ATs
@@ -194,6 +198,13 @@ public class DeployATTransaction extends Transaction {
 
 		// Update creator's reference
 		creator.setLastReference(deployATTransactionData.getSignature());
+
+		// Update AT's reference, which also creates AT account
+		Account atAccount = this.getATAccount();
+		atAccount.setLastReference(deployATTransactionData.getSignature());
+
+		// Update AT's balance
+		atAccount.setConfirmedBalance(Asset.QORA, deployATTransactionData.getAmount());
 	}
 
 	@Override
@@ -212,6 +223,9 @@ public class DeployATTransaction extends Transaction {
 
 		// Update creator's reference
 		creator.setLastReference(deployATTransactionData.getReference());
+
+		// Delete AT's account
+		this.repository.getAccountRepository().delete(this.deployATTransactionData.getATAddress());
 	}
 
 }

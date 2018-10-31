@@ -172,7 +172,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, paymentTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(paymentTransactionData);
 		block.sign();
 
@@ -233,7 +233,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, registerNameTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(registerNameTransactionData);
 		block.sign();
 
@@ -289,7 +289,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, updateNameTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(updateNameTransactionData);
 		block.sign();
 
@@ -334,7 +334,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, sellNameTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(sellNameTransactionData);
 		block.sign();
 
@@ -385,7 +385,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, cancelSellNameTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(cancelSellNameTransactionData);
 		block.sign();
 
@@ -432,7 +432,7 @@ public class TransactionTests {
 		byte[] buyersReference = somePaymentTransaction.getTransactionData().getSignature();
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(somePaymentTransaction.getTransactionData());
 		block.sign();
 
@@ -451,7 +451,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, buyNameTransaction.isValid());
 
 		// Forge new block with transaction
-		block = new Block(repository, parentBlockData, generator, null, null);
+		block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(buyNameTransactionData);
 		block.sign();
 
@@ -504,7 +504,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, createPollTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(createPollTransactionData);
 		block.sign();
 
@@ -563,7 +563,7 @@ public class TransactionTests {
 			assertEquals(ValidationResult.OK, voteOnPollTransaction.isValid());
 
 			// Forge new block with transaction
-			Block block = new Block(repository, parentBlockData, generator, null, null);
+			Block block = new Block(repository, parentBlockData, generator);
 			block.addTransaction(voteOnPollTransactionData);
 			block.sign();
 
@@ -630,7 +630,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, issueAssetTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(issueAssetTransactionData);
 		block.sign();
 
@@ -720,7 +720,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, transferAssetTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(transferAssetTransactionData);
 		block.sign();
 
@@ -800,7 +800,7 @@ public class TransactionTests {
 		byte[] buyersReference = somePaymentTransaction.getTransactionData().getSignature();
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(somePaymentTransaction.getTransactionData());
 		block.sign();
 
@@ -824,7 +824,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());
 
 		// Forge new block with transaction
-		block = new Block(repository, parentBlockData, generator, null, null);
+		block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(createOrderTransactionData);
 		block.sign();
 
@@ -905,7 +905,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, cancelOrderTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(cancelOrderTransactionData);
 		block.sign();
 
@@ -980,7 +980,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(createOrderTransactionData);
 		block.sign();
 
@@ -1089,7 +1089,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, multiPaymentTransaction.isValid());
 
 		// Forge new block with payment transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(multiPaymentTransactionData);
 		block.sign();
 
@@ -1159,7 +1159,7 @@ public class TransactionTests {
 		assertEquals(ValidationResult.OK, messageTransaction.isValid());
 
 		// Forge new block with message transaction
-		Block block = new Block(repository, parentBlockData, generator, null, null);
+		Block block = new Block(repository, parentBlockData, generator);
 		block.addTransaction(messageTransactionData);
 		block.sign();
 

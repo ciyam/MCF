@@ -85,7 +85,7 @@ public class MessageTransaction extends Transaction {
 	// Processing
 
 	private PaymentData getPaymentData() {
-		return new PaymentData(messageTransactionData.getRecipient(), Asset.QORA, messageTransactionData.getAmount());
+		return new PaymentData(messageTransactionData.getRecipient(), messageTransactionData.getAssetId(), messageTransactionData.getAmount());
 	}
 
 	@Override

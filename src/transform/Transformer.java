@@ -14,4 +14,7 @@ public abstract class Transformer {
 	public static final int SIGNATURE_LENGTH = 64;
 	public static final int TIMESTAMP_LENGTH = LONG_LENGTH;
 
+	public static final int MD5_LENGTH = 16;
+	public static final int SHA256_LENGTH = 32;
+
 }

@@ -85,7 +85,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE Signature AS VARBINARY(64)");
 					stmt.execute("CREATE TYPE QoraAddress AS VARCHAR(36)");
 					stmt.execute("CREATE TYPE QoraPublicKey AS VARBINARY(32)");
-					stmt.execute("CREATE TYPE QoraAmount AS DECIMAL(19, 8)");
+					stmt.execute("CREATE TYPE QoraAmount AS DECIMAL(27, 8)");
 					stmt.execute("CREATE TYPE RegisteredName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
 					stmt.execute("CREATE TYPE NameData AS VARCHAR(4000)");
 					stmt.execute("CREATE TYPE PollName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
@@ -99,6 +99,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE ATType AS VARCHAR(200) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE ATCode AS BLOB(64K)"); // 16bit * 1
 					stmt.execute("CREATE TYPE ATState AS BLOB(1M)"); // 16bit * 8 + 16bit * 4 + 16bit * 4
+					stmt.execute("CREATE TYPE ATStateHash as VARBINARY(32)");
 					stmt.execute("CREATE TYPE ATMessage AS VARBINARY(256)");
 					break;
 
@@ -107,7 +108,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TABLE Blocks (signature BlockSignature PRIMARY KEY, version TINYINT NOT NULL, reference BlockSignature, "
 							+ "transaction_count INTEGER NOT NULL, total_fees QoraAmount NOT NULL, transactions_signature Signature NOT NULL, "
 							+ "height INTEGER NOT NULL, generation TIMESTAMP WITH TIME ZONE NOT NULL, generating_balance QoraAmount NOT NULL, "
-							+ "generator QoraPublicKey NOT NULL, generator_signature Signature NOT NULL, AT_data VARBINARY(20000), AT_fees QoraAmount)");
+							+ "generator QoraPublicKey NOT NULL, generator_signature Signature NOT NULL, AT_count INTEGER NOT NULL, AT_fees QoraAmount NOT NULL)");
 					// For finding blocks by height.
 					stmt.execute("CREATE INDEX BlockHeightIndex ON Blocks (height)");
 					// For finding blocks by the account that generated them.
@@ -302,7 +303,7 @@ public class HSQLDBDatabaseUpdates {
 					// Accounts
 					stmt.execute("CREATE TABLE Accounts (account QoraAddress, reference Signature, PRIMARY KEY (account))");
 					stmt.execute("CREATE TABLE AccountBalances (account QoraAddress, asset_id AssetID, balance QoraAmount NOT NULL, "
-							+ "PRIMARY KEY (account, asset_id))");
+							+ "PRIMARY KEY (account, asset_id), FOREIGN KEY (account) REFERENCES Accounts (account) ON DELETE CASCADE)");
 					break;
 
 				case 23:
@@ -352,17 +353,21 @@ public class HSQLDBDatabaseUpdates {
 
 				case 27:
 					// CIYAM Automated Transactions
-					stmt.execute("CREATE TABLE ATs (AT_address QoraAddress, version INTEGER NOT NULL, code_bytes ATCode NOT NULL, "
-							+ "is_sleeping BOOLEAN NOT NULL, sleep_until_height INTEGER, is_finished BOOLEAN NOT NULL, had_fatal_error BOOLEAN NOT NULL, "
-							+ "is_frozen BOOLEAN NOT NULL, frozen_balance QoraAmount, deploy_signature Signature NOT NULL, PRIMARY key (AT_address))");
-					// For finding executable ATs
-					stmt.execute("CREATE INDEX ATIndex on ATs (is_finished, AT_address)");
+					stmt.execute("CREATE TABLE ATs (AT_address QoraAddress, creator QoraAddress, creation TIMESTAMP WITH TIME ZONE, version INTEGER NOT NULL, "
+							+ "code_bytes ATCode NOT NULL, is_sleeping BOOLEAN NOT NULL, sleep_until_height INTEGER, "
+							+ "is_finished BOOLEAN NOT NULL, had_fatal_error BOOLEAN NOT NULL, is_frozen BOOLEAN NOT NULL, frozen_balance QoraAmount, "
+							+ "PRIMARY key (AT_address))");
+					// For finding executable ATs, ordered by creation timestamp
+					stmt.execute("CREATE INDEX ATIndex on ATs (is_finished, creation, AT_address)");
 					// AT state on a per-block basis
-					stmt.execute("CREATE TABLE ATStates (AT_address QoraAddress, height INTEGER NOT NULL, state_data ATState, "
+					stmt.execute("CREATE TABLE ATStates (AT_address QoraAddress, height INTEGER NOT NULL, creation TIMESTAMP WITH TIME ZONE, "
+							+ "state_data ATState, state_hash ATStateHash NOT NULL, fees QoraAmount NOT NULL, "
 							+ "PRIMARY KEY (AT_address, height), FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
+					// For finding per-block AT states, ordered by creation timestamp
+					stmt.execute("CREATE INDEX BlockATStateIndex on ATStates (height, creation, AT_address)");
 					// Generated AT Transactions
 					stmt.execute(
-							"CREATE TABLE ATTransactions (signature Signature, sender QoraPublicKey NOT NULL, recipient QoraAddress, amount QoraAmount NOT NULL, message ATMessage, "
+							"CREATE TABLE ATTransactions (signature Signature, AT_address QoraAddress NOT NULL, recipient QoraAddress, amount QoraAmount, asset_id AssetID, message ATMessage, "
 									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 

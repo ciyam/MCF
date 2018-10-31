@@ -34,7 +34,7 @@ public class GenesisBlock extends Block {
 
 	public GenesisBlock(Repository repository) throws DataException {
 		super(repository, new BlockData(GENESIS_BLOCK_VERSION, GENESIS_REFERENCE, 0, BigDecimal.ZERO.setScale(8), GENESIS_TRANSACTIONS_SIGNATURE, 1,
-				Settings.getInstance().getGenesisTimestamp(), GENESIS_GENERATING_BALANCE, GENESIS_GENERATOR_PUBLIC_KEY, GENESIS_GENERATOR_SIGNATURE, null, null));
+				Settings.getInstance().getGenesisTimestamp(), GENESIS_GENERATING_BALANCE, GENESIS_GENERATOR_PUBLIC_KEY, GENESIS_GENERATOR_SIGNATURE, 0, BigDecimal.ZERO.setScale(8)));
 
 		this.transactions = new ArrayList<Transaction>();
 
