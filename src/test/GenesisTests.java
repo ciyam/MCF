@@ -1,13 +1,12 @@
 package test;
 
-import static org.junit.Assert.*;
-
 import java.math.BigDecimal;
 import java.util.List;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterAll;
 
 import data.transaction.TransactionData;
 import qora.account.Account;
@@ -26,13 +25,13 @@ public class GenesisTests {
 
 	public static final String connectionUrl = "jdbc:hsqldb:mem:db/test;create=true;close_result=true;sql.strict_exec=true;sql.enforce_names=true;sql.syntax_mys=true";
 
-	@BeforeClass
+	@BeforeAll
 	public static void setRepository() throws DataException {
 		RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
 		RepositoryManager.setRepositoryFactory(repositoryFactory);
 	}
 
-	@AfterClass
+	@AfterAll
 	public static void closeRepository() throws DataException {
 		RepositoryManager.closeRepositoryFactory();
 	}
@@ -40,7 +39,7 @@ public class GenesisTests {
 	@Test
 	public void testGenesisBlockTransactions() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			assertEquals("Blockchain should be empty for this test", 0, repository.getBlockRepository().getBlockchainHeight());
+			assertEquals(0, repository.getBlockRepository().getBlockchainHeight(), "Blockchain should be empty for this test");
 
 			GenesisBlock block = new GenesisBlock(repository);
 

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<localization>	
+	<context locale="en">
+		
+		<context path="Api">
+			<context path="BlocksResource">
+				<context path="GET signature">
+					<translation key="operation:description" template="returns the block that matches the given signature" />
+					<translation key="success_response:description" template="the block" />
+				</context>
+				<context path="GET first">
+					<translation key="operation:description" template="returns the genesis block" />
+					<translation key="success_response:description" template="the block" />
+				</context>
+				<context path="GET last">
+					<translation key="operation:description" template="returns the last valid block" />
+					<translation key="success_response:description" template="the block" />
+				</context>
+				<context path="GET child:signature">
+					<translation key="operation:description" template="returns the child block of the block that matches the given signature" />
+					<translation key="success_response:description" template="the block" />
+				</context>
+				<context path="GET generatingbalance">
+					<translation key="operation:description" template="calculates the generating balance of the block that will follow the last block" />
+					<translation key="success_response:description" template="the generating balance" />
+				</context>
+				<context path="GET generatingbalance:signature">
+					<translation key="operation:description" template="calculates the generating balance of the block that will follow the block that matches the signature" />
+					<translation key="success_response:description" template="the block" />
+				</context>
+				<context path="GET time">
+					<translation key="operation:description" template="calculates the time it should take for the network to generate the next block" />
+					<translation key="success_response:description" template="the time" />
+				</context>
+				<context path="GET time:generatingbalance">
+					<translation key="operation:description" template="calculates the time it should take for the network to generate blocks when the current generating balance in the network is the specified generating balance" />
+					<translation key="success_response:description" template="the time" />
+				</context>
+				<context path="GET height">
+					<translation key="operation:description" template="returns the block height of the last block." />
+					<translation key="success_response:description" template="the height" />
+				</context>
+				<context path="GET height:signature">
+					<translation key="operation:description" template="returns the block height of the block that matches the given signature" />
+					<translation key="success_response:description" template="the height" />
+				</context>
+				<context path="GET byheight:height">
+					<translation key="operation:description" template="returns the block whith given height" />
+					<translation key="success_response:description" template="the block" />
+				</context>
+			</context>
+		</context>
+		
+	</context>
+
+</localization>

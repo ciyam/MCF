@@ -3,8 +3,9 @@ package data.block;
 import java.math.BigDecimal;
 
 import com.google.common.primitives.Bytes;
+import java.io.Serializable;
 
-public class BlockData {
+public class BlockData implements Serializable {
 
 	private byte[] signature;
 	private int version;
@@ -20,6 +21,8 @@ public class BlockData {
 	private int atCount;
 	private BigDecimal atFees;
 
+	private BlockData() {} // necessary for JAX-RS serialization
+	
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
 			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees) {
 		this.version = version;

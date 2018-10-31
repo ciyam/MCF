@@ -3,7 +3,8 @@ package test;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import data.transaction.PaymentTransactionData;
 import qora.account.PublicKeyAccount;

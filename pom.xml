@@ -4,6 +4,9 @@
 	<groupId>org.qora</groupId>
 	<artifactId>qora-core</artifactId>
 	<version>2.0.0-SNAPSHOT</version>
+	<properties>
+		<swagger-ui.version>3.19.0</swagger-ui.version>
+	</properties>
 	<build>
 		<sourceDirectory>src</sourceDirectory>
 		<plugins>
@@ -14,6 +17,74 @@
 					<source>1.8</source>
 					<target>1.8</target>
 				</configuration>
+			</plugin>
+			<!-- unpack swagger-ui to target folder -->
+			<plugin>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>swagger ui</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>unpack</goal>
+						</goals>
+						<configuration>
+							<artifactItems>
+								<artifactItem>
+									<groupId>org.webjars</groupId>
+									<artifactId>swagger-ui</artifactId>
+									<version>${swagger-ui.version}</version>
+								</artifactItem>
+							</artifactItems>
+							<outputDirectory>${project.build.directory}/swagger-ui.unpacked</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<!-- inject correct url to swagger json file into swwagger-ui -->
+			<plugin>
+				<groupId>com.google.code.maven-replacer-plugin</groupId>
+				<artifactId>replacer</artifactId>
+				<version>1.5.3</version>
+				<executions>
+					<execution>
+						<phase>generate-resources</phase>
+						<goals>
+							  <goal>replace</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<file>${project.build.directory}/swagger-ui.unpacked/META-INF/resources/webjars/swagger-ui/${swagger-ui.version}/index.html</file>
+					<replacements>
+						<replacement>
+							<token>https://petstore.swagger.io/v2/swagger.json</token>
+							<value>/openapi.json</value>
+						</replacement>
+					</replacements>
+				</configuration>
+			</plugin>
+			<!-- add swagger-ui as resource to output package -->
+			<plugin>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>3.1.0</version>
+				<executions>
+					<execution>
+						<id>copy-resources</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.directory}/classes/resources/swagger-ui</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${project.build.directory}/swagger-ui.unpacked/META-INF/resources/webjars/swagger-ui/${swagger-ui.version}</directory>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
@@ -117,6 +188,36 @@
 			<artifactId>sqltool</artifactId>
 			<version>2.4.1</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<version>5.3.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.hamcrest</groupId>
+			<artifactId>hamcrest-library</artifactId>
+			<version>1.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.glassfish.jersey.media</groupId>
+			<artifactId>jersey-media-multipart</artifactId>
+			<version>2.27</version>
+		</dependency>
+		<dependency>
+			<groupId>javax.mail</groupId>
+			<artifactId>mail</artifactId>
+			<version>1.5.0-b01</version>
+		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>swagger-ui</artifactId>
+			<version>${swagger-ui.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-rewrite</artifactId>
+			<version>9.4.11.v20180605</version>
 		</dependency>
 	</dependencies>
 </project>

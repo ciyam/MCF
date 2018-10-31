@@ -1,16 +1,20 @@
 package api;
 
+import globalization.ContextPaths;
 import globalization.Translator;
 import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
+import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.extensions.Extension;
+import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.ws.rs.Path;
@@ -49,6 +53,8 @@ public class ApiClient {
 		}
 	}
 
+	private static final String TRANSLATION_CONTEXT_PATH = "/Api/ApiClient";
+	
 	private static final Pattern COMMAND_PATTERN = Pattern.compile("^ *(?<method>GET|POST|PUT|PATCH|DELETE) *(?<path>.*)$");
 	private static final Pattern HELP_COMMAND_PATTERN = Pattern.compile("^ *help *(?<command>.*)$", Pattern.CASE_INSENSITIVE);
 	private static final List<Class<? extends Annotation>> HTTP_METHOD_ANNOTATIONS = Arrays.asList(
@@ -59,8 +65,8 @@ public class ApiClient {
 		DELETE.class
 	);
 
+	private final Translator translator;
 	ApiService apiService;
-	private Translator translator;
 	List<HelpInfo> helpInfos;
 
 	public ApiClient(ApiService apiService, Translator translator) {
@@ -83,8 +89,6 @@ public class ApiClient {
 	private List<HelpInfo> getHelpInfos(Iterable<Class<?>> resources) {
 		List<HelpInfo> result = new ArrayList<>();
 
-		// TODO: need some way to realize translation from resource annotations
-		
 		// scan each resource class
 		for (Class<?> resource : resources) {
 			if (OpenApiResource.class.isAssignableFrom(resource)) {
@@ -94,17 +98,27 @@ public class ApiClient {
 			if (resourcePath == null) {
 				continue;
 			}
-
 			String resourcePathString = resourcePath.value();
 
+			// get translation context path for resource
+			String resourceContextPath = "/";
+			OpenAPIDefinition openAPIDefinition = resource.getDeclaredAnnotation(OpenAPIDefinition.class);
+			if(openAPIDefinition != null)
+				resourceContextPath = getContextPath(openAPIDefinition.extensions());
+			
 			// scan each method
 			for (Method method : resource.getDeclaredMethods()) {
 				Operation operationAnnotation = method.getAnnotation(Operation.class);
-				if (operationAnnotation == null) {
+				if (operationAnnotation == null)
 					continue;
-				}
 
 				String description = operationAnnotation.description();
+				
+				// translate
+				String operationContextPath = ContextPaths.combinePaths(resourceContextPath, getContextPath(operationAnnotation.extensions()));
+				String operationDescriptionKey = getDescriptionTranslationKey(operationAnnotation.extensions());
+				if(operationDescriptionKey != null)
+					description = translator.translate(operationContextPath, operationDescriptionKey, description);
 				
 				// extract responses
 				ArrayList success = new ArrayList();
@@ -113,6 +127,20 @@ public class ApiClient {
 					String responseDescription = response.description();
 					if(StringUtils.isBlank(responseDescription))
 						continue; // ignore responses without description
+					
+					// translate
+					String responseContextPath = ContextPaths.combinePaths(operationContextPath, getContextPath(response.extensions()));
+					String responseDescriptionKey = getDescriptionTranslationKey(response.extensions());
+					if(responseDescriptionKey != null)
+						responseDescription = translator.translate(responseContextPath, responseDescriptionKey, responseDescription);
+					
+					String apiErrorCode = getApiErrorCode(response.extensions());
+					if(apiErrorCode != null) {
+						responseDescription = translator.translate(TRANSLATION_CONTEXT_PATH, "API error response", "(API error: ${ERROR_CODE}) ${DESCRIPTION}", 
+							new AbstractMap.SimpleEntry<>("ERROR_CODE", apiErrorCode), 
+							new AbstractMap.SimpleEntry<>("DESCRIPTION", responseDescription)
+						);
+					}
 					
 					try {
 						// try to identify response type by status code
@@ -164,6 +192,50 @@ public class ApiClient {
 
 		return result;
 	}
+	
+	private String getApiErrorCode(Extension[] extensions) {
+		if(extensions == null)
+			return null;
+		
+		for(Extension extension : extensions) {
+			if(extension.name() != null && !extension.name().isEmpty())
+				continue;
+
+			for(ExtensionProperty prop : extension.properties()) {
+				if(Constants.API_ERROR_CODE_EXTENSION_NAME.equals(prop.name())) {
+					return prop.value();
+				}
+			}
+		}
+		
+		return null;
+	}
+
+	private String getContextPath(Extension[] extensions) {
+		return getTranslationExtensionValue(extensions, Constants.TRANSLATION_PATH_EXTENSION_NAME);
+	}
+
+	private String getDescriptionTranslationKey(Extension[] extensions) {
+		return getTranslationExtensionValue(extensions, Constants.TRANSLATION_ANNOTATION_DESCRIPTION_KEY);
+	}
+
+	private String getTranslationExtensionValue(Extension[] extensions, String key) {
+		if(extensions == null)
+			return null;
+		
+		for(Extension extension : extensions) {
+			if(!Constants.TRANSLATION_EXTENSION_NAME.equals(extension.name()))
+				continue;
+
+			for(ExtensionProperty prop : extension.properties()) {
+				if(key.equals(prop.name())) {
+					return prop.value();
+				}
+			}
+		}
+		
+		return null;
+	}
 
 	private String getHelpPatternForPath(String path) {
 		path = path
@@ -205,7 +277,7 @@ public class ApiClient {
 
 		match = COMMAND_PATTERN.matcher(command);
 		if(!match.matches())
-			return this.translator.translate(Locale.getDefault(), "ApiClient: INVALID_COMMAND", "Invalid command! \nType help to get a list of commands.");
+			return this.translator.translate(TRANSLATION_CONTEXT_PATH, "invalid command", "Invalid command! \nType 'help all' to get a list of commands.");
 		
 		// send the command to the API service
 		String method = match.group("method");
@@ -223,13 +295,22 @@ public class ApiClient {
 		final int status = response.getStatus();
 		StringBuilder result = new StringBuilder();
 		if(status >= 400) {
-			result.append("HTTP Status ");
-			result.append(status);
-			if(!StringUtils.isBlank(body)) {
-				result.append(": ");
-				result.append(body);
+			if(StringUtils.isBlank(body)) {
+				result.append(
+					this.translator.translate(TRANSLATION_CONTEXT_PATH, "error without body", "HTTP Status ${STATUS}",
+						new AbstractMap.SimpleEntry<>("STATUS", status)
+					)
+				);
+			}else{
+				result.append(
+					this.translator.translate(TRANSLATION_CONTEXT_PATH, "error with body", "HTTP Status ${STATUS}: ${BODY}",
+						new AbstractMap.SimpleEntry<>("STATUS", status), 
+						new AbstractMap.SimpleEntry<>("BODY", body)
+					)
+				);
 			}
-			result.append("\nType help to get a list of commands.");
+			result.append("\n");
+			result.append(this.translator.translate(TRANSLATION_CONTEXT_PATH, "error footer", "Type 'help all' to get a list of commands."));
 		} else {
 			result.append(body);
 		}
@@ -240,13 +321,17 @@ public class ApiClient {
 		builder.append(help.fullPath + "\n");
 		builder.append("    " + help.description + "\n");
 		if(help.success != null && help.success.size() > 0) {
-			builder.append("    On success returns:\n");
+			builder.append("    ");
+			builder.append(this.translator.translate(TRANSLATION_CONTEXT_PATH, "help: success responses", "On success returns:"));
+			builder.append("\n");
 			for(String content : help.success) {
 				builder.append("        " + content + "\n");
 			}
 		}
 		if(help.errors != null && help.errors.size() > 0) {
-			builder.append("    On failure returns:\n");
+			builder.append("    ");
+			builder.append(this.translator.translate(TRANSLATION_CONTEXT_PATH, "help: failure responses", "On failure returns:"));
+			builder.append("\n");
 			for(String content : help.errors) {
 				builder.append("        " + content + "\n");
 			}

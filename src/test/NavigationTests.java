@@ -1,8 +1,7 @@
 package test;
 
-import static org.junit.Assert.*;
-
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import data.block.BlockData;
 import data.transaction.TransactionData;
@@ -20,8 +19,8 @@ public class NavigationTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TransactionRepository transactionRepository = repository.getTransactionRepository();
 
-			assertTrue("Migrate from old database to at least block 49778 before running this test",
-					repository.getBlockRepository().getBlockchainHeight() >= 49778);
+			assertTrue(repository.getBlockRepository().getBlockchainHeight() >= 49778,
+				"Migrate from old database to at least block 49778 before running this test");
 
 			String signature58 = "1211ZPwG3hk5evWzXCZi9hMDRpwumWmkENjwWkeTCik9xA5uoYnxzF7rwR5hmHH3kG2RXo7ToCAaRc7dvnynByJt";
 			byte[] signature = Base58.decode(signature58);
@@ -29,11 +28,11 @@ public class NavigationTests extends Common {
 			System.out.println("Navigating to Block from transaction " + signature58);
 
 			TransactionData transactionData = transactionRepository.fromSignature(signature);
-			assertNotNull("Transaction data not loaded from repository", transactionData);
-			assertEquals("Transaction data not PAYMENT type", TransactionType.PAYMENT, transactionData.getType());
+			assertNotNull(transactionData, "Transaction data not loaded from repository");
+			assertEquals(TransactionType.PAYMENT, transactionData.getType(), "Transaction data not PAYMENT type");
 
 			BlockData blockData = transactionRepository.getBlockDataFromSignature(signature);
-			assertNotNull("Block 49778 not loaded from database", blockData);
+			assertNotNull(blockData, "Block 49778 not loaded from database");
 
 			System.out.println("Block " + blockData.getHeight() + ", signature: " + Base58.encode(blockData.getSignature()));
 

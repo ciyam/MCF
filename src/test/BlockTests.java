@@ -1,11 +1,10 @@
 package test;
 
-import static org.junit.Assert.*;
-
 import java.math.BigDecimal;
 import java.util.List;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import data.block.BlockData;
 import data.transaction.TransactionData;
@@ -67,7 +66,7 @@ public class BlockTests extends Common {
 			// Block 949 has lots of varied transactions
 			// Blocks 390 & 754 have only payment transactions
 			BlockData blockData = repository.getBlockRepository().fromHeight(754);
-			assertNotNull("Block 754 is required for this test", blockData);
+			assertNotNull(blockData, "Block 754 is required for this test");
 
 			Block block = new Block(repository, blockData);
 			assertTrue(block.isSignatureValid());
@@ -108,7 +107,7 @@ public class BlockTests extends Common {
 			// Block 949 has lots of varied transactions
 			// Blocks 390 & 754 have only payment transactions
 			BlockData blockData = repository.getBlockRepository().fromHeight(754);
-			assertNotNull("Block 754 is required for this test", blockData);
+			assertNotNull(blockData, "Block 754 is required for this test");
 
 			Block block = new Block(repository, blockData);
 			assertTrue(block.isSignatureValid());

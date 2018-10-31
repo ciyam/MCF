@@ -1,11 +1,10 @@
 package test;
 
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Arrays;
 import java.util.List;
-
-import org.junit.Test;
 
 import data.block.BlockData;
 import data.transaction.GenesisTransactionData;
@@ -61,15 +60,15 @@ public class SerializationTests extends Common {
 
 		TransactionData parsedTransactionData = TransactionTransformer.fromBytes(bytes);
 
-		assertTrue("Transaction signature mismatch", Arrays.equals(transactionData.getSignature(), parsedTransactionData.getSignature()));
+		assertTrue(Arrays.equals(transactionData.getSignature(), parsedTransactionData.getSignature()), "Transaction signature mismatch");
 
-		assertEquals("Data length mismatch", TransactionTransformer.getDataLength(transactionData), bytes.length);
+		assertEquals(bytes.length, TransactionTransformer.getDataLength(transactionData), "Data length mismatch");
 	}
 
 	private void testSpecificBlockTransactions(int height, TransactionType type) throws DataException, TransformationException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
-			assertNotNull("Block " + height + " is required for this test", blockData);
+			assertNotNull(blockData, "Block " + height + " is required for this test");
 
 			Block block = new Block(repository, blockData);
 

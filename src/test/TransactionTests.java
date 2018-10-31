@@ -1,6 +1,8 @@
 package test;
 
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.AfterEach;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -10,8 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.json.simple.JSONObject;
-import org.junit.After;
-import org.junit.Test;
 
 import com.google.common.hash.HashCode;
 
@@ -97,7 +97,7 @@ public class TransactionTests {
 		RepositoryManager.setRepositoryFactory(repositoryFactory);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			assertEquals("Blockchain should be empty for this test", 0, repository.getBlockRepository().getBlockchainHeight());
+			assertEquals(0, repository.getBlockRepository().getBlockchainHeight(), "Blockchain should be empty for this test");
 		}
 
 		// [Un]set genesis timestamp as required by test
@@ -136,7 +136,7 @@ public class TransactionTests {
 		repository.saveChanges();
 	}
 
-	@After
+	@AfterEach
 	public void closeRepository() throws DataException {
 		RepositoryManager.closeRepositoryFactory();
 	}
@@ -176,8 +176,8 @@ public class TransactionTests {
 		block.addTransaction(paymentTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -185,21 +185,21 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(amount).subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
 
 		// Amount should be in recipient's balance
 		expectedBalance = amount;
 		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Recipient's new balance incorrect");
 
 		// Check recipient's reference
 		byte[] recipientsReference = recipient.getLastReference();
-		assertTrue("Recipient's new reference incorrect", Arrays.equals(paymentTransaction.getTransactionData().getSignature(), recipientsReference));
+		assertTrue(Arrays.equals(paymentTransaction.getTransactionData().getSignature(), recipientsReference), "Recipient's new reference incorrect");
 
 		// Orphan block
 		block.orphan();
@@ -207,11 +207,11 @@ public class TransactionTests {
 
 		// Check sender's balance
 		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
+		assertTrue(initialSenderBalance.compareTo(actualBalance) == 0, "Sender's reverted balance incorrect");
 
 		// Check generator's balance
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's new balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
+		assertTrue(initialGeneratorBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
 	}
 
 	@Test
@@ -237,8 +237,8 @@ public class TransactionTests {
 		block.addTransaction(registerNameTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -246,19 +246,19 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
 
 		// Check name was registered
 		NameData actualNameData = this.repository.getNameRepository().fromName(name);
 		assertNotNull(actualNameData);
 
 		// Check sender's reference
-		assertTrue("Sender's new reference incorrect", Arrays.equals(registerNameTransactionData.getSignature(), sender.getLastReference()));
+		assertTrue(Arrays.equals(registerNameTransactionData.getSignature(), sender.getLastReference()), "Sender's new reference incorrect");
 
 		// Update variables for use by other tests
 		reference = sender.getLastReference();
@@ -293,8 +293,8 @@ public class TransactionTests {
 		block.addTransaction(updateNameTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -338,8 +338,8 @@ public class TransactionTests {
 		block.addTransaction(sellNameTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -389,8 +389,8 @@ public class TransactionTests {
 		block.addTransaction(cancelSellNameTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -455,8 +455,8 @@ public class TransactionTests {
 		block.addTransaction(buyNameTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -508,8 +508,8 @@ public class TransactionTests {
 		block.addTransaction(createPollTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -517,19 +517,19 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
 
 		// Check poll was created
 		PollData actualPollData = this.repository.getVotingRepository().fromPollName(pollName);
 		assertNotNull(actualPollData);
 
 		// Check sender's reference
-		assertTrue("Sender's new reference incorrect", Arrays.equals(createPollTransactionData.getSignature(), sender.getLastReference()));
+		assertTrue(Arrays.equals(createPollTransactionData.getSignature(), sender.getLastReference()), "Sender's new reference incorrect");
 
 		// Update variables for use by other tests
 		reference = sender.getLastReference();
@@ -567,8 +567,8 @@ public class TransactionTests {
 			block.addTransaction(voteOnPollTransactionData);
 			block.sign();
 
-			assertTrue("Block signatures invalid", block.isSignatureValid());
-			assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+			assertTrue(block.isSignatureValid(), "Block signatures invalid");
+			assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 			block.process();
 			repository.saveChanges();
@@ -588,10 +588,10 @@ public class TransactionTests {
 		List<VoteOnPollData> votes = repository.getVotingRepository().getVotes(pollName);
 		assertNotNull(votes);
 
-		assertEquals("Only one vote expected", 1, votes.size());
+		assertEquals(1, votes.size(), "Only one vote expected");
 
-		assertEquals("Wrong vote option index", pollOptionsSize - 1, votes.get(0).getOptionIndex());
-		assertTrue("Wrong voter public key", Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()));
+		assertEquals(pollOptionsSize - 1, votes.get(0).getOptionIndex(), "Wrong vote option index");
+		assertTrue(Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()), "Wrong voter public key");
 
 		// Orphan last block
 		BlockData lastBlockData = repository.getBlockRepository().getLastBlock();
@@ -603,10 +603,10 @@ public class TransactionTests {
 		votes = repository.getVotingRepository().getVotes(pollName);
 		assertNotNull(votes);
 
-		assertEquals("Only one vote expected", 1, votes.size());
+		assertEquals(1, votes.size(), "Only one vote expected");
 
-		assertEquals("Wrong vote option index", pollOptionsSize - 1 - 1, votes.get(0).getOptionIndex());
-		assertTrue("Wrong voter public key", Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()));
+		assertEquals(pollOptionsSize - 1 - 1, votes.get(0).getOptionIndex(), "Wrong vote option index");
+		assertTrue(Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()), "Wrong voter public key");
 	}
 
 	@Test
@@ -634,8 +634,8 @@ public class TransactionTests {
 		block.addTransaction(issueAssetTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -643,12 +643,12 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
 
 		// Check we now have an assetId
 		Long assetId = issueAssetTransactionData.getAssetId();
@@ -672,11 +672,11 @@ public class TransactionTests {
 
 		// Check sender's balance
 		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
+		assertTrue(initialSenderBalance.compareTo(actualBalance) == 0, "Sender's reverted balance incorrect");
 
 		// Check generator's balance
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's reverted balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
+		assertTrue(initialGeneratorBalance.compareTo(actualBalance) == 0, "Generator's reverted balance incorrect");
 
 		// Check asset no longer exists
 		assertFalse(assetRepo.assetExists(assetId));
@@ -724,8 +724,8 @@ public class TransactionTests {
 		block.addTransaction(transferAssetTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -733,12 +733,12 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = originalSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
 
 		// Fee should be in generator's balance
 		expectedBalance = originalGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
 
 		// Check asset balances
 		BigDecimal actualSenderAssetBalance = sender.getConfirmedBalance(assetId);
@@ -756,11 +756,11 @@ public class TransactionTests {
 
 		// Check sender's balance
 		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's reverted balance incorrect", originalSenderBalance.compareTo(actualBalance) == 0);
+		assertTrue(originalSenderBalance.compareTo(actualBalance) == 0, "Sender's reverted balance incorrect");
 
 		// Check generator's balance
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's reverted balance incorrect", originalGeneratorBalance.compareTo(actualBalance) == 0);
+		assertTrue(originalGeneratorBalance.compareTo(actualBalance) == 0, "Generator's reverted balance incorrect");
 
 		// Check asset balances
 		actualSenderAssetBalance = sender.getConfirmedBalance(assetId);
@@ -828,8 +828,8 @@ public class TransactionTests {
 		block.addTransaction(createOrderTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -909,8 +909,8 @@ public class TransactionTests {
 		block.addTransaction(cancelOrderTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -984,8 +984,8 @@ public class TransactionTests {
 		block.addTransaction(createOrderTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -998,7 +998,7 @@ public class TransactionTests {
 		// Check order has trades
 		List<TradeData> trades = assetRepo.getOrdersTrades(orderId);
 		assertNotNull(trades);
-		assertEquals("Trade didn't happen", 1, trades.size());
+		assertEquals(1, trades.size(), "Trade didn't happen");
 		TradeData tradeData = trades.get(0);
 
 		// Check trade has correct values
@@ -1093,20 +1093,20 @@ public class TransactionTests {
 		block.addTransaction(multiPaymentTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
 
 		// Check sender's balance
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's new balance incorrect", expectedSenderBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedSenderBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
 
 		// Fee should be in generator's balance
 		BigDecimal expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
 
 		// Check recipients
 		for (int i = 0; i < payments.size(); ++i) {
@@ -1114,12 +1114,12 @@ public class TransactionTests {
 			Account recipient = new Account(this.repository, paymentData.getRecipient());
 
 			byte[] recipientsReference = recipient.getLastReference();
-			assertTrue("Recipient's new reference incorrect", Arrays.equals(multiPaymentTransaction.getTransactionData().getSignature(), recipientsReference));
+			assertTrue(Arrays.equals(multiPaymentTransaction.getTransactionData().getSignature(), recipientsReference), "Recipient's new reference incorrect");
 
 			// Amount should be in recipient's balance
 			expectedBalance = paymentData.getAmount();
 			actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
-			assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+			assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Recipient's new balance incorrect");
 
 		}
 
@@ -1129,11 +1129,11 @@ public class TransactionTests {
 
 		// Check sender's balance
 		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
+		assertTrue(initialSenderBalance.compareTo(actualBalance) == 0, "Sender's reverted balance incorrect");
 
 		// Check generator's balance
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's new balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
+		assertTrue(initialGeneratorBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
 	}
 
 	@Test
@@ -1163,8 +1163,8 @@ public class TransactionTests {
 		block.addTransaction(messageTransactionData);
 		block.sign();
 
-		assertTrue("Block signatures invalid", block.isSignatureValid());
-		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
+		assertTrue(block.isSignatureValid(), "Block signatures invalid");
+		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
 
 		block.process();
 		repository.saveChanges();
@@ -1172,17 +1172,17 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(amount).subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
 
 		// Amount should be in recipient's balance
 		expectedBalance = amount;
 		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
-		assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Recipient's new balance incorrect");
 	}
 
 }
