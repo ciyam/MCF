@@ -1,7 +1,9 @@
 package qora.transaction;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -95,8 +97,10 @@ public abstract class Transaction {
 		INVALID_ORDER_CREATOR(33),
 		INVALID_PAYMENTS_COUNT(34),
 		NEGATIVE_PRICE(35),
+		INVALID_CREATION_BYTES(36),
 		INVALID_TAGS_LENGTH(37),
 		INVALID_AT_TYPE_LENGTH(38),
+		INVALID_AT_TRANSACTION(39),
 		ASSET_ALREADY_EXISTS(43),
 		NOT_YET_RELEASED(1000);
 
@@ -347,6 +351,7 @@ public abstract class Transaction {
 	 * @return BlockData, or null if transaction is not in a Block
 	 * @throws DataException
 	 */
+	@Deprecated
 	public BlockData getBlock() throws DataException {
 		return this.repository.getTransactionRepository().getBlockDataFromSignature(this.transactionData.getSignature());
 	}
@@ -429,5 +434,52 @@ public abstract class Transaction {
 	 * @throws DataException
 	 */
 	public abstract void orphan() throws DataException;
+
+	// Comparison
+
+	/** Returns comparator that sorts ATTransactions first, then by timestamp, then by signature */
+	public static Comparator<Transaction> getComparator() {
+		class TransactionComparator implements Comparator<Transaction> {
+
+			// Compare by type, timestamp, then signature
+			@Override
+			public int compare(Transaction t1, Transaction t2) {
+				TransactionData td1 = t1.getTransactionData();
+				TransactionData td2 = t2.getTransactionData();
+
+				// AT transactions come before non-AT transactions
+				if (td1.getType() == TransactionType.AT && td2.getType() != TransactionType.AT)
+					return -1;
+				// Non-AT transactions come after AT transactions
+				if (td1.getType() != TransactionType.AT && td2.getType() == TransactionType.AT)
+					return 1;
+
+				// Both transactions are either AT or non-AT so compare timestamps
+				int result = Long.compare(td1.getTimestamp(), td2.getTimestamp());
+
+				if (result == 0)
+					// Same timestamp so compare signatures
+					result = new BigInteger(td1.getSignature()).compareTo(new BigInteger(td2.getSignature()));
+
+				return result;
+			}
+
+		}
+
+		return new TransactionComparator();
+	}
+
+	@Override
+	public int hashCode() {
+		return this.transactionData.hashCode();
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		if (!(other instanceof TransactionData))
+			return false;
+
+		return this.transactionData.equals(other);
+	}
 
 }

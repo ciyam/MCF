@@ -4,12 +4,17 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import data.PaymentData;
 import data.transaction.ArbitraryTransactionData;
@@ -30,6 +35,9 @@ public class ArbitraryTransaction extends Transaction {
 
 	// Properties
 	private ArbitraryTransactionData arbitraryTransactionData;
+
+	// Other properties
+	private static final Logger LOGGER = LogManager.getLogger(ArbitraryTransaction.class);
 
 	// Other useful constants
 	public static final int MAX_DATA_SIZE = 4000;
@@ -141,8 +149,11 @@ public class ArbitraryTransaction extends Transaction {
 			// Now store actual data somewhere, e.g. <userpath>/arbitrary/<sender address>/<block height>/<tx-sig>-<service>.raw
 			Account sender = this.getSender();
 			int blockHeight = this.repository.getBlockRepository().getBlockchainHeight();
-			String dataPathname = Settings.getInstance().getUserpath() + "arbitrary" + File.separator + sender.getAddress() + File.separator + blockHeight
-					+ File.separator + Base58.encode(arbitraryTransactionData.getSignature()) + "-" + arbitraryTransactionData.getService() + ".raw";
+
+			String senderPathname = Settings.getInstance().getUserpath() + "arbitrary" + File.separator + sender.getAddress();
+			String blockPathname = senderPathname + File.separator + blockHeight;
+			String dataPathname = blockPathname + File.separator + Base58.encode(arbitraryTransactionData.getSignature()) + "-"
+					+ arbitraryTransactionData.getService() + ".raw";
 
 			Path dataPath = Paths.get(dataPathname);
 
@@ -150,16 +161,16 @@ public class ArbitraryTransaction extends Transaction {
 			try {
 				Files.createDirectories(dataPath.getParent());
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				LOGGER.error("Unable to create arbitrary transaction directory", e);
+				throw new DataException("Unable to create arbitrary transaction directory", e);
 			}
 
 			// Output actual transaction data
 			try (OutputStream dataOut = Files.newOutputStream(dataPath)) {
 				dataOut.write(rawData);
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				LOGGER.error("Unable to store arbitrary transaction data", e);
+				throw new DataException("Unable to store arbitrary transaction data", e);
 			}
 		}
 
@@ -176,15 +187,27 @@ public class ArbitraryTransaction extends Transaction {
 		// Delete corresponding data file (if any - storing raw data is optional)
 		Account sender = this.getSender();
 		int blockHeight = this.repository.getBlockRepository().getBlockchainHeight();
-		String dataPathname = Settings.getInstance().getUserpath() + "arbitrary" + File.separator + sender.getAddress() + File.separator + blockHeight
-				+ File.separator + Base58.encode(arbitraryTransactionData.getSignature()) + "-" + arbitraryTransactionData.getService() + ".raw";
 
-		Path dataPath = Paths.get(dataPathname);
+		String senderPathname = Settings.getInstance().getUserpath() + "arbitrary" + File.separator + sender.getAddress();
+		String blockPathname = senderPathname + File.separator + blockHeight;
+		String dataPathname = blockPathname + File.separator + Base58.encode(arbitraryTransactionData.getSignature()) + "-"
+				+ arbitraryTransactionData.getService() + ".raw";
+
 		try {
-			Files.deleteIfExists(dataPath);
+			// Delete the actual arbitrary data
+			Files.delete(Paths.get(dataPathname));
+
+			// If block-directory now empty, delete that too
+			Files.delete(Paths.get(blockPathname));
+
+			// If sender-directory now empty, delete that too
+			Files.delete(Paths.get(senderPathname));
+		} catch (NoSuchFileException e) {
+			LOGGER.warn("Unable to remove old arbitrary transaction data at " + dataPathname);
+		} catch (DirectoryNotEmptyException e) {
+			// This happens when block-directory or sender-directory is not empty but is OK
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.warn("IOException when trying to remove old arbitrary transaction data", e);
 		}
 
 		// Delete this transaction itself

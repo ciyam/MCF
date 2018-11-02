@@ -80,7 +80,7 @@ public class CreatePollTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Are CreatePollTransactions even allowed at this point?
-		// XXX In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used?
+		// In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used
 		if (this.createPollTransactionData.getTimestamp() < BlockChain.getVotingReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
@@ -106,7 +106,7 @@ public class CreatePollTransaction extends Transaction {
 		if (this.repository.getVotingRepository().pollExists(createPollTransactionData.getPollName()))
 			return ValidationResult.POLL_ALREADY_EXISTS;
 
-		// XXX In gen1 we tested for votes but how can there be any if poll doesn't exist?
+		// In gen1 we tested for presence of existing votes but how could there be any if poll doesn't exist?
 
 		// Check number of options
 		List<PollOptionData> pollOptions = createPollTransactionData.getPollOptions();

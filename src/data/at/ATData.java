@@ -6,7 +6,7 @@ public class ATData {
 
 	// Properties
 	private String ATAddress;
-	private String creator;
+	private byte[] creatorPublicKey;
 	private long creation;
 	private int version;
 	private byte[] codeBytes;
@@ -19,10 +19,10 @@ public class ATData {
 
 	// Constructors
 
-	public ATData(String ATAddress, String creator, long creation, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight,
+	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight,
 			boolean isFinished, boolean hadFatalError, boolean isFrozen, BigDecimal frozenBalance) {
 		this.ATAddress = ATAddress;
-		this.creator = creator;
+		this.creatorPublicKey = creatorPublicKey;
 		this.creation = creation;
 		this.version = version;
 		this.codeBytes = codeBytes;
@@ -34,9 +34,9 @@ public class ATData {
 		this.frozenBalance = frozenBalance;
 	}
 
-	public ATData(String ATAddress, String creator, long creation, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight,
+	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight,
 			boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
-		this(ATAddress, creator, creation, version, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, (BigDecimal) null);
+		this(ATAddress, creatorPublicKey, creation, version, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, (BigDecimal) null);
 
 		// Convert Long frozenBalance to BigDecimal
 		if (frozenBalance != null)
@@ -49,8 +49,8 @@ public class ATData {
 		return this.ATAddress;
 	}
 
-	public String getCreator() {
-		return this.creator;
+	public byte[] getCreatorPublicKey() {
+		return this.creatorPublicKey;
 	}
 
 	public long getCreation() {

@@ -105,10 +105,11 @@ public class HSQLDBDatabaseUpdates {
 
 				case 1:
 					// Blocks
-					stmt.execute("CREATE TABLE Blocks (signature BlockSignature PRIMARY KEY, version TINYINT NOT NULL, reference BlockSignature, "
+					stmt.execute("CREATE TABLE Blocks (signature BlockSignature, version TINYINT NOT NULL, reference BlockSignature, "
 							+ "transaction_count INTEGER NOT NULL, total_fees QoraAmount NOT NULL, transactions_signature Signature NOT NULL, "
 							+ "height INTEGER NOT NULL, generation TIMESTAMP WITH TIME ZONE NOT NULL, generating_balance QoraAmount NOT NULL, "
-							+ "generator QoraPublicKey NOT NULL, generator_signature Signature NOT NULL, AT_count INTEGER NOT NULL, AT_fees QoraAmount NOT NULL)");
+							+ "generator QoraPublicKey NOT NULL, generator_signature Signature NOT NULL, AT_count INTEGER NOT NULL, AT_fees QoraAmount NOT NULL, "
+							+ "PRIMARY KEY (signature))");
 					// For finding blocks by height.
 					stmt.execute("CREATE INDEX BlockHeightIndex ON Blocks (height)");
 					// For finding blocks by the account that generated them.
@@ -121,30 +122,32 @@ public class HSQLDBDatabaseUpdates {
 
 				case 2:
 					// Generic transactions (null reference, creator and milestone_block for genesis transactions)
-					stmt.execute("CREATE TABLE Transactions (signature Signature PRIMARY KEY, reference Signature, type TINYINT NOT NULL, "
-							+ "creator QoraPublicKey, creation TIMESTAMP WITH TIME ZONE NOT NULL, fee QoraAmount NOT NULL, milestone_block BlockSignature)");
+					stmt.execute("CREATE TABLE Transactions (signature Signature, reference Signature, type TINYINT NOT NULL, "
+							+ "creator QoraPublicKey NOT NULL, creation TIMESTAMP WITH TIME ZONE NOT NULL, fee QoraAmount NOT NULL, milestone_block BlockSignature, "
+							+ "PRIMARY KEY (signature))");
 					// For finding transactions by transaction type.
 					stmt.execute("CREATE INDEX TransactionTypeIndex ON Transactions (type)");
-					// For finding transactions using timestamp.
+					// For finding transactions using creation timestamp.
 					stmt.execute("CREATE INDEX TransactionCreationIndex ON Transactions (creation)");
-					// For when a user wants to lookup ALL transactions they have created, regardless of type.
-					stmt.execute("CREATE INDEX TransactionCreatorIndex ON Transactions (creator)");
+					// For when a user wants to lookup ALL transactions they have created, with optional type.
+					stmt.execute("CREATE INDEX TransactionCreatorIndex ON Transactions (creator, type)");
 					// For finding transactions by reference, e.g. child transactions.
 					stmt.execute("CREATE INDEX TransactionReferenceIndex ON Transactions (reference)");
 					// Use a separate table space as this table will be very large.
 					stmt.execute("SET TABLE Transactions NEW SPACE");
 
-					// Transaction-Block mapping ("signature" is unique as a transaction cannot be included in more than one block)
-					stmt.execute("CREATE TABLE BlockTransactions (block_signature BlockSignature, sequence INTEGER, transaction_signature Signature, "
+					// Transaction-Block mapping ("transaction_signature" is unique as a transaction cannot be included in more than one block)
+					stmt.execute("CREATE TABLE BlockTransactions (block_signature BlockSignature, sequence INTEGER, transaction_signature Signature UNIQUE, "
 							+ "PRIMARY KEY (block_signature, sequence), FOREIGN KEY (transaction_signature) REFERENCES Transactions (signature) ON DELETE CASCADE, "
 							+ "FOREIGN KEY (block_signature) REFERENCES Blocks (signature) ON DELETE CASCADE)");
 					// Use a separate table space as this table will be very large.
 					stmt.execute("SET TABLE BlockTransactions NEW SPACE");
 
 					// Unconfirmed transactions
-					// XXX Do we need this? If a transaction doesn't have a corresponding BlockTransactions record then it's unconfirmed?
-					stmt.execute("CREATE TABLE UnconfirmedTransactions (signature Signature PRIMARY KEY, expiry TIMESTAMP WITH TIME ZONE NOT NULL)");
-					stmt.execute("CREATE INDEX UnconfirmedTransactionExpiryIndex ON UnconfirmedTransactions (expiry)");
+					// We use this as searching for transactions with no corresponding mapping in BlockTransactions is much slower.
+					stmt.execute("CREATE TABLE UnconfirmedTransactions (signature Signature PRIMARY KEY, creation TIMESTAMP WITH TIME ZONE NOT NULL)");
+					// Index to allow quick sorting by creation-else-signature
+					stmt.execute("CREATE INDEX UnconfirmedTransactionsIndex ON UnconfirmedTransactions (creation, signature)");
 
 					// Transaction recipients
 					stmt.execute("CREATE TABLE TransactionRecipients (signature Signature, recipient QoraAddress NOT NULL, "
@@ -276,6 +279,8 @@ public class HSQLDBDatabaseUpdates {
 							+ "description VARCHAR(2000) NOT NULL, AT_type ATType NOT NULL, AT_tags VARCHAR(200) NOT NULL, "
 							+ "creation_bytes VARBINARY(100000) NOT NULL, amount QoraAmount NOT NULL, AT_address QoraAddress, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// For looking up the Deploy AT Transaction based on deployed AT address
+					stmt.execute("CREATE INDEX DeployATAddressIndex on DeployATTransactions (AT_address)");
 					break;
 
 				case 20:
@@ -353,22 +358,29 @@ public class HSQLDBDatabaseUpdates {
 
 				case 27:
 					// CIYAM Automated Transactions
-					stmt.execute("CREATE TABLE ATs (AT_address QoraAddress, creator QoraAddress, creation TIMESTAMP WITH TIME ZONE, version INTEGER NOT NULL, "
-							+ "code_bytes ATCode NOT NULL, is_sleeping BOOLEAN NOT NULL, sleep_until_height INTEGER, "
-							+ "is_finished BOOLEAN NOT NULL, had_fatal_error BOOLEAN NOT NULL, is_frozen BOOLEAN NOT NULL, frozen_balance QoraAmount, "
-							+ "PRIMARY key (AT_address))");
+					stmt.execute(
+							"CREATE TABLE ATs (AT_address QoraAddress, creator QoraPublicKey, creation TIMESTAMP WITH TIME ZONE, version INTEGER NOT NULL, "
+									+ "code_bytes ATCode NOT NULL, is_sleeping BOOLEAN NOT NULL, sleep_until_height INTEGER, "
+									+ "is_finished BOOLEAN NOT NULL, had_fatal_error BOOLEAN NOT NULL, is_frozen BOOLEAN NOT NULL, frozen_balance QoraAmount, "
+									+ "PRIMARY key (AT_address))");
 					// For finding executable ATs, ordered by creation timestamp
-					stmt.execute("CREATE INDEX ATIndex on ATs (is_finished, creation, AT_address)");
+					stmt.execute("CREATE INDEX ATIndex on ATs (is_finished, creation)");
+					// For finding ATs by creator
+					stmt.execute("CREATE INDEX ATCreatorIndex on ATs (creator)");
+
 					// AT state on a per-block basis
 					stmt.execute("CREATE TABLE ATStates (AT_address QoraAddress, height INTEGER NOT NULL, creation TIMESTAMP WITH TIME ZONE, "
 							+ "state_data ATState, state_hash ATStateHash NOT NULL, fees QoraAmount NOT NULL, "
 							+ "PRIMARY KEY (AT_address, height), FOREIGN KEY (AT_address) REFERENCES ATs (AT_address) ON DELETE CASCADE)");
 					// For finding per-block AT states, ordered by creation timestamp
-					stmt.execute("CREATE INDEX BlockATStateIndex on ATStates (height, creation, AT_address)");
+					stmt.execute("CREATE INDEX BlockATStateIndex on ATStates (height, creation)");
+
 					// Generated AT Transactions
 					stmt.execute(
 							"CREATE TABLE ATTransactions (signature Signature, AT_address QoraAddress NOT NULL, recipient QoraAddress, amount QoraAmount, asset_id AssetID, message ATMessage, "
 									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// For finding AT Transactions generated by a specific AT
+					stmt.execute("CREATE INDEX ATTransactionsIndex on ATTransactions (AT_address)");
 					break;
 
 				default:

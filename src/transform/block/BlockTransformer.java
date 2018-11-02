@@ -310,7 +310,7 @@ public class BlockTransformer extends Transformer {
 					Order order = orderTransaction.getOrder();
 					List<TradeData> trades = order.getTrades();
 
-					// Filter out trades with initiatingOrderId that doesn't match this order
+					// Filter out trades with initiatingOrderId that don't match this order
 					trades.removeIf((TradeData tradeData) -> !Arrays.equals(tradeData.getInitiator(), order.getOrderData().getOrderId()));
 
 					// Any trades left?

@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.ciyam.at.MachineState;
+
 import com.google.common.base.Utf8;
 
 import data.transaction.DeployATTransactionData;
@@ -173,6 +175,12 @@ public class DeployATTransaction extends Transaction {
 		// Check creation bytes are valid (for v2+)
 		if (this.getVersion() >= 2) {
 			// Do actual validation
+			try {
+				new MachineState(deployATTransactionData.getCreationBytes());
+			} catch (IllegalArgumentException e) {
+				// Not valid
+				return ValidationResult.INVALID_CREATION_BYTES;
+			}
 		} else {
 			// Skip validation for old, dead ATs
 		}

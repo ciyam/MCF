@@ -1,7 +1,10 @@
 package data.transaction;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Arrays;
 
+import data.account.AccountData;
 import qora.transaction.Transaction.TransactionType;
 
 public abstract class TransactionData {
@@ -57,6 +60,37 @@ public abstract class TransactionData {
 
 	public void setSignature(byte[] signature) {
 		this.signature = signature;
+	}
+
+	// Comparison
+
+	@Override
+	public int hashCode() {
+		byte[] bytes = this.signature;
+
+		// No signature? Use reference instead
+		if (bytes == null)
+			bytes = this.reference;
+
+		return new BigInteger(bytes).intValue();
+	}
+
+	@Override
+	public boolean equals(Object other) {
+		// If we don't have a signature then fail
+		if (this.signature == null)
+			return false;
+
+		if (!(other instanceof TransactionData))
+			return false;
+
+		TransactionData otherTransactionData = (TransactionData) other;
+
+		// If other transactionData has no signature then fail
+		if (otherTransactionData.signature == null)
+			return false;
+
+		return Arrays.equals(this.signature, otherTransactionData.signature);
 	}
 
 }

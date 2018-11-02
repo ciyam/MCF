@@ -72,7 +72,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT balance FROM AccountBalances WHERE account = ? and asset_id = ?", address, assetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT balance FROM AccountBalances WHERE account = ? AND asset_id = ?", address, assetId)) {
 			if (resultSet == null)
 				return null;
 

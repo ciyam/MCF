@@ -30,7 +30,7 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 			String description = resultSet.getString(3);
 
 			try (ResultSet optionsResultSet = this.repository
-					.checkedExecute("SELECT option_name FROM CreatePollTransactionOptions where signature = ? ORDER BY option_index ASC", signature)) {
+					.checkedExecute("SELECT option_name FROM CreatePollTransactionOptions WHERE signature = ? ORDER BY option_index ASC", signature)) {
 				if (optionsResultSet == null)
 					return null;
 

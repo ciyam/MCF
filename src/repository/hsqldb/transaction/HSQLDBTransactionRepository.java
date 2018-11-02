@@ -102,6 +102,22 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
+	@Override
+	public TransactionData fromHeightAndSequence(int height, int sequence) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT transaction_signature FROM BlockTransactions JOIN Blocks ON signature = block_signature WHERE height = ? AND sequence = ?", height,
+				sequence)) {
+			if (resultSet == null)
+				return null;
+
+			byte[] signature = resultSet.getBytes(1);
+
+			return this.fromSignature(signature);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch transaction from repository", e);
+		}
+	}
+
 	private TransactionData fromBase(TransactionType type, byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee)
 			throws DataException {
 		switch (type) {
@@ -236,7 +252,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return null;
 
 		// Fetch block signature (if any)
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT block_signature from BlockTransactions WHERE transaction_signature = ? LIMIT 1",
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT block_signature FROM BlockTransactions WHERE transaction_signature = ? LIMIT 1",
 				signature)) {
 			if (resultSet == null)
 				return null;
@@ -246,6 +262,42 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return this.repository.getBlockRepository().fromSignature(blockSignature);
 		} catch (SQLException | DataException e) {
 			throw new DataException("Unable to fetch transaction's block from repository", e);
+		}
+	}
+
+	@Override
+	public List<TransactionData> getAllUnconfirmedTransactions() throws DataException {
+		List<TransactionData> transactions = new ArrayList<TransactionData>();
+
+		// Find transactions with no corresponding row in BlockTransactions
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT signature FROM UnconfirmedTransactions ORDER BY creation ASC, signature ASC")) {
+			if (resultSet == null)
+				return transactions;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				TransactionData transactionData = this.fromSignature(signature);
+
+				if (transactionData == null)
+					// Something inconsistent with the repository
+					throw new DataException("Unable to fetch unconfirmed transaction from repository?");
+
+				transactions.add(transactionData);
+			} while (resultSet.next());
+
+			return transactions;
+		} catch (SQLException | DataException e) {
+			throw new DataException("Unable to fetch unconfirmed transactions from repository", e);
+		}
+	}
+
+	@Override
+	public void confirmTransaction(byte[] signature) throws DataException {
+		try {
+			this.repository.delete("UnconfirmedTransactions", "signature = ?", signature);
+		} catch (SQLException e) {
+			throw new DataException("Unable to remove transaction from unconfirmed transactions repository", e);
 		}
 	}
 

@@ -35,7 +35,7 @@ public class HSQLDBVotingRepository implements VotingRepository {
 			long published = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 			try (ResultSet optionsResultSet = this.repository
-					.checkedExecute("SELECT option_name FROM PollOptions where poll_name = ? ORDER BY option_index ASC", pollName)) {
+					.checkedExecute("SELECT option_name FROM PollOptions WHERE poll_name = ? ORDER BY option_index ASC", pollName)) {
 				if (optionsResultSet == null)
 					return null;
 

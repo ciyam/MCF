@@ -31,7 +31,7 @@ public class HSQLDBATRepository implements ATRepository {
 			if (resultSet == null)
 				return null;
 
-			String creator = resultSet.getString(1);
+			byte[] creatorPublicKey = resultSet.getBytes(1);
 			long creation = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			int version = resultSet.getInt(3);
 			byte[] codeBytes = resultSet.getBytes(4); // Actually BLOB
@@ -49,7 +49,7 @@ public class HSQLDBATRepository implements ATRepository {
 			if (resultSet.wasNull())
 				frozenBalance = null;
 
-			return new ATData(atAddress, creator, creation, version, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen,
+			return new ATData(atAddress, creatorPublicKey, creation, version, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen,
 					frozenBalance);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT from repository", e);
@@ -57,10 +57,66 @@ public class HSQLDBATRepository implements ATRepository {
 	}
 
 	@Override
+	public List<ATData> getAllExecutableATs() throws DataException {
+		List<ATData> executableATs = new ArrayList<ATData>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT AT_address, creator, creation, version, code_bytes, is_sleeping, sleep_until_height, had_fatal_error, is_frozen, frozen_balance FROM ATs WHERE is_finished = false ORDER BY creation ASC")) {
+			if (resultSet == null)
+				return executableATs;
+
+			boolean isFinished = false;
+
+			do {
+				String atAddress = resultSet.getString(1);
+				byte[] creatorPublicKey = resultSet.getBytes(2);
+				long creation = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				int version = resultSet.getInt(4);
+				byte[] codeBytes = resultSet.getBytes(5); // Actually BLOB
+				boolean isSleeping = resultSet.getBoolean(6);
+
+				Integer sleepUntilHeight = resultSet.getInt(7);
+				if (resultSet.wasNull())
+					sleepUntilHeight = null;
+
+				boolean hadFatalError = resultSet.getBoolean(8);
+				boolean isFrozen = resultSet.getBoolean(9);
+
+				BigDecimal frozenBalance = resultSet.getBigDecimal(10);
+				if (resultSet.wasNull())
+					frozenBalance = null;
+
+				ATData atData = new ATData(atAddress, creatorPublicKey, creation, version, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen,
+						frozenBalance);
+
+				executableATs.add(atData);
+			} while (resultSet.next());
+
+			return executableATs;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch executable ATs from repository", e);
+		}
+	}
+
+	@Override
+	public Integer getATCreationBlockHeight(String atAddress) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT height from DeployATTransactions JOIN BlockTransactions ON transaction_signature = signature JOIN Blocks ON Blocks.signature = block_signature WHERE AT_address = ?",
+				atAddress)) {
+			if (resultSet == null)
+				return null;
+
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch AT's creation block height from repository", e);
+		}
+	}
+
+	@Override
 	public void save(ATData atData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ATs");
 
-		saveHelper.bind("AT_address", atData.getATAddress()).bind("creator", atData.getCreator()).bind("creation", new Timestamp(atData.getCreation()))
+		saveHelper.bind("AT_address", atData.getATAddress()).bind("creator", atData.getCreatorPublicKey()).bind("creation", new Timestamp(atData.getCreation()))
 				.bind("version", atData.getVersion()).bind("code_bytes", atData.getCodeBytes()).bind("is_sleeping", atData.getIsSleeping())
 				.bind("sleep_until_height", atData.getSleepUntilHeight()).bind("is_finished", atData.getIsFinished())
 				.bind("had_fatal_error", atData.getHadFatalError()).bind("is_frozen", atData.getIsFrozen()).bind("frozen_balance", atData.getFrozenBalance());
@@ -85,7 +141,7 @@ public class HSQLDBATRepository implements ATRepository {
 	// AT State
 
 	@Override
-	public ATStateData getATState(String atAddress, int height) throws DataException {
+	public ATStateData getATStateAtHeight(String atAddress, int height) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT creation, state_data, state_hash, fees FROM ATStates WHERE AT_address = ? AND height = ?", atAddress, height)) {
 			if (resultSet == null)
@@ -103,7 +159,26 @@ public class HSQLDBATRepository implements ATRepository {
 	}
 
 	@Override
-	public List<ATStateData> getBlockATStatesFromHeight(int height) throws DataException {
+	public ATStateData getLatestATState(String atAddress) throws DataException {
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT height, creation, state_data, state_hash, fees FROM ATStates WHERE AT_address = ? ORDER BY height DESC", atAddress)) {
+			if (resultSet == null)
+				return null;
+
+			int height = resultSet.getInt(1);
+			long creation = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			byte[] stateData = resultSet.getBytes(3); // Actually BLOB
+			byte[] stateHash = resultSet.getBytes(4);
+			BigDecimal fees = resultSet.getBigDecimal(5);
+
+			return new ATStateData(atAddress, height, creation, stateData, stateHash, fees);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch latest AT state from repository", e);
+		}
+	}
+
+	@Override
+	public List<ATStateData> getBlockATStatesAtHeight(int height) throws DataException {
 		List<ATStateData> atStates = new ArrayList<ATStateData>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT AT_address, state_hash, fees FROM ATStates WHERE height = ? ORDER BY creation ASC",

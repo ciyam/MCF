@@ -5,6 +5,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.primitives.Bytes;
+
 import data.assets.AssetData;
 import data.transaction.ATTransactionData;
 import data.transaction.TransactionData;
@@ -13,6 +15,8 @@ import qora.assets.Asset;
 import qora.crypto.Crypto;
 import repository.DataException;
 import repository.Repository;
+import transform.TransformationException;
+import transform.transaction.ATTransactionTransformer;
 
 public class ATTransaction extends Transaction {
 
@@ -28,6 +32,18 @@ public class ATTransaction extends Transaction {
 		super(repository, transactionData);
 
 		this.atTransactionData = (ATTransactionData) this.transactionData;
+
+		// Check whether we need to generate the ATTransaction's pseudo-signature
+		if (this.atTransactionData.getSignature() == null) {
+			// Signature is SHA2-256 of serialized transaction data, duplicated to make standard signature size of 64 bytes.
+			try {
+				byte[] digest = Crypto.digest(ATTransactionTransformer.toBytes(transactionData));
+				byte[] signature = Bytes.concat(digest, digest);
+				this.atTransactionData.setSignature(signature);
+			} catch (TransformationException e) {
+				throw new RuntimeException("Couldn't transform AT Transaction into bytes", e);
+			}
+		}
 	}
 
 	// More information
@@ -92,6 +108,14 @@ public class ATTransaction extends Transaction {
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		BigDecimal amount = this.atTransactionData.getAmount();
+		byte[] message = this.atTransactionData.getMessage();
+
+		// We can only have either message or amount
+		boolean amountIsZero = amount.compareTo(BigDecimal.ZERO.setScale(8)) == 0;
+		boolean messageIsEmpty = message.length == 0;
+
+		if ((messageIsEmpty && amountIsZero) || (!messageIsEmpty && !amountIsZero))
+			return ValidationResult.INVALID_AT_TRANSACTION;
 
 		// If we have no payment then we're done
 		if (amount == null)

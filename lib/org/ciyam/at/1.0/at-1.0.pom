@@ -5,4 +5,5 @@
   <groupId>org.ciyam</groupId>
   <artifactId>at</artifactId>
   <version>1.0</version>
+  <description>POM was created from install:install-file</description>
 </project>
