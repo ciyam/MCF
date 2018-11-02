@@ -9,6 +9,7 @@
 	</properties>
 	<build>
 		<sourceDirectory>src</sourceDirectory>
+		<testSourceDirectory>tests</testSourceDirectory>
 		<plugins>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -218,6 +219,11 @@
 			<groupId>org.eclipse.jetty</groupId>
 			<artifactId>jetty-rewrite</artifactId>
 			<version>9.4.11.v20180605</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bitcoinj</groupId>
+			<artifactId>bitcoinj-core</artifactId>
+			<version>0.14.7</version>
 		</dependency>
 	</dependencies>
 </project>
