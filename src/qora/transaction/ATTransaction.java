@@ -79,7 +79,8 @@ public class ATTransaction extends Transaction {
 				amount = amount.subtract(this.atTransactionData.getAmount());
 		}
 
-		if (address.equals(this.atTransactionData.getRecipient()) && this.atTransactionData.getAmount() != null)
+		if (address.equals(this.atTransactionData.getRecipient()) && this.atTransactionData.getAmount() != null
+				&& this.atTransactionData.getAssetId() == Asset.QORA)
 			amount = amount.add(this.atTransactionData.getAmount());
 
 		return amount;
@@ -118,7 +119,7 @@ public class ATTransaction extends Transaction {
 			return ValidationResult.INVALID_AT_TRANSACTION;
 
 		// If we have no payment then we're done
-		if (amount == null)
+		if (amountIsZero)
 			return ValidationResult.OK;
 
 		// Check amount is zero or positive

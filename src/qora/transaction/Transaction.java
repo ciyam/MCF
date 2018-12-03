@@ -101,6 +101,8 @@ public abstract class Transaction {
 		INVALID_TAGS_LENGTH(37),
 		INVALID_AT_TYPE_LENGTH(38),
 		INVALID_AT_TRANSACTION(39),
+		AT_IS_FINISHED(40),
+		ASSET_DOES_NOT_MATCH_AT(41),
 		ASSET_ALREADY_EXISTS(43),
 		NOT_YET_RELEASED(1000);
 
@@ -269,8 +271,10 @@ public abstract class Transaction {
 	public static int getVersionByTimestamp(long timestamp) {
 		if (timestamp < BlockChain.getPowFixReleaseTimestamp()) {
 			return 1;
-		} else {
+		} else if (timestamp < BlockChain.getQoraV2Timestamp()) {
 			return 3;
+		} else {
+			return 4;
 		}
 	}
 

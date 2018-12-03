@@ -222,7 +222,7 @@ public class HSQLDBDatabaseUpdates {
 					break;
 
 				case 12:
-					// Arbitrary/Multi-payment Transaction Payments
+					// Arbitrary/Multi-payment/Message/Payment Transaction Payments
 					stmt.execute("CREATE TABLE SharedTransactionPayments (signature Signature, recipient QoraAddress NOT NULL, "
 							+ "amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, "
 							+ "PRIMARY KEY (signature, recipient, asset_id), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
@@ -277,7 +277,7 @@ public class HSQLDBDatabaseUpdates {
 					// Deploy CIYAM AT Transactions
 					stmt.execute("CREATE TABLE DeployATTransactions (signature Signature, creator QoraPublicKey NOT NULL, AT_name ATName NOT NULL, "
 							+ "description VARCHAR(2000) NOT NULL, AT_type ATType NOT NULL, AT_tags VARCHAR(200) NOT NULL, "
-							+ "creation_bytes VARBINARY(100000) NOT NULL, amount QoraAmount NOT NULL, AT_address QoraAddress, "
+							+ "creation_bytes VARBINARY(100000) NOT NULL, amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, AT_address QoraAddress, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					// For looking up the Deploy AT Transaction based on deployed AT address
 					stmt.execute("CREATE INDEX DeployATAddressIndex on DeployATTransactions (AT_address)");
@@ -360,7 +360,7 @@ public class HSQLDBDatabaseUpdates {
 					// CIYAM Automated Transactions
 					stmt.execute(
 							"CREATE TABLE ATs (AT_address QoraAddress, creator QoraPublicKey, creation TIMESTAMP WITH TIME ZONE, version INTEGER NOT NULL, "
-									+ "code_bytes ATCode NOT NULL, is_sleeping BOOLEAN NOT NULL, sleep_until_height INTEGER, "
+									+ "asset_id AssetID NOT NULL, code_bytes ATCode NOT NULL, is_sleeping BOOLEAN NOT NULL, sleep_until_height INTEGER, "
 									+ "is_finished BOOLEAN NOT NULL, had_fatal_error BOOLEAN NOT NULL, is_frozen BOOLEAN NOT NULL, frozen_balance QoraAmount, "
 									+ "PRIMARY key (AT_address))");
 					// For finding executable ATs, ordered by creation timestamp

@@ -120,7 +120,7 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.NO_BALANCE;
 
 		// Check the asset name isn't already taken. This check is not present in gen1.
-		if (issueAssetTransactionData.getTimestamp() >= BlockChain.getIssueAssetV2Timestamp())
+		if (issueAssetTransactionData.getTimestamp() >= BlockChain.getQoraV2Timestamp())
 			if (this.repository.getAssetRepository().assetExists(issueAssetTransactionData.getAssetName()))
 				return ValidationResult.ASSET_ALREADY_EXISTS;
 

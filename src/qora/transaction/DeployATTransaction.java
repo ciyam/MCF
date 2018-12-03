@@ -12,6 +12,7 @@ import org.ciyam.at.MachineState;
 
 import com.google.common.base.Utf8;
 
+import data.assets.AssetData;
 import data.transaction.DeployATTransactionData;
 import data.transaction.TransactionData;
 import qora.account.Account;
@@ -157,6 +158,16 @@ public class DeployATTransaction extends Transaction {
 		if (deployATTransactionData.getAmount().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_AMOUNT;
 
+		long assetId = deployATTransactionData.getAssetId();
+		AssetData assetData = this.repository.getAssetRepository().fromAssetId(assetId);
+		// Check asset even exists
+		if (assetData == null)
+			return ValidationResult.ASSET_DOES_NOT_EXIST;
+
+		// Check asset amount is integer if asset is not divisible
+		if (!assetData.getIsDivisible() && deployATTransactionData.getAmount().stripTrailingZeros().scale() > 0)
+			return ValidationResult.INVALID_AMOUNT;
+
 		// Check fee is positive
 		if (deployATTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
@@ -168,9 +179,19 @@ public class DeployATTransaction extends Transaction {
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check creator has enough funds
-		BigDecimal minimumBalance = deployATTransactionData.getFee().add(deployATTransactionData.getAmount());
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(minimumBalance) < 0)
-			return ValidationResult.NO_BALANCE;
+		if (assetId == Asset.QORA) {
+			// Simple case: amount and fee both in Qora
+			BigDecimal minimumBalance = deployATTransactionData.getFee().add(deployATTransactionData.getAmount());
+
+			if (creator.getConfirmedBalance(Asset.QORA).compareTo(minimumBalance) < 0)
+				return ValidationResult.NO_BALANCE;
+		} else {
+			if (creator.getConfirmedBalance(Asset.QORA).compareTo(deployATTransactionData.getFee()) < 0)
+				return ValidationResult.NO_BALANCE;
+
+			if (creator.getConfirmedBalance(assetId).compareTo(deployATTransactionData.getAmount()) < 0)
+				return ValidationResult.NO_BALANCE;
+		}
 
 		// Check creation bytes are valid (for v2+)
 		if (this.getVersion() >= 2) {
@@ -199,9 +220,11 @@ public class DeployATTransaction extends Transaction {
 		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
+		long assetId = deployATTransactionData.getAssetId();
+
 		// Update creator's balance
 		Account creator = getCreator();
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(deployATTransactionData.getAmount()));
+		creator.setConfirmedBalance(assetId, creator.getConfirmedBalance(assetId).subtract(deployATTransactionData.getAmount()));
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(deployATTransactionData.getFee()));
 
 		// Update creator's reference
@@ -212,7 +235,7 @@ public class DeployATTransaction extends Transaction {
 		atAccount.setLastReference(deployATTransactionData.getSignature());
 
 		// Update AT's balance
-		atAccount.setConfirmedBalance(Asset.QORA, deployATTransactionData.getAmount());
+		atAccount.setConfirmedBalance(assetId, deployATTransactionData.getAmount());
 	}
 
 	@Override
@@ -224,15 +247,17 @@ public class DeployATTransaction extends Transaction {
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(deployATTransactionData);
 
+		long assetId = deployATTransactionData.getAssetId();
+
 		// Update creator's balance
 		Account creator = getCreator();
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(deployATTransactionData.getAmount()));
+		creator.setConfirmedBalance(assetId, creator.getConfirmedBalance(assetId).add(deployATTransactionData.getAmount()));
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(deployATTransactionData.getFee()));
 
 		// Update creator's reference
 		creator.setLastReference(deployATTransactionData.getReference());
 
-		// Delete AT's account
+		// Delete AT's account (and hence its balance)
 		this.repository.getAccountRepository().delete(this.deployATTransactionData.getATAddress());
 	}
 

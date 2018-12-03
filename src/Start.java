@@ -1,5 +1,4 @@
 
-import api.ApiClient;
 import api.ApiService;
 import repository.DataException;
 import repository.RepositoryFactory;
@@ -22,4 +21,5 @@ public class Start {
 		//String test = client.executeCommand("GET blocks/first");
 		//System.out.println(test);
 	}
+
 }

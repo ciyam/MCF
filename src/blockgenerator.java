@@ -3,12 +3,9 @@ import java.security.SecureRandom;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import qora.account.PrivateKeyAccount;
 import qora.block.BlockChain;
 import qora.block.BlockGenerator;
 import repository.DataException;
-import repository.Repository;
-import repository.RepositoryManager;
 import utils.Base58;
 
 public class blockgenerator {

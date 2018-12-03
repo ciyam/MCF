@@ -2,6 +2,7 @@ package transform.transaction;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.json.simple.JSONObject;
@@ -23,7 +24,8 @@ public class ATTransactionTransformer extends TransactionTransformer {
 	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH + DATA_SIZE_LENGTH;
+	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH
+			+ DATA_SIZE_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		throw new TransformationException("Serialized AT Transactions should not exist!");
@@ -49,7 +51,8 @@ public class ATTransactionTransformer extends TransactionTransformer {
 
 			Serialization.serializeAddress(bytes, atTransactionData.getRecipient());
 
-			if (atTransactionData.getAssetId() != null) {
+			// Only emit amount if greater than zero (safer than checking assetId)
+			if (atTransactionData.getAmount().compareTo(BigDecimal.ZERO) > 0) {
 				Serialization.serializeBigDecimal(bytes, atTransactionData.getAmount());
 				bytes.write(Longs.toByteArray(atTransactionData.getAssetId()));
 			}

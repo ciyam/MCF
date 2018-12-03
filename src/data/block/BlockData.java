@@ -7,6 +7,8 @@ import java.io.Serializable;
 
 public class BlockData implements Serializable {
 
+	private static final long serialVersionUID = -7678329659124664620L;
+
 	private byte[] signature;
 	private int version;
 	private byte[] reference;
@@ -21,8 +23,11 @@ public class BlockData implements Serializable {
 	private int atCount;
 	private BigDecimal atFees;
 
-	private BlockData() {} // necessary for JAX-RS serialization
-	
+	// necessary for JAX-RS serialization
+	@SuppressWarnings("unused")
+	private BlockData() {
+	}
+
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
 			BigDecimal generatingBalance, byte[] generatorPublicKey, byte[] generatorSignature, int atCount, BigDecimal atFees) {
 		this.version = version;

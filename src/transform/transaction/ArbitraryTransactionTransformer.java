@@ -50,7 +50,6 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		// V3+ allows payments but always return a list of payments, even if empty
 		List<PaymentData> payments = new ArrayList<PaymentData>();
-		;
 		if (version != 1) {
 			int paymentsCount = byteBuffer.getInt();
 
@@ -133,7 +132,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
 
-		if (arbitraryTransactionData.getVersion() == 1 || transactionData.getTimestamp() >= BlockChain.getArbitraryTransactionV2Timestamp())
+		if (arbitraryTransactionData.getVersion() == 1 || transactionData.getTimestamp() >= BlockChain.getQoraV2Timestamp())
 			return bytes;
 
 		// Special v1 version

@@ -10,6 +10,7 @@ import java.util.Map.Entry;
 
 import data.PaymentData;
 import data.assets.AssetData;
+import data.at.ATData;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
@@ -59,10 +60,19 @@ public class Payment {
 			if (!Crypto.isValidAddress(paymentData.getRecipient()))
 				return ValidationResult.INVALID_ADDRESS;
 
+			// Do not allow payments to finished/dead ATs
+			ATData atData = this.repository.getATRepository().fromATAddress(paymentData.getRecipient());
+			if (atData != null && atData.getIsFinished())
+				return ValidationResult.AT_IS_FINISHED;
+
 			AssetData assetData = assetRepository.fromAssetId(paymentData.getAssetId());
 			// Check asset even exists
 			if (assetData == null)
 				return ValidationResult.ASSET_DOES_NOT_EXIST;
+
+			// If we're sending to an AT then assetId must match AT's assetId
+			if (atData != null && atData.getAssetId() != paymentData.getAssetId())
+				return ValidationResult.ASSET_DOES_NOT_MATCH_AT;
 
 			// Check asset amount is integer if asset is not divisible
 			if (!assetData.getIsDivisible() && paymentData.getAmount().stripTrailingZeros().scale() > 0)

@@ -1,8 +1,6 @@
 package qora.at;
 
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -22,16 +20,12 @@ import data.at.ATData;
 import data.block.BlockData;
 import data.transaction.ATTransactionData;
 import data.transaction.MessageTransactionData;
-import data.transaction.PaymentTransactionData;
 import data.transaction.TransactionData;
 import qora.account.Account;
 import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
-import qora.block.Block;
 import qora.crypto.Crypto;
 import qora.transaction.ATTransaction;
-import qora.transaction.Transaction;
-import repository.BlockRepository;
 import repository.DataException;
 import repository.Repository;
 
@@ -116,10 +110,7 @@ public class QoraATAPI extends API {
 			// Block's signature is 128 bytes so we need to reduce this to 4 longs (32 bytes)
 			byte[] blockHash = Crypto.digest(blockData.getSignature());
 
-			this.setA1(state, fromBytes(blockHash, 0));
-			this.setA2(state, fromBytes(blockHash, 8));
-			this.setA3(state, fromBytes(blockHash, 16));
-			this.setA4(state, fromBytes(blockHash, 24));
+			this.setA(state, blockHash);
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch previous block?", e);
 		}
@@ -127,57 +118,11 @@ public class QoraATAPI extends API {
 
 	@Override
 	public void putTransactionAfterTimestampInA(Timestamp timestamp, MachineState state) {
-		// "Timestamp" is block height and transaction sequence
-		int height = timestamp.blockHeight;
-		int sequence = timestamp.transactionSequence + 1;
+		// Recipient is this AT
+		String recipient = this.atData.getATAddress();
 
-		Account atAccount = new Account(this.repository, this.atData.getATAddress());
-		BlockRepository blockRepository = this.repository.getBlockRepository();
-
-		try {
-			while (height <= blockRepository.getBlockchainHeight()) {
-				BlockData blockData = blockRepository.fromHeight(height);
-
-				if (blockData == null)
-					throw new DataException("Unable to fetch block " + height + " from repository?");
-
-				Block block = new Block(this.repository, blockData);
-
-				List<Transaction> transactions = block.getTransactions();
-
-				// No more transactions in this block? Try next block
-				if (sequence >= transactions.size()) {
-					++height;
-					sequence = 0;
-					continue;
-				}
-
-				Transaction transaction = transactions.get(sequence);
-
-				// Transaction needs to be sent to this AT
-				if (transaction.getRecipientAccounts().contains(atAccount)) {
-					// Found a transaction
-
-					this.setA1(state, new Timestamp(height, sequence).longValue());
-
-					// Hash transaction's signature into other three A fields for future verification that it's the same transaction
-					byte[] hash = sha192(transaction.getTransactionData().getSignature());
-
-					this.setA2(state, fromBytes(hash, 0));
-					this.setA3(state, fromBytes(hash, 8));
-					this.setA4(state, fromBytes(hash, 16));
-					return;
-				}
-
-				// Transaction wasn't for us - keep going
-				++sequence;
-			}
-
-			// No more transactions - zero A and exit
-			this.zeroA(state);
-		} catch (DataException e) {
-			throw new RuntimeException("AT API unable to fetch next transaction?", e);
-		}
+		BlockchainAPI blockchainAPI = BlockchainAPI.valueOf(timestamp.blockchainId);
+		blockchainAPI.putTransactionFromRecipientAfterTimestampInA(recipient, timestamp, state);
 	}
 
 	@Override
@@ -204,23 +149,9 @@ public class QoraATAPI extends API {
 
 	@Override
 	public long getAmountFromTransactionInA(MachineState state) {
-		TransactionData transactionData = this.fetchTransaction(state);
-
-		switch (transactionData.getType()) {
-			case PAYMENT:
-				return ((PaymentTransactionData) transactionData).getAmount().unscaledValue().longValue();
-
-			case AT:
-				BigDecimal amount = ((ATTransactionData) transactionData).getAmount();
-
-				if (amount != null)
-					return amount.unscaledValue().longValue();
-				else
-					return 0xffffffffffffffffL;
-
-			default:
-				return 0xffffffffffffffffL;
-		}
+		Timestamp timestamp = new Timestamp(state.getA1());
+		BlockchainAPI blockchainAPI = BlockchainAPI.valueOf(timestamp.blockchainId);
+		return blockchainAPI.getAmountFromTransactionInA(timestamp, state);
 	}
 
 	@Override
@@ -295,13 +226,7 @@ public class QoraATAPI extends API {
 		byte[] paddedMessageData = Bytes.ensureCapacity(messageData, 4 * 8, 0);
 
 		// Endian must be correct here so that (for example) a SHA256 message can be compared to one generated locally
-		ByteBuffer digestByteBuffer = ByteBuffer.wrap(paddedMessageData);
-		digestByteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-
-		this.setB1(state, digestByteBuffer.getLong());
-		this.setB2(state, digestByteBuffer.getLong());
-		this.setB3(state, digestByteBuffer.getLong());
-		this.setB4(state, digestByteBuffer.getLong());
+		this.setB(state, paddedMessageData);
 	}
 
 	@Override
@@ -311,14 +236,7 @@ public class QoraATAPI extends API {
 		// We actually use public key as it has more potential utility (e.g. message verification) than an address
 		byte[] bytes = transactionData.getCreatorPublicKey();
 
-		// Enforce endian
-		ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
-		byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-
-		this.setB1(state, byteBuffer.getLong());
-		this.setB2(state, byteBuffer.getLong());
-		this.setB3(state, byteBuffer.getLong());
-		this.setB4(state, byteBuffer.getLong());
+		this.setB(state, bytes);
 	}
 
 	@Override
@@ -326,19 +244,12 @@ public class QoraATAPI extends API {
 		// We actually use public key as it has more potential utility (e.g. message verification) than an address
 		byte[] bytes = atData.getCreatorPublicKey();
 
-		// Enforce endian
-		ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
-		byteBuffer.order(ByteOrder.LITTLE_ENDIAN);
-
-		this.setB1(state, byteBuffer.getLong());
-		this.setB2(state, byteBuffer.getLong());
-		this.setB3(state, byteBuffer.getLong());
-		this.setB4(state, byteBuffer.getLong());
+		this.setB(state, bytes);
 	}
 
 	@Override
 	public long getCurrentBalance(MachineState state) {
-		Account atAccount = new Account(this.repository, this.atData.getATAddress());
+		Account atAccount = this.getATAccount();
 
 		try {
 			return atAccount.getConfirmedBalance(Asset.QORA).unscaledValue().longValue();
@@ -348,15 +259,39 @@ public class QoraATAPI extends API {
 	}
 
 	@Override
-	public void payAmountToB(long amount, MachineState state) {
-		// TODO Auto-generated method stub
+	public void payAmountToB(long unscaledAmount, MachineState state) {
+		byte[] publicKey = state.getB();
 
+		PublicKeyAccount recipient = new PublicKeyAccount(this.repository, publicKey);
+
+		long timestamp = this.getNextTransactionTimestamp();
+		byte[] reference = this.getLastReference();
+		BigDecimal amount = BigDecimal.valueOf(unscaledAmount, 8);
+
+		ATTransactionData atTransactionData = new ATTransactionData(this.atData.getATAddress(), recipient.getAddress(), amount, this.atData.getAssetId(),
+				new byte[0], BigDecimal.ZERO.setScale(8), timestamp, reference);
+		ATTransaction atTransaction = new ATTransaction(this.repository, atTransactionData);
+
+		// Add to our transactions
+		this.transactions.add(atTransaction);
 	}
 
 	@Override
 	public void messageAToB(MachineState state) {
-		// TODO Auto-generated method stub
+		byte[] message = state.getA();
+		byte[] publicKey = state.getB();
 
+		PublicKeyAccount recipient = new PublicKeyAccount(this.repository, publicKey);
+
+		long timestamp = this.getNextTransactionTimestamp();
+		byte[] reference = this.getLastReference();
+
+		ATTransactionData atTransactionData = new ATTransactionData(this.atData.getATAddress(), recipient.getAddress(), BigDecimal.ZERO,
+				this.atData.getAssetId(), message, BigDecimal.ZERO.setScale(8), timestamp, reference);
+		ATTransaction atTransaction = new ATTransaction(this.repository, atTransactionData);
+
+		// Add to our transactions
+		this.transactions.add(atTransaction);
 	}
 
 	@Override
@@ -377,8 +312,8 @@ public class QoraATAPI extends API {
 		byte[] reference = this.getLastReference();
 		BigDecimal amount = BigDecimal.valueOf(finalBalance, 8);
 
-		ATTransactionData atTransactionData = new ATTransactionData(this.atData.getATAddress(), creator.getAddress(), amount, Asset.QORA, null,
-				BigDecimal.ZERO.setScale(8), timestamp, reference);
+		ATTransactionData atTransactionData = new ATTransactionData(this.atData.getATAddress(), creator.getAddress(), amount, this.atData.getAssetId(),
+				new byte[0], BigDecimal.ZERO.setScale(8), timestamp, reference);
 		ATTransaction atTransaction = new ATTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions
@@ -391,27 +326,33 @@ public class QoraATAPI extends API {
 	}
 
 	@Override
-	public void platformSpecificPreExecuteCheck(short functionCodeValue, int paramCount, boolean returnValueExpected) throws IllegalFunctionCodeException {
-		// Currently not in use
-		throw new IllegalFunctionCodeException("AT API platform-specific functions currently not in use");
+	public void platformSpecificPreExecuteCheck(int paramCount, boolean returnValueExpected, MachineState state, short rawFunctionCode)
+			throws IllegalFunctionCodeException {
+		QoraFunctionCode qoraFunctionCode = QoraFunctionCode.valueOf(rawFunctionCode);
+
+		if (qoraFunctionCode == null)
+			throw new IllegalFunctionCodeException("Unknown Qora function code 0x" + String.format("%04x", rawFunctionCode) + " encountered");
+
+		qoraFunctionCode.preExecuteCheck(2, true, state, rawFunctionCode);
 	}
 
 	@Override
-	public void platformSpecificPostCheckExecute(short functionCodeValue, FunctionData functionData, MachineState state) throws ExecutionException {
-		// Currently not in use
-		throw new ExecutionException("AT API platform-specific functions currently not in use");
+	public void platformSpecificPostCheckExecute(FunctionData functionData, MachineState state, short rawFunctionCode) throws ExecutionException {
+		QoraFunctionCode qoraFunctionCode = QoraFunctionCode.valueOf(rawFunctionCode);
+
+		qoraFunctionCode.execute(functionData, state, rawFunctionCode);
 	}
 
 	// Utility methods
 
 	/** Convert part of little-endian byte[] to long */
-	private static long fromBytes(byte[] bytes, int start) {
+	/* package */ static long fromBytes(byte[] bytes, int start) {
 		return (bytes[start] & 0xffL) | (bytes[start + 1] & 0xffL) << 8 | (bytes[start + 2] & 0xffL) << 16 | (bytes[start + 3] & 0xffL) << 24
 				| (bytes[start + 4] & 0xffL) << 32 | (bytes[start + 5] & 0xffL) << 40 | (bytes[start + 6] & 0xffL) << 48 | (bytes[start + 7] & 0xffL) << 56;
 	}
 
 	/** Returns SHA2-192 digest of input - used to verify transaction signatures */
-	private static byte[] sha192(byte[] input) {
+	public static byte[] sha192(byte[] input) {
 		try {
 			// SHA2-192
 			MessageDigest sha192 = MessageDigest.getInstance("SHA-192");
@@ -431,7 +372,7 @@ public class QoraATAPI extends API {
 	}
 
 	/** Returns transaction data from repository using block height & sequence from A1, checking the transaction signatures match too */
-	private TransactionData fetchTransaction(MachineState state) {
+	/* package */ TransactionData fetchTransaction(MachineState state) {
 		Timestamp timestamp = new Timestamp(state.getA1());
 
 		try {
@@ -448,6 +389,11 @@ public class QoraATAPI extends API {
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch transaction type?", e);
 		}
+	}
+
+	/** Returns AT's account */
+	/* package */ Account getATAccount() {
+		return new Account(this.repository, this.atData.getATAddress());
 	}
 
 	/** Returns AT's creator's account */
@@ -478,7 +424,7 @@ public class QoraATAPI extends API {
 			return this.transactions.get(this.transactions.size() - 1).getTransactionData().getSignature();
 
 		// No transactions yet, so look up AT's account's last reference from repository
-		Account atAccount = new Account(this.repository, this.atData.getATAddress());
+		Account atAccount = this.getATAccount();
 
 		try {
 			return atAccount.getLastReference();

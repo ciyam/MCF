@@ -9,6 +9,7 @@ public class ATData {
 	private byte[] creatorPublicKey;
 	private long creation;
 	private int version;
+	private long assetId;
 	private byte[] codeBytes;
 	private boolean isSleeping;
 	private Integer sleepUntilHeight;
@@ -19,12 +20,13 @@ public class ATData {
 
 	// Constructors
 
-	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight,
-			boolean isFinished, boolean hadFatalError, boolean isFrozen, BigDecimal frozenBalance) {
+	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, boolean isSleeping,
+			Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, BigDecimal frozenBalance) {
 		this.ATAddress = ATAddress;
 		this.creatorPublicKey = creatorPublicKey;
 		this.creation = creation;
 		this.version = version;
+		this.assetId = assetId;
 		this.codeBytes = codeBytes;
 		this.isSleeping = isSleeping;
 		this.sleepUntilHeight = sleepUntilHeight;
@@ -34,13 +36,14 @@ public class ATData {
 		this.frozenBalance = frozenBalance;
 	}
 
-	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, byte[] codeBytes, boolean isSleeping, Integer sleepUntilHeight,
-			boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
-		this(ATAddress, creatorPublicKey, creation, version, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen, (BigDecimal) null);
+	public ATData(String ATAddress, byte[] creatorPublicKey, long creation, int version, long assetId, byte[] codeBytes, boolean isSleeping,
+			Integer sleepUntilHeight, boolean isFinished, boolean hadFatalError, boolean isFrozen, Long frozenBalance) {
+		this(ATAddress, creatorPublicKey, creation, version, assetId, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen,
+				(BigDecimal) null);
 
 		// Convert Long frozenBalance to BigDecimal
 		if (frozenBalance != null)
-			this.frozenBalance = BigDecimal.valueOf(frozenBalance).setScale(8).divide(BigDecimal.valueOf(1e8));
+			this.frozenBalance = BigDecimal.valueOf(frozenBalance, 8);
 	}
 
 	// Getters / setters
@@ -59,6 +62,10 @@ public class ATData {
 
 	public int getVersion() {
 		return this.version;
+	}
+
+	public long getAssetId() {
+		return this.assetId;
 	}
 
 	public byte[] getCodeBytes() {

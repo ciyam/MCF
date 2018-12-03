@@ -18,7 +18,8 @@ public class HSQLDBDeployATTransactionRepository extends HSQLDBTransactionReposi
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT AT_name, description, AT_type, AT_tags, creation_bytes, amount, AT_address FROM DeployATTransactions WHERE signature = ?", signature)) {
+				"SELECT AT_name, description, AT_type, AT_tags, creation_bytes, amount, asset_id, AT_address FROM DeployATTransactions WHERE signature = ?",
+				signature)) {
 			if (resultSet == null)
 				return null;
 
@@ -28,14 +29,15 @@ public class HSQLDBDeployATTransactionRepository extends HSQLDBTransactionReposi
 			String tags = resultSet.getString(4);
 			byte[] creationBytes = resultSet.getBytes(5);
 			BigDecimal amount = resultSet.getBigDecimal(6).setScale(8);
+			long assetId = resultSet.getLong(7);
 
 			// Special null-checking for AT address
-			String ATAddress = resultSet.getString(7);
+			String ATAddress = resultSet.getString(8);
 			if (resultSet.wasNull())
 				ATAddress = null;
 
-			return new DeployATTransactionData(ATAddress, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, fee, timestamp, reference,
-					signature);
+			return new DeployATTransactionData(ATAddress, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp,
+					reference, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch deploy AT transaction from repository", e);
 		}
@@ -51,7 +53,7 @@ public class HSQLDBDeployATTransactionRepository extends HSQLDBTransactionReposi
 				.bind("AT_name", deployATTransactionData.getName()).bind("description", deployATTransactionData.getDescription())
 				.bind("AT_type", deployATTransactionData.getATType()).bind("AT_tags", deployATTransactionData.getTags())
 				.bind("creation_bytes", deployATTransactionData.getCreationBytes()).bind("amount", deployATTransactionData.getAmount())
-				.bind("AT_address", deployATTransactionData.getATAddress());
+				.bind("asset_id", deployATTransactionData.getAssetId()).bind("AT_address", deployATTransactionData.getATAddress());
 
 		try {
 			saveHelper.execute(this.repository);

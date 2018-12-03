@@ -13,12 +13,13 @@ public class DeployATTransactionData extends TransactionData {
 	private String tags;
 	private byte[] creationBytes;
 	private BigDecimal amount;
+	private long assetId;
 	private String ATAddress;
 
 	// Constructors
 
 	public DeployATTransactionData(String ATAddress, byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
-			BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+			BigDecimal amount, long assetId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.DEPLOY_AT, fee, creatorPublicKey, timestamp, reference, signature);
 
 		this.name = name;
@@ -26,18 +27,19 @@ public class DeployATTransactionData extends TransactionData {
 		this.ATType = ATType;
 		this.tags = tags;
 		this.amount = amount;
+		this.assetId = assetId;
 		this.creationBytes = creationBytes;
 		this.ATAddress = ATAddress;
 	}
 
 	public DeployATTransactionData(byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
-			BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(null, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, fee, timestamp, reference, signature);
+			BigDecimal amount, long assetId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+		this(null, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference, signature);
 	}
 
 	public DeployATTransactionData(byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
-			BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference) {
-		this(null, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, fee, timestamp, reference, null);
+			BigDecimal amount, long assetId, BigDecimal fee, long timestamp, byte[] reference) {
+		this(null, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference, null);
 	}
 
 	// Getters/Setters
@@ -64,6 +66,10 @@ public class DeployATTransactionData extends TransactionData {
 
 	public BigDecimal getAmount() {
 		return this.amount;
+	}
+
+	public long getAssetId() {
+		return this.assetId;
 	}
 
 	public String getATAddress() {

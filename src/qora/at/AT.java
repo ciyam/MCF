@@ -9,6 +9,7 @@ import org.ciyam.at.MachineState;
 import data.at.ATData;
 import data.at.ATStateData;
 import data.transaction.DeployATTransactionData;
+import qora.assets.Asset;
 import qora.crypto.Crypto;
 import qora.transaction.ATTransaction;
 import repository.ATRepository;
@@ -44,14 +45,15 @@ public class AT {
 		long creation = deployATTransactionData.getTimestamp();
 
 		byte[] creationBytes = deployATTransactionData.getCreationBytes();
+		long assetId = deployATTransactionData.getAssetId();
 		short version = (short) (creationBytes[0] | (creationBytes[1] << 8)); // Little-endian
 
 		if (version >= 2) {
 			MachineState machineState = new MachineState(deployATTransactionData.getCreationBytes());
 
-			this.atData = new ATData(atAddress, creatorPublicKey, creation, machineState.version, machineState.getCodeBytes(), machineState.getIsSleeping(),
-					machineState.getSleepUntilHeight(), machineState.getIsFinished(), machineState.getHadFatalError(), machineState.getIsFrozen(),
-					machineState.getFrozenBalance());
+			this.atData = new ATData(atAddress, creatorPublicKey, creation, machineState.version, assetId, machineState.getCodeBytes(),
+					machineState.getIsSleeping(), machineState.getSleepUntilHeight(), machineState.getIsFinished(), machineState.getHadFatalError(),
+					machineState.getIsFrozen(), machineState.getFrozenBalance());
 
 			byte[] stateData = machineState.toBytes();
 			byte[] stateHash = Crypto.digest(stateData);
@@ -95,8 +97,8 @@ public class AT {
 			boolean isFrozen = false;
 			Long frozenBalance = null;
 
-			this.atData = new ATData(atAddress, creatorPublicKey, creation, version, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError, isFrozen,
-					frozenBalance);
+			this.atData = new ATData(atAddress, creatorPublicKey, creation, version, Asset.QORA, codeBytes, isSleeping, sleepUntilHeight, isFinished,
+					hadFatalError, isFrozen, frozenBalance);
 
 			this.atStateData = new ATStateData(atAddress, height, creation, null, null, BigDecimal.ZERO.setScale(8));
 		}

@@ -90,7 +90,7 @@ public class CreateOrderTransactionTransformer extends TransactionTransformer {
 	 * @throws TransformationException
 	 */
 	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
-		if (transactionData.getTimestamp() >= BlockChain.getCreateOrderV2Timestamp())
+		if (transactionData.getTimestamp() >= BlockChain.getQoraV2Timestamp())
 			return TransactionTransformer.toBytesForSigningImpl(transactionData);
 
 		// Special v1 version

@@ -258,7 +258,7 @@ public class Block {
 			return 1;
 		else if (this.blockData.getTimestamp() < BlockChain.getPowFixReleaseTimestamp())
 			return 2;
-		else if (this.blockData.getTimestamp() < BlockChain.getDeployATV2Timestamp())
+		else if (this.blockData.getTimestamp() < BlockChain.getQoraV2Timestamp())
 			return 3;
 		else
 			return 4;

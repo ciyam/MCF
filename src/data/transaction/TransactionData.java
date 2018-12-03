@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Arrays;
 
-import data.account.AccountData;
 import qora.transaction.Transaction.TransactionType;
 
 public abstract class TransactionData {

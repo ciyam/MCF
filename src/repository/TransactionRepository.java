@@ -14,6 +14,7 @@ public interface TransactionRepository {
 
 	public TransactionData fromHeightAndSequence(int height, int sequence) throws DataException;
 
+	/** Returns block height containing transaction or 0 if not in a block or transaction doesn't exist */
 	public int getHeightFromSignature(byte[] signature) throws DataException;
 
 	@Deprecated

@@ -14,6 +14,7 @@ import com.google.common.primitives.Longs;
 
 import data.transaction.TransactionData;
 import qora.account.PublicKeyAccount;
+import qora.assets.Asset;
 import qora.block.BlockChain;
 import qora.transaction.DeployATTransaction;
 import data.transaction.DeployATTransactionData;
@@ -30,12 +31,16 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 	private static final int TAGS_SIZE_LENGTH = INT_LENGTH;
 	private static final int CREATION_BYTES_SIZE_LENGTH = INT_LENGTH;
 	private static final int AMOUNT_LENGTH = LONG_LENGTH;
+	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + AT_TYPE_SIZE_LENGTH
 			+ TAGS_SIZE_LENGTH + CREATION_BYTES_SIZE_LENGTH + AMOUNT_LENGTH;
+	private static final int V4_TYPELESS_LENGTH = TYPELESS_LENGTH + ASSET_ID_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
+
+		int version = DeployATTransaction.getVersionByTimestamp(timestamp);
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -59,20 +64,34 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer);
 
+		long assetId = Asset.QORA;
+		if (version >= 4)
+			assetId = byteBuffer.getLong();
+
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new DeployATTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount, fee, timestamp, reference, signature);
+		return new DeployATTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference,
+				signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		DeployATTransactionData deployATTransactionData = (DeployATTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_LENGTH + Utf8.encodedLength(deployATTransactionData.getName())
-				+ Utf8.encodedLength(deployATTransactionData.getDescription()) + Utf8.encodedLength(deployATTransactionData.getATType())
-				+ Utf8.encodedLength(deployATTransactionData.getTags()) + deployATTransactionData.getCreationBytes().length;
+		int dataLength = TYPE_LENGTH;
+
+		int version = DeployATTransaction.getVersionByTimestamp(transactionData.getTimestamp());
+
+		if (version >= 4)
+			dataLength += V4_TYPELESS_LENGTH;
+		else
+			dataLength += TYPELESS_LENGTH;
+
+		dataLength += Utf8.encodedLength(deployATTransactionData.getName()) + Utf8.encodedLength(deployATTransactionData.getDescription())
+				+ Utf8.encodedLength(deployATTransactionData.getATType()) + Utf8.encodedLength(deployATTransactionData.getTags())
+				+ deployATTransactionData.getCreationBytes().length;
 
 		return dataLength;
 	}
@@ -80,6 +99,8 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
 		try {
 			DeployATTransactionData deployATTransactionData = (DeployATTransactionData) transactionData;
+
+			int version = DeployATTransaction.getVersionByTimestamp(transactionData.getTimestamp());
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -103,6 +124,9 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 
 			Serialization.serializeBigDecimal(bytes, deployATTransactionData.getAmount());
 
+			if (version >= 4)
+				bytes.write(Longs.toByteArray(deployATTransactionData.getAssetId()));
+
 			Serialization.serializeBigDecimal(bytes, deployATTransactionData.getFee());
 
 			if (deployATTransactionData.getSignature() != null)
@@ -115,20 +139,19 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 	}
 
 	/**
-	 * In Qora v1, the bytes used for verification omit AT-type and tags so we need to test for v1-ness and adjust the bytes
-	 * accordingly.
+	 * In Qora v1, the bytes used for verification omit AT-type and tags so we need to test for v1-ness and adjust the bytes accordingly.
 	 * 
 	 * @param transactionData
 	 * @return byte[]
 	 * @throws TransformationException
 	 */
 	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
-		if (transactionData.getTimestamp() >= BlockChain.getDeployATV2Timestamp())
+		if (transactionData.getTimestamp() >= BlockChain.getQoraV2Timestamp())
 			return TransactionTransformer.toBytesForSigningImpl(transactionData);
 
 		// Special v1 version
 
-		// Easier to start from scratch 
+		// Easier to start from scratch
 		try {
 			DeployATTransactionData deployATTransactionData = (DeployATTransactionData) transactionData;
 
@@ -179,6 +202,7 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 			json.put("tags", deployATTransactionData.getTags());
 			json.put("creationBytes", HashCode.fromBytes(deployATTransactionData.getCreationBytes()).toString());
 			json.put("amount", deployATTransactionData.getAmount().toPlainString());
+			json.put("assetId", deployATTransactionData.getAssetId());
 		} catch (ClassCastException e) {
 			throw new TransformationException(e);
 		}

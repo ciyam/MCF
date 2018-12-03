@@ -55,7 +55,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 		byte[] assetReference = new byte[ASSET_REFERENCE_LENGTH];
 		// In v1, IssueAssetTransaction uses Asset.parse which also deserializes reference.
-		if (timestamp < BlockChain.getIssueAssetV2Timestamp())
+		if (timestamp < BlockChain.getQoraV2Timestamp())
 			byteBuffer.get(assetReference);
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
@@ -73,7 +73,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 				+ Utf8.encodedLength(issueAssetTransactionData.getDescription());
 
 		// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes reference.
-		if (transactionData.getTimestamp() < BlockChain.getIssueAssetV2Timestamp())
+		if (transactionData.getTimestamp() < BlockChain.getQoraV2Timestamp())
 			dataLength += ASSET_REFERENCE_LENGTH;
 
 		return dataLength;
@@ -100,7 +100,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 			bytes.write((byte) (issueAssetTransactionData.getIsDivisible() ? 1 : 0));
 
 			// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes Asset's reference which is the IssueAssetTransaction's signature
-			if (transactionData.getTimestamp() < BlockChain.getIssueAssetV2Timestamp()) {
+			if (transactionData.getTimestamp() < BlockChain.getQoraV2Timestamp()) {
 				byte[] assetReference = issueAssetTransactionData.getSignature();
 				if (assetReference != null)
 					bytes.write(assetReference);
@@ -130,7 +130,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
 		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
 
-		if (transactionData.getTimestamp() >= BlockChain.getIssueAssetV2Timestamp())
+		if (transactionData.getTimestamp() >= BlockChain.getQoraV2Timestamp())
 			return bytes;
 
 		// Special v1 version
