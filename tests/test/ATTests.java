@@ -12,6 +12,7 @@ import data.at.ATStateData;
 import data.block.BlockData;
 import data.block.BlockTransactionData;
 import data.transaction.DeployATTransactionData;
+import qora.assets.Asset;
 import qora.transaction.DeployATTransaction;
 import repository.DataException;
 import repository.Repository;
@@ -45,8 +46,8 @@ public class ATTests extends Common {
 		byte[] reference = Base58.decode("2D3jX1pEgu6irsQ7QzJb85QP1D9M45dNyP5M9a3WFHndU5ZywF4F5pnUurcbzMnGMcTwpAY6H7DuLw8cUBU66ao1");
 		byte[] signature = Base58.decode("2dZ4megUyNoYYY7qWmuSd4xw1yUKgPPF97yBbeddh8aKuC8PLpz7Xvf3r6Zjv1zwGrR8fEAHuaztCPD4KQp76KdL");
 
-		DeployATTransactionData transactionData = new DeployATTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount, fee,
-				timestamp, reference, signature);
+		DeployATTransactionData transactionData = new DeployATTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount,
+				Asset.QORA, fee, timestamp, reference, signature);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.getTransactionRepository().save(transactionData);

@@ -51,7 +51,7 @@
 					<execution>
 						<phase>generate-resources</phase>
 						<goals>
-							  <goal>replace</goal>
+							<goal>replace</goal>
 						</goals>
 					</execution>
 				</executions>
@@ -224,6 +224,24 @@
 			<groupId>org.bitcoinj</groupId>
 			<artifactId>bitcoinj-core</artifactId>
 			<version>0.14.7</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15on -->
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk15on</artifactId>
+			<version>1.60</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>1.7.12</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-simple -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-simple</artifactId>
+			<version>1.7.12</version>
 		</dependency>
 	</dependencies>
 </project>

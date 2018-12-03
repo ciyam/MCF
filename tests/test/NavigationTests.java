@@ -20,7 +20,7 @@ public class NavigationTests extends Common {
 			TransactionRepository transactionRepository = repository.getTransactionRepository();
 
 			assertTrue(repository.getBlockRepository().getBlockchainHeight() >= 49778,
-				"Migrate from old database to at least block 49778 before running this test");
+					"Migrate from old database to at least block 49778 before running this test");
 
 			String signature58 = "1211ZPwG3hk5evWzXCZi9hMDRpwumWmkENjwWkeTCik9xA5uoYnxzF7rwR5hmHH3kG2RXo7ToCAaRc7dvnynByJt";
 			byte[] signature = Base58.decode(signature58);
@@ -31,9 +31,12 @@ public class NavigationTests extends Common {
 			assertNotNull(transactionData, "Transaction data not loaded from repository");
 			assertEquals(TransactionType.PAYMENT, transactionData.getType(), "Transaction data not PAYMENT type");
 
-			BlockData blockData = transactionRepository.getBlockDataFromSignature(signature);
-			assertNotNull(blockData, "Block 49778 not loaded from database");
+			int transactionHeight = transactionRepository.getHeightFromSignature(signature);
+			assertNotEquals(0, transactionHeight, "Transaction not found or transaction's block not found");
+			assertEquals(49778, transactionHeight, "Transaction's block height expected to be 49778");
 
+			BlockData blockData = repository.getBlockRepository().fromHeight(transactionHeight);
+			assertNotNull(blockData, "Block 49778 not loaded from database");
 			System.out.println("Block " + blockData.getHeight() + ", signature: " + Base58.encode(blockData.getSignature()));
 
 			assertEquals((Integer) 49778, blockData.getHeight());
