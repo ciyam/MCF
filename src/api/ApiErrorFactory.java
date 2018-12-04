@@ -34,6 +34,8 @@ public class ApiErrorFactory {
 		this.errorMessages.put(ApiError.JSON, createErrorMessageEntry(ApiError.JSON, "failed to parse json message"));
 		this.errorMessages.put(ApiError.NO_BALANCE, createErrorMessageEntry(ApiError.NO_BALANCE, "not enough balance"));
 		this.errorMessages.put(ApiError.NOT_YET_RELEASED, createErrorMessageEntry(ApiError.NOT_YET_RELEASED, "that feature is not yet released"));
+		this.errorMessages.put(ApiError.UNAUTHORIZED, createErrorMessageEntry(ApiError.UNAUTHORIZED, "api call unauthorized"));
+		this.errorMessages.put(ApiError.REPOSITORY_ISSUE, createErrorMessageEntry(ApiError.REPOSITORY_ISSUE, "repository error"));
 
 		//VALIDATION		
 		this.errorMessages.put(ApiError.INVALID_SIGNATURE, createErrorMessageEntry(ApiError.INVALID_SIGNATURE, "invalid signature"));
@@ -68,13 +70,13 @@ public class ApiErrorFactory {
 		this.errorMessages.put(ApiError.WALLET_ADDRESS_NO_EXISTS, createErrorMessageEntry(ApiError.WALLET_ADDRESS_NO_EXISTS, "address does not exist in wallet"));
 		this.errorMessages.put(ApiError.WALLET_LOCKED, createErrorMessageEntry(ApiError.WALLET_LOCKED, "wallet is locked"));
 		this.errorMessages.put(ApiError.WALLET_ALREADY_EXISTS, createErrorMessageEntry(ApiError.WALLET_ALREADY_EXISTS, "wallet already exists"));
-		this.errorMessages.put(ApiError.WALLET_API_CALL_FORBIDDEN_BY_USER, createErrorMessageEntry(ApiError.WALLET_API_CALL_FORBIDDEN_BY_USER, "user denied api call"));
+		this.errorMessages.put(ApiError.WALLET_API_CALL_FORBIDDEN_BY_USER, createErrorMessageEntry(ApiError.WALLET_API_CALL_FORBIDDEN_BY_USER, "wallet denied api call"));
 
 		//BLOCK
 		this.errorMessages.put(ApiError.BLOCK_NO_EXISTS, createErrorMessageEntry(ApiError.BLOCK_NO_EXISTS, "block does not exist"));
 
 		//TRANSACTIONS
-		this.errorMessages.put(ApiError.TRANSACTION_NO_EXISTS, createErrorMessageEntry(ApiError.TRANSACTION_NO_EXISTS, "transactions does not exist"));
+		this.errorMessages.put(ApiError.TRANSACTION_NO_EXISTS, createErrorMessageEntry(ApiError.TRANSACTION_NO_EXISTS, "transaction does not exist"));
 		this.errorMessages.put(ApiError.PUBLIC_KEY_NOT_FOUND, createErrorMessageEntry(ApiError.PUBLIC_KEY_NOT_FOUND, "public key not found"));
 
 		//NAMING
@@ -130,7 +132,7 @@ public class ApiErrorFactory {
 		//MESSAGES
 		this.errorMessages.put(ApiError.MESSAGE_FORMAT_NOT_HEX, createErrorMessageEntry(ApiError.MESSAGE_FORMAT_NOT_HEX, "the Message format is not hex - correct the text or use isTextMessage = true"));
 		this.errorMessages.put(ApiError.MESSAGE_BLANK, createErrorMessageEntry(ApiError.MESSAGE_BLANK, "The message attribute is missing or content is blank"));
-		this.errorMessages.put(ApiError.NO_PUBLIC_KEY, createErrorMessageEntry(ApiError.NO_PUBLIC_KEY, "The recipient has not yet performed any action in the blockchain.\nYou can't send an encrypted message to him."));
+		this.errorMessages.put(ApiError.NO_PUBLIC_KEY, createErrorMessageEntry(ApiError.NO_PUBLIC_KEY, "The recipient has not yet performed any action in the blockchain.\nYou can't send an encrypted message to them."));
 		this.errorMessages.put(ApiError.MESSAGESIZE_EXCEEDED, createErrorMessageEntry(ApiError.MESSAGESIZE_EXCEEDED, "Message size exceeded!"));
 
 	}

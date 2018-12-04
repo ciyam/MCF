@@ -2,13 +2,14 @@ package api;
 
 import data.block.BlockData;
 import globalization.Translator;
-import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.extensions.Extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.math.BigDecimal;
 import javax.servlet.http.HttpServletRequest;
 
@@ -19,18 +20,18 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import qora.block.Block;
-
+import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
 import utils.Base58;
 
 @Path("blocks")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
-@OpenAPIDefinition(
-	extensions = @Extension(name = "translation", properties = {
+@Extension(name = "translation", properties = {
 		@ExtensionProperty(name="path", value="/Api/BlocksResource")
-	})
+	}
 )
+@Tag(name = "blocks")
 public class BlocksResource {
 
 	@Context
@@ -49,6 +50,7 @@ public class BlocksResource {
 	@GET
 	@Path("/{signature}")
 	@Operation(
+		summary = "Fetch block using base58 signature",
 		description = "returns the block that matches the given signature",
 		extensions = {
 			@Extension(name = "translation", properties = {
@@ -104,6 +106,7 @@ public class BlocksResource {
 	@GET
 	@Path("/first")
 	@Operation(
+		summary = "Fetch genesis block",
 		description = "returns the genesis block",
 		extensions = @Extension(name = "translation", properties = {
 			@ExtensionProperty(name="path", value="GET first"),
@@ -138,6 +141,7 @@ public class BlocksResource {
 	@GET
 	@Path("/last")
 	@Operation(
+		summary = "Fetch last/newest block in blockchain",
 		description = "returns the last valid block",
 		extensions = @Extension(name = "translation", properties = {
 			@ExtensionProperty(name="path", value="GET last"),
@@ -172,6 +176,7 @@ public class BlocksResource {
 	@GET
 	@Path("/child/{signature}")
 	@Operation(
+		summary = "Fetch child block using base58 signature of parent block",
 		description = "returns the child block of the block that matches the given signature",
 		extensions = {
 			@Extension(name = "translation", properties = {
@@ -199,36 +204,31 @@ public class BlocksResource {
 
 		// decode signature
 		byte[] signatureBytes;
-		try
-		{
+		try {
 			signatureBytes = Base58.decode(signature);
-		}
-		catch(Exception e)
-		{
-            throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+		} catch (NumberFormatException e) {
+			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
-				
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+
 			// check if block exists
 			if(blockData == null)
 				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
 
-			int height = blockData.getHeight();
-            BlockData childBlockData = repository.getBlockRepository().fromHeight(height + 1);
+			BlockData childBlockData = repository.getBlockRepository().fromReference(signatureBytes);
 
 			// check if child exists
 			if(childBlockData == null)
 				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
 
 			return childBlockData;
-			
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET

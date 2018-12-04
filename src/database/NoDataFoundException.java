@@ -7,6 +7,7 @@ import java.sql.SQLException;
  * 
  */
 @SuppressWarnings("serial")
+@Deprecated
 public class NoDataFoundException extends SQLException {
 
 	public NoDataFoundException() {

@@ -6,11 +6,15 @@ import org.apache.logging.log4j.Logger;
 import qora.block.BlockChain;
 import qora.block.BlockGenerator;
 import repository.DataException;
+import repository.RepositoryFactory;
+import repository.RepositoryManager;
+import repository.hsqldb.HSQLDBRepositoryFactory;
 import utils.Base58;
 
 public class blockgenerator {
 
 	private static final Logger LOGGER = LogManager.getLogger(blockgenerator.class);
+	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
 
 	public static void main(String[] args) {
 		if (args.length != 1) {
@@ -29,7 +33,8 @@ public class blockgenerator {
 		}
 
 		try {
-			test.Common.setRepository();
+			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
+			RepositoryManager.setRepositoryFactory(repositoryFactory);
 		} catch (DataException e) {
 			LOGGER.error("Couldn't connect to repository", e);
 			System.exit(2);
@@ -58,7 +63,7 @@ public class blockgenerator {
 				}
 
 				try {
-					test.Common.closeRepository();
+					RepositoryManager.closeRepositoryFactory();
 				} catch (DataException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();

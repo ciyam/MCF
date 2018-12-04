@@ -266,6 +266,27 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public List<byte[]> getAllSignaturesInvolvingAddress(String address) throws DataException {
+		List<byte[]> signatures = new ArrayList<byte[]>();
+
+		// XXX We need a table for all parties involved in a transaction, not just recipients
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT signature FROM TransactionRecipients WHERE recipient = ?", address)) {
+			if (resultSet == null)
+				return signatures;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				signatures.add(signature);
+			} while (resultSet.next());
+
+			return signatures;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch involved transaction signatures from repository", e);
+		}
+	}
+
+	@Override
 	public List<TransactionData> getAllUnconfirmedTransactions() throws DataException {
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 

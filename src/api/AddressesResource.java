@@ -1,17 +1,19 @@
 package api;
 
-import data.account.AccountData;
-import data.block.BlockData;
 import globalization.Translator;
-import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.extensions.Extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.math.BigDecimal;
+import java.util.List;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -19,6 +21,8 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+
+import data.account.AccountBalanceData;
 import qora.account.Account;
 import qora.assets.Asset;
 import qora.crypto.Crypto;
@@ -28,11 +32,11 @@ import utils.Base58;
 
 @Path("addresses")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
-@OpenAPIDefinition(
-	extensions = @Extension(name = "translation", properties = {
+@Extension(name = "translation", properties = {
 		@ExtensionProperty(name="path", value="/Api/AddressesResource")
-	})
+	}
 )
+@Tag(name = "addresses")
 public class AddressesResource {
 
 	@Context
@@ -51,7 +55,8 @@ public class AddressesResource {
 	@GET
 	@Path("/lastreference/{address}")
 	@Operation(
-		description = "Returns the 64-byte long base58-encoded signature of last transaction where the address is delivered as creator. Or the first incoming transaction. Returns \"false\" if there is no transactions.",
+		summary = "Fetch reference for next transaction to be created by address",
+		description = "Returns the 64-byte long base58-encoded signature of last transaction created by address, failing that: the first incoming transaction to address. Returns \"false\" if there is no transactions.",
 		extensions = {
 			@Extension(name = "translation", properties = {
 				@ExtensionProperty(name="path", value="GET lastreference:address"),
@@ -82,16 +87,15 @@ public class AddressesResource {
 			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
 
 		byte[] lastReference = null;
-        try (final Repository repository = RepositoryManager.getRepository()) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
-			account.getLastReference();
-			
+			lastReference = account.getLastReference();
 		} catch (ApiException e) {
 			throw e;
 		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
-		
+			throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+		}
+
 		if(lastReference == null || lastReference.length == 0) {
 			return "false"; 
 		} else {
@@ -102,7 +106,8 @@ public class AddressesResource {
 	@GET
 	@Path("/lastreference/{address}/unconfirmed")
 	@Operation(
-		description = "Returns the 64-byte long base58-encoded signature of last transaction including unconfirmed where the address is delivered as creator. Or the first incoming transaction. Returns \\\"false\\\" if there is no transactions.",
+		summary = "Fetch reference for next transaction to be created by address, considering unconfirmed transactions",
+		description = "Returns the 64-byte long base58-encoded signature of last transaction, including unconfirmed, created by address, failing that: the first incoming transaction. Returns \\\"false\\\" if there is no transactions.",
 		extensions = {
 			@Extension(name = "translation", properties = {
 				@ExtensionProperty(name="path", value="GET lastreference:address:unconfirmed"),
@@ -127,19 +132,36 @@ public class AddressesResource {
 	public String getLastReferenceUnconfirmed(@PathParam("address") String address) {
 		Security.checkApiCallAllowed("GET addresses/lastreference", request);
 
-		// XXX: is this method needed?
-		
-		throw new UnsupportedOperationException();
+		if (!Crypto.isValidAddress(address))
+			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+
+		byte[] lastReference = null;
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Account account = new Account(repository, address);
+			lastReference = account.getUnconfirmedLastReference();
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+			throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+		}
+
+		if(lastReference == null || lastReference.length == 0) {
+			return "false";
+		} else {
+			return Base58.encode(lastReference);
+		}
 	}
 
 	@GET
 	@Path("/validate/{address}")
 	@Operation(
-		description = "Validates the given address. Returns true/false.",
+		summary = "Validates the given address",
+		description = "Returns true/false.",
 		extensions = {
 			@Extension(name = "translation", properties = {
 				@ExtensionProperty(name="path", value="GET validate:address"),
-				@ExtensionProperty(name="description.key", value="operation:description")
+				@ExtensionProperty(name="summary.key", value="operation:summary"),
+				@ExtensionProperty(name="description.key", value="operation:description"),
 			})
 		},
 		responses = {
@@ -203,7 +225,7 @@ public class AddressesResource {
 	}
 
 	@GET
-	@Path("balance/{address}")
+	@Path("/balance/{address}")
 	@Operation(
 		description = "Returns the confirmed balance of the given address.",
 		extensions = {
@@ -218,7 +240,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the balance",
-				content = @Content(schema = @Schema(implementation = BigDecimal.class)),
+				content = @Content(schema = @Schema(name = "balance", type = "number")),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -236,7 +258,6 @@ public class AddressesResource {
         try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
 			return account.getConfirmedBalance(Asset.QORA);
-			
 		} catch (ApiException e) {
 			throw e;
 		} catch (Exception e) {
@@ -245,7 +266,7 @@ public class AddressesResource {
 	}
 
 	@GET
-	@Path("assetbalance/{assetid}/{address}")
+	@Path("/assetbalance/{assetid}/{address}")
 	@Operation(
 		description = "Returns the confirmed balance of the given address for the given asset key.",
 		extensions = {
@@ -278,7 +299,6 @@ public class AddressesResource {
         try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
 			return account.getConfirmedBalance(assetid);
-			
 		} catch (ApiException e) {
 			throw e;
 		} catch (Exception e) {
@@ -287,7 +307,7 @@ public class AddressesResource {
 	}
 
 	@GET
-	@Path("assets/{address}")
+	@Path("/assets/{address}")
 	@Operation(
 		description = "Returns the list of assets for this address with balances.",
 		extensions = {
@@ -302,7 +322,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the list of assets",
-				content = @Content(schema = @Schema(implementation = String.class)),
+				content = @Content(array = @ArraySchema(schema = @Schema(implementation = AccountBalanceData.class))),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -311,14 +331,23 @@ public class AddressesResource {
 			)
 		}
 	)
-	public String getAssetBalance(@PathParam("address") String address) {
+	public List<AccountBalanceData> getAssets(@PathParam("address") String address) {
 		Security.checkApiCallAllowed("GET addresses/assets", request);
 		
-		throw new UnsupportedOperationException();
+		if (!Crypto.isValidAddress(address))
+			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+
+        try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getAccountRepository().getAllBalances(address);
+		} catch (ApiException e) {
+			throw e;
+		} catch (Exception e) {
+            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
+        }
 	}
 
 	@GET
-	@Path("balance/{address}/{confirmations}")
+	@Path("/balance/{address}/{confirmations}")
 	@Operation(
 		description = "Calculates the balance of the given address after the given confirmations.",
 		extensions = {

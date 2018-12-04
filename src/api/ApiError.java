@@ -1,4 +1,3 @@
-
 package api;
 
 public enum ApiError {
@@ -7,6 +6,8 @@ public enum ApiError {
 	JSON(1, 400),
 	NO_BALANCE(2, 422),
 	NOT_YET_RELEASED(3, 422),
+	UNAUTHORIZED(4, 401),
+	REPOSITORY_ISSUE(5, 500),
 
 	//VALIDATION
 	INVALID_SIGNATURE(101, 400),

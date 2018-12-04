@@ -1,6 +1,8 @@
 package qora.account;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -8,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import data.account.AccountBalanceData;
 import data.account.AccountData;
 import data.block.BlockData;
+import data.transaction.TransactionData;
 import qora.assets.Asset;
 import qora.block.Block;
 import qora.block.BlockChain;
@@ -142,6 +145,32 @@ public class Account {
 			return null;
 
 		return accountData.getReference();
+	}
+
+	/**
+	 * Fetch last reference for account, considering unconfirmed transactions.
+	 * 
+	 * @return byte[] reference, or null if no reference or account not found.
+	 * @throws DataException
+	 */
+	public byte[] getUnconfirmedLastReference() throws DataException {
+		// Newest unconfirmed transaction takes priority
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
+
+		byte[] reference = null;
+
+		for (TransactionData transactionData : unconfirmedTransactions) {
+			String address = PublicKeyAccount.getAddress(transactionData.getCreatorPublicKey());
+
+			if (address.equals(this.accountData.getAddress()))
+				reference = transactionData.getSignature();
+		}
+
+		if (reference != null)
+			return reference;
+
+		// No unconfirmed transactions
+		return getLastReference();
 	}
 
 	/**

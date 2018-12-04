@@ -43,7 +43,9 @@ import qora.block.BlockChain;
 import qora.crypto.Crypto;
 import repository.DataException;
 import repository.Repository;
+import repository.RepositoryFactory;
 import repository.RepositoryManager;
+import repository.hsqldb.HSQLDBRepositoryFactory;
 import transform.TransformationException;
 import transform.block.BlockTransformer;
 import transform.transaction.ATTransactionTransformer;
@@ -54,6 +56,7 @@ import utils.Triple;
 public class v1feeder extends Thread {
 
 	private static final Logger LOGGER = LogManager.getLogger(v1feeder.class);
+	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
 
 	private static final int INACTIVITY_TIMEOUT = 60 * 1000; // milliseconds
 	private static final int CONNECTION_TIMEOUT = 2 * 1000; // milliseconds
@@ -526,7 +529,8 @@ public class v1feeder extends Thread {
 		readLegacyATs(legacyATPathname);
 
 		try {
-			test.Common.setRepository();
+			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
+			RepositoryManager.setRepositoryFactory(repositoryFactory);
 		} catch (DataException e) {
 			LOGGER.error("Couldn't connect to repository", e);
 			System.exit(2);
@@ -552,7 +556,7 @@ public class v1feeder extends Thread {
 		LOGGER.info("Exiting v1feeder");
 
 		try {
-			test.Common.closeRepository();
+			RepositoryManager.closeRepositoryFactory();
 		} catch (DataException e) {
 			e.printStackTrace();
 		}

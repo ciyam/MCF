@@ -3,9 +3,13 @@ import qora.block.Block;
 import qora.block.BlockChain;
 import repository.DataException;
 import repository.Repository;
+import repository.RepositoryFactory;
 import repository.RepositoryManager;
+import repository.hsqldb.HSQLDBRepositoryFactory;
 
 public class orphan {
+
+	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
 
 	public static void main(String[] args) {
 		if (args.length == 0) {
@@ -16,7 +20,8 @@ public class orphan {
 		int targetHeight = Integer.parseInt(args[0]);
 
 		try {
-			test.Common.setRepository();
+			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
+			RepositoryManager.setRepositoryFactory(repositoryFactory);
 		} catch (DataException e) {
 			System.err.println("Couldn't connect to repository: " + e.getMessage());
 			System.exit(2);
@@ -43,7 +48,7 @@ public class orphan {
 		}
 
 		try {
-			test.Common.closeRepository();
+			RepositoryManager.closeRepositoryFactory();
 		} catch (DataException e) {
 			e.printStackTrace();
 		}

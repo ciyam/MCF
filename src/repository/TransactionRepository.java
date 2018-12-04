@@ -20,6 +20,8 @@ public interface TransactionRepository {
 	@Deprecated
 	public BlockData getBlockDataFromSignature(byte[] signature) throws DataException;
 
+	public List<byte[]> getAllSignaturesInvolvingAddress(String address) throws DataException;
+
 	/**
 	 * Returns list of unconfirmed transactions in timestamp-else-signature order.
 	 * 

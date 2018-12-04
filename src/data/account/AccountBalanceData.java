@@ -2,14 +2,24 @@ package data.account;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
 public class AccountBalanceData {
 
 	// Properties
-	protected String address;
-	protected long assetId;
-	protected BigDecimal balance;
+	private String address;
+	private long assetId;
+	private BigDecimal balance;
 
 	// Constructors
+
+	// necessary for JAX-RS serialization
+	@SuppressWarnings("unused")
+	private AccountBalanceData() {
+	}
 
 	public AccountBalanceData(String address, long assetId, BigDecimal balance) {
 		this.address = address;
