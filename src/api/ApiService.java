@@ -2,7 +2,6 @@ package api;
 
 import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
 
-import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
@@ -26,32 +25,33 @@ public class ApiService {
 	private final Set<Class<?>> resources;
 
 	public ApiService() {
-		// resources to register
+		// Resources to register
 		this.resources = new HashSet<Class<?>>();
 		this.resources.add(AddressesResource.class);
 		this.resources.add(AdminResource.class);
 		this.resources.add(BlocksResource.class);
 		this.resources.add(TransactionsResource.class);
+		this.resources.add(BlockExplorerResource.class);
 		this.resources.add(OpenApiResource.class); // swagger
 		this.resources.add(ApiDefinition.class); // for API definition
 		this.resources.add(AnnotationPostProcessor.class); // for API resource annotations
 		ResourceConfig config = new ResourceConfig(this.resources);
 
-		// create RPC server
+		// Create RPC server
 		this.server = new Server(Settings.getInstance().getRpcPort());
 
-		// whitelist
+		// IP address based access control
 		InetAccessHandler accessHandler = new InetAccessHandler();
 		for (String pattern : Settings.getInstance().getRpcAllowed()) {
 			accessHandler.include(pattern);
 		}
 		this.server.setHandler(accessHandler);
 
-		// url rewriting
+		// URL rewriting
 		RewriteHandler rewriteHandler = new RewriteHandler();
 		accessHandler.setHandler(rewriteHandler);
 
-		// context
+		// Context
 		ServletContextHandler context = new ServletContextHandler(ServletContextHandler.NO_SESSIONS);
 		context.setContextPath("/");
 		rewriteHandler.setHandler(context);
@@ -69,9 +69,8 @@ public class ApiService {
 
 		// Swagger-UI static content
 		ClassLoader loader = this.getClass().getClassLoader();
-		File swaggerUIResourceLocation = new File(loader.getResource("resources/swagger-ui/").getFile());
 		ServletHolder swaggerUIServlet = new ServletHolder("static-swagger-ui", DefaultServlet.class);
-		swaggerUIServlet.setInitParameter("resourceBase", swaggerUIResourceLocation.getAbsolutePath());
+		swaggerUIServlet.setInitParameter("resourceBase", loader.getResource("resources/swagger-ui/").toString());
 		swaggerUIServlet.setInitParameter("dirAllowed", "true");
 		swaggerUIServlet.setInitParameter("pathInfoOnly", "true");
 		context.addServlet(swaggerUIServlet, "/api-documentation/*");
@@ -96,19 +95,20 @@ public class ApiService {
 
 	public void start() {
 		try {
-			// START RPC
+			// Start server
 			server.start();
 		} catch (Exception e) {
-			// FAILED TO START RPC
+			// Failed to start
+			throw new RuntimeException("Failed to start API", e);
 		}
 	}
 
 	public void stop() {
 		try {
-			// STOP RPC
+			// Stop server
 			server.stop();
 		} catch (Exception e) {
-			// FAILED TO STOP RPC
+			// Failed to stop
 		}
 	}
 }
