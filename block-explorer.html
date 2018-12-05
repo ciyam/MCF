@@ -50,7 +50,7 @@
 				
 				for (var i=0; i<transactions.length; ++i) {
 					var tx = transactions[i];
-					var txTimestamp = new Date(tx.timestamp).toLocaleString();
+					var txTimestamp = new Date(tx.timestamp).toUTCString();
 					var txCreatorAddress = publicKeyToAddress(base64ToArray(tx.creatorPublicKey)); // currently base64 but likely to be base58 in the future
 
 					var row = '<tr><td>' + tx.type + '</td>' +
@@ -118,7 +118,7 @@
 				
 				for (var i=0; i<transactions.length; ++i) {
 					var tx = transactions[i];
-					var txTimestamp = new Date(tx.timestamp).toLocaleString();
+					var txTimestamp = new Date(tx.timestamp).toUTCString();
 					var txCreatorAddress = publicKeyToAddress(base64ToArray(tx.creatorPublicKey)); // currently base64 but likely to be base58 in the future
 
 					var row = '<tr><td>' + tx.type + '</td>' +
@@ -199,7 +199,7 @@
 				var blockData = e.target.response;
 				
 				var ourHeight = blockData.height;
-				var blockTimestamp = new Date(blockData.timestamp).toLocaleString();
+				var blockTimestamp = new Date(blockData.timestamp).toUTCString();
 				var blockGeneratorAddress = publicKeyToAddress(base64ToArray(blockData.generatorPublicKey)); // currently base64 but likely to be base58 in the future
 				
 				var ourRow = document.createElement('TR');
