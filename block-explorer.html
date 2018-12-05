@@ -56,7 +56,7 @@
 					var row = '<tr><td>' + tx.type + '</td>' +
 								'<td>' + txTimestamp + '</td>' +
 								'<td class="addr">' + addressAsLink(txCreatorAddress) + '</td>' +
-								'<td>' + tx.fee + ' QORA</td>' +
+								'<td>' + tx.fee + ' MCF</td>' +
 								'<td class="sig">' + Base58.encode(base64ToArray(tx.signature)) + '</td>' +
 								'<td class="ref">' + Base58.encode(base64ToArray(tx.reference)) + '</td></tr>';
 								
@@ -124,7 +124,7 @@
 					var row = '<tr><td>' + tx.type + '</td>' +
 								'<td>' + txTimestamp + '</td>' +
 								'<td class="addr">' + addressAsLink(txCreatorAddress) + '</td>' +
-								'<td>' + tx.fee + ' QORA</td>' +
+								'<td>' + tx.fee + ' MCF</td>' +
 								'<td class="sig">' + Base58.encode(base64ToArray(tx.signature)) + '</td>' +
 								'<td class="ref">' + Base58.encode(base64ToArray(tx.reference)) + '</td></tr>';
 								
@@ -170,7 +170,7 @@
 					}
 					
 					if (p.indexOf("ees") != -1)
-						html += " QORA";
+						html += " MCF";
 					
 					html += '</td></tr>';
 				}
@@ -208,7 +208,7 @@
 									'<td class="addr">' + addressAsLink(blockGeneratorAddress) + '</td>' +
 									'<td>' + blockData.generatingBalance + '</td>' +
 									'<td>' + blockData.transactionCount + '</td>' +
-									'<td>' + blockData.totalFees + ' QORA</td>';
+									'<td>' + blockData.totalFees + ' MCF</td>';
 				
 				var table = document.getElementById('blocks');
 				var rows = table.getElementsByTagName('TR');

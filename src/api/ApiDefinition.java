@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @OpenAPIDefinition(
-		info = @Info( title = "Qora API", description = "NOTE: byte-arrays currently returned as Base64 but this is likely to change to Base58" ),
+		info = @Info( title = "MCF API", description = "NOTE: byte-arrays currently returned as Base64 but this is likely to change to Base58" ),
 		tags = {
 			@Tag(name = "addresses"),
 			@Tag(name = "admin"),
