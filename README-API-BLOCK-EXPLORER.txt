@@ -4,7 +4,7 @@ If you're reading this then you have checked out the correct branch!
 
 You should see a "db" folder and "Qora-core.jar" in current folder.
 The "db" folder should contain approx. 480MB over ~4 files.
-Qora-core.jar is about 37MB with MD5 of 9009c6c8b6d0f711491141c03698d66c
+Qora-core.jar is about 37MB with MD5 of a284e9665138f92f22c67a2ad6e0c265
 
 Fire up the API server:
 
