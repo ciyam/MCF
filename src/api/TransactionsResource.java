@@ -2,6 +2,8 @@ package api;
 
 import globalization.Translator;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.extensions.Extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -19,9 +21,12 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import data.transaction.GenesisTransactionData;
+import data.transaction.PaymentTransactionData;
 import data.transaction.TransactionData;
 import repository.DataException;
 import repository.Repository;
@@ -56,6 +61,9 @@ public class TransactionsResource {
 	@Operation(
 		summary = "Fetch transactions involving address",
 		description = "Returns list of transactions",
+		parameters = {
+				@Parameter(in = ParameterIn.PATH, name = "address", description = "Account's address", schema = @Schema(type = "string"))
+		},
 		extensions = {
 			@Extension(name = "translation", properties = {
 					@ExtensionProperty(name="path", value="GET block:signature"),
@@ -77,9 +85,7 @@ public class TransactionsResource {
 			)
 		}
 	)
-	public List<TransactionData> getAddressTransactions(@PathParam("address") String address) {
-		Security.checkApiCallAllowed("GET transactions/address", request);
-
+	public List<TransactionData> getAddressTransactions(@PathParam("address") String address, @Parameter(ref = "limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
 		if (!Crypto.isValidAddress(address))
 			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
 
@@ -89,6 +95,9 @@ public class TransactionsResource {
 			List<byte[]> signatures = txRepo.getAllSignaturesInvolvingAddress(address);
 
 			// Pagination would take effect here (or as part of the repository access)
+			int fromIndex = Integer.min(offset, signatures.size());
+			int toIndex = limit == 0 ? signatures.size() : Integer.min(fromIndex + limit, signatures.size());
+			signatures = signatures.subList(fromIndex, toIndex);
 
 			// Expand signatures to transactions
 			List<TransactionData> transactions = new ArrayList<TransactionData>(signatures.size());
@@ -101,13 +110,12 @@ public class TransactionsResource {
 		} catch (DataException e) {
 			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
 		}
-
 	}
 
 	@GET
 	@Path("/block/{signature}")
 	@Operation(
-		summary = "Fetch transactions via block signature",
+		summary = "Fetch transactions using block signature",
 		description = "Returns list of transactions",
 		extensions = {
 			@Extension(name = "translation", properties = {
@@ -121,7 +129,9 @@ public class TransactionsResource {
 		responses = {
 			@ApiResponse(
 				description = "list of transactions",
-				content = @Content(array = @ArraySchema(schema = @Schema(implementation = TransactionData.class))),
+				content = @Content(array = @ArraySchema(schema = @Schema(
+							oneOf = { GenesisTransactionData.class, PaymentTransactionData.class }
+						))),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -130,9 +140,7 @@ public class TransactionsResource {
 			)
 		}
 	)
-	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature) {
-		Security.checkApiCallAllowed("GET transactions/block", request);
-
+	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature, @Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
 		// decode signature
 		byte[] signatureBytes;
 		try {
@@ -148,13 +156,17 @@ public class TransactionsResource {
 			if(transactions == null)
 				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
 
+			// Pagination would take effect here (or as part of the repository access)
+			int fromIndex = Integer.min(offset, transactions.size());
+			int toIndex = limit == 0 ? transactions.size() : Integer.min(fromIndex + limit, transactions.size());
+			transactions = transactions.subList(fromIndex, toIndex);
+
 			return transactions;
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
 			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
 		}
-
 	}
 
 }

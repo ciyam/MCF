@@ -81,8 +81,6 @@ public class AddressesResource {
 	public String getLastReference(
 		@Parameter(description = "a base58-encoded address", required = true) @PathParam("address") String address
 	) {
-		Security.checkApiCallAllowed("GET addresses/lastreference", request);
-
 		if (!Crypto.isValidAddress(address))
 			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
 
@@ -130,8 +128,6 @@ public class AddressesResource {
 		}
 	)
 	public String getLastReferenceUnconfirmed(@PathParam("address") String address) {
-		Security.checkApiCallAllowed("GET addresses/lastreference", request);
-
 		if (!Crypto.isValidAddress(address))
 			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
 
@@ -177,8 +173,6 @@ public class AddressesResource {
 		}
 	)
 	public boolean validate(@PathParam("address") String address) {
-		Security.checkApiCallAllowed("GET addresses/validate", request);
-
 		return Crypto.isValidAddress(address);
 	}
 	
@@ -208,8 +202,6 @@ public class AddressesResource {
 		}
 	)
 	public BigDecimal getGeneratingBalanceOfAddress(@PathParam("address") String address) {
-		Security.checkApiCallAllowed("GET addresses/generatingbalance", request);
-
 		if (!Crypto.isValidAddress(address))
 			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
 
@@ -250,8 +242,6 @@ public class AddressesResource {
 		}
 	)
 	public BigDecimal getGeneratingBalance(@PathParam("address") String address) {
-		Security.checkApiCallAllowed("GET addresses/balance", request);
-		
 		if (!Crypto.isValidAddress(address))
 			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
 
@@ -291,8 +281,6 @@ public class AddressesResource {
 		}
 	)
 	public BigDecimal getAssetBalance(@PathParam("assetid") long assetid, @PathParam("address") String address) {
-		Security.checkApiCallAllowed("GET addresses/assetbalance", request);
-		
 		if (!Crypto.isValidAddress(address))
 			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
 
@@ -332,8 +320,6 @@ public class AddressesResource {
 		}
 	)
 	public List<AccountBalanceData> getAssets(@PathParam("address") String address) {
-		Security.checkApiCallAllowed("GET addresses/assets", request);
-		
 		if (!Crypto.isValidAddress(address))
 			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
 
@@ -372,8 +358,6 @@ public class AddressesResource {
 		}
 	)
 	public String getGeneratingBalance(@PathParam("address") String address, @PathParam("confirmations") int confirmations) {
-		Security.checkApiCallAllowed("GET addresses/balance", request);
-		
 		throw new UnsupportedOperationException();
 	}
 
@@ -403,8 +387,6 @@ public class AddressesResource {
 		}
 	)
 	public String getPublicKey(@PathParam("address") String address) {
-		Security.checkApiCallAllowed("GET addresses/publickey", request);
-		
 		throw new UnsupportedOperationException();
 	}
 	

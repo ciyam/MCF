@@ -3,6 +3,7 @@ package api;
 import data.block.BlockData;
 import globalization.Translator;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.extensions.Extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -11,19 +12,23 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
+import java.util.Base64;
+
 import javax.servlet.http.HttpServletRequest;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+
+import api.models.BlockWithTransactions;
 import qora.block.Block;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
-import utils.Base58;
 
 @Path("blocks")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
@@ -50,7 +55,7 @@ public class BlocksResource {
 	@GET
 	@Path("/{signature}")
 	@Operation(
-		summary = "Fetch block using base58 signature",
+		summary = "Fetch block using base64 signature",
 		description = "returns the block that matches the given signature",
 		extensions = {
 			@Extension(name = "translation", properties = {
@@ -64,7 +69,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the block",
-				content = @Content(schema = @Schema(implementation = BlockData.class)),
+				content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -73,34 +78,23 @@ public class BlocksResource {
 			)
 		}
 	)
-	public BlockData getBlock(@PathParam("signature") String signature) {
-		Security.checkApiCallAllowed("GET blocks", request);
-
-		// decode signature
+	public BlockWithTransactions getBlock(@PathParam("signature") String signature, @Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+		// Decode signature
 		byte[] signatureBytes;
-		try
-		{
-			signatureBytes = Base58.decode(signature);
-		}
-		catch(Exception e)
-		{
-            throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+		try {
+			signatureBytes = Base64.getDecoder().decode(signature);
+		} catch (NumberFormatException e) {
+			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
-				
-			// check if block exists
-			if(blockData == null)
-				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
-
-			return blockData;
-
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+			return new BlockWithTransactions(repository, blockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET
@@ -115,7 +109,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the block",
-				content = @Content(schema = @Schema(implementation = BlockData.class)),
+				content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -124,18 +118,15 @@ public class BlocksResource {
 			)
 		}
 	)
-	public BlockData getFirstBlock() {
-		Security.checkApiCallAllowed("GET blocks/first", request);
-
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            BlockData blockData = repository.getBlockRepository().fromHeight(1);
-			return blockData;
-
+	public BlockWithTransactions getFirstBlock(@Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromHeight(1);
+			return new BlockWithTransactions(repository, blockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET
@@ -150,7 +141,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the block",
-				content = @Content(schema = @Schema(implementation = BlockData.class)),
+				content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -159,24 +150,21 @@ public class BlocksResource {
 			)
 		}
 	)
-	public BlockData getLastBlock() {
-		Security.checkApiCallAllowed("GET blocks/last", request);
-
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            BlockData blockData = repository.getBlockRepository().getLastBlock();
-			return blockData;
-
+	public BlockWithTransactions getLastBlock(@Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().getLastBlock();
+			return new BlockWithTransactions(repository, blockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET
 	@Path("/child/{signature}")
 	@Operation(
-		summary = "Fetch child block using base58 signature of parent block",
+		summary = "Fetch child block using base64 signature of parent block",
 		description = "returns the child block of the block that matches the given signature",
 		extensions = {
 			@Extension(name = "translation", properties = {
@@ -190,7 +178,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the block",
-				content = @Content(schema = @Schema(implementation = BlockData.class)),
+				content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -199,13 +187,11 @@ public class BlocksResource {
 			)
 		}
 	)
-	public BlockData getChild(@PathParam("signature") String signature) {
-		Security.checkApiCallAllowed("GET blocks/child", request);
-
-		// decode signature
+	public BlockWithTransactions getChild(@PathParam("signature") String signature, @Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+		// Decode signature
 		byte[] signatureBytes;
 		try {
-			signatureBytes = Base58.decode(signature);
+			signatureBytes = Base64.getDecoder().decode(signature);
 		} catch (NumberFormatException e) {
 			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
 		}
@@ -213,17 +199,17 @@ public class BlocksResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
 
-			// check if block exists
+			// Check block exists
 			if(blockData == null)
 				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
 
 			BlockData childBlockData = repository.getBlockRepository().fromReference(signatureBytes);
 
-			// check if child exists
+			// Check child exists
 			if(childBlockData == null)
 				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
 
-			return childBlockData;
+			return new BlockWithTransactions(repository, childBlockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -252,18 +238,15 @@ public class BlocksResource {
 		}
 	)
 	public BigDecimal getGeneratingBalance() {
-		Security.checkApiCallAllowed("GET blocks/generatingbalance", request);
-
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            BlockData blockData = repository.getBlockRepository().getLastBlock();
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().getLastBlock();
 			Block block = new Block(repository, blockData);
 			return block.calcNextBlockGeneratingBalance();
-			
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET
@@ -292,34 +275,28 @@ public class BlocksResource {
 		}
 	)
 	public BigDecimal getGeneratingBalance(@PathParam("signature") String signature) {
-		Security.checkApiCallAllowed("GET blocks/generatingbalance", request);
-
-		// decode signature
+		// Decode signature
 		byte[] signatureBytes;
-		try
-		{
-			signatureBytes = Base58.decode(signature);
-		}
-		catch(Exception e)
-		{
-            throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+		try {
+			signatureBytes = Base64.getDecoder().decode(signature);
+		} catch (NumberFormatException e) {
+			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
-				
-			// check if block exists
-			if(blockData == null)
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+
+			// Check block exists
+			if (blockData == null)
 				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
 
 			Block block = new Block(repository, blockData);
 			return block.calcNextBlockGeneratingBalance();
-			
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET
@@ -343,17 +320,14 @@ public class BlocksResource {
 		}
 	)
 	public long getTimePerBlock() {
-		Security.checkApiCallAllowed("GET blocks/time", request);
-
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            BlockData blockData = repository.getBlockRepository().getLastBlock();
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().getLastBlock();
 			return Block.calcForgingDelay(blockData.getGeneratingBalance());
-
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET
@@ -377,8 +351,6 @@ public class BlocksResource {
 		}
 	)
 	public long getTimePerBlock(@PathParam("generating") BigDecimal generatingbalance) {
-		Security.checkApiCallAllowed("GET blocks/time", request);
-
 		return Block.calcForgingDelay(generatingbalance);
 	}
 
@@ -403,16 +375,13 @@ public class BlocksResource {
 		}
 	)
 	public int getHeight() {
-		Security.checkApiCallAllowed("GET blocks/height", request);
-
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            return repository.getBlockRepository().getBlockchainHeight();
-
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getBlockRepository().getBlockchainHeight();
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET
@@ -441,33 +410,27 @@ public class BlocksResource {
 		}
 	)
 	public int getHeight(@PathParam("signature") String signature) {
-		Security.checkApiCallAllowed("GET blocks/height", request);
-
-		// decode signature
+		// Decode signature
 		byte[] signatureBytes;
-		try
-		{
-			signatureBytes = Base58.decode(signature);
-		}
-		catch(Exception e)
-		{
-            throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+		try {
+			signatureBytes = Base64.getDecoder().decode(signature);
+		} catch (NumberFormatException e) {
+			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
-				
-			// check if block exists
-			if(blockData == null)
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+
+			// Check block exists
+			if (blockData == null)
 				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
 
 			return blockData.getHeight();
-			
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 	@GET
@@ -486,7 +449,7 @@ public class BlocksResource {
 		responses = {
 			@ApiResponse(
 				description = "the block",
-				content = @Content(schema = @Schema(implementation = BlockData.class)),
+				content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -495,22 +458,15 @@ public class BlocksResource {
 			)
 		}
 	)
-	public BlockData getbyHeight(@PathParam("height") int height) {
-		Security.checkApiCallAllowed("GET blocks/byheight", request);
-
-        try (final Repository repository = RepositoryManager.getRepository()) {
-            BlockData blockData = repository.getBlockRepository().fromHeight(height);
-				
-			// check if block exists
-			if(blockData == null)
-				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
-
-			return blockData;
-			
+	public BlockWithTransactions getbyHeight(@PathParam("height") int height, @Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			BlockData blockData = repository.getBlockRepository().fromHeight(height);
+			return new BlockWithTransactions(repository, blockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
-		} catch (Exception e) {
-            throw this.apiErrorFactory.createError(ApiError.UNKNOWN, e);
-        }
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
+
 }

@@ -31,10 +31,12 @@ public class ApiService {
 		this.resources.add(AdminResource.class);
 		this.resources.add(BlocksResource.class);
 		this.resources.add(TransactionsResource.class);
-		this.resources.add(BlockExplorerResource.class);
-		this.resources.add(OpenApiResource.class); // swagger
-		this.resources.add(ApiDefinition.class); // for API definition
-		this.resources.add(AnnotationPostProcessor.class); // for API resource annotations
+		this.resources.add(UtilsResource.class);
+
+		this.resources.add(BlockExplorerResource.class); // block-explorer.html
+		this.resources.add(OpenApiResource.class); // Swagger/OpenAPI
+		this.resources.add(ApiDefinition.class); // API info
+		this.resources.add(AnnotationPostProcessor.class); // For API resource annotations
 		ResourceConfig config = new ResourceConfig(this.resources);
 
 		// Create RPC server
