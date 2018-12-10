@@ -22,10 +22,14 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	// General account
 
 	@Override
-	public void create(String address) throws DataException {
+	public void create(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 
-		saveHelper.bind("account", address);
+		saveHelper.bind("account", accountData.getAddress());
+
+		byte[] publicKey = accountData.getPublicKey();
+		if (publicKey != null)
+			saveHelper.bind("public_key", publicKey);
 
 		try {
 			saveHelper.execute(this.repository);
@@ -36,11 +40,14 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", address)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference, public_key FROM Accounts WHERE account = ?", address)) {
 			if (resultSet == null)
 				return null;
 
-			return new AccountData(address, resultSet.getBytes(1));
+			byte[] reference = resultSet.getBytes(1);
+			byte[] publicKey = resultSet.getBytes(2);
+
+			return new AccountData(address, reference, publicKey);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}
@@ -50,7 +57,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	public void save(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 
-		saveHelper.bind("account", accountData.getAddress()).bind("reference", accountData.getReference());
+		saveHelper.bind("account", accountData.getAddress()).bind("reference", accountData.getReference()).bind("public_key", accountData.getPublicKey());
 
 		try {
 			saveHelper.execute(this.repository);

@@ -19,7 +19,7 @@ import javax.ws.rs.core.MediaType;
 
 @Path("/utils")
 @Produces({MediaType.TEXT_PLAIN})
-@Tag(name = "utils")
+@Tag(name = "Utilities")
 public class UtilsResource {
 
 	@Context

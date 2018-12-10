@@ -50,13 +50,10 @@ public class AnnotationPostProcessor implements ReaderListener {
 	
 	@Override
 	public void beforeScan(Reader reader, OpenAPI openAPI) {
-		LOGGER.info("beforeScan");
 	}
 
 	@Override
 	public void afterScan(Reader reader, OpenAPI openAPI) {
-		LOGGER.info("afterScan");
-
 		// Populate Components section with reusable parameters, like "limit" and "offset"
 		// We take the reusable parameters from AdminResource.globalParameters path "/admin/dud"
 		Components components = openAPI.getComponents();

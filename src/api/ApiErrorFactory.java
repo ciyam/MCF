@@ -64,6 +64,8 @@ public class ApiErrorFactory {
 		this.errorMessages.put(ApiError.FEE_LESS_REQUIRED, createErrorMessageEntry(ApiError.FEE_LESS_REQUIRED, "fee less required"));
 		this.errorMessages.put(ApiError.WALLET_NOT_IN_SYNC, createErrorMessageEntry(ApiError.WALLET_NOT_IN_SYNC, "wallet needs to be synchronized"));
 		this.errorMessages.put(ApiError.INVALID_NETWORK_ADDRESS, createErrorMessageEntry(ApiError.INVALID_NETWORK_ADDRESS, "invalid network address"));
+		this.errorMessages.put(ApiError.ADDRESS_NO_EXISTS, createErrorMessageEntry(ApiError.ADDRESS_NO_EXISTS, "account address does not exist"));
+		this.errorMessages.put(ApiError.INVALID_CRITERIA, createErrorMessageEntry(ApiError.INVALID_CRITERIA, "invalid search criteria"));
 
 		//WALLET
 		this.errorMessages.put(ApiError.WALLET_NO_EXISTS, createErrorMessageEntry(ApiError.WALLET_NO_EXISTS, "wallet does not exist"));

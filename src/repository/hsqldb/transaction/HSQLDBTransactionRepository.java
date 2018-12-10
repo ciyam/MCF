@@ -7,6 +7,9 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.StringJoiner;
+
+import com.google.common.base.Strings;
 
 import data.PaymentData;
 import data.block.BlockData;
@@ -283,6 +286,87 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return signatures;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch involved transaction signatures from repository", e);
+		}
+	}
+
+	@Override
+	public List<byte[]> getAllSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, TransactionType txType, String address) throws DataException {
+		List<byte[]> signatures = new ArrayList<byte[]>();
+
+		boolean hasAddress = address != null && !address.isEmpty();
+		boolean hasTxType = txType != null;
+		boolean hasHeightRange = startBlock != null || blockLimit != null;
+
+		if (hasHeightRange && startBlock == null)
+			startBlock = 1;
+
+		String signatureColumn = "NULL";
+		List<Object> bindParams = new ArrayList<Object>();
+
+		// Table JOINs first
+		List<String> tableJoins = new ArrayList<String>();
+
+		if (hasHeightRange) {
+			tableJoins.add("Blocks");
+			tableJoins.add("BlockTransactions ON BlockTransactions.block_signature = Blocks.signature");
+			signatureColumn = "BlockTransactions.transaction_signature";
+		}
+
+		if (hasTxType) {
+			if (hasHeightRange)
+				tableJoins.add("Transactions ON Transactions.signature = BlockTransactions.transaction_signature");
+			else
+				tableJoins.add("Transactions");
+
+			signatureColumn = "Transactions.signature";
+		}
+
+		if (hasAddress) {
+			if (hasTxType)
+				tableJoins.add("TransactionRecipients ON TransactionRecipients.signature = Transactions.signature");
+			else if (hasHeightRange)
+				tableJoins.add("TransactionRecipients ON TransactionRecipients.signature = BlockTransactions.transaction_signature");
+			else
+				tableJoins.add("TransactionRecipients");
+
+			signatureColumn = "TransactionRecipients.signature";
+		}
+
+		// WHERE clauses next
+		List<String> whereClauses = new ArrayList<String>();
+
+		if (hasHeightRange) {
+			whereClauses.add("Blocks.height >= " + startBlock);
+
+			if (blockLimit != null)
+				whereClauses.add("Blocks.height < " + (startBlock + blockLimit));
+		}
+
+		if (hasTxType)
+			whereClauses.add("Transactions.type = " + txType.value);
+
+		if (hasAddress) {
+			whereClauses.add("TransactionRecipients.recipient = ?");
+			bindParams.add(address);
+		}
+
+		String sql = "SELECT " + signatureColumn + " FROM " + String.join(" JOIN ", tableJoins) + " WHERE " + String.join(" AND ", whereClauses);
+		System.out.println("Transaction search SQL:\n" + sql);
+
+		// XXX We need a table for all parties involved in a transaction, not just recipients
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
+			if (resultSet == null)
+				return signatures;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				signatures.add(signature);
+			} while (resultSet.next());
+
+			return signatures;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch matching transaction signatures from repository", e);
 		}
 	}
 

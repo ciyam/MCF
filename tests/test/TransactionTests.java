@@ -120,7 +120,7 @@ public class TransactionTests {
 
 		// Create test generator account
 		generator = new PrivateKeyAccount(repository, generatorSeed);
-		accountRepository.save(new AccountData(generator.getAddress(), generatorSeed));
+		accountRepository.save(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey()));
 		accountRepository.save(new AccountBalanceData(generator.getAddress(), Asset.QORA, initialGeneratorBalance));
 
 		// Create test sender account
@@ -128,7 +128,7 @@ public class TransactionTests {
 
 		// Mock account
 		reference = senderSeed;
-		accountRepository.save(new AccountData(sender.getAddress(), reference));
+		accountRepository.save(new AccountData(sender.getAddress(), reference, sender.getPublicKey()));
 
 		// Mock balance
 		accountRepository.save(new AccountBalanceData(sender.getAddress(), Asset.QORA, initialSenderBalance));

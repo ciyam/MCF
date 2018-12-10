@@ -25,7 +25,7 @@ import controller.Controller;
 		@ExtensionProperty(name="path", value="/Api/AdminResource")
 	}
 )
-@Tag(name = "admin")
+@Tag(name = "Admin")
 public class AdminResource {
 
 	@Context
@@ -34,7 +34,8 @@ public class AdminResource {
 	@GET
 	@Path("/dud")
 	@Parameter(name = "blockSignature", description = "Block signature", schema = @Schema(type = "string", format = "byte", minLength = 84, maxLength=88))
-	@Parameter(in = ParameterIn.QUERY, name = "limit", description = "Maximum number of entries to return", schema = @Schema(type = "integer", defaultValue = "10"))
+	@Parameter(in = ParameterIn.QUERY, name = "count", description = "Maximum number of entries to return", schema = @Schema(type = "integer", defaultValue = "10"))
+	@Parameter(in = ParameterIn.QUERY, name = "limit", description = "Maximum number of entries to return, 0 means unlimited", schema = @Schema(type = "integer", defaultValue = "10"))
 	@Parameter(in = ParameterIn.QUERY, name = "offset", description = "Starting entry in results", schema = @Schema(type = "integer"))
 	@Parameter(in = ParameterIn.QUERY, name = "includeTransactions", description = "Include associated transactions in results", schema = @Schema(type = "boolean"))
 	public String globalParameters() {

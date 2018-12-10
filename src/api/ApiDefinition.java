@@ -9,10 +9,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @OpenAPIDefinition(
 		info = @Info( title = "Qora API", description = "NOTE: byte-arrays currently returned as Base64 but this is likely to change to Base58" ),
 		tags = {
-			@Tag(name = "addresses"),
-			@Tag(name = "admin"),
-			@Tag(name = "blocks"),
-			@Tag(name = "transactions")
+			@Tag(name = "Addresses"),
+			@Tag(name = "Admin"),
+			@Tag(name = "Blocks"),
+			@Tag(name = "Transactions"),
+			@Tag(name = "Utilities")
 		},
 		extensions = {
 			@Extension(name = "translation", properties = {
