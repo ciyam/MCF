@@ -23,6 +23,8 @@ public interface AccountRepository {
 
 	public List<AccountBalanceData> getAllBalances(String address) throws DataException;
 
+	public List<AccountBalanceData> getAssetBalances(long assetId) throws DataException;
+
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
 
 	public void delete(String address, long assetId) throws DataException;

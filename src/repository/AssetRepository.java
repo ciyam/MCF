@@ -2,6 +2,7 @@ package repository;
 
 import java.util.List;
 
+import data.account.AccountBalanceData;
 import data.assets.AssetData;
 import data.assets.OrderData;
 import data.assets.TradeData;
@@ -17,6 +18,10 @@ public interface AssetRepository {
 	public boolean assetExists(long assetId) throws DataException;
 
 	public boolean assetExists(String assetName) throws DataException;
+
+	public List<AssetData> getAllAssets() throws DataException;
+
+	// For a list of asset holders, see AccountRepository.getAssetBalances
 
 	public void save(AssetData assetData) throws DataException;
 

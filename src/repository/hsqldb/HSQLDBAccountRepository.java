@@ -115,6 +115,27 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public List<AccountBalanceData> getAssetBalances(long assetId) throws DataException {
+		List<AccountBalanceData> balances = new ArrayList<AccountBalanceData>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT account, balance FROM AccountBalances WHERE asset_id = ?", assetId)) {
+			if (resultSet == null)
+				return balances;
+
+			do {
+				String address = resultSet.getString(1);
+				BigDecimal balance = resultSet.getBigDecimal(2).setScale(8);
+
+				balances.add(new AccountBalanceData(address, assetId, balance));
+			} while (resultSet.next());
+
+			return balances;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch asset account balances from repository", e);
+		}
+	}
+
+	@Override
 	public void save(AccountBalanceData accountBalanceData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountBalances");
 

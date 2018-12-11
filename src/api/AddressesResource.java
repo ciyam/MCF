@@ -370,7 +370,7 @@ public class AddressesResource {
 	@GET
 	@Path("/publickey/{address}")
 	@Operation(
-		summary = "Address' public key",
+		summary = "Get public key of address",
 		description = "Returns the base64-encoded account public key of the given address, or \"false\" if address not known or has no public key.",
 		extensions = {
 			@Extension(name = "translation", properties = {

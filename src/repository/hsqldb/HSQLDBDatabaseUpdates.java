@@ -152,6 +152,8 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX UnconfirmedTransactionsIndex ON UnconfirmedTransactions (creation, signature)");
 
 					// Transaction recipients
+					// XXX This should be transaction "participants" to allow lookup of all activity by an address!
+					// Could add "is_recipient" boolean flag
 					stmt.execute("CREATE TABLE TransactionRecipients (signature Signature, recipient QoraAddress NOT NULL, "
 							+ "FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					// Use a separate table space as this table will be very large.

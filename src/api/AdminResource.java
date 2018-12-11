@@ -38,6 +38,7 @@ public class AdminResource {
 	@Parameter(in = ParameterIn.QUERY, name = "limit", description = "Maximum number of entries to return, 0 means unlimited", schema = @Schema(type = "integer", defaultValue = "10"))
 	@Parameter(in = ParameterIn.QUERY, name = "offset", description = "Starting entry in results", schema = @Schema(type = "integer"))
 	@Parameter(in = ParameterIn.QUERY, name = "includeTransactions", description = "Include associated transactions in results", schema = @Schema(type = "boolean"))
+	@Parameter(in = ParameterIn.QUERY, name = "includeHolders", description = "Include asset holders in results", schema = @Schema(type = "boolean"))
 	public String globalParameters() {
 		return "";
 	}

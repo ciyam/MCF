@@ -71,6 +71,18 @@
 							<token>https://petstore.swagger.io/v2/swagger.json</token>
 							<value>/openapi.json</value>
 						</replacement>
+						<replacement>
+							<token>Swagger UI</token>
+							<value>API Documentation</value>
+						</replacement>
+						<replacement>
+							<token>deepLinking: true,</token>
+							<value>
+								deepLinking: true,
+								tagsSorter: "alpha",
+								operationsSorter: "alpha",
+							</value>
+						</replacement>
 					</replacements>
 				</configuration>
 			</plugin>

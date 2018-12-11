@@ -29,6 +29,7 @@ public class ApiService {
 		this.resources = new HashSet<Class<?>>();
 		this.resources.add(AddressesResource.class);
 		this.resources.add(AdminResource.class);
+		this.resources.add(AssetsResource.class);
 		this.resources.add(BlocksResource.class);
 		this.resources.add(TransactionsResource.class);
 		this.resources.add(UtilsResource.class);

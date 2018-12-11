@@ -83,6 +83,33 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
+	public List<AssetData> getAllAssets() throws DataException {
+		List<AssetData> assets = new ArrayList<AssetData>();
+
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT owner, asset_id, description, quantity, is_divisible, reference, asset_name FROM Assets ORDER BY asset_id ASC")) {
+			if (resultSet == null)
+				return assets;
+
+			do {
+				String owner = resultSet.getString(1);
+				long assetId = resultSet.getLong(2);
+				String description = resultSet.getString(3);
+				long quantity = resultSet.getLong(4);
+				boolean isDivisible = resultSet.getBoolean(5);
+				byte[] reference = resultSet.getBytes(6);
+				String assetName = resultSet.getString(7);
+
+				assets.add(new AssetData(assetId, owner, assetName, description, quantity, isDivisible, reference));
+			} while (resultSet.next());
+
+			return assets;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch all assets from repository", e);
+		}
+	}
+
+	@Override
 	public void save(AssetData assetData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Assets");
 
@@ -148,8 +175,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 		try (ResultSet resultSet = this.repository.checkedExecute(
 				"SELECT creator, asset_order_id, amount, fulfilled, price, ordered FROM AssetOrders "
-						+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE "
-						+ "ORDER BY price ASC, ordered ASC",
+						+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE ORDER BY price ASC, ordered ASC",
 				haveAssetId, wantAssetId)) {
 			if (resultSet == null)
 				return orders;

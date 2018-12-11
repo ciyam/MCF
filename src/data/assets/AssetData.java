@@ -1,5 +1,10 @@
 package data.assets;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+//All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
 public class AssetData {
 
 	// Properties
@@ -10,6 +15,10 @@ public class AssetData {
 	private long quantity;
 	private boolean isDivisible;
 	private byte[] reference;
+
+	// necessary for JAX-RS serialization
+	protected AssetData() {
+	}
 
 	// NOTE: key is Long, not long, because it can be null if asset ID/key not yet assigned.
 	public AssetData(Long assetId, String owner, String name, String description, long quantity, boolean isDivisible, byte[] reference) {
