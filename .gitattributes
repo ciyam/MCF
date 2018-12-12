@@ -1,3 +1,7 @@
 db filter=lfs diff=lfs merge=lfs -text
 db/* filter=lfs diff=lfs merge=lfs -text
 Qora-core.jar filter=lfs diff=lfs merge=lfs -text
+db/blockchain.data filter=lfs diff=lfs merge=lfs -text
+db/blockchain.lobs filter=lfs diff=lfs merge=lfs -text
+db/blockchain.properties filter=lfs diff=lfs merge=lfs -text
+db/blockchain.script filter=lfs diff=lfs merge=lfs -text
