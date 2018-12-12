@@ -55,12 +55,14 @@ public class AnnotationPostProcessor implements ReaderListener {
 	@Override
 	public void afterScan(Reader reader, OpenAPI openAPI) {
 		// Populate Components section with reusable parameters, like "limit" and "offset"
-		// We take the reusable parameters from AdminResource.globalParameters path "/admin/dud"
+		// We take the reusable parameters from AdminResource.globalParameters path "/admin/unused"
 		Components components = openAPI.getComponents();
-		PathItem globalParametersPathItem = openAPI.getPaths().get("/admin/dud");
-		if (globalParametersPathItem != null)
+		PathItem globalParametersPathItem = openAPI.getPaths().get("/admin/unused");
+		if (globalParametersPathItem != null) {
 			for (Parameter parameter : globalParametersPathItem.getGet().getParameters())
 				components.addParameters(parameter.getName(), parameter);
+			openAPI.getPaths().remove("/admin/unused");
+		}
 
 		// use context path and keys from "x-translation" extension annotations
 		// to translate supported annotations and finally remove "x-translation" extensions

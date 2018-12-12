@@ -3,7 +3,7 @@ package data.assets;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
-//All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 public class AssetData {
 
@@ -15,6 +15,8 @@ public class AssetData {
 	private long quantity;
 	private boolean isDivisible;
 	private byte[] reference;
+
+	// Constructors
 
 	// necessary for JAX-RS serialization
 	protected AssetData() {

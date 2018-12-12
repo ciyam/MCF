@@ -1,6 +1,7 @@
 package qora.transaction;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +52,14 @@ public class ATTransaction extends Transaction {
 	@Override
 	public List<Account> getRecipientAccounts() throws DataException {
 		return Collections.singletonList(new Account(this.repository, this.atTransactionData.getRecipient()));
+	}
+
+	/** For AT-Transactions, the use the AT address instead of transaction creator (which is genesis account) */
+	@Override
+	public List<Account> getInvolvedAccounts() throws DataException {
+		List<Account> participants = new ArrayList<Account>(getRecipientAccounts());
+		participants.add(getATAccount());
+		return participants;
 	}
 
 	@Override

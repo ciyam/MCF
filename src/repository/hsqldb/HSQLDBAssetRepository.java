@@ -229,6 +229,34 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	// Trades
 
 	@Override
+	public List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException {
+		List<TradeData> trades = new ArrayList<TradeData>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT initiating_order_id, target_order_id, AssetTrades.amount, AssetTrades.price, traded FROM AssetOrders JOIN AssetTrades ON initiating_order_id = asset_order_id "
+						+ "WHERE have_asset_id = ? AND want_asset_id = ? ORDER BY traded ASC",
+				haveAssetId, wantAssetId)) {
+			if (resultSet == null)
+				return trades;
+
+			do {
+				byte[] initiatingOrderId = resultSet.getBytes(1);
+				byte[] targetOrderId = resultSet.getBytes(2);
+				BigDecimal amount = resultSet.getBigDecimal(3);
+				BigDecimal price = resultSet.getBigDecimal(4);
+				long timestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+
+				TradeData trade = new TradeData(initiatingOrderId, targetOrderId, amount, price, timestamp);
+				trades.add(trade);
+			} while (resultSet.next());
+
+			return trades;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch asset trades from repository", e);
+		}
+	}
+
+	@Override
 	public List<TradeData> getOrdersTrades(byte[] initiatingOrderId) throws DataException {
 		List<TradeData> trades = new ArrayList<TradeData>();
 

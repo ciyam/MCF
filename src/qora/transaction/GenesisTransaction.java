@@ -41,6 +41,12 @@ public class GenesisTransaction extends Transaction {
 		return Collections.singletonList(new Account(this.repository, genesisTransactionData.getRecipient()));
 	}
 
+	/** For Genesis Transactions, do not include transaction creator (which is genesis account) */
+	@Override
+	public List<Account> getInvolvedAccounts() throws DataException {
+		return getRecipientAccounts();
+	}
+
 	@Override
 	public boolean isInvolved(Account account) throws DataException {
 		String address = account.getAddress();

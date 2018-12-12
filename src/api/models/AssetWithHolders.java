@@ -1,7 +1,6 @@
 package api.models;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import javax.xml.bind.annotation.XmlElement;
 
@@ -9,10 +8,7 @@ import api.ApiError;
 import api.ApiErrorFactory;
 import data.account.AccountBalanceData;
 import data.assets.AssetData;
-import data.block.BlockData;
-import data.transaction.TransactionData;
 import io.swagger.v3.oas.annotations.media.Schema;
-import qora.block.Block;
 import repository.DataException;
 import repository.Repository;
 

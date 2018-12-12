@@ -74,7 +74,7 @@ import settings.Settings;
 // Don't extend Common as we want to use an in-memory database
 public class TransactionTests {
 
-	private static final String connectionUrl = "jdbc:hsqldb:mem:db/test;create=true;close_result=true;sql.strict_exec=true;sql.enforce_names=true;sql.syntax_mys=true";
+	private static final String connectionUrl = "jdbc:hsqldb:mem:db/blockchain;create=true";
 
 	private static final byte[] generatorSeed = HashCode.fromString("0123456789abcdeffedcba98765432100123456789abcdeffedcba9876543210").asBytes();
 	private static final byte[] senderSeed = HashCode.fromString("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").asBytes();

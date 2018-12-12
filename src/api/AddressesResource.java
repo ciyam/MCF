@@ -26,7 +26,6 @@ import javax.ws.rs.core.MediaType;
 import data.account.AccountBalanceData;
 import data.account.AccountData;
 import qora.account.Account;
-import qora.account.PublicKeyAccount;
 import qora.assets.Asset;
 import qora.crypto.Crypto;
 import repository.DataException;
@@ -82,9 +81,7 @@ public class AddressesResource {
 			)
 		}
 	)
-	public String getLastReference(
-		@Parameter(description = "a base64-encoded address", required = true) @PathParam("address") String address
-	) {
+	public String getLastReference(@Parameter(ref = "address") @PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
 			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
 

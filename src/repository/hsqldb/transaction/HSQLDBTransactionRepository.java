@@ -7,12 +7,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
-import java.util.StringJoiner;
-
-import com.google.common.base.Strings;
 
 import data.PaymentData;
-import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.transaction.Transaction.TransactionType;
 import repository.DataException;
@@ -250,30 +246,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public BlockData getBlockDataFromSignature(byte[] signature) throws DataException {
-		if (signature == null)
-			return null;
-
-		// Fetch block signature (if any)
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT block_signature FROM BlockTransactions WHERE transaction_signature = ? LIMIT 1",
-				signature)) {
-			if (resultSet == null)
-				return null;
-
-			byte[] blockSignature = resultSet.getBytes(1);
-
-			return this.repository.getBlockRepository().fromSignature(blockSignature);
-		} catch (SQLException | DataException e) {
-			throw new DataException("Unable to fetch transaction's block from repository", e);
-		}
-	}
-
-	@Override
 	public List<byte[]> getAllSignaturesInvolvingAddress(String address) throws DataException {
 		List<byte[]> signatures = new ArrayList<byte[]>();
 
-		// XXX We need a table for all parties involved in a transaction, not just recipients
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT signature FROM TransactionRecipients WHERE recipient = ?", address)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT signature FROM TransactionRecipients WHERE participant = ?", address)) {
 			if (resultSet == null)
 				return signatures;
 
@@ -286,6 +262,32 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return signatures;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch involved transaction signatures from repository", e);
+		}
+	}
+
+	@Override
+	public void saveParticipants(TransactionData transactionData, List<String> participants) throws DataException {
+		byte[] signature = transactionData.getSignature();
+
+		try {
+			for (String participant : participants) {
+				HSQLDBSaver saver = new HSQLDBSaver("TransactionParticipants");
+
+				saver.bind("signature", signature).bind("participant", participant);
+
+				saver.execute(this.repository);
+			}
+		} catch (SQLException e) {
+			throw new DataException("Unable to save transaction participant into repository", e);
+		}
+	}
+
+	@Override
+	public void deleteParticipants(TransactionData transactionData) throws DataException {
+		try {
+			this.repository.delete("TransactionParticipants", "signature = ?", transactionData.getSignature());
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete transaction participants from repository", e);
 		}
 	}
 
@@ -323,13 +325,13 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		if (hasAddress) {
 			if (hasTxType)
-				tableJoins.add("TransactionRecipients ON TransactionRecipients.signature = Transactions.signature");
+				tableJoins.add("TransactionParticipants ON TransactionParticipants.signature = Transactions.signature");
 			else if (hasHeightRange)
-				tableJoins.add("TransactionRecipients ON TransactionRecipients.signature = BlockTransactions.transaction_signature");
+				tableJoins.add("TransactionParticipants ON TransactionParticipants.signature = BlockTransactions.transaction_signature");
 			else
-				tableJoins.add("TransactionRecipients");
+				tableJoins.add("TransactionParticipants");
 
-			signatureColumn = "TransactionRecipients.signature";
+			signatureColumn = "TransactionParticipants.signature";
 		}
 
 		// WHERE clauses next
@@ -346,14 +348,13 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			whereClauses.add("Transactions.type = " + txType.value);
 
 		if (hasAddress) {
-			whereClauses.add("TransactionRecipients.recipient = ?");
+			whereClauses.add("TransactionParticipants.participant = ?");
 			bindParams.add(address);
 		}
 
 		String sql = "SELECT " + signatureColumn + " FROM " + String.join(" JOIN ", tableJoins) + " WHERE " + String.join(" AND ", whereClauses);
 		System.out.println("Transaction search SQL:\n" + sql);
 
-		// XXX We need a table for all parties involved in a transaction, not just recipients
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
 			if (resultSet == null)
 				return signatures;

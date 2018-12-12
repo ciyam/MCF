@@ -2,7 +2,6 @@ package repository;
 
 import java.util.List;
 
-import data.account.AccountBalanceData;
 import data.assets.AssetData;
 import data.assets.OrderData;
 import data.assets.TradeData;
@@ -38,6 +37,8 @@ public interface AssetRepository {
 	public void delete(byte[] orderId) throws DataException;
 
 	// Trades
+
+	public List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException;
 
 	public List<TradeData> getOrdersTrades(byte[] orderId) throws DataException;
 
