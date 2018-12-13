@@ -2,7 +2,6 @@ package api;
 
 import data.block.BlockData;
 import data.transaction.TransactionData;
-import globalization.Translator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.extensions.Extension;
@@ -14,7 +13,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,63 +31,96 @@ import qora.block.Block;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
+import utils.Base58;
 
 @Path("blocks")
-@Produces({ MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN })
-@Extension(name = "translation", properties = { @ExtensionProperty(name = "path", value = "/Api/BlocksResource") })
-@Tag(name = "Blocks")
+@Produces({
+	MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN
+})
+@Extension(
+	name = "translation",
+	properties = {
+		@ExtensionProperty(
+			name = "path",
+			value = "/Api/BlocksResource"
+		)
+	}
+)
+@Tag(
+	name = "Blocks"
+)
 public class BlocksResource {
 
 	@Context
 	HttpServletRequest request;
 
-	private ApiErrorFactory apiErrorFactory;
-
-	public BlocksResource() {
-		this(new ApiErrorFactory(Translator.getInstance()));
-	}
-
-	public BlocksResource(ApiErrorFactory apiErrorFactory) {
-		this.apiErrorFactory = apiErrorFactory;
-	}
-
 	@GET
 	@Path("/signature/{signature}")
 	@Operation(
-		summary = "Fetch block using base64 signature",
+		summary = "Fetch block using base58 signature",
 		description = "Returns the block that matches the given signature",
-		extensions =
-	{ @Extension(
-		name = "translation",
-		properties =
-			{ @ExtensionProperty(name = "path", value = "GET signature"), @ExtensionProperty(name = "description.key", value = "operation:description") }
-	), @Extension(properties =
-			{ @ExtensionProperty(name = "apiErrors", value = "[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]", parseValue = true), }) },
-		responses =
-	{ @ApiResponse(
-		description = "the block",
-		content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		extensions = {
+			@Extension(
+				name = "translation",
+				properties = {
+					@ExtensionProperty(
+						name = "path",
+						value = "GET signature"
+					), @ExtensionProperty(
+						name = "description.key",
+						value = "operation:description"
+					)
+				}
+			), @Extension(
+				properties = {
+					@ExtensionProperty(
+						name = "apiErrors",
+						value = "[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]",
+						parseValue = true
+					),
+				}
+			)
+		},
+		responses = {
+			@ApiResponse(
+				description = "the block",
+				content = @Content(
+					schema = @Schema(
+						implementation = BlockWithTransactions.class
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
-	public BlockWithTransactions getBlock(@PathParam("signature") String signature,
-			@Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	public BlockWithTransactions getBlock(@PathParam("signature") String signature58, @Parameter(
+		ref = "includeTransactions"
+	) @QueryParam("includeTransactions") boolean includeTransactions) {
 		// Decode signature
-		byte[] signatureBytes;
+		byte[] signature;
 		try {
-			signatureBytes = Base64.getDecoder().decode(signature);
+			signature = Base58.decode(signature58);
 		} catch (NumberFormatException e) {
-			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 			return packageBlockData(repository, blockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -100,25 +131,48 @@ public class BlocksResource {
 		description = "Returns the genesis block",
 		extensions = @Extension(
 			name = "translation",
-			properties =
-		{ @ExtensionProperty(name = "path", value = "GET first"), @ExtensionProperty(name = "description.key", value = "operation:description") }
+			properties = {
+				@ExtensionProperty(
+					name = "path",
+					value = "GET first"
+				), @ExtensionProperty(
+					name = "description.key",
+					value = "operation:description"
+				)
+			}
 		),
-		responses =
-	{ @ApiResponse(
-		description = "the block",
-		content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		responses = {
+			@ApiResponse(
+				description = "the block",
+				content = @Content(
+					schema = @Schema(
+						implementation = BlockWithTransactions.class
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
-	public BlockWithTransactions getFirstBlock(@Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	public BlockWithTransactions getFirstBlock(@Parameter(
+		ref = "includeTransactions"
+	) @QueryParam("includeTransactions") boolean includeTransactions) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromHeight(1);
 			return packageBlockData(repository, blockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -129,73 +183,126 @@ public class BlocksResource {
 		description = "Returns the last valid block",
 		extensions = @Extension(
 			name = "translation",
-			properties =
-		{ @ExtensionProperty(name = "path", value = "GET last"), @ExtensionProperty(name = "description.key", value = "operation:description") }
+			properties = {
+				@ExtensionProperty(
+					name = "path",
+					value = "GET last"
+				), @ExtensionProperty(
+					name = "description.key",
+					value = "operation:description"
+				)
+			}
 		),
-		responses =
-	{ @ApiResponse(
-		description = "the block",
-		content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		responses = {
+			@ApiResponse(
+				description = "the block",
+				content = @Content(
+					schema = @Schema(
+						implementation = BlockWithTransactions.class
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
-	public BlockWithTransactions getLastBlock(@Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	public BlockWithTransactions getLastBlock(@Parameter(
+		ref = "includeTransactions"
+	) @QueryParam("includeTransactions") boolean includeTransactions) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().getLastBlock();
 			return packageBlockData(repository, blockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	@GET
 	@Path("/child/{signature}")
 	@Operation(
-		summary = "Fetch child block using base64 signature of parent block",
+		summary = "Fetch child block using base58 signature of parent block",
 		description = "Returns the child block of the block that matches the given signature",
-		extensions =
-	{ @Extension(
-		name = "translation",
-		properties =
-			{ @ExtensionProperty(name = "path", value = "GET child:signature"), @ExtensionProperty(name = "description.key", value = "operation:description") }
-	), @Extension(properties =
-			{ @ExtensionProperty(name = "apiErrors", value = "[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]", parseValue = true), }) },
-		responses =
-	{ @ApiResponse(
-		description = "the block",
-		content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		extensions = {
+			@Extension(
+				name = "translation",
+				properties = {
+					@ExtensionProperty(
+						name = "path",
+						value = "GET child:signature"
+					), @ExtensionProperty(
+						name = "description.key",
+						value = "operation:description"
+					)
+				}
+			), @Extension(
+				properties = {
+					@ExtensionProperty(
+						name = "apiErrors",
+						value = "[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]",
+						parseValue = true
+					),
+				}
+			)
+		},
+		responses = {
+			@ApiResponse(
+				description = "the block",
+				content = @Content(
+					schema = @Schema(
+						implementation = BlockWithTransactions.class
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
-	public BlockWithTransactions getChild(@PathParam("signature") String signature,
-			@Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	public BlockWithTransactions getChild(@PathParam("signature") String signature58, @Parameter(
+		ref = "includeTransactions"
+	) @QueryParam("includeTransactions") boolean includeTransactions) {
 		// Decode signature
-		byte[] signatureBytes;
+		byte[] signature;
 		try {
-			signatureBytes = Base64.getDecoder().decode(signature);
+			signature = Base58.decode(signature58);
 		} catch (NumberFormatException e) {
-			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 
 			// Check block exists
 			if (blockData == null)
-				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+				throw ApiErrorFactory.getInstance().createError(ApiError.BLOCK_NO_EXISTS);
 
-			BlockData childBlockData = repository.getBlockRepository().fromReference(signatureBytes);
+			BlockData childBlockData = repository.getBlockRepository().fromReference(signature);
 
 			// Checking child exists is handled by packageBlockData()
 			return packageBlockData(repository, childBlockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -206,16 +313,38 @@ public class BlocksResource {
 		description = "Calculates the generating balance of the block that will follow the last block",
 		extensions = @Extension(
 			name = "translation",
-			properties =
-		{ @ExtensionProperty(name = "path", value = "GET generatingbalance"), @ExtensionProperty(name = "description.key", value = "operation:description") }
+			properties = {
+				@ExtensionProperty(
+					name = "path",
+					value = "GET generatingbalance"
+				), @ExtensionProperty(
+					name = "description.key",
+					value = "operation:description"
+				)
+			}
 		),
-		responses =
-	{ @ApiResponse(
-		description = "the generating balance",
-		content = @Content(schema = @Schema(implementation = BigDecimal.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		responses = {
+			@ApiResponse(
+				description = "the generating balance",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						implementation = BigDecimal.class
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
 	public BigDecimal getGeneratingBalance() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -225,7 +354,7 @@ public class BlocksResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -234,44 +363,73 @@ public class BlocksResource {
 	@Operation(
 		summary = "Generating balance of block after specific block",
 		description = "Calculates the generating balance of the block that will follow the block that matches the signature",
-		extensions =
-	{ @Extension(
-		name = "translation",
-		properties =
-			{ @ExtensionProperty(name = "path", value = "GET generatingbalance:signature"),
-					@ExtensionProperty(name = "description.key", value = "operation:description") }
-	), @Extension(properties =
-			{ @ExtensionProperty(name = "apiErrors", value = "[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]", parseValue = true), }) },
-		responses =
-	{ @ApiResponse(
-		description = "the block",
-		content = @Content(schema = @Schema(implementation = BigDecimal.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		extensions = {
+			@Extension(
+				name = "translation",
+				properties = {
+					@ExtensionProperty(
+						name = "path",
+						value = "GET generatingbalance:signature"
+					), @ExtensionProperty(
+						name = "description.key",
+						value = "operation:description"
+					)
+				}
+			), @Extension(
+				properties = {
+					@ExtensionProperty(
+						name = "apiErrors",
+						value = "[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]",
+						parseValue = true
+					),
+				}
+			)
+		},
+		responses = {
+			@ApiResponse(
+				description = "the block",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						implementation = BigDecimal.class
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
-	public BigDecimal getGeneratingBalance(@PathParam("signature") String signature) {
+	public BigDecimal getGeneratingBalance(@PathParam("signature") String signature58) {
 		// Decode signature
-		byte[] signatureBytes;
+		byte[] signature;
 		try {
-			signatureBytes = Base64.getDecoder().decode(signature);
+			signature = Base58.decode(signature58);
 		} catch (NumberFormatException e) {
-			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 
 			// Check block exists
 			if (blockData == null)
-				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+				throw ApiErrorFactory.getInstance().createError(ApiError.BLOCK_NO_EXISTS);
 
 			Block block = new Block(repository, blockData);
 			return block.calcNextBlockGeneratingBalance();
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -282,16 +440,39 @@ public class BlocksResource {
 		description = "Calculates the time it should take for the network to generate the next block",
 		extensions = @Extension(
 			name = "translation",
-			properties =
-		{ @ExtensionProperty(name = "path", value = "GET time"), @ExtensionProperty(name = "description.key", value = "operation:description") }
+			properties = {
+				@ExtensionProperty(
+					name = "path",
+					value = "GET time"
+				), @ExtensionProperty(
+					name = "description.key",
+					value = "operation:description"
+				)
+			}
 		),
-		responses =
-	{ @ApiResponse(
-		description = "the time in seconds", // in seconds?
-		content = @Content(schema = @Schema(implementation = long.class)),
-		extensions =
-		{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		responses = {
+			@ApiResponse(
+				description = "the time in seconds", // in
+														// seconds?
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "number"
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
 	public long getTimePerBlock() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -300,7 +481,7 @@ public class BlocksResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -311,18 +492,40 @@ public class BlocksResource {
 		description = "Calculates the time it should take for the network to generate blocks based on specified generating balance",
 		extensions = @Extension(
 			name = "translation",
-			properties =
-		{ @ExtensionProperty(name = "path", value = "GET time:generatingbalance"), @ExtensionProperty(name = "description.key", value = "operation:description") }
+			properties = {
+				@ExtensionProperty(
+					name = "path",
+					value = "GET time:generatingbalance"
+				), @ExtensionProperty(
+					name = "description.key",
+					value = "operation:description"
+				)
+			}
 		),
-		responses =
-	{ @ApiResponse(
-		description = "the time", // in seconds?
-		content = @Content(schema = @Schema(implementation = long.class)),
-		extensions =
-		{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		responses = {
+			@ApiResponse(
+				description = "the time", // in seconds?
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "number"
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
-	public long getTimePerBlock(@PathParam("generating") BigDecimal generatingbalance) {
+	public long getTimePerBlock(@PathParam("generatingbalance") BigDecimal generatingbalance) {
 		return Block.calcForgingDelay(generatingbalance);
 	}
 
@@ -333,16 +536,38 @@ public class BlocksResource {
 		description = "Returns the block height of the last block.",
 		extensions = @Extension(
 			name = "translation",
-			properties =
-		{ @ExtensionProperty(name = "path", value = "GET height"), @ExtensionProperty(name = "description.key", value = "operation:description") }
+			properties = {
+				@ExtensionProperty(
+					name = "path",
+					value = "GET height"
+				), @ExtensionProperty(
+					name = "description.key",
+					value = "operation:description"
+				)
+			}
 		),
-		responses =
-	{ @ApiResponse(
-		description = "the height",
-		content = @Content(schema = @Schema(implementation = int.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		responses = {
+			@ApiResponse(
+				description = "the height",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "number"
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
 	public int getHeight() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -350,7 +575,7 @@ public class BlocksResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -359,42 +584,72 @@ public class BlocksResource {
 	@Operation(
 		summary = "Height of specific block",
 		description = "Returns the block height of the block that matches the given signature",
-		extensions =
-	{ @Extension(
-		name = "translation",
-		properties =
-			{ @ExtensionProperty(name = "path", value = "GET height:signature"), @ExtensionProperty(name = "description.key", value = "operation:description") }
-	), @Extension(properties =
-			{ @ExtensionProperty(name = "apiErrors", value = "[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]", parseValue = true), }) },
-		responses =
-	{ @ApiResponse(
-		description = "the height",
-		content = @Content(schema = @Schema(implementation = int.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		extensions = {
+			@Extension(
+				name = "translation",
+				properties = {
+					@ExtensionProperty(
+						name = "path",
+						value = "GET height:signature"
+					), @ExtensionProperty(
+						name = "description.key",
+						value = "operation:description"
+					)
+				}
+			), @Extension(
+				properties = {
+					@ExtensionProperty(
+						name = "apiErrors",
+						value = "[\"INVALID_SIGNATURE\", \"BLOCK_NO_EXISTS\"]",
+						parseValue = true
+					),
+				}
+			)
+		},
+		responses = {
+			@ApiResponse(
+				description = "the height",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "number"
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
-	public int getHeight(@PathParam("signature") String signature) {
+	public int getHeight(@PathParam("signature") String signature58) {
 		// Decode signature
-		byte[] signatureBytes;
+		byte[] signature;
 		try {
-			signatureBytes = Base64.getDecoder().decode(signature);
+			signature = Base58.decode(signature58);
 		} catch (NumberFormatException e) {
-			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().fromSignature(signatureBytes);
+			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 
 			// Check block exists
 			if (blockData == null)
-				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+				throw ApiErrorFactory.getInstance().createError(ApiError.BLOCK_NO_EXISTS);
 
 			return blockData.getHeight();
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -403,30 +658,60 @@ public class BlocksResource {
 	@Operation(
 		summary = "Fetch block using block height",
 		description = "Returns the block with given height",
-		extensions =
-	{ @Extension(
-		name = "translation",
-		properties =
-			{ @ExtensionProperty(name = "path", value = "GET byheight:height"), @ExtensionProperty(name = "description.key", value = "operation:description") }
-	), @Extension(properties =
-			{ @ExtensionProperty(name = "apiErrors", value = "[\"BLOCK_NO_EXISTS\"]", parseValue = true), }) },
-		responses =
-	{ @ApiResponse(
-		description = "the block",
-		content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		extensions = {
+			@Extension(
+				name = "translation",
+				properties = {
+					@ExtensionProperty(
+						name = "path",
+						value = "GET byheight:height"
+					), @ExtensionProperty(
+						name = "description.key",
+						value = "operation:description"
+					)
+				}
+			), @Extension(
+				properties = {
+					@ExtensionProperty(
+						name = "apiErrors",
+						value = "[\"BLOCK_NO_EXISTS\"]",
+						parseValue = true
+					),
+				}
+			)
+		},
+		responses = {
+			@ApiResponse(
+				description = "the block",
+				content = @Content(
+					schema = @Schema(
+						implementation = BlockWithTransactions.class
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
-	public BlockWithTransactions getByHeight(@PathParam("height") int height,
-			@Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	public BlockWithTransactions getByHeight(@PathParam("height") int height, @Parameter(
+		ref = "includeTransactions"
+	) @QueryParam("includeTransactions") boolean includeTransactions) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
 			return packageBlockData(repository, blockData, includeTransactions);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -435,22 +720,53 @@ public class BlocksResource {
 	@Operation(
 		summary = "Fetch blocks starting with given height",
 		description = "Returns blocks starting with given height.",
-		extensions =
-	{ @Extension(
-		name = "translation",
-		properties =
-			{ @ExtensionProperty(name = "path", value = "GET byheight:height"), @ExtensionProperty(name = "description.key", value = "operation:description") }
-	), @Extension(properties =
-			{ @ExtensionProperty(name = "apiErrors", value = "[\"BLOCK_NO_EXISTS\"]", parseValue = true), }) },
-		responses =
-	{ @ApiResponse(
-		description = "blocks",
-		content = @Content(schema = @Schema(implementation = BlockWithTransactions.class)),
-		extensions =
-			{ @Extension(name = "translation", properties = { @ExtensionProperty(name = "description.key", value = "success_response:description") }) }
-	) }
+		extensions = {
+			@Extension(
+				name = "translation",
+				properties = {
+					@ExtensionProperty(
+						name = "path",
+						value = "GET byheight:height"
+					), @ExtensionProperty(
+						name = "description.key",
+						value = "operation:description"
+					)
+				}
+			), @Extension(
+				properties = {
+					@ExtensionProperty(
+						name = "apiErrors",
+						value = "[\"BLOCK_NO_EXISTS\"]",
+						parseValue = true
+					),
+				}
+			)
+		},
+		responses = {
+			@ApiResponse(
+				description = "blocks",
+				content = @Content(
+					schema = @Schema(
+						implementation = BlockWithTransactions.class
+					)
+				),
+				extensions = {
+					@Extension(
+						name = "translation",
+						properties = {
+							@ExtensionProperty(
+								name = "description.key",
+								value = "success_response:description"
+							)
+						}
+					)
+				}
+			)
+		}
 	)
-	public List<BlockWithTransactions> getBlockRange(@PathParam("height") int height, @Parameter(ref = "count") @QueryParam("count") int count) {
+	public List<BlockWithTransactions> getBlockRange(@PathParam("height") int height, @Parameter(
+		ref = "count"
+	) @QueryParam("count") int count) {
 		boolean includeTransactions = false;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -469,13 +785,13 @@ public class BlocksResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	private BlockWithTransactions packageBlockData(Repository repository, BlockData blockData, boolean includeTransactions) throws DataException {
 		if (blockData == null)
-			throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+			throw ApiErrorFactory.getInstance().createError(ApiError.BLOCK_NO_EXISTS);
 
 		List<TransactionData> transactions = null;
 		if (includeTransactions) {

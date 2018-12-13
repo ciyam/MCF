@@ -1,4 +1,4 @@
-package api.models;
+package api;
 
 import org.eclipse.persistence.descriptors.ClassExtractor;
 import org.eclipse.persistence.sessions.Record;

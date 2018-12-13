@@ -11,9 +11,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
+import utils.Base58;
 
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -196,11 +196,11 @@ public class AssetsResource {
 			)
 		}
 	)
-	public OrderWithTrades getAssetOrder(@PathParam("orderId") String orderId64) {
+	public OrderWithTrades getAssetOrder(@PathParam("orderId") String orderId58) {
 		// Decode orderID
 		byte[] orderId;
 		try {
-			orderId = Base64.getDecoder().decode(orderId64);
+			orderId = Base58.decode(orderId58);
 		} catch (NumberFormatException e) {
 			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ORDER_ID, e);
 		}

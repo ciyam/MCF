@@ -6,11 +6,14 @@ import java.util.Arrays;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSeeAlso;
+import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlClassExtractor;
 
-import api.models.TransactionClassExtractor;
+import api.TransactionClassExtractor;
+import qora.crypto.Crypto;
 import qora.transaction.Transaction.TransactionType;
 
 /*
@@ -32,6 +35,7 @@ public abstract class TransactionData {
 
 	// Properties shared with all transaction types
 	protected TransactionType type;
+	@XmlTransient // represented in transaction-specific properties
 	protected byte[] creatorPublicKey;
 	protected long timestamp;
 	protected byte[] reference;
@@ -85,6 +89,13 @@ public abstract class TransactionData {
 
 	public void setSignature(byte[] signature) {
 		this.signature = signature;
+	}
+
+	// JAXB special
+
+	@XmlElement(name = "creatorAddress")
+	protected String getCreatorAddress() {
+		return Crypto.toAddress(this.creatorPublicKey);
 	}
 
 	// Comparison

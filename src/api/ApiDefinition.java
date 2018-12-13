@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @OpenAPIDefinition(
-		info = @Info( title = "Qora API", description = "NOTE: byte-arrays are encoded in Base64" ),
+		info = @Info( title = "Qora API", description = "NOTE: byte-arrays are encoded in Base58" ),
 		tags = {
 			@Tag(name = "Addresses"),
 			@Tag(name = "Admin"),
