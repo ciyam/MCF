@@ -1,14 +1,16 @@
 package api.models;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
 import data.assets.OrderData;
 import data.assets.TradeData;
 import io.swagger.v3.oas.annotations.media.Schema;
-import repository.DataException;
-import repository.Repository;
 
-@Schema(description = "Asset trade, with order info")
+@Schema(description = "Asset trade, including order info")
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
 public class TradeWithOrderInfo {
 
 	@Schema(implementation = TradeData.class, name = "trade", title = "trade data")
@@ -27,11 +29,10 @@ public class TradeWithOrderInfo {
 	protected TradeWithOrderInfo() {
 	}
 
-	public TradeWithOrderInfo(Repository repository, TradeData tradeData) throws DataException {
+	public TradeWithOrderInfo(TradeData tradeData, OrderData initiatingOrderData, OrderData targetOrderData) {
 		this.tradeData = tradeData;
-
-		this.initiatingOrderData = repository.getAssetRepository().fromOrderId(tradeData.getInitiator());
-		this.targetOrderData = repository.getAssetRepository().fromOrderId(tradeData.getTarget());
+		this.initiatingOrderData = initiatingOrderData;
+		this.targetOrderData = targetOrderData;
 	}
 
 }

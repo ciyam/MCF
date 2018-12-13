@@ -209,7 +209,7 @@ public class TransactionsResource {
 		}
 	)
 	public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit,
-			@QueryParam("txType") Integer txTypeNum, @QueryParam("address") String address, @Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+			@QueryParam("txType") Integer txTypeNum, @QueryParam("address") String address, @Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
 		if ((txTypeNum == null || txTypeNum == 0) && (address == null || address.isEmpty()))
 			throw this.apiErrorFactory.createError(ApiError.INVALID_CRITERIA);
 

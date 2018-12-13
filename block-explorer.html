@@ -88,7 +88,7 @@
 				document.body.innerHTML = html;
 				
 				XHR({
-                        url: "/transactions/address/" + address,
+                        url: "/transactions/search?address=" + address,
                         onload: renderAddressTransactions,
                         responseType: "json"
                 });
@@ -137,7 +137,7 @@
 			}
 
 			function renderBlockInfo(e) {
-				var blockData = e.target.response;
+				var blockData = e.target.response.block;
 				
 				// These properties are currently emitted as base64 by API but likely to be base58 in the future, so convert them
 				var props = [ "signature", "reference", "transactionsSignature", "generatorPublicKey", "generatorSignature" ];
@@ -196,7 +196,7 @@
 			}
 
 			function listBlock(e) {
-				var blockData = e.target.response;
+				var blockData = e.target.response.block;
 				
 				var ourHeight = blockData.height;
 				var blockTimestamp = new Date(blockData.timestamp).toUTCString();

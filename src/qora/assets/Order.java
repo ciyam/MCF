@@ -3,6 +3,7 @@ package qora.assets;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -209,10 +210,11 @@ public class Order {
 
 	public void orphan() throws DataException {
 		// Orphan trades that occurred as a result of this order
-		for (TradeData tradeData : getTrades()) {
-			Trade trade = new Trade(this.repository, tradeData);
-			trade.orphan();
-		}
+		for (TradeData tradeData : getTrades())
+			if (Arrays.equals(this.orderData.getOrderId(), tradeData.getInitiator())) {
+				Trade trade = new Trade(this.repository, tradeData);
+				trade.orphan();
+			}
 
 		// Delete this order from repository
 		this.repository.getAssetRepository().delete(this.orderData.getOrderId());
