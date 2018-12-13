@@ -6,22 +6,30 @@ import globalization.Translator;
 import io.swagger.v3.core.converter.ModelConverters;
 import io.swagger.v3.jaxrs2.Reader;
 import io.swagger.v3.jaxrs2.ReaderListener;
-import io.swagger.v3.oas.models.media.Content;
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.oas.models.examples.Example;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.responses.ApiResponse;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 
 public class AnnotationPostProcessor implements ReaderListener {
+
+	private static final Logger LOGGER = LogManager.getLogger(AnnotationPostProcessor.class);
 
 	private class ContextInformation {
 		public String path;
@@ -41,10 +49,21 @@ public class AnnotationPostProcessor implements ReaderListener {
 	}
 	
 	@Override
-	public void beforeScan(Reader reader, OpenAPI openAPI) {}
+	public void beforeScan(Reader reader, OpenAPI openAPI) {
+	}
 
 	@Override
 	public void afterScan(Reader reader, OpenAPI openAPI) {
+		// Populate Components section with reusable parameters, like "limit" and "offset"
+		// We take the reusable parameters from AdminResource.globalParameters path "/admin/unused"
+		Components components = openAPI.getComponents();
+		PathItem globalParametersPathItem = openAPI.getPaths().get("/admin/unused");
+		if (globalParametersPathItem != null) {
+			for (Parameter parameter : globalParametersPathItem.getGet().getParameters())
+				components.addParameters(parameter.getName(), parameter);
+			openAPI.getPaths().remove("/admin/unused");
+		}
+
 		// use context path and keys from "x-translation" extension annotations
 		// to translate supported annotations and finally remove "x-translation" extensions
 		Info resourceInfo = openAPI.getInfo();

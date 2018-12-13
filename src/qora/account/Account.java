@@ -1,7 +1,6 @@
 package qora.account;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -31,6 +30,7 @@ public class Account {
 	protected Account() {
 	}
 
+	/** Construct Account business object using account's address */
 	public Account(Repository repository, String address) {
 		this.repository = repository;
 		this.accountData = new AccountData(address);
@@ -119,7 +119,7 @@ public class Account {
 
 	public void setConfirmedBalance(long assetId, BigDecimal balance) throws DataException {
 		// Can't have a balance without an account - make sure it exists!
-		this.repository.getAccountRepository().create(this.accountData.getAddress());
+		this.repository.getAccountRepository().create(this.accountData);
 
 		AccountBalanceData accountBalanceData = new AccountBalanceData(this.accountData.getAddress(), assetId, balance);
 		this.repository.getAccountRepository().save(accountBalanceData);

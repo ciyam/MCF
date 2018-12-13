@@ -7,6 +7,13 @@
 	<packaging>jar</packaging>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<bouncycastle.version>1.60</bouncycastle.version>
+		<hsqldb.version>r5836</hsqldb.version>
+		<jetty.version>9.4.11.v20180605</jetty.version>
+		<jersey.version>2.27</jersey.version>
+		<log4j.version>2.11.0</log4j.version>
+		<slf4j.version>1.7.12</slf4j.version>
+		<swagger-api.version>2.0.6</swagger-api.version>
 		<swagger-ui.version>3.19.0</swagger-ui.version>
 	</properties>
 	<build>
@@ -63,6 +70,18 @@
 						<replacement>
 							<token>https://petstore.swagger.io/v2/swagger.json</token>
 							<value>/openapi.json</value>
+						</replacement>
+						<replacement>
+							<token>Swagger UI</token>
+							<value>API Documentation</value>
+						</replacement>
+						<replacement>
+							<token>deepLinking: true,</token>
+							<value>
+								deepLinking: true,
+								tagsSorter: "alpha",
+								operationsSorter: "alpha",
+							</value>
 						</replacement>
 					</replacements>
 				</configuration>
@@ -156,83 +175,29 @@
 		</repository>
 	</repositories>
 	<dependencies>
+		<!-- HSQLDB for repository -->
 		<dependency>
 			<groupId>org.hsqldb</groupId>
 			<artifactId>hsqldb</artifactId>
-			<version>r5836</version>
+			<version>${hsqldb.version}</version>
 		</dependency>
+		<!-- CIYAM AT (automated transactions) -->
+		<dependency>
+			<groupId>org.ciyam</groupId>
+			<artifactId>at</artifactId>
+			<version>1.0</version>
+		</dependency>
+		<!-- Bitcoin support -->
+		<dependency>
+			<groupId>org.bitcoinj</groupId>
+			<artifactId>bitcoinj-core</artifactId>
+			<version>0.14.7</version>
+		</dependency>
+		<!-- Utilities -->
 		<dependency>
 			<groupId>com.googlecode.json-simple</groupId>
 			<artifactId>json-simple</artifactId>
 			<version>1.1.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.google.guava</groupId>
-			<artifactId>guava</artifactId>
-			<version>25.0-jre</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.logging.log4j</groupId>
-			<artifactId>log4j-core</artifactId>
-			<version>2.11.0</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.logging.log4j</groupId>
-			<artifactId>log4j-api</artifactId>
-			<version>2.11.0</version>
-		</dependency>
-		<dependency>
-			<groupId>commons-net</groupId>
-			<artifactId>commons-net</artifactId>
-			<version>3.3</version>
-		</dependency>
-		<dependency>
-			<groupId>org.glassfish.jersey.core</groupId>
-			<artifactId>jersey-server</artifactId>
-			<version>2.27</version>
-		</dependency>
-		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>javax.servlet-api</artifactId>
-			<version>4.0.1</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-server</artifactId>
-			<version>9.4.11.v20180605</version>
-			<classifier>config</classifier>
-		</dependency>
-		<dependency>
-			<groupId>org.glassfish.jersey.containers</groupId>
-			<artifactId>jersey-container-servlet-core</artifactId>
-			<version>2.27</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-servlet</artifactId>
-			<version>9.4.11.v20180605</version>
-			<type>jar</type>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.eclipse.jetty/jetty-servlets -->
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-servlets</artifactId>
-			<version>9.4.11.v20180605</version>
-		</dependency>
-		<dependency>
-			<groupId>org.glassfish.jersey.inject</groupId>
-			<artifactId>jersey-hk2</artifactId>
-			<version>2.27</version>
-		</dependency>
-		<dependency>
-			<groupId>io.swagger.core.v3</groupId>
-			<artifactId>swagger-jaxrs2</artifactId>
-			<version>2.0.4</version>
-		</dependency>
-		<dependency>
-			<groupId>io.swagger.core.v3</groupId>
-			<artifactId>swagger-jaxrs2-servlet-initializer</artifactId>
-			<version>2.0.4</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.commons</groupId>
@@ -240,21 +205,114 @@
 			<version>1.4</version>
 		</dependency>
 		<dependency>
+			<groupId>commons-net</groupId>
+			<artifactId>commons-net</artifactId>
+			<version>3.3</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>25.0-jre</version>
+		</dependency>
+		<!-- Logging: log4j2 -->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<version>${log4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<version>${log4j.version}</version>
+		</dependency>
+		<!-- Logging: slf4j used by Jetty -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>${slf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-simple</artifactId>
+			<version>${slf4j.version}</version>
+		</dependency>
+		<!-- Servlet related -->
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>4.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>javax.mail</groupId>
+			<artifactId>mail</artifactId>
+			<version>1.5.0-b01</version>
+		</dependency>
+		<!-- Jetty -->
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-server</artifactId>
+			<version>${jetty.version}</version>
+			<classifier>config</classifier>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-servlet</artifactId>
+			<version>${jetty.version}</version>
+			<type>jar</type>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-servlets</artifactId>
+			<version>${jetty.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-rewrite</artifactId>
+			<version>${jetty.version}</version>
+		</dependency>
+		<!-- Jersey -->
+		<dependency>
+			<groupId>org.glassfish.jersey.core</groupId>
+			<artifactId>jersey-server</artifactId>
+			<version>${jersey.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.glassfish.jersey.containers</groupId>
+			<artifactId>jersey-container-servlet-core</artifactId>
+			<version>${jersey.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.glassfish.jersey.inject</groupId>
+			<artifactId>jersey-hk2</artifactId>
+			<version>${jersey.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.glassfish.jersey.media</groupId>
 			<artifactId>jersey-media-moxy</artifactId>
-			<version>2.27</version>
+			<version>${jersey.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.ciyam</groupId>
-			<artifactId>at</artifactId>
-			<version>1.0</version>
+			<groupId>org.glassfish.jersey.media</groupId>
+			<artifactId>jersey-media-multipart</artifactId>
+			<version>${jersey.version}</version>
+		</dependency>
+		<!-- Swagger OpenAPI implementation -->
+		<dependency>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-jaxrs2</artifactId>
+			<version>${swagger-api.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.hsqldb</groupId>
-			<artifactId>sqltool</artifactId>
-			<version>2.4.1</version>
-			<scope>test</scope>
+			<groupId>io.swagger.core.v3</groupId>
+			<artifactId>swagger-jaxrs2-servlet-initializer</artifactId>
+			<version>${swagger-api.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>swagger-ui</artifactId>
+			<version>${swagger-ui.version}</version>
+		</dependency>
+		<!-- Testing -->
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-engine</artifactId>
@@ -265,48 +323,11 @@
 			<artifactId>hamcrest-library</artifactId>
 			<version>1.3</version>
 		</dependency>
-		<dependency>
-			<groupId>org.glassfish.jersey.media</groupId>
-			<artifactId>jersey-media-multipart</artifactId>
-			<version>2.27</version>
-		</dependency>
-		<dependency>
-			<groupId>javax.mail</groupId>
-			<artifactId>mail</artifactId>
-			<version>1.5.0-b01</version>
-		</dependency>
-		<dependency>
-			<groupId>org.webjars</groupId>
-			<artifactId>swagger-ui</artifactId>
-			<version>${swagger-ui.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.eclipse.jetty</groupId>
-			<artifactId>jetty-rewrite</artifactId>
-			<version>9.4.11.v20180605</version>
-		</dependency>
-		<dependency>
-			<groupId>org.bitcoinj</groupId>
-			<artifactId>bitcoinj-core</artifactId>
-			<version>0.14.7</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk15on -->
+		<!-- BouncyCastle for crypto, including TLS secure networking -->
 		<dependency>
 			<groupId>org.bouncycastle</groupId>
 			<artifactId>bcprov-jdk15on</artifactId>
-			<version>1.60</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-			<version>1.7.12</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-simple -->
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-simple</artifactId>
-			<version>1.7.12</version>
+			<version>${bouncycastle.version}</version>
 		</dependency>
 	</dependencies>
 </project>

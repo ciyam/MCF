@@ -3,9 +3,16 @@ package data.transaction;
 import java.math.BigDecimal;
 import java.util.List;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
 import data.voting.PollOptionData;
+import io.swagger.v3.oas.annotations.media.Schema;
 import qora.transaction.Transaction;
 
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
+@Schema(allOf = { TransactionData.class })
 public class CreatePollTransactionData extends TransactionData {
 
 	// Properties
@@ -15,6 +22,10 @@ public class CreatePollTransactionData extends TransactionData {
 	private List<PollOptionData> pollOptions;
 
 	// Constructors
+
+	// For JAX-RS
+	protected CreatePollTransactionData() {
+	}
 
 	public CreatePollTransactionData(byte[] creatorPublicKey, String owner, String pollName, String description, List<PollOptionData> pollOptions,
 			BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {

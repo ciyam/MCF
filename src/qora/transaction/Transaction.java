@@ -3,6 +3,7 @@ package qora.transaction;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -10,7 +11,6 @@ import java.util.Map;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
-import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.account.Account;
 import qora.account.PrivateKeyAccount;
@@ -315,6 +315,21 @@ public abstract class Transaction {
 	public abstract List<Account> getRecipientAccounts() throws DataException;
 
 	/**
+	 * Returns a list of involved accounts for this transaction.
+	 * <p>
+	 * "Involved" means sender or recipient.
+	 * 
+	 * @return list of involved accounts, or empty list if none
+	 * @throws DataException
+	 */
+	public List<Account> getInvolvedAccounts() throws DataException {
+		// Typically this is all the recipients plus the transaction creator/sender
+		List<Account> participants = new ArrayList<Account>(getRecipientAccounts());
+		participants.add(getCreator());
+		return participants;
+	}
+
+	/**
 	 * Returns whether passed account is an involved party in this transaction.
 	 * <p>
 	 * Account could be sender, or any one of the potential recipients.
@@ -347,17 +362,6 @@ public abstract class Transaction {
 	 */
 	protected Account getCreator() throws DataException {
 		return new PublicKeyAccount(this.repository, this.transactionData.getCreatorPublicKey());
-	}
-
-	/**
-	 * Load encapsulating block's data from repository, if any
-	 * 
-	 * @return BlockData, or null if transaction is not in a Block
-	 * @throws DataException
-	 */
-	@Deprecated
-	public BlockData getBlock() throws DataException {
-		return this.repository.getTransactionRepository().getBlockDataFromSignature(this.transactionData.getSignature());
 	}
 
 	/**

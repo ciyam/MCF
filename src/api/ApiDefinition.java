@@ -7,12 +7,14 @@ import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 @OpenAPIDefinition(
-		info = @Info( title = "MCF API", description = "NOTE: byte-arrays currently returned as Base64 but this is likely to change to Base58" ),
+		info = @Info( title = "MCF API", description = "NOTE: byte-arrays are encoded in Base64" ),
 		tags = {
-			@Tag(name = "addresses"),
-			@Tag(name = "admin"),
-			@Tag(name = "blocks"),
-			@Tag(name = "transactions")
+			@Tag(name = "Addresses"),
+			@Tag(name = "Admin"),
+			@Tag(name = "Assets"),
+			@Tag(name = "Blocks"),
+			@Tag(name = "Transactions"),
+			@Tag(name = "Utilities")
 		},
 		extensions = {
 			@Extension(name = "translation", properties = {

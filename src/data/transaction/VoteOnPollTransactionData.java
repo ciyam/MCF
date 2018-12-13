@@ -1,8 +1,16 @@
 package data.transaction;
 
 import java.math.BigDecimal;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 import qora.transaction.Transaction.TransactionType;
 
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
+@Schema(allOf = { TransactionData.class })
 public class VoteOnPollTransactionData extends TransactionData {
 
 	// Properties
@@ -12,6 +20,10 @@ public class VoteOnPollTransactionData extends TransactionData {
 	private Integer previousOptionIndex;
 
 	// Constructors
+
+	// For JAX-RS
+	protected VoteOnPollTransactionData() {
+	}
 
 	public VoteOnPollTransactionData(byte[] voterPublicKey, String pollName, int optionIndex, Integer previousOptionIndex, BigDecimal fee, long timestamp,
 			byte[] reference, byte[] signature) {

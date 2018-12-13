@@ -18,6 +18,10 @@ public interface AssetRepository {
 
 	public boolean assetExists(String assetName) throws DataException;
 
+	public List<AssetData> getAllAssets() throws DataException;
+
+	// For a list of asset holders, see AccountRepository.getAssetBalances
+
 	public void save(AssetData assetData) throws DataException;
 
 	public void delete(long assetId) throws DataException;
@@ -33,6 +37,8 @@ public interface AssetRepository {
 	public void delete(byte[] orderId) throws DataException;
 
 	// Trades
+
+	public List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException;
 
 	public List<TradeData> getOrdersTrades(byte[] orderId) throws DataException;
 

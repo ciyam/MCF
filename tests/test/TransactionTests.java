@@ -74,7 +74,7 @@ import settings.Settings;
 // Don't extend Common as we want to use an in-memory database
 public class TransactionTests {
 
-	private static final String connectionUrl = "jdbc:hsqldb:mem:db/test;create=true;close_result=true;sql.strict_exec=true;sql.enforce_names=true;sql.syntax_mys=true";
+	private static final String connectionUrl = "jdbc:hsqldb:mem:db/blockchain;create=true";
 
 	private static final byte[] generatorSeed = HashCode.fromString("0123456789abcdeffedcba98765432100123456789abcdeffedcba9876543210").asBytes();
 	private static final byte[] senderSeed = HashCode.fromString("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").asBytes();
@@ -120,7 +120,7 @@ public class TransactionTests {
 
 		// Create test generator account
 		generator = new PrivateKeyAccount(repository, generatorSeed);
-		accountRepository.save(new AccountData(generator.getAddress(), generatorSeed));
+		accountRepository.save(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey()));
 		accountRepository.save(new AccountBalanceData(generator.getAddress(), Asset.QORA, initialGeneratorBalance));
 
 		// Create test sender account
@@ -128,7 +128,7 @@ public class TransactionTests {
 
 		// Mock account
 		reference = senderSeed;
-		accountRepository.save(new AccountData(sender.getAddress(), reference));
+		accountRepository.save(new AccountData(sender.getAddress(), reference, sender.getPublicKey()));
 
 		// Mock balance
 		accountRepository.save(new AccountBalanceData(sender.getAddress(), Asset.QORA, initialSenderBalance));

@@ -2,9 +2,16 @@ package data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 import qora.account.GenesisAccount;
 import qora.transaction.Transaction.TransactionType;
 
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
+@Schema(allOf = { TransactionData.class })
 public class GenesisTransactionData extends TransactionData {
 
 	// Properties
@@ -12,6 +19,10 @@ public class GenesisTransactionData extends TransactionData {
 	private BigDecimal amount;
 
 	// Constructors
+
+	// For JAX-RS
+	protected GenesisTransactionData() {
+	}
 
 	public GenesisTransactionData(String recipient, BigDecimal amount, long timestamp, byte[] signature) {
 		// Zero fee

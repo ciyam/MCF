@@ -2,6 +2,7 @@ package api;
 
 import globalization.Translator;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.extensions.Extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -9,9 +10,10 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import qora.crypto.Crypto;
+import qora.transaction.Transaction.TransactionType;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -19,14 +21,16 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import data.transaction.GenesisTransactionData;
+import data.transaction.PaymentTransactionData;
 import data.transaction.TransactionData;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
-import repository.TransactionRepository;
 import utils.Base58;
 
 @Path("transactions")
@@ -35,7 +39,7 @@ import utils.Base58;
 		@ExtensionProperty(name="path", value="/Api/TransactionsResource")
 	}
 )
-@Tag(name = "transactions")
+@Tag(name = "Transactions")
 public class TransactionsResource {
 
 	@Context
@@ -52,23 +56,19 @@ public class TransactionsResource {
 	}
 
 	@GET
-	@Path("/address/{address}")
+	@Path("/signature/{signature}")
 	@Operation(
-		summary = "Fetch transactions involving address",
-		description = "Returns list of transactions",
+		summary = "Fetch transaction using transaction signature",
+		description = "Returns transaction",
 		extensions = {
-			@Extension(name = "translation", properties = {
-					@ExtensionProperty(name="path", value="GET block:signature"),
-				@ExtensionProperty(name="description.key", value="operation:description")
-			}),
-			@Extension(properties = {
-					@ExtensionProperty(name="apiErrors", value="[\"INVALID_ADDRESS\"]", parseValue = true),
+				@Extension(properties = {
+					@ExtensionProperty(name="apiErrors", value="[\"INVALID_SIGNATURE\", \"TRANSACTION_NO_EXISTS\"]", parseValue = true),
 				})
-		},
+			},
 		responses = {
 			@ApiResponse(
-				description = "list of transactions",
-				content = @Content(array = @ArraySchema(schema = @Schema(implementation = TransactionData.class))),
+				description = "a transaction",
+				content = @Content(schema = @Schema(implementation = TransactionData.class)),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -77,37 +77,32 @@ public class TransactionsResource {
 			)
 		}
 	)
-	public List<TransactionData> getAddressTransactions(@PathParam("address") String address) {
-		Security.checkApiCallAllowed("GET transactions/address", request);
-
-		if (!Crypto.isValidAddress(address))
-			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+	public TransactionData getTransactions(@PathParam("signature") String signature) {
+		// Decode signature
+		byte[] signatureBytes;
+		try {
+			signatureBytes = Base64.getDecoder().decode(signature);
+		} catch (NumberFormatException e) {
+			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			TransactionRepository txRepo = repository.getTransactionRepository();
+			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signatureBytes);
+			if (transactionData == null)
+				throw this.apiErrorFactory.createError(ApiError.TRANSACTION_NO_EXISTS);
 
-			List<byte[]> signatures = txRepo.getAllSignaturesInvolvingAddress(address);
-
-			// Pagination would take effect here (or as part of the repository access)
-
-			// Expand signatures to transactions
-			List<TransactionData> transactions = new ArrayList<TransactionData>(signatures.size());
-			for (byte[] signature : signatures)
-				transactions.add(txRepo.fromSignature(signature));
-
-			return transactions;
+			return transactionData;
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
 			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
 		}
-
 	}
 
 	@GET
 	@Path("/block/{signature}")
 	@Operation(
-		summary = "Fetch transactions via block signature",
+		summary = "Fetch transactions using block signature",
 		description = "Returns list of transactions",
 		extensions = {
 			@Extension(name = "translation", properties = {
@@ -121,7 +116,9 @@ public class TransactionsResource {
 		responses = {
 			@ApiResponse(
 				description = "list of transactions",
-				content = @Content(array = @ArraySchema(schema = @Schema(implementation = TransactionData.class))),
+				content = @Content(array = @ArraySchema(schema = @Schema(
+							oneOf = { GenesisTransactionData.class, PaymentTransactionData.class }
+						))),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -130,9 +127,7 @@ public class TransactionsResource {
 			)
 		}
 	)
-	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature) {
-		Security.checkApiCallAllowed("GET transactions/block", request);
-
+	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature, @Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
 		// decode signature
 		byte[] signatureBytes;
 		try {
@@ -148,13 +143,102 @@ public class TransactionsResource {
 			if(transactions == null)
 				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
 
+			// Pagination would take effect here (or as part of the repository access)
+			int fromIndex = Integer.min(offset, transactions.size());
+			int toIndex = limit == 0 ? transactions.size() : Integer.min(fromIndex + limit, transactions.size());
+			transactions = transactions.subList(fromIndex, toIndex);
+
 			return transactions;
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
 			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
 		}
+	}
 
+	@GET
+	@Path("/unconfirmed")
+	@Operation(
+		summary = "List unconfirmed transactions",
+		description = "Returns transactions",
+		responses = {
+			@ApiResponse(
+				description = "transactions",
+				content = @Content(array = @ArraySchema(schema = @Schema(implementation = TransactionData.class))),
+				extensions = {
+					@Extension(name = "translation", properties = {
+						@ExtensionProperty(name="description.key", value="success_response:description")
+					})
+				}
+			)
+		}
+	)
+	public List<TransactionData> getUnconfirmedTransactions() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getTransactionRepository().getAllUnconfirmedTransactions();
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/search")
+	@Operation(
+		summary = "Find matching transactions",
+		description = "Returns transactions that match criteria. At least either txType or address must be provided.",
+		/*
+		parameters = {
+			@Parameter(in = ParameterIn.QUERY, name = "txType", description = "Transaction type", schema = @Schema(type = "integer")),
+			@Parameter(in = ParameterIn.QUERY, name = "address", description = "Account's address", schema = @Schema(type = "string")),
+			@Parameter(in = ParameterIn.QUERY, name = "startBlock", description = "Start block height", schema = @Schema(type = "integer")),
+			@Parameter(in = ParameterIn.QUERY, name = "blockLimit", description = "Maximum number of blocks to search", schema = @Schema(type = "integer"))
+		},
+		*/
+		responses = {
+			@ApiResponse(
+				description = "transactions",
+				content = @Content(array = @ArraySchema(schema = @Schema(implementation = TransactionData.class))),
+				extensions = {
+					@Extension(name = "translation", properties = {
+						@ExtensionProperty(name="description.key", value="success_response:description")
+					})
+				}
+			)
+		}
+	)
+	public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit,
+			@QueryParam("txType") Integer txTypeNum, @QueryParam("address") String address, @Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+		if ((txTypeNum == null || txTypeNum == 0) && (address == null || address.isEmpty()))
+			throw this.apiErrorFactory.createError(ApiError.INVALID_CRITERIA);
+
+		TransactionType txType = null;
+		if (txTypeNum != null) {
+			txType = TransactionType.valueOf(txTypeNum);
+			if (txType == null)
+				throw this.apiErrorFactory.createError(ApiError.INVALID_CRITERIA);
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<byte[]> signatures  = repository.getTransactionRepository().getAllSignaturesMatchingCriteria(startBlock, blockLimit, txType, address);
+
+			// Pagination would take effect here (or as part of the repository access)
+			int fromIndex = Integer.min(offset, signatures.size());
+			int toIndex = limit == 0 ? signatures.size() : Integer.min(fromIndex + limit, signatures.size());
+			signatures = signatures.subList(fromIndex, toIndex);
+
+			// Expand signatures to transactions
+			List<TransactionData> transactions = new ArrayList<TransactionData>(signatures.size());
+			for (byte[] signature : signatures)
+				transactions.add(repository.getTransactionRepository().fromSignature(signature));
+
+			return transactions;
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 }

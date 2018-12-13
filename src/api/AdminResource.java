@@ -1,7 +1,8 @@
 package api;
 
-import globalization.Translator;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.extensions.Extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,22 +25,26 @@ import controller.Controller;
 		@ExtensionProperty(name="path", value="/Api/AdminResource")
 	}
 )
-@Tag(name = "admin")
+@Tag(name = "Admin")
 public class AdminResource {
 
 	@Context
 	HttpServletRequest request;
 
-	private static final long startTime = System.currentTimeMillis();
-
-	private ApiErrorFactory apiErrorFactory;
-
-	public AdminResource() {
-		this(new ApiErrorFactory(Translator.getInstance()));
-	}
-
-	public AdminResource(ApiErrorFactory apiErrorFactory) {
-		this.apiErrorFactory = apiErrorFactory;
+	@GET
+	@Path("/unused")
+	@Parameter(in = ParameterIn.PATH, name = "blockSignature", description = "Block signature", schema = @Schema(type = "string", format = "byte"), example = "ZZZZ==")
+	@Parameter(in = ParameterIn.PATH, name = "assetId", description = "Asset ID, 0 is native coin", schema = @Schema(type = "string", format = "byte"))
+	@Parameter(in = ParameterIn.PATH, name = "otherAssetId", description = "Asset ID, 0 is native coin", schema = @Schema(type = "string", format = "byte"))
+	@Parameter(in = ParameterIn.PATH, name = "address", description = "an account address", example = "QRHDHASWAXarqTvB2X4SNtJCWbxGf68M2o")
+	@Parameter(in = ParameterIn.QUERY, name = "count", description = "Maximum number of entries to return, 0 means none", schema = @Schema(type = "integer", defaultValue = "20"))
+	@Parameter(in = ParameterIn.QUERY, name = "limit", description = "Maximum number of entries to return, 0 means unlimited", schema = @Schema(type = "integer", defaultValue = "20"))
+	@Parameter(in = ParameterIn.QUERY, name = "offset", description = "Starting entry in results, 0 is first entry", schema = @Schema(type = "integer"))
+	@Parameter(in = ParameterIn.QUERY, name = "includeTransactions", description = "Include associated transactions in results", schema = @Schema(type = "boolean"))
+	@Parameter(in = ParameterIn.QUERY, name = "includeHolders", description = "Include asset holders in results", schema = @Schema(type = "boolean"))
+	@Parameter(in = ParameterIn.QUERY, name = "queryAssetId", description = "Asset ID, 0 is native coin", schema = @Schema(type = "string", format = "byte"))
+	public String globalParameters() {
+		return "";
 	}
 
 	@GET
@@ -65,9 +70,7 @@ public class AdminResource {
 		}
 	)
 	public String uptime() {
-		Security.checkApiCallAllowed("GET admin/uptime", request);
-
-		return Long.toString(System.currentTimeMillis() - startTime);
+		return Long.toString(System.currentTimeMillis() - Controller.startTime);
 	}
 
 	@GET
@@ -93,16 +96,16 @@ public class AdminResource {
 		}
 	)
 	public String shutdown() {
-		Security.checkApiCallAllowed("GET admin/stop", request);
+		Security.checkApiCallAllowed(request);
 
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
 				Controller.shutdown();
 			}
-		}); // disabled for now: .start();
+		}).start();
 
-		return "false";
+		return "true";
 	}
 
 }

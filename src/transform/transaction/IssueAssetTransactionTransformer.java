@@ -120,8 +120,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	}
 
 	/**
-	 * In Qora v1, the bytes used for verification have transaction type set to REGISTER_NAME_TRANSACTION so we need to test for v1-ness and adjust the bytes
-	 * accordingly.
+	 * In Qora v1, the bytes used for verification have asset's reference zeroed so we need to test for v1-ness and adjust the bytes accordingly.
 	 * 
 	 * @param transactionData
 	 * @return byte[]
@@ -136,8 +135,8 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		// Special v1 version
 
 		// Zero duplicate signature/reference
-		int start = bytes.length - SIGNATURE_LENGTH - BIG_DECIMAL_LENGTH;
-		int end = start + SIGNATURE_LENGTH;
+		int start = bytes.length - ASSET_REFERENCE_LENGTH - FEE_LENGTH; // before asset reference (and fee)
+		int end = start + ASSET_REFERENCE_LENGTH;
 		Arrays.fill(bytes, start, end, (byte) 0);
 
 		return bytes;

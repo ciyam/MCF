@@ -6,23 +6,21 @@ import repository.Repository;
 
 public class PublicKeyAccount extends Account {
 
-	protected byte[] publicKey;
-
 	public PublicKeyAccount(Repository repository, byte[] publicKey) {
 		super(repository, Crypto.toAddress(publicKey));
 
-		this.publicKey = publicKey;
+		this.accountData.setPublicKey(publicKey);
 	}
 
 	protected PublicKeyAccount() {
 	}
 
 	public byte[] getPublicKey() {
-		return publicKey;
+		return this.accountData.getPublicKey();
 	}
 
 	public boolean verify(byte[] signature, byte[] message) {
-		return PublicKeyAccount.verify(this.publicKey, signature, message);
+		return PublicKeyAccount.verify(this.accountData.getPublicKey(), signature, message);
 	}
 
 	public static boolean verify(byte[] publicKey, byte[] signature, byte[] message) {

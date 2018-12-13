@@ -3,9 +3,16 @@ package data.transaction;
 import java.math.BigDecimal;
 import java.util.List;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
 import data.PaymentData;
+import io.swagger.v3.oas.annotations.media.Schema;
 import qora.transaction.Transaction.TransactionType;
 
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
+@Schema(allOf = { TransactionData.class })
 public class ArbitraryTransactionData extends TransactionData {
 
 	// "data" field types
@@ -23,6 +30,10 @@ public class ArbitraryTransactionData extends TransactionData {
 	private List<PaymentData> payments;
 
 	// Constructors
+
+	// For JAX-RS
+	protected ArbitraryTransactionData() {
+	}
 
 	/** Reconstructing a V3 arbitrary transaction with signature */
 	public ArbitraryTransactionData(int version, byte[] senderPublicKey, int service, byte[] data, DataType dataType, List<PaymentData> payments,

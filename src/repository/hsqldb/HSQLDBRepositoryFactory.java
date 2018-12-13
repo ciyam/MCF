@@ -20,15 +20,17 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		// one-time initialization goes in here
 		this.connectionUrl = connectionUrl;
 
+		// Check no-one else is accessing database
+		try (Connection connection = DriverManager.getConnection(this.connectionUrl)) {
+		} catch (SQLException e) {
+			throw new DataException("Unable to open repository: " + e.getMessage());
+		}
+
 		this.connectionPool = new JDBCPool();
 		this.connectionPool.setUrl(this.connectionUrl);
 
 		Properties properties = new Properties();
 		properties.setProperty("close_result", "true"); // Auto-close old ResultSet if Statement creates new ResultSet
-		properties.setProperty("sql.strict_exec", "true"); // No multi-SQL execute() or DDL/DML executeQuery()
-		properties.setProperty("sql.enforce_names", "true"); // SQL keywords cannot be used as DB object names, e.g. table names
-		properties.setProperty("sql.syntax_mys", "true"); // Required for our use of INSERT ... ON DUPLICATE KEY UPDATE ... syntax
-		properties.setProperty("sql.pad_space", "false"); // Do not pad strings to same length before comparison
 		this.connectionPool.setProperties(properties);
 
 		// Perform DB updates?

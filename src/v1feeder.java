@@ -31,6 +31,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 
+import controller.Controller;
 import data.at.ATData;
 import data.at.ATStateData;
 import data.block.BlockData;
@@ -56,7 +57,6 @@ import utils.Triple;
 public class v1feeder extends Thread {
 
 	private static final Logger LOGGER = LogManager.getLogger(v1feeder.class);
-	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
 
 	private static final int INACTIVITY_TIMEOUT = 60 * 1000; // milliseconds
 	private static final int CONNECTION_TIMEOUT = 2 * 1000; // milliseconds
@@ -529,7 +529,7 @@ public class v1feeder extends Thread {
 		readLegacyATs(legacyATPathname);
 
 		try {
-			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
+			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.connectionUrl);
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
 		} catch (DataException e) {
 			LOGGER.error("Couldn't connect to repository", e);
