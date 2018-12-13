@@ -3,6 +3,8 @@ package api.models;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
 import api.ApiError;
@@ -15,6 +17,7 @@ import repository.DataException;
 import repository.Repository;
 
 @Schema(description = "Block with (optional) transactions")
+@XmlAccessorType(XmlAccessType.FIELD)
 public class BlockWithTransactions {
 
 	@Schema(implementation = BlockData.class, name = "block", title = "block data")
@@ -24,8 +27,7 @@ public class BlockWithTransactions {
 	public List<TransactionData> transactions;
 
 	// For JAX-RS
-	@SuppressWarnings("unused")
-	private BlockWithTransactions() {
+	protected BlockWithTransactions() {
 	}
 
 	public BlockWithTransactions(Repository repository, BlockData blockData, boolean includeTransactions) throws DataException {

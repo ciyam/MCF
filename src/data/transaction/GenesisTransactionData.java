@@ -11,7 +11,7 @@ import qora.transaction.Transaction.TransactionType;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
-@Schema( allOf = { TransactionData.class } )
+@Schema(allOf = { TransactionData.class })
 public class GenesisTransactionData extends TransactionData {
 
 	// Properties

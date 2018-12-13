@@ -2,6 +2,11 @@ package data;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+//All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
 public class PaymentData {
 
 	// Properties
@@ -10,6 +15,10 @@ public class PaymentData {
 	protected BigDecimal amount;
 
 	// Constructors
+
+	// For JAX-RS
+	protected PaymentData() {
+	}
 
 	public PaymentData(String recipient, long assetId, BigDecimal amount) {
 		this.recipient = recipient;
