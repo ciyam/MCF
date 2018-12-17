@@ -1,0 +1,8 @@
+mnemonic: legal winner thank year wave sausage worth useful legal winner thank yellow
+entropy (base58): Gk9pcGhrxdtLwJN1qcWgHk
+entropy (hex): 7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f
+private key (base58): A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6
+private key (hex): 87dcde7fa6df23e15fa7ba9b2a1f31408eac832f4e615ea815ae92024e3d818b
+public key (base58): 2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP
+public key (hex): 1c1b12cc4a2e4a35e17f7ec880eddeb6d3cf693e022f0a91175e0b47cc3b0ee6
+address: Qj2Stco8ziE3ZQN2AdpWCmkBFfYjuz8fGu
