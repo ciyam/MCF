@@ -481,7 +481,7 @@ public class TransactionTests {
 	@Test
 	public void testCreatePollTransaction() throws DataException {
 		// This test requires GenesisBlock's timestamp is set to something after BlockChain.VOTING_RELEASE_TIMESTAMP
-		createTestAccounts(BlockChain.getVotingReleaseTimestamp() + 1_000L);
+		createTestAccounts(BlockChain.getInstance().getVotingReleaseTimestamp() + 1_000L);
 
 		// Make a new create poll transaction
 		String pollName = "test poll";

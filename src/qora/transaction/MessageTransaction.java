@@ -94,7 +94,7 @@ public class MessageTransaction extends Transaction {
 		if (messageTransactionData.getVersion() != MessageTransaction.getVersionByTimestamp(messageTransactionData.getTimestamp()))
 			return ValidationResult.NOT_YET_RELEASED;
 
-		if (this.repository.getBlockRepository().getBlockchainHeight() < BlockChain.getMessageReleaseHeight())
+		if (this.repository.getBlockRepository().getBlockchainHeight() < BlockChain.getInstance().getMessageReleaseHeight())
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check data length

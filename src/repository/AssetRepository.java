@@ -40,6 +40,7 @@ public interface AssetRepository {
 
 	public List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException;
 
+	/** Returns TradeData for trades where orderId was involved, i.e. either initiating OR target order */
 	public List<TradeData> getOrdersTrades(byte[] orderId) throws DataException;
 
 	public void save(TradeData tradeData) throws DataException;

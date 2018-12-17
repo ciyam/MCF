@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
+import utils.Base58;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,9 @@ import javax.ws.rs.core.MediaType;
 
 import api.models.AssetWithHolders;
 import api.models.IssueAssetRequest;
+import api.models.OrderWithTrades;
 import api.models.TradeWithOrderInfo;
+import data.account.AccountBalanceData;
 import data.assets.AssetData;
 import data.assets.OrderData;
 import data.assets.TradeData;
@@ -78,7 +81,7 @@ public class AssetsResource {
 			)
 		}
 	)
-	public AssetWithHolders getAssetInfo(@QueryParam("assetId") Integer assetId, @QueryParam("assetName") String assetName, @Parameter(ref = "includeHolders") @QueryParam("withHolders") boolean includeHolders) {
+	public AssetWithHolders getAssetInfo(@QueryParam("assetId") Integer assetId, @QueryParam("assetName") String assetName, @Parameter(ref = "includeHolders") @QueryParam("includeHolders") boolean includeHolders) {
 		if (assetId == null && (assetName == null || assetName.isEmpty()))
 			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_CRITERIA);
 
@@ -93,7 +96,11 @@ public class AssetsResource {
 			if (assetData == null)
 				throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ASSET_ID);
 
-			return new AssetWithHolders(repository, assetData, includeHolders);
+			List<AccountBalanceData> holders = null;
+			if (includeHolders)
+				holders = repository.getAccountRepository().getAssetBalances(assetData.getAssetId());
+
+			return new AssetWithHolders(assetData, holders);
 		} catch (DataException e) {
 			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -165,10 +172,47 @@ public class AssetsResource {
 
 			// Expanding remaining entries
 			List<TradeWithOrderInfo> fullTrades = new ArrayList<>();
-			for (TradeData trade : trades)
-				fullTrades.add(new TradeWithOrderInfo(repository, trade));
+			for (TradeData tradeData : trades) {
+				OrderData initiatingOrderData = repository.getAssetRepository().fromOrderId(tradeData.getInitiator());
+				OrderData targetOrderData = repository.getAssetRepository().fromOrderId(tradeData.getTarget());
+				fullTrades.add(new TradeWithOrderInfo(tradeData, initiatingOrderData, targetOrderData));
+			}
 
 			return fullTrades;
+		} catch (DataException e) {
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/order/{orderId}")
+	@Operation(
+		summary = "Fetch asset order",
+		description = "Returns asset order info.",
+		responses = {
+			@ApiResponse(
+				description = "asset order",
+				content = @Content(schema = @Schema(implementation = OrderData.class))
+			)
+		}
+	)
+	public OrderWithTrades getAssetOrder(@PathParam("orderId") String orderId58) {
+		// Decode orderID
+		byte[] orderId;
+		try {
+			orderId = Base58.decode(orderId58);
+		} catch (NumberFormatException e) {
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ORDER_ID, e);
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			OrderData orderData = repository.getAssetRepository().fromOrderId(orderId);
+			if (orderData == null)
+				throw  ApiErrorFactory.getInstance().createError(ApiError.ORDER_NO_EXISTS);
+
+			List<TradeData> trades = repository.getAssetRepository().getOrdersTrades(orderId);
+
+			return new OrderWithTrades(orderData, trades);
 		} catch (DataException e) {
 			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -181,7 +225,7 @@ public class AssetsResource {
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
-				mediaType = "application/json",
+				mediaType = MediaType.APPLICATION_JSON,
 				schema = @Schema(implementation = IssueAssetRequest.class)
 			)
 		)

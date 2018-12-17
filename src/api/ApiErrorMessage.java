@@ -1,15 +1,14 @@
 package api;
 
-import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
 
-@XmlRootElement
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
 public class ApiErrorMessage {
 
-	@XmlElement(name = "error")
 	public int error;
 
-	@XmlElement(name = "message")
 	public String message;
 
 	ApiErrorMessage() {

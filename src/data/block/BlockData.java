@@ -2,17 +2,22 @@ package data.block;
 
 import com.google.common.primitives.Bytes;
 
+import qora.crypto.Crypto;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 public class BlockData implements Serializable {
 
 	private static final long serialVersionUID = -7678329659124664620L;
+
+	// Properties
 
 	private byte[] signature;
 	private int version;
@@ -27,6 +32,8 @@ public class BlockData implements Serializable {
 	private byte[] generatorSignature;
 	private int atCount;
 	private BigDecimal atFees;
+
+	// Constructors
 
 	// necessary for JAX-RS serialization
 	protected BlockData() {
@@ -52,6 +59,8 @@ public class BlockData implements Serializable {
 		else
 			this.signature = null;
 	}
+
+	// Getters/setters
 
 	public byte[] getSignature() {
 		return this.signature;
@@ -139,6 +148,13 @@ public class BlockData implements Serializable {
 
 	public void setATFees(BigDecimal atFees) {
 		this.atFees = atFees;
+	}
+
+	// JAXB special
+
+	@XmlElement(name = "generatorAddress")
+	protected String getGeneratorAddress() {
+		return Crypto.toAddress(this.generatorPublicKey);
 	}
 
 }

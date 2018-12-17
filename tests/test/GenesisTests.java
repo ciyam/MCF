@@ -41,7 +41,7 @@ public class GenesisTests {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			assertEquals(0, repository.getBlockRepository().getBlockchainHeight(), "Blockchain should be empty for this test");
 
-			GenesisBlock block = new GenesisBlock(repository);
+			GenesisBlock block = GenesisBlock.getInstance(repository);
 
 			assertNotNull(block);
 			assertTrue(block.isSignatureValid());

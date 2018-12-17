@@ -1,6 +1,5 @@
 package api;
 
-import globalization.Translator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.extensions.Extension;
@@ -12,7 +11,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
-import java.util.Base64;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -32,6 +30,7 @@ import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
 import transform.Transformer;
+import utils.Base58;
 
 @Path("addresses")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
@@ -45,21 +44,11 @@ public class AddressesResource {
 	@Context
 	HttpServletRequest request;
 	
-	private ApiErrorFactory apiErrorFactory;
-
-	public AddressesResource() {
-		this(new ApiErrorFactory(Translator.getInstance()));
-	}
-
-	public AddressesResource(ApiErrorFactory apiErrorFactory) {
-		this.apiErrorFactory = apiErrorFactory;
-	}
-
 	@GET
 	@Path("/lastreference/{address}")
 	@Operation(
 		summary = "Fetch reference for next transaction to be created by address",
-		description = "Returns the base64-encoded signature of the last confirmed transaction created by address, failing that: the first incoming transaction to address. Returns \"false\" if there is no transactions.",
+		description = "Returns the base58-encoded signature of the last confirmed transaction created by address, failing that: the first incoming transaction to address. Returns \"false\" if there is no transactions.",
 		extensions = {
 			@Extension(name = "translation", properties = {
 				@ExtensionProperty(name="path", value="GET lastreference:address"),
@@ -71,8 +60,8 @@ public class AddressesResource {
 		},
 		responses = {
 			@ApiResponse(
-				description = "the base64-encoded transaction signature or \"false\"",
-				content = @Content(schema = @Schema(implementation = String.class)),
+				description = "the base58-encoded transaction signature or \"false\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -83,7 +72,7 @@ public class AddressesResource {
 	)
 	public String getLastReference(@Parameter(ref = "address") @PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
-			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ADDRESS);
 
 		byte[] lastReference = null;
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -92,13 +81,13 @@ public class AddressesResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 
 		if(lastReference == null || lastReference.length == 0) {
 			return "false"; 
 		} else {
-			return Base64.getEncoder().encodeToString(lastReference);
+			return Base58.encode(lastReference);
 		}
 	}
 	
@@ -106,7 +95,7 @@ public class AddressesResource {
 	@Path("/lastreference/{address}/unconfirmed")
 	@Operation(
 		summary = "Fetch reference for next transaction to be created by address, considering unconfirmed transactions",
-		description = "Returns the base64-encoded signature of the last confirmed/unconfirmed transaction created by address, failing that: the first incoming transaction. Returns \\\"false\\\" if there is no transactions.",
+		description = "Returns the base58-encoded signature of the last confirmed/unconfirmed transaction created by address, failing that: the first incoming transaction. Returns \\\"false\\\" if there is no transactions.",
 		extensions = {
 			@Extension(name = "translation", properties = {
 				@ExtensionProperty(name="path", value="GET lastreference:address:unconfirmed"),
@@ -118,8 +107,8 @@ public class AddressesResource {
 		},
 		responses = {
 			@ApiResponse(
-				description = "the base64-encoded transaction signature",
-				content = @Content(schema = @Schema(implementation = String.class)),
+				description = "the base58-encoded transaction signature",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -130,7 +119,7 @@ public class AddressesResource {
 	)
 	public String getLastReferenceUnconfirmed(@PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
-			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ADDRESS);
 
 		byte[] lastReference = null;
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -139,13 +128,13 @@ public class AddressesResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 
 		if(lastReference == null || lastReference.length == 0) {
 			return "false";
 		} else {
-			return Base64.getEncoder().encodeToString(lastReference);
+			return Base58.encode(lastReference);
 		}
 	}
 
@@ -163,8 +152,7 @@ public class AddressesResource {
 		},
 		responses = {
 			@ApiResponse(
-				//description = "",
-				content = @Content(schema = @Schema(implementation = Boolean.class)),
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "boolean")),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -194,7 +182,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the generating balance",
-				content = @Content(schema = @Schema(implementation = BigDecimal.class)),
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string", format = "number")),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -205,7 +193,7 @@ public class AddressesResource {
 	)
 	public BigDecimal getGeneratingBalanceOfAddress(@PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
-			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
@@ -213,7 +201,7 @@ public class AddressesResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -233,7 +221,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the balance",
-				content = @Content(schema = @Schema(name = "balance", type = "number")),
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string", format = "number")),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -244,7 +232,7 @@ public class AddressesResource {
 	)
 	public BigDecimal getGeneratingBalance(@PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
-			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
@@ -252,7 +240,7 @@ public class AddressesResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -273,7 +261,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the balance",
-				content = @Content(schema = @Schema(implementation = BigDecimal.class)),
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string", format = "number")),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -284,7 +272,7 @@ public class AddressesResource {
 	)
 	public BigDecimal getAssetBalance(@PathParam("assetid") long assetid, @PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
-			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
@@ -292,7 +280,7 @@ public class AddressesResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -324,14 +312,14 @@ public class AddressesResource {
 	)
 	public List<AccountBalanceData> getAssets(@PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
-			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getAccountRepository().getAllBalances(address);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -368,7 +356,7 @@ public class AddressesResource {
 	@Path("/publickey/{address}")
 	@Operation(
 		summary = "Get public key of address",
-		description = "Returns the base64-encoded account public key of the given address, or \"false\" if address not known or has no public key.",
+		description = "Returns the base58-encoded account public key of the given address, or \"false\" if address not known or has no public key.",
 		extensions = {
 			@Extension(name = "translation", properties = {
 				@ExtensionProperty(name="path", value="GET publickey:address"),
@@ -381,7 +369,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the public key",
-				content = @Content(schema = @Schema(implementation = String.class)),
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -392,7 +380,7 @@ public class AddressesResource {
 	)
 	public String getPublicKey(@PathParam("address") String address) {
 		if (!Crypto.isValidAddress(address))
-			throw this.apiErrorFactory.createError(ApiError.INVALID_ADDRESS);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			AccountData accountData = repository.getAccountRepository().getAccount(address);
@@ -404,20 +392,19 @@ public class AddressesResource {
 			if (publicKey == null)
 				return "false";
 
-			return Base64.getEncoder().encodeToString(publicKey);
+			return Base58.encode(publicKey);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	@GET
 	@Path("/convert/{publickey}")
-	@Produces(MediaType.TEXT_PLAIN)
 	@Operation(
 		summary = "Convert public key into address",
-		description = "Returns account address based on supplied public key. Expects base64-encoded, 32-byte public key.",
+		description = "Returns account address based on supplied public key. Expects base58-encoded, 32-byte public key.",
 		extensions = {
 			@Extension(name = "translation", properties = {
 				@ExtensionProperty(name="path", value="GET publickey:address"),
@@ -430,7 +417,7 @@ public class AddressesResource {
 		responses = {
 			@ApiResponse(
 				description = "the address",
-				content = @Content(schema = @Schema(implementation = String.class)),
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string")),
 				extensions = {
 					@Extension(name = "translation", properties = {
 						@ExtensionProperty(name="description.key", value="success_response:description")
@@ -439,25 +426,25 @@ public class AddressesResource {
 			)
 		}
 	)
-	public String fromPublicKey(@PathParam("publickey") String publicKey) {
+	public String fromPublicKey(@PathParam("publickey") String publicKey58) {
 		// Decode public key
-		byte[] publicKeyBytes;
+		byte[] publicKey;
 		try {
-			publicKeyBytes = Base64.getDecoder().decode(publicKey);
+			publicKey = Base58.decode(publicKey58);
 		} catch (NumberFormatException e) {
-			throw this.apiErrorFactory.createError(ApiError.INVALID_PUBLIC_KEY, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_PUBLIC_KEY, e);
 		}
 
 		// Correct size for public key?
-		if (publicKeyBytes.length != Transformer.PUBLIC_KEY_LENGTH)
-			throw this.apiErrorFactory.createError(ApiError.INVALID_PUBLIC_KEY);
+		if (publicKey.length != Transformer.PUBLIC_KEY_LENGTH)
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_PUBLIC_KEY);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return Crypto.toAddress(publicKeyBytes);
+			return Crypto.toAddress(publicKey);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 

@@ -257,19 +257,21 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<TradeData> getOrdersTrades(byte[] initiatingOrderId) throws DataException {
+	public List<TradeData> getOrdersTrades(byte[] orderId) throws DataException {
 		List<TradeData> trades = new ArrayList<TradeData>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT target_order_id, amount, price, traded FROM AssetTrades WHERE initiating_order_id = ?", initiatingOrderId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT initiating_order_id, target_order_id, amount, price, traded FROM AssetTrades WHERE initiating_order_id = ? OR target_order_id = ?",
+				orderId, orderId)) {
 			if (resultSet == null)
 				return trades;
 
 			do {
-				byte[] targetOrderId = resultSet.getBytes(1);
-				BigDecimal amount = resultSet.getBigDecimal(2);
-				BigDecimal price = resultSet.getBigDecimal(3);
-				long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				byte[] initiatingOrderId = resultSet.getBytes(1);
+				byte[] targetOrderId = resultSet.getBytes(2);
+				BigDecimal amount = resultSet.getBigDecimal(3);
+				BigDecimal price = resultSet.getBigDecimal(4);
+				long timestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 				TradeData trade = new TradeData(initiatingOrderId, targetOrderId, amount, price, timestamp);
 				trades.add(trade);

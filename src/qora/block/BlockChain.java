@@ -1,7 +1,16 @@
 package qora.block;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import org.json.simple.JSONObject;
 
 import data.assets.AssetData;
 import data.block.BlockData;
@@ -18,28 +27,175 @@ import settings.Settings;
  */
 public class BlockChain {
 
-	/** Minimum Qora balance for use in calculations. */
-	public static final BigDecimal MIN_BALANCE = BigDecimal.valueOf(1L).setScale(8);
-	/** Maximum Qora balance. */
-	public static final BigDecimal MAX_BALANCE = BigDecimal.valueOf(10_000_000_000L).setScale(8);
+	private static final Logger LOGGER = LogManager.getLogger(BlockChain.class);
+
+	public enum FeatureValueType {
+		height,
+		timestamp;
+	}
+
+	private static BlockChain instance = null;
+
+	// Properties
+	private BigDecimal unitFee;
+	private BigDecimal maxBytesPerUnitFee;
+	private BigDecimal minFeePerByte;
+	/** Maximum coin supply. */
+	private BigDecimal maxBalance;;
 	/** Number of blocks between recalculating block's generating balance. */
-	public static final int BLOCK_RETARGET_INTERVAL = 10;
+	private int blockDifficultyInterval;
 	/** Minimum target time between blocks, in seconds. */
-	public static final long MIN_BLOCK_TIME = 60;
+	private long minBlockTime;
 	/** Maximum target time between blocks, in seconds. */
-	public static final long MAX_BLOCK_TIME = 300;
+	private long maxBlockTime;
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
-	public static final long BLOCK_TIMESTAMP_MARGIN = 500L;
+	private long blockTimestampMargin;
+	/** Map of which blockchain features are enabled when (height/timestamp) */
+	private Map<String, Map<FeatureValueType, Long>> featureTriggers;
 
-	// Various release timestamps / block heights
-	private static final int MESSAGE_RELEASE_HEIGHT = 99000;
-	private static final int AT_RELEASE_HEIGHT = 99000;
-	private static final long POWFIX_RELEASE_TIMESTAMP = 1456426800000L; // Block Version 3 // 2016-02-25T19:00:00+00:00
-	private static final long ASSETS_RELEASE_TIMESTAMP = 0L; // From Qora epoch
-	private static final long VOTING_RELEASE_TIMESTAMP = 1403715600000L; // 2014-06-25T17:00:00+00:00
-	private static final long ARBITRARY_RELEASE_TIMESTAMP = 1405702800000L; // 2014-07-18T17:00:00+00:00
+	// Constructors, etc.
 
-	private static final long QORA_V2_TIMESTAMP = 1552500000000L; // 2019-03-13T18:00:00+00:00 // Future Qora v2 blocks and transactions
+	private BlockChain() {
+	}
+
+	public static BlockChain getInstance() {
+		if (instance == null)
+			Settings.getInstance();
+
+		return instance;
+	}
+
+	// Getters / setters
+
+	public BigDecimal getUnitFee() {
+		return this.unitFee;
+	}
+
+	public BigDecimal getMaxBytesPerUnitFee() {
+		return this.maxBytesPerUnitFee;
+	}
+
+	public BigDecimal getMinFeePerByte() {
+		return this.minFeePerByte;
+	}
+
+	public BigDecimal getMaxBalance() {
+		return this.maxBalance;
+	}
+
+	public int getBlockDifficultyInterval() {
+		return this.blockDifficultyInterval;
+	}
+
+	public long getMinBlockTime() {
+		return this.minBlockTime;
+	}
+
+	public long getMaxBlockTime() {
+		return this.maxBlockTime;
+	}
+
+	public long getBlockTimestampMargin() {
+		return this.blockTimestampMargin;
+	}
+
+	private long getFeatureTrigger(String feature, FeatureValueType valueType) {
+		Map<FeatureValueType, Long> featureTrigger = featureTriggers.get(feature);
+		if (featureTrigger == null)
+			return 0;
+
+		Long value = featureTrigger.get(valueType);
+		if (value == null)
+			return 0;
+
+		return value;
+	}
+
+	// Convenience methods for specific blockchain feature triggers
+
+	public long getMessageReleaseHeight() {
+		return getFeatureTrigger("message", FeatureValueType.height);
+	}
+
+	public long getATReleaseHeight() {
+		return getFeatureTrigger("AT", FeatureValueType.height);
+	}
+
+	public long getPowFixReleaseTimestamp() {
+		return getFeatureTrigger("powfix", FeatureValueType.timestamp);
+	}
+
+	public long getAssetsReleaseTimestamp() {
+		return getFeatureTrigger("assets", FeatureValueType.timestamp);
+	}
+
+	public long getVotingReleaseTimestamp() {
+		return getFeatureTrigger("voting", FeatureValueType.timestamp);
+	}
+
+	public long getArbitraryReleaseTimestamp() {
+		return getFeatureTrigger("arbitrary", FeatureValueType.timestamp);
+	}
+
+	public long getQoraV2Timestamp() {
+		return getFeatureTrigger("v2", FeatureValueType.timestamp);
+	}
+
+	// Blockchain config from JSON
+
+	public static void fromJSON(JSONObject json) {
+		Object genesisJson = json.get("genesis");
+		if (genesisJson == null) {
+			LOGGER.error("No \"genesis\" entry found in blockchain config");
+			throw new RuntimeException("No \"genesis\" entry found in blockchain config");
+		}
+		GenesisBlock.fromJSON((JSONObject) genesisJson);
+
+		// Simple blockchain properties
+		BigDecimal unitFee = Settings.getJsonBigDecimal(json, "unitFee");
+		long maxBytesPerUnitFee = (Long) Settings.getTypedJson(json, "maxBytesPerUnitFee", Long.class);
+		BigDecimal maxBalance = Settings.getJsonBigDecimal(json, "coinSupply");
+		int blockDifficultyInterval = ((Long) Settings.getTypedJson(json, "blockDifficultyInterval", Long.class)).intValue();
+		long minBlockTime = 1000L * (Long) Settings.getTypedJson(json, "minBlockTime", Long.class); // config entry in seconds
+		long maxBlockTime = 1000L * (Long) Settings.getTypedJson(json, "maxBlockTime", Long.class); // config entry in seconds
+		long blockTimestampMargin = (Long) Settings.getTypedJson(json, "blockTimestampMargin", Long.class); // config entry in milliseconds
+
+		// blockchain feature triggers
+		Map<String, Map<FeatureValueType, Long>> featureTriggers = new HashMap<>();
+		JSONObject featuresJson = (JSONObject) Settings.getTypedJson(json, "featureTriggers", JSONObject.class);
+		for (Object feature : featuresJson.keySet()) {
+			String featureKey = (String) feature;
+			JSONObject trigger = (JSONObject) Settings.getTypedJson(featuresJson, featureKey, JSONObject.class);
+
+			if (!trigger.containsKey("height") && !trigger.containsKey("timestamp")) {
+				LOGGER.error("Feature trigger \"" + featureKey + "\" must contain \"height\" or \"timestamp\" in blockchain config file");
+				throw new RuntimeException("Feature trigger \"" + featureKey + "\" must contain \"height\" or \"timestamp\" in blockchain config file");
+			}
+
+			String triggerKey = (String) trigger.keySet().iterator().next();
+			FeatureValueType featureValueType = FeatureValueType.valueOf(triggerKey);
+			if (featureValueType == null) {
+				LOGGER.error("Unrecognised feature trigger value type \"" + triggerKey + "\" for feature \"" + featureKey + "\" in blockchain config file");
+				throw new RuntimeException(
+						"Unrecognised feature trigger value type \"" + triggerKey + "\" for feature \"" + featureKey + "\" in blockchain config file");
+			}
+
+			Long value = (Long) Settings.getJsonQuotedLong(trigger, triggerKey);
+
+			featureTriggers.put(featureKey, Collections.singletonMap(featureValueType, value));
+		}
+
+		instance = new BlockChain();
+		instance.unitFee = unitFee;
+		instance.maxBytesPerUnitFee = BigDecimal.valueOf(maxBytesPerUnitFee).setScale(8);
+		instance.minFeePerByte = unitFee.divide(instance.maxBytesPerUnitFee, MathContext.DECIMAL32);
+		instance.maxBalance = maxBalance;
+		instance.blockDifficultyInterval = blockDifficultyInterval;
+		instance.minBlockTime = minBlockTime;
+		instance.maxBlockTime = maxBlockTime;
+		instance.blockTimestampMargin = blockTimestampMargin;
+		instance.featureTriggers = featureTriggers;
+	}
 
 	/**
 	 * Some sort start-up/initialization/checking method.
@@ -74,79 +230,17 @@ public class BlockChain {
 			repository.rebuild();
 
 			// Add Genesis Block
-			GenesisBlock genesisBlock = new GenesisBlock(repository);
+			GenesisBlock genesisBlock = GenesisBlock.getInstance(repository);
 			genesisBlock.process();
 
 			// Add QORA asset.
 			// NOTE: Asset's transaction reference is Genesis Block's generator signature which doesn't exist as a transaction!
 			AssetData qoraAssetData = new AssetData(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.",
-					10_000_000_000L, true, genesisBlock.getBlockData().getGeneratorSignature());
+					BlockChain.getInstance().getMaxBalance().longValue(), true, genesisBlock.getBlockData().getGeneratorSignature());
 			repository.getAssetRepository().save(qoraAssetData);
 
 			repository.saveChanges();
 		}
-	}
-
-	/**
-	 * Return Qora balance adjusted to within min/max limits.
-	 */
-	public static BigDecimal minMaxBalance(BigDecimal balance) {
-		if (balance.compareTo(MIN_BALANCE) < 0)
-			return MIN_BALANCE;
-
-		if (balance.compareTo(MAX_BALANCE) > 0)
-			return MAX_BALANCE;
-
-		return balance;
-	}
-
-	public static int getMessageReleaseHeight() {
-		if (Settings.getInstance().isTestNet())
-			return 0;
-
-		return MESSAGE_RELEASE_HEIGHT;
-	}
-
-	public static int getATReleaseHeight() {
-		if (Settings.getInstance().isTestNet())
-			return 0;
-
-		return AT_RELEASE_HEIGHT;
-	}
-
-	public static long getPowFixReleaseTimestamp() {
-		if (Settings.getInstance().isTestNet())
-			return 0;
-
-		return POWFIX_RELEASE_TIMESTAMP;
-	}
-
-	public static long getAssetsReleaseTimestamp() {
-		if (Settings.getInstance().isTestNet())
-			return 0;
-
-		return ASSETS_RELEASE_TIMESTAMP;
-	}
-
-	public static long getVotingReleaseTimestamp() {
-		if (Settings.getInstance().isTestNet())
-			return 0;
-
-		return VOTING_RELEASE_TIMESTAMP;
-	}
-
-	public static long getArbitraryReleaseTimestamp() {
-		if (Settings.getInstance().isTestNet())
-			return 0;
-
-		return ARBITRARY_RELEASE_TIMESTAMP;
-	}
-
-	public static long getQoraV2Timestamp() {
-		if (Settings.getInstance().isTestNet())
-			return 0;
-
-		return QORA_V2_TIMESTAMP;
 	}
 
 }

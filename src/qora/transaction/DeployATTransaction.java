@@ -131,7 +131,7 @@ public class DeployATTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		if (this.repository.getBlockRepository().getBlockchainHeight() < BlockChain.getATReleaseHeight())
+		if (this.repository.getBlockRepository().getBlockchainHeight() < BlockChain.getInstance().getATReleaseHeight())
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check name size bounds

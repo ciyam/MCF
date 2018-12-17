@@ -2,9 +2,13 @@ package settings;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -13,29 +17,31 @@ import org.json.simple.JSONValue;
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
-import qora.block.GenesisBlock;
+import qora.block.BlockChain;
 
 public class Settings {
 
+	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
+
 	// Properties
 	private static Settings instance;
-	private long genesisTimestamp = GenesisBlock.GENESIS_TIMESTAMP;
-	private int maxBytePerFee = 1024;
 	private String userpath = "";
+	private boolean useBitcoinTestNet = false;
 
 	// RPC
 	private int rpcPort = 9085;
 	private List<String> rpcAllowed = new ArrayList<String>(Arrays.asList("127.0.0.1", "::1")); // ipv4, ipv6
 	private boolean rpcEnabled = true;
-	
+
 	// Globalization
 	private String translationsPath = "globalization/";
-	private String[] translationsDefaultLocales = {"en"};
-	
+	private String[] translationsDefaultLocales = {
+		"en"
+	};
+
 	// Constants
 	private static final String SETTINGS_FILENAME = "settings.json";
 
-	
 	// Constructors
 
 	private Settings() {
@@ -51,6 +57,7 @@ public class Settings {
 
 				if (!file.exists()) {
 					// log lack of settings file
+					LOGGER.info("Settings file not found: " + path + filename);
 					break;
 				}
 
@@ -79,19 +86,20 @@ public class Settings {
 					continue;
 				}
 
+				this.userpath = path;
 				process(settingsJSON);
 
-				this.userpath = path;
 				break;
 			} while (true);
 		} catch (IOException | ClassCastException e) {
-
+			LOGGER.error("Unable to parse settings file: " + path + filename);
+			throw new RuntimeException("Unable to parse settings file", e);
 		}
 	}
 
 	// Other methods
 
-	public static Settings getInstance() {
+	public static synchronized Settings getInstance() {
 		if (instance == null)
 			instance = new Settings(SETTINGS_FILENAME);
 
@@ -108,83 +116,108 @@ public class Settings {
 	}
 
 	private void process(JSONObject json) {
-		if (json.containsKey("testnetstamp")) {
-			if (json.get("testnetstamp").toString().equals("now") || ((Long) json.get("testnetstamp")).longValue() == 0) {
-				this.genesisTimestamp = System.currentTimeMillis();
-			} else {
-				this.genesisTimestamp = ((Long) json.get("testnetstamp")).longValue();
+		// RPC
+		if (json.containsKey("rpcport"))
+			this.rpcPort = ((Long) json.get("rpcport")).intValue();
+
+		if (json.containsKey("rpcallowed")) {
+			JSONArray allowedArray = (JSONArray) json.get("rpcallowed");
+			this.rpcAllowed = new ArrayList<String>(allowedArray);
+		}
+
+		if (json.containsKey("rpcenabled"))
+			this.rpcEnabled = ((Boolean) json.get("rpcenabled")).booleanValue();
+
+		// Globalization
+		if (json.containsKey("translationspath"))
+			this.translationsPath = ((String) json.get("translationspath"));
+
+		if (json.containsKey("translationsdefaultlocales"))
+			this.translationsDefaultLocales = ((String[]) json.get("translationsdefaultlocales"));
+
+		if (json.containsKey("blockchainConfig")) {
+			String filename = (String) json.get("blockchainConfig");
+			File file = new File(this.userpath + filename);
+
+			if (!file.exists()) {
+				LOGGER.info("Blockchain config file not found: " + this.userpath + filename);
+				throw new RuntimeException("Unable to read blockchain config file");
+			}
+
+			try {
+				List<String> lines = Files.readLines(file, Charsets.UTF_8);
+				JSONObject blockchainJSON = (JSONObject) JSONValue.parse(String.join("\n", lines));
+				BlockChain.fromJSON(blockchainJSON);
+			} catch (IOException e) {
+				LOGGER.error("Unable to parse blockchain config file: " + this.userpath + filename);
+				throw new RuntimeException("Unable to parse blockchain config file", e);
 			}
 		}
-		
-		// RPC
-		if(json.containsKey("rpcport"))
-		{
-			this.rpcPort = ((Long) json.get("rpcport")).intValue();
-		}
-
-		if(json.containsKey("rpcallowed"))
-		{
-			JSONArray allowedArray = (JSONArray) json.get("rpcallowed");
-			this.rpcAllowed = new ArrayList<String>(allowedArray);	
-		}
-		
-		if(json.containsKey("rpcenabled"))
-		{
-			this.rpcEnabled = ((Boolean) json.get("rpcenabled")).booleanValue();
-		}
-		
-		// Globalization
-		if(json.containsKey("translationspath"))
-		{
-			this.translationsPath = ((String) json.get("translationspath"));
-		}
-
-		if(json.containsKey("translationsdefaultlocales"))
-		{
-			this.translationsDefaultLocales = ((String[]) json.get("translationsdefaultlocales"));
-		}
-	}
-
-	public boolean isTestNet() {
-		return this.genesisTimestamp != GenesisBlock.GENESIS_TIMESTAMP;
 	}
 
 	// Getters / setters
-
-	public int getMaxBytePerFee() {
-		return this.maxBytePerFee;
-	}
-
-	public long getGenesisTimestamp() {
-		return this.genesisTimestamp;
-	}
 
 	public String getUserpath() {
 		return this.userpath;
 	}
 
-	public int getRpcPort()
-	{
+	public int getRpcPort() {
 		return this.rpcPort;
 	}
-	
-	public List<String> getRpcAllowed()
-	{
+
+	public List<String> getRpcAllowed() {
 		return this.rpcAllowed;
 	}
 
-	public boolean isRpcEnabled() 
-	{
+	public boolean isRpcEnabled() {
 		return this.rpcEnabled;
 	}
-	
-	public String translationsPath()
-	{
+
+	public String translationsPath() {
 		return this.translationsPath;
 	}
-	
-	public String[] translationsDefaultLocales()
-	{
+
+	public String[] translationsDefaultLocales() {
 		return this.translationsDefaultLocales;
 	}
+
+	public boolean useBitcoinTestNet() {
+		return this.useBitcoinTestNet;
+	}
+
+	// Config parsing
+
+	public static Object getTypedJson(JSONObject json, String key, Class<?> clazz) {
+		if (!json.containsKey(key)) {
+			LOGGER.error("Missing \"" + key + "\" in blockchain config file");
+			throw new RuntimeException("Missing \"" + key + "\" in blockchain config file");
+		}
+
+		Object value = json.get(key);
+		if (!clazz.isInstance(value)) {
+			LOGGER.error("\"" + key + "\" not " + clazz.getSimpleName() + " in blockchain config file");
+			throw new RuntimeException("\"" + key + "\" not " + clazz.getSimpleName() + " in blockchain config file");
+		}
+
+		return value;
+	}
+
+	public static BigDecimal getJsonBigDecimal(JSONObject json, String key) {
+		try {
+			return new BigDecimal((String) getTypedJson(json, key, String.class));
+		} catch (NumberFormatException e) {
+			LOGGER.error("Unable to parse \"" + key + "\" in blockchain config file");
+			throw new RuntimeException("Unable to parse \"" + key + "\" in blockchain config file");
+		}
+	}
+
+	public static Long getJsonQuotedLong(JSONObject json, String key) {
+		try {
+			return Long.parseLong((String) getTypedJson(json, key, String.class));
+		} catch (NumberFormatException e) {
+			LOGGER.error("Unable to parse \"" + key + "\" in blockchain config file");
+			throw new RuntimeException("Unable to parse \"" + key + "\" in blockchain config file");
+		}
+	}
+
 }

@@ -98,7 +98,7 @@ public class SellNameTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check amount within bounds
-		if (sellNameTransactionData.getAmount().compareTo(BlockChain.MAX_BALANCE) > 0)
+		if (sellNameTransactionData.getAmount().compareTo(BlockChain.getInstance().getMaxBalance()) > 0)
 			return ValidationResult.INVALID_AMOUNT;
 
 		// Check fee is positive

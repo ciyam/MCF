@@ -99,7 +99,7 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
 		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
 
-		if (transactionData.getTimestamp() >= BlockChain.getQoraV2Timestamp())
+		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
 			return bytes;
 
 		// Special v1 version

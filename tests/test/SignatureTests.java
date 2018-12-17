@@ -22,7 +22,7 @@ public class SignatureTests extends Common {
 		String expected58 = "6pHMBFif7jXFG654joT8GPaymau1fMtaxacRyqSrnAwQMQDvqRuLpHpfFyqX4gWVvj4pF1mwQhFgqWAvjVvPJUjmBZQvL751dM9cEcQBTaUcxtNLuWZCVUAtbnWN9f7FsLppHhkPbxwpoodL3UJYRGt3EZrG17mhv1RJbmq8j6rr7Mk";
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			GenesisBlock block = new GenesisBlock(repository);
+			GenesisBlock block = GenesisBlock.getInstance(repository);
 			BlockData blockData = block.getBlockData();
 
 			System.out

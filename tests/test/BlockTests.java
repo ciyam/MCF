@@ -22,7 +22,7 @@ public class BlockTests extends Common {
 	@Test
 	public void testGenesisBlockTransactions() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			GenesisBlock block = new GenesisBlock(repository);
+			GenesisBlock block = GenesisBlock.getInstance(repository);
 
 			assertNotNull(block);
 			assertTrue(block.isSignatureValid());

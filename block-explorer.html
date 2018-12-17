@@ -51,14 +51,13 @@
 				for (var i=0; i<transactions.length; ++i) {
 					var tx = transactions[i];
 					var txTimestamp = new Date(tx.timestamp).toUTCString();
-					var txCreatorAddress = publicKeyToAddress(base64ToArray(tx.creatorPublicKey)); // currently base64 but likely to be base58 in the future
 
 					var row = '<tr><td>' + tx.type + '</td>' +
 								'<td>' + txTimestamp + '</td>' +
-								'<td class="addr">' + addressAsLink(txCreatorAddress) + '</td>' +
+								'<td class="addr">' + addressAsLink(tx.creatorAddress) + '</td>' +
 								'<td>' + tx.fee + ' MCF</td>' +
-								'<td class="sig">' + Base58.encode(base64ToArray(tx.signature)) + '</td>' +
-								'<td class="ref">' + Base58.encode(base64ToArray(tx.reference)) + '</td></tr>';
+								'<td class="sig">' + tx.signature + '</td>' +
+								'<td class="ref">' + tx.reference + '</td></tr>';
 								
 					html += row;
 				}
@@ -88,7 +87,7 @@
 				document.body.innerHTML = html;
 				
 				XHR({
-                        url: "/transactions/address/" + address,
+                        url: "/transactions/search?address=" + address,
                         onload: renderAddressTransactions,
                         responseType: "json"
                 });
@@ -119,14 +118,13 @@
 				for (var i=0; i<transactions.length; ++i) {
 					var tx = transactions[i];
 					var txTimestamp = new Date(tx.timestamp).toUTCString();
-					var txCreatorAddress = publicKeyToAddress(base64ToArray(tx.creatorPublicKey)); // currently base64 but likely to be base58 in the future
 
 					var row = '<tr><td>' + tx.type + '</td>' +
 								'<td>' + txTimestamp + '</td>' +
-								'<td class="addr">' + addressAsLink(txCreatorAddress) + '</td>' +
+								'<td class="addr">' + addressAsLink(tx.creatorAddress) + '</td>' +
 								'<td>' + tx.fee + ' MCF</td>' +
-								'<td class="sig">' + Base58.encode(base64ToArray(tx.signature)) + '</td>' +
-								'<td class="ref">' + Base58.encode(base64ToArray(tx.reference)) + '</td></tr>';
+								'<td class="sig">' + tx.signature + '</td>' +
+								'<td class="ref">' + tx.reference + '</td></tr>';
 								
 					html += row;
 				}
@@ -137,18 +135,8 @@
 			}
 
 			function renderBlockInfo(e) {
-				var blockData = e.target.response;
-				
-				// These properties are currently emitted as base64 by API but likely to be base58 in the future, so convert them
-				var props = [ "signature", "reference", "transactionsSignature", "generatorPublicKey", "generatorSignature" ];
-				for (var i=0; i<props.length; ++i) {
-					var p = props[i];
-					blockData[p] = Base58.encode(base64ToArray(blockData[p]));
-				}
-				
-				// convert generator public key into address
-				blockData.generator = publicKeyToAddress(base64ToArray(blockData.generatorPublicKey)); // currently base64 but likely to be base58 in the future
-				
+				var blockData = e.target.response.block;
+
 				var html = '<h1>Block ' + blockData.height + '</h1>';
 				html += '<table id="block"><tr><th>Property</th><th>Value</th></tr>';
 				
@@ -163,7 +151,7 @@
 						html += '<td>';
 					} 
 
-					if (p == "generator") {
+					if (p == "generatorAddress") {
 						html += addressAsLink(blockData[p]);
 					} else {
 						html += blockData[p];
@@ -196,16 +184,15 @@
 			}
 
 			function listBlock(e) {
-				var blockData = e.target.response;
+				var blockData = e.target.response.block;
 				
 				var ourHeight = blockData.height;
 				var blockTimestamp = new Date(blockData.timestamp).toUTCString();
-				var blockGeneratorAddress = publicKeyToAddress(base64ToArray(blockData.generatorPublicKey)); // currently base64 but likely to be base58 in the future
 				
 				var ourRow = document.createElement('TR');
 				ourRow.innerHTML = '<td><a href="#" onclick="fetchBlockInfo(' + ourHeight + ')">' + ourHeight + '</a></td>' +
 									'<td>' + blockTimestamp + '</td>' +
-									'<td class="addr">' + addressAsLink(blockGeneratorAddress) + '</td>' +
+									'<td class="addr">' + addressAsLink(blockData.generatorAddress) + '</td>' +
 									'<td>' + blockData.generatingBalance + '</td>' +
 									'<td>' + blockData.transactionCount + '</td>' +
 									'<td>' + blockData.totalFees + ' MCF</td>';

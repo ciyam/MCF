@@ -149,7 +149,7 @@ public class BTC {
 
 	private BTC() {
 		// Start wallet
-		if (Settings.getInstance().isTestNet()) {
+		if (Settings.getInstance().useBitcoinTestNet()) {
 			params = TestNet3Params.get();
 			chainFileName = "bitcoinj-testnet.spvchain";
 			checkpointsFileName = "checkpoints-testnet.txt";
