@@ -73,7 +73,7 @@ public class VoteOnPollTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		// Are VoteOnPollTransactions even allowed at this point?
 		// In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used
-		if (this.voteOnPollTransactionData.getTimestamp() < BlockChain.getVotingReleaseTimestamp())
+		if (this.voteOnPollTransactionData.getTimestamp() < BlockChain.getInstance().getVotingReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check name size bounds

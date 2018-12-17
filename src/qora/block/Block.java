@@ -117,6 +117,8 @@ public class Block {
 
 	/** Cached copy of next block's generating balance */
 	protected BigDecimal cachedNextGeneratingBalance;
+	/** Minimum Qora balance for use in calculations. */
+	public static final BigDecimal MIN_BALANCE = BigDecimal.valueOf(1L).setScale(8);
 
 	// Other useful constants
 
@@ -255,11 +257,11 @@ public class Block {
 		if (this.blockData.getHeight() == null)
 			throw new IllegalStateException("Can't determine next block's version as this block has no height set");
 
-		if (this.blockData.getHeight() < BlockChain.getATReleaseHeight())
+		if (this.blockData.getHeight() < BlockChain.getInstance().getATReleaseHeight())
 			return 1;
-		else if (this.blockData.getTimestamp() < BlockChain.getPowFixReleaseTimestamp())
+		else if (this.blockData.getTimestamp() < BlockChain.getInstance().getPowFixReleaseTimestamp())
 			return 2;
-		else if (this.blockData.getTimestamp() < BlockChain.getQoraV2Timestamp())
+		else if (this.blockData.getTimestamp() < BlockChain.getInstance().getQoraV2Timestamp())
 			return 3;
 		else
 			return 4;
@@ -281,7 +283,7 @@ public class Block {
 			throw new IllegalStateException("Can't calculate next block's generating balance as this block's height is unset");
 
 		// This block not at the start of an interval?
-		if (this.blockData.getHeight() % BlockChain.BLOCK_RETARGET_INTERVAL != 0)
+		if (this.blockData.getHeight() % BlockChain.getInstance().getBlockDifficultyInterval() != 0)
 			return this.blockData.getGeneratingBalance();
 
 		// Return cached calculation if we have one
@@ -296,7 +298,7 @@ public class Block {
 		BlockData firstBlock = this.blockData;
 
 		try {
-			for (int i = 1; firstBlock != null && i < BlockChain.BLOCK_RETARGET_INTERVAL; ++i)
+			for (int i = 1; firstBlock != null && i < BlockChain.getInstance().getBlockDifficultyInterval(); ++i)
 				firstBlock = blockRepo.fromSignature(firstBlock.getReference());
 		} catch (DataException e) {
 			firstBlock = null;
@@ -310,20 +312,21 @@ public class Block {
 		long previousGeneratingTime = this.blockData.getTimestamp() - firstBlock.getTimestamp();
 
 		// Calculate expected forging time (in ms) for a whole interval based on this block's generating balance.
-		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance()) * BlockChain.BLOCK_RETARGET_INTERVAL * 1000;
+		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance()) * BlockChain.getInstance().getBlockDifficultyInterval()
+				* 1000;
 
 		// Finally, scale generating balance such that faster than expected previous intervals produce larger generating balances.
 		// NOTE: we have to use doubles and longs here to keep compatibility with Qora v1 results
 		double multiplier = (double) expectedGeneratingTime / (double) previousGeneratingTime;
 		long nextGeneratingBalance = (long) (this.blockData.getGeneratingBalance().doubleValue() * multiplier);
 
-		this.cachedNextGeneratingBalance = BlockChain.minMaxBalance(BigDecimal.valueOf(nextGeneratingBalance).setScale(8));
+		this.cachedNextGeneratingBalance = Block.minMaxBalance(BigDecimal.valueOf(nextGeneratingBalance).setScale(8));
 
 		return this.cachedNextGeneratingBalance;
 	}
 
 	public static long calcBaseTarget(BigDecimal generatingBalance) {
-		generatingBalance = BlockChain.minMaxBalance(generatingBalance);
+		generatingBalance = Block.minMaxBalance(generatingBalance);
 		return generatingBalance.longValue() * calcForgingDelay(generatingBalance);
 	}
 
@@ -331,10 +334,11 @@ public class Block {
 	 * Return expected forging delay, in seconds, since previous block based on passed generating balance.
 	 */
 	public static long calcForgingDelay(BigDecimal generatingBalance) {
-		generatingBalance = BlockChain.minMaxBalance(generatingBalance);
+		generatingBalance = Block.minMaxBalance(generatingBalance);
 
-		double percentageOfTotal = generatingBalance.divide(BlockChain.MAX_BALANCE).doubleValue();
-		long actualBlockTime = (long) (BlockChain.MIN_BLOCK_TIME + ((BlockChain.MAX_BLOCK_TIME - BlockChain.MIN_BLOCK_TIME) * (1 - percentageOfTotal)));
+		double percentageOfTotal = generatingBalance.divide(BlockChain.getInstance().getMaxBalance()).doubleValue();
+		long actualBlockTime = (long) (BlockChain.getInstance().getMinBlockTime()
+				+ ((BlockChain.getInstance().getMaxBlockTime() - BlockChain.getInstance().getMinBlockTime()) * (1 - percentageOfTotal)));
 
 		return actualBlockTime;
 	}
@@ -670,7 +674,7 @@ public class Block {
 			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
 
 		// Check timestamp is not in the future (within configurable ~500ms margin)
-		if (this.blockData.getTimestamp() - BlockChain.BLOCK_TIMESTAMP_MARGIN > NTP.getTime())
+		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
 			return ValidationResult.TIMESTAMP_IN_FUTURE;
 
 		// Legacy gen1 test: check timestamp milliseconds is the same as parent timestamp milliseconds?
@@ -946,6 +950,19 @@ public class Block {
 
 		// Delete block from blockchain
 		this.repository.getBlockRepository().delete(this.blockData);
+	}
+
+	/**
+	 * Return Qora balance adjusted to within min/max limits.
+	 */
+	public static BigDecimal minMaxBalance(BigDecimal balance) {
+		if (balance.compareTo(Block.MIN_BALANCE) < 0)
+			return Block.MIN_BALANCE;
+
+		if (balance.compareTo(BlockChain.getInstance().getMaxBalance()) > 0)
+			return BlockChain.getInstance().getMaxBalance();
+
+		return balance;
 	}
 
 }

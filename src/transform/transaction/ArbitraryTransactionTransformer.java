@@ -132,7 +132,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
 
-		if (arbitraryTransactionData.getVersion() == 1 || transactionData.getTimestamp() >= BlockChain.getQoraV2Timestamp())
+		if (arbitraryTransactionData.getVersion() == 1 || transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
 			return bytes;
 
 		// Special v1 version

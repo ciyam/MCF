@@ -114,7 +114,7 @@ public class ArbitraryTransaction extends Transaction {
 		if (arbitraryTransactionData.getVersion() != ArbitraryTransaction.getVersionByTimestamp(arbitraryTransactionData.getTimestamp()))
 			return ValidationResult.NOT_YET_RELEASED;
 
-		if (this.arbitraryTransactionData.getTimestamp() < BlockChain.getArbitraryReleaseTimestamp())
+		if (this.arbitraryTransactionData.getTimestamp() < BlockChain.getInstance().getArbitraryReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check data length

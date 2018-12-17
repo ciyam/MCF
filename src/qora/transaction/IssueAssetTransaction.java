@@ -83,7 +83,7 @@ public class IssueAssetTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		// Are IssueAssetTransactions even allowed at this point?
 		// In gen1 this used NTP.getTime() but surely the transaction's timestamp should be used
-		if (this.issueAssetTransactionData.getTimestamp() < BlockChain.getAssetsReleaseTimestamp())
+		if (this.issueAssetTransactionData.getTimestamp() < BlockChain.getInstance().getAssetsReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
 		// Check owner address is valid
@@ -120,7 +120,7 @@ public class IssueAssetTransaction extends Transaction {
 			return ValidationResult.NO_BALANCE;
 
 		// Check the asset name isn't already taken. This check is not present in gen1.
-		if (issueAssetTransactionData.getTimestamp() >= BlockChain.getQoraV2Timestamp())
+		if (issueAssetTransactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
 			if (this.repository.getAssetRepository().assetExists(issueAssetTransactionData.getAssetName()))
 				return ValidationResult.ASSET_ALREADY_EXISTS;
 

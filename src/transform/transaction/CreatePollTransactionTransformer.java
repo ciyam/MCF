@@ -62,7 +62,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			pollOptions.add(new PollOptionData(optionName));
 
 			// V1 only: voter count also present
-			if (timestamp < BlockChain.getQoraV2Timestamp()) {
+			if (timestamp < BlockChain.getInstance().getQoraV2Timestamp()) {
 				int voterCount = byteBuffer.getInt();
 				if (voterCount != 0)
 					throw new TransformationException("Unexpected voter count in byte data for CreatePollTransaction");
@@ -88,7 +88,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			// option-string-length, option-string
 			dataLength += INT_LENGTH + Utf8.encodedLength(pollOptionData.getOptionName());
 
-			if (transactionData.getTimestamp() < BlockChain.getQoraV2Timestamp())
+			if (transactionData.getTimestamp() < BlockChain.getInstance().getQoraV2Timestamp())
 				// v1 only: voter-count (should always be zero)
 				dataLength += INT_LENGTH;
 		}
@@ -120,7 +120,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 			for (PollOptionData pollOptionData : pollOptions) {
 				Serialization.serializeSizedString(bytes, pollOptionData.getOptionName());
 
-				if (transactionData.getTimestamp() < BlockChain.getQoraV2Timestamp()) {
+				if (transactionData.getTimestamp() < BlockChain.getInstance().getQoraV2Timestamp()) {
 					// In v1, CreatePollTransaction uses Poll.toBytes which serializes voters too.
 					// Zero voters as this is a new poll.
 					bytes.write(Ints.toByteArray(0));
@@ -149,7 +149,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
 		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
 
-		if (transactionData.getTimestamp() >= BlockChain.getQoraV2Timestamp())
+		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
 			return bytes;
 
 		// Special v1 version
