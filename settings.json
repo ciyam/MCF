@@ -2,5 +2,6 @@
   "rpcallowed": [
     "::/0",
     "0.0.0.0/0"
-  ]
+  ],
+  "blockchainConfig": "testchain.json"
 }

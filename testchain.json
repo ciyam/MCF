@@ -1,0 +1,28 @@
+{
+	"coinSupply": "10000000000",
+	"blockDifficultyInterval": 10,
+	"minBlockTime": 30,
+	"maxBlockTime": 60,
+	"blockTimestampMargin": 500,
+	"maxBytesPerUnitFee": 1024,
+	"unitFee": "1.0",
+	"genesis": {
+		"assets": [
+			{ "name": "MCF", "description": "MCF coin" }
+		]
+		"timestamp": "1545066200000",
+		"generatingBalance": "10000000",
+		"transactions": [
+			{ "recipient": "Qj2Stco8ziE3ZQN2AdpWCmkBFfYjuz8fGu", "amount": "9876543210.12345678" }
+		]
+	},
+	"featureTriggers": {
+		"message": { "height": "0" },
+		"AT": { "height": "0" },
+		"assets": { "timestamp": "0" },
+		"voting": { "timestamp": "0" },
+		"arbitrary": { "timestamp": "0" },
+		"powfix": { "timestamp": "0" },
+		"v2" : { "timestamp": "0" }
+	}
+}
