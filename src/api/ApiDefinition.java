@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 			@Tag(name = "Admin"),
 			@Tag(name = "Assets"),
 			@Tag(name = "Blocks"),
+			@Tag(name = "Names"),
+			@Tag(name = "Payments"),
 			@Tag(name = "Transactions"),
 			@Tag(name = "Utilities")
 		},

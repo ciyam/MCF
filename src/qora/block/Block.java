@@ -697,8 +697,9 @@ public class Block {
 			return ValidationResult.TIMESTAMP_MS_INCORRECT;
 
 		// Too early to forge block?
-		if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
-			return ValidationResult.TIMESTAMP_TOO_SOON;
+		// XXX DISABLED
+		// if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
+		// 	return ValidationResult.TIMESTAMP_TOO_SOON;
 
 		// Check block version
 		if (this.blockData.getVersion() != parentBlock.getNextBlockVersion())

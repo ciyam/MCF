@@ -408,6 +408,17 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public void unconfirmTransaction(TransactionData transactionData) throws DataException {
+		HSQLDBSaver saver = new HSQLDBSaver("UnconfirmedTransactions");
+		saver.bind("signature", transactionData.getSignature()).bind("creation", new Timestamp(transactionData.getTimestamp()));
+		try {
+			saver.execute(repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to add transaction to unconfirmed transactions repository", e);
+		}
+	}
+
+	@Override
 	public void save(TransactionData transactionData) throws DataException {
 		HSQLDBSaver saver = new HSQLDBSaver("Transactions");
 		saver.bind("signature", transactionData.getSignature()).bind("reference", transactionData.getReference()).bind("type", transactionData.getType().value)

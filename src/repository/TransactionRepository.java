@@ -46,6 +46,8 @@ public interface TransactionRepository {
 	 */
 	public void confirmTransaction(byte[] signature) throws DataException;
 
+	void unconfirmTransaction(TransactionData transactionData) throws DataException;
+
 	public void save(TransactionData transactionData) throws DataException;
 
 	public void delete(TransactionData transactionData) throws DataException;
