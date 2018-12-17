@@ -74,6 +74,7 @@ public class Block {
 		TIMESTAMP_OLDER_THAN_PARENT(20),
 		TIMESTAMP_IN_FUTURE(21),
 		TIMESTAMP_MS_INCORRECT(22),
+		TIMESTAMP_TOO_SOON(23),
 		VERSION_INCORRECT(30),
 		FEATURE_NOT_YET_RELEASED(31),
 		GENERATING_BALANCE_INCORRECT(40),
@@ -207,21 +208,35 @@ public class Block {
 		}
 
 		long timestamp = parentBlock.calcNextBlockTimestamp(version, generatorSignature, generator);
+		long maximumTimestamp = parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMaxBlockTime();
+		if (timestamp > maximumTimestamp)
+			timestamp = maximumTimestamp;
+
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
 		int height = parentBlockData.getHeight() + 1;
 
-		this.executeATs();
+		this.transactions = new ArrayList<Transaction>();
 
-		int atCount = this.ourAtStates.size();
-		BigDecimal atFees = this.ourAtFees;
+		int atCount = 0;
+		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
 		BigDecimal totalFees = atFees;
 
+		// This instance used for AT processing
 		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
 				generator.getPublicKey(), generatorSignature, atCount, atFees);
 
-		this.transactions = new ArrayList<Transaction>();
+		// Requires this.blockData and this.transactions, sets this.ourAtStates and this.ourAtFees
+		this.executeATs();
+
+		atCount = this.ourAtStates.size();
 		this.atStates = this.ourAtStates;
+		atFees = this.ourAtFees;
+		totalFees = atFees;
+
+		// Rebuild blockData using post-AT-execute data
+		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+				generator.getPublicKey(), generatorSignature, atCount, atFees);
 	}
 
 	// Getters/setters
@@ -681,6 +696,10 @@ public class Block {
 		if (this.blockData.getTimestamp() % 1000 != parentBlockData.getTimestamp() % 1000)
 			return ValidationResult.TIMESTAMP_MS_INCORRECT;
 
+		// Too early to forge block?
+		if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
+			return ValidationResult.TIMESTAMP_TOO_SOON;
+
 		// Check block version
 		if (this.blockData.getVersion() != parentBlock.getNextBlockVersion())
 			return ValidationResult.VERSION_INCORRECT;
@@ -691,23 +710,26 @@ public class Block {
 		if (this.blockData.getGeneratingBalance().compareTo(parentBlock.calcNextBlockGeneratingBalance()) != 0)
 			return ValidationResult.GENERATING_BALANCE_INCORRECT;
 
-		// Check generator is allowed to forge this block at this time
-		BigInteger hashValue = this.calcBlockHash();
-		BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
+		// After maximum block period, then generator checks are relaxed
+		if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMaxBlockTime()) {
+			// Check generator is allowed to forge this block
+			BigInteger hashValue = this.calcBlockHash();
+			BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
 
-		// Multiply target by guesses
-		long guesses = (this.blockData.getTimestamp() - parentBlockData.getTimestamp()) / 1000;
-		BigInteger lowerTarget = target.multiply(BigInteger.valueOf(guesses - 1));
-		target = target.multiply(BigInteger.valueOf(guesses));
+			// Multiply target by guesses
+			long guesses = (this.blockData.getTimestamp() - parentBlockData.getTimestamp()) / 1000;
+			BigInteger lowerTarget = target.multiply(BigInteger.valueOf(guesses - 1));
+			target = target.multiply(BigInteger.valueOf(guesses));
 
-		// Generator's target must exceed block's hashValue threshold
-		if (hashValue.compareTo(target) >= 0)
-			return ValidationResult.GENERATOR_NOT_ACCEPTED;
+			// Generator's target must exceed block's hashValue threshold
+			if (hashValue.compareTo(target) >= 0)
+				return ValidationResult.GENERATOR_NOT_ACCEPTED;
 
-		// Odd gen1 comment: "CHECK IF FIRST BLOCK OF USER"
-		// Each second elapsed allows generator to test a new "target" window against hashValue
-		if (hashValue.compareTo(lowerTarget) < 0)
-			return ValidationResult.GENERATOR_NOT_ACCEPTED;
+			// Odd gen1 comment: "CHECK IF FIRST BLOCK OF USER"
+			// Each second elapsed allows generator to test a new "target" window against hashValue
+			if (hashValue.compareTo(lowerTarget) < 0)
+				return ValidationResult.GENERATOR_NOT_ACCEPTED;
+		}
 
 		// CIYAM ATs
 		if (this.blockData.getATCount() != 0) {
@@ -720,6 +742,8 @@ public class Block {
 				} else {
 					// Generate local AT states for comparison
 					this.executeATs();
+
+					// XXX do we need to revalidate signatures if transactions list has changed?
 				}
 
 				// Check locally generated AT states against ones received from elsewhere

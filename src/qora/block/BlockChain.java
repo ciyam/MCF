@@ -6,7 +6,6 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -157,9 +156,9 @@ public class BlockChain {
 		long maxBytesPerUnitFee = (Long) Settings.getTypedJson(json, "maxBytesPerUnitFee", Long.class);
 		BigDecimal maxBalance = Settings.getJsonBigDecimal(json, "coinSupply");
 		int blockDifficultyInterval = ((Long) Settings.getTypedJson(json, "blockDifficultyInterval", Long.class)).intValue();
-		long minBlockTime = (Long) Settings.getTypedJson(json, "minBlockTime", Long.class);
-		long maxBlockTime = (Long) Settings.getTypedJson(json, "maxBlockTime", Long.class);
-		long blockTimestampMargin = (Long) Settings.getTypedJson(json, "blockTimestampMargin", Long.class);
+		long minBlockTime = 1000L * (Long) Settings.getTypedJson(json, "minBlockTime", Long.class); // config entry in seconds
+		long maxBlockTime = 1000L * (Long) Settings.getTypedJson(json, "maxBlockTime", Long.class); // config entry in seconds
+		long blockTimestampMargin = (Long) Settings.getTypedJson(json, "blockTimestampMargin", Long.class); // config entry in milliseconds
 
 		// blockchain feature triggers
 		Map<String, Map<FeatureValueType, Long>> featureTriggers = new HashMap<>();
