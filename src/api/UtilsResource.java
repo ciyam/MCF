@@ -273,7 +273,7 @@ public class UtilsResource {
 
 		byte checksumNybble = (byte) (binary[16] & 0xf0);
 		byte[] checksum = Crypto.digest(entropy);
-		if ((checksum[0] & 0xf0) != checksumNybble)
+		if (checksumNybble != (byte) (checksum[0] & 0xf0))
 			return "false";
 
 		return Base58.encode(entropy);
