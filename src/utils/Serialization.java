@@ -23,7 +23,9 @@ public class Serialization {
 	 * @throws IOException
 	 */
 	public static byte[] serializeBigDecimal(BigDecimal amount, int length) throws IOException {
-		byte[] amountBytes = amount.unscaledValue().toByteArray();
+		// Note: we call .setScale(8) here to normalize values, especially values from API as they can have varying scale
+		// (At least until the BigDecimal XmlAdapter works - see data/package-info.java)
+		byte[] amountBytes = amount.setScale(8).unscaledValue().toByteArray();
 		byte[] output = new byte[length];
 		System.arraycopy(amountBytes, 0, output, length - amountBytes.length, amountBytes.length);
 		return output;
@@ -49,10 +51,7 @@ public class Serialization {
 	 * @throws IOException
 	 */
 	public static void serializeBigDecimal(ByteArrayOutputStream bytes, BigDecimal amount, int length) throws IOException {
-		byte[] amountBytes = amount.unscaledValue().toByteArray();
-		byte[] output = new byte[length];
-		System.arraycopy(amountBytes, 0, output, length - amountBytes.length, amountBytes.length);
-		bytes.write(output);
+		bytes.write(serializeBigDecimal(amount, length));
 	}
 
 	/**

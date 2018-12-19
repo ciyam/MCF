@@ -24,6 +24,9 @@ import repository.hsqldb.transaction.HSQLDBTransactionRepository;
 
 public class HSQLDBRepository implements Repository {
 
+	/** Queries that take longer than this (milliseconds) are logged */
+	private static final long MAX_QUERY_TIME = 1000L;
+
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
 
 	public static final TimeZone UTC = TimeZone.getTimeZone("UTC");
@@ -136,10 +139,20 @@ public class HSQLDBRepository implements Repository {
 	@SuppressWarnings("resource")
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
 		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
+
 		// Close the PreparedStatement when the ResultSet is closed otherwise there's a potential resource leak.
 		// We can't use try-with-resources here as closing the PreparedStatement on return would also prematurely close the ResultSet.
 		preparedStatement.closeOnCompletion();
-		return this.checkedExecuteResultSet(preparedStatement, objects);
+
+		long beforeQuery = System.currentTimeMillis();
+
+		ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects);
+
+		long queryTime =  System.currentTimeMillis() - beforeQuery;
+		if (queryTime > MAX_QUERY_TIME)
+			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql)); 
+
+		return resultSet;
 	}
 
 	/**

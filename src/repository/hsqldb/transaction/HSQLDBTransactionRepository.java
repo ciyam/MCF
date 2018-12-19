@@ -353,7 +353,6 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 
 		String sql = "SELECT " + signatureColumn + " FROM " + String.join(" JOIN ", tableJoins) + " WHERE " + String.join(" AND ", whereClauses);
-		System.out.println("Transaction search SQL:\n" + sql);
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
 			if (resultSet == null)

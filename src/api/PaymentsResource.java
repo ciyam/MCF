@@ -6,6 +6,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import qora.transaction.Transaction;
+import qora.transaction.Transaction.ValidationResult;
+import repository.DataException;
+import repository.Repository;
+import repository.RepositoryManager;
 import transform.TransformationException;
 import transform.transaction.PaymentTransactionTransformer;
 import utils.Base58;
@@ -48,6 +53,7 @@ public class PaymentsResource {
 			@ApiResponse(
 				description = "raw, unsigned payment transaction encoded in Base58",
 				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
 					schema = @Schema(
 						type = "string"
 					)
@@ -55,12 +61,20 @@ public class PaymentsResource {
 			)
 		}
 	)
-	public String buildTransaction(PaymentTransactionData paymentTransactionData) {
-		try {
-			byte[] bytes = PaymentTransactionTransformer.toBytes(paymentTransactionData);
+	public String buildTransaction(PaymentTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValid();
+			if (result != ValidationResult.OK)
+				throw new ApiException(400, ApiError.INVALID_DATA.getCode(), "Transaction invalid: " + result.name());
+
+			byte[] bytes = PaymentTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiErrorFactory.getInstance().createError(ApiError.UNKNOWN, e);
+		} catch (DataException e) {
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 

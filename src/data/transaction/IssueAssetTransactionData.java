@@ -6,6 +6,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 import qora.transaction.Transaction.TransactionType;
 
 // All properties to be converted to JSON via JAX-RS
@@ -15,6 +16,7 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	// Properties
 	// assetId can be null but assigned during save() or during load from repository
+	@Schema(accessMode = AccessMode.READ_ONLY)
 	private Long assetId = null;
 	private byte[] issuerPublicKey;
 	private String owner;
@@ -27,6 +29,7 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	// For JAX-RS
 	protected IssueAssetTransactionData() {
+		super(TransactionType.ISSUE_ASSET);
 	}
 
 	public IssueAssetTransactionData(Long assetId, byte[] issuerPublicKey, String owner, String assetName, String description, long quantity,

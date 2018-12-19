@@ -15,11 +15,11 @@ public class Base58TypeAdapter extends XmlAdapter<String, byte[]> {
 	}
 
 	@Override
-	public String marshal(byte[] input) throws Exception {
-		if (input == null)
+	public String marshal(byte[] output) throws Exception {
+		if (output == null)
 			return null;
 
-		return Base58.encode(input);
+		return Base58.encode(output);
 	}
 
 }

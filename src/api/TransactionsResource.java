@@ -33,13 +33,11 @@ import com.google.common.primitives.Bytes;
 import api.models.SimpleTransactionSignRequest;
 import data.transaction.GenesisTransactionData;
 import data.transaction.PaymentTransactionData;
-import data.transaction.RegisterNameTransactionData;
 import data.transaction.TransactionData;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
 import transform.TransformationException;
-import transform.transaction.RegisterNameTransactionTransformer;
 import transform.transaction.TransactionTransformer;
 import utils.Base58;
 
@@ -352,13 +350,18 @@ public class TransactionsResource {
 	)
 	public String signTransaction(SimpleTransactionSignRequest signRequest) {
 		try {
-			// Append null signature on the end
+			// Append null signature on the end before transformation
 			byte[] rawBytes = Bytes.concat(signRequest.transactionBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
+
 			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+
 			PrivateKeyAccount signer = new PrivateKeyAccount(null, signRequest.privateKey);
+
 			Transaction transaction = Transaction.fromData(null, transactionData);
 			transaction.sign(signer);
+
 			byte[] signedBytes = TransactionTransformer.toBytes(transactionData);
+
 			return Base58.encode(signedBytes);
 		} catch (TransformationException e) {
 			throw ApiErrorFactory.getInstance().createError(ApiError.UNKNOWN, e);
@@ -375,7 +378,8 @@ public class TransactionsResource {
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
 					type = "string",
-					description = "raw, signed transaction in base58 encoding"
+					description = "raw, signed transaction in base58 encoding",
+					example = "base58"
 				)
 			)
 		),
@@ -400,14 +404,77 @@ public class TransactionsResource {
 			if (!transaction.isSignatureValid())
 				throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_SIGNATURE);
 
-			if (transaction.isValid() != ValidationResult.OK)
-				throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_DATA);
+			ValidationResult result = transaction.isValid();
+			if (result != ValidationResult.OK)
+				throw new ApiException(400, ApiError.INVALID_DATA.getCode(), "Transaction invalid: " + result.name());
 
 			repository.getTransactionRepository().save(transactionData);
 			repository.getTransactionRepository().unconfirmTransaction(transactionData);
 			repository.saveChanges();
 
 			return "true";
+		} catch (TransformationException e) {
+			throw ApiErrorFactory.getInstance().createError(ApiError.UNKNOWN, e);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/decode")
+	@Operation(
+		summary = "Decode a raw, signed transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string",
+					description = "raw, unsigned/signed transaction in base58 encoding",
+					example = "base58"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "a transaction",
+				content = @Content(
+					schema = @Schema(
+						implementation = TransactionData.class
+					)
+				)
+			)
+		}
+	)
+	public TransactionData decodeTransaction(String rawBytes58) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			byte[] rawBytes = Base58.decode(rawBytes58);
+			boolean hasSignature = true;
+
+			TransactionData transactionData;
+			try {
+				transactionData = TransactionTransformer.fromBytes(rawBytes);
+			} catch (TransformationException e) {
+				// Maybe we're missing a signature, so append one and try one more time
+				rawBytes = Bytes.concat(rawBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
+				hasSignature = false;
+				transactionData = TransactionTransformer.fromBytes(rawBytes);
+			}
+
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			if (hasSignature && !transaction.isSignatureValid())
+				throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_SIGNATURE);
+
+			ValidationResult result = transaction.isValid();
+			if (result != ValidationResult.OK)
+				throw new ApiException(400, ApiError.INVALID_DATA.getCode(), "Transaction invalid: " + result.name());
+
+			if (!hasSignature)
+				transactionData.setSignature(null);
+
+			return transactionData;
 		} catch (TransformationException e) {
 			throw ApiErrorFactory.getInstance().createError(ApiError.UNKNOWN, e);
 		} catch (ApiException e) {
