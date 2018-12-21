@@ -17,8 +17,8 @@
 		<swagger-ui.version>3.19.0</swagger-ui.version>
 	</properties>
 	<build>
-		<sourceDirectory>src</sourceDirectory>
-		<testSourceDirectory>tests</testSourceDirectory>
+		<sourceDirectory>src/main/java</sourceDirectory>
+		<testSourceDirectory>src/test/java</testSourceDirectory>
 		<plugins>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -119,14 +119,13 @@
 					<packages>
 						<package>
 							<pattern>data.**</pattern>
-							<template>${project.basedir}/src/data/package-info.java</template>
+							<template>${project.build.sourceDirectory}/data/package-info.java</template>
 						</package>
 						<package>
 							<pattern>api.models**</pattern>
-							<template>${project.basedir}/src/data/package-info.java</template>
+							<template>${project.build.sourceDirectory}/data/package-info.java</template>
 						</package>
 					</packages>
-					<sourceDirectory>${project.basedir}/src</sourceDirectory>
 					<outputDirectory>${project.build.directory}/generated-sources/package-info</outputDirectory>
 				</configuration>
 				<executions>
