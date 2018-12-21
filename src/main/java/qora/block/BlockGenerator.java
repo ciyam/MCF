@@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
 import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.account.PrivateKeyAccount;
+import qora.account.PublicKeyAccount;
 import qora.block.Block.ValidationResult;
 import qora.transaction.Transaction;
 import repository.BlockRepository;
@@ -47,6 +48,12 @@ public class BlockGenerator extends Thread {
 		Thread.currentThread().setName("BlockGenerator");
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Wipe existing unconfirmed transactions
+			List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
+			for (TransactionData transactionData : unconfirmedTransactions)
+				repository.getTransactionRepository().delete(transactionData);
+			repository.saveChanges();
+
 			generator = new PrivateKeyAccount(repository, generatorPrivateKey);
 
 			// Going to need this a lot...
@@ -109,15 +116,49 @@ public class BlockGenerator extends Thread {
 		// Grab all unconfirmed transactions (already sorted)
 		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
 
-		// Remove transactions that have timestamp later than block's timestamp (not yet valid)
-		unconfirmedTransactions.removeIf(transactionData -> transactionData.getTimestamp() > newBlock.getBlockData().getTimestamp());
-		// Remove transactions that have expired deadline for this block
-		unconfirmedTransactions.removeIf(transactionData -> Transaction.fromData(repository, transactionData).getDeadline() <= newBlock.getBlockData().getTimestamp());
+		unconfirmedTransactions.removeIf(transactionData -> !isSuitableTransaction(repository, transactionData, newBlock));
+
+		// Discard last-reference changes used to aid transaction validity checks
+		repository.discardChanges();
 
 		// Attempt to add transactions until block is full, or we run out
 		for (TransactionData transactionData : unconfirmedTransactions)
 			if (!newBlock.addTransaction(transactionData))
 				break;
+	}
+
+	/** Returns true if transaction is suitable for adding to new block */
+	private boolean isSuitableTransaction(Repository repository, TransactionData transactionData, Block newBlock) {
+		// Ignore transactions that have timestamp later than block's timestamp (not yet valid)
+		if (transactionData.getTimestamp() > newBlock.getBlockData().getTimestamp())
+			return false;
+
+		Transaction transaction = Transaction.fromData(repository, transactionData);
+
+		// Ignore transactions that have expired deadline for this block
+		if (transaction.getDeadline() <= newBlock.getBlockData().getTimestamp())
+			return false;
+
+		// Ignore transactions that are currently not valid
+		try {
+			if (transaction.isValid() != Transaction.ValidationResult.OK)
+				return false;
+		} catch (DataException e) {
+			// Not good either
+			return false;
+		}
+
+		// Good for adding to a block
+		// Temporarily update sender's last reference so that subsequent transactions validations work
+		// These updates will be discard on exit of addUnconfirmedTransactions() above
+		PublicKeyAccount creator = new PublicKeyAccount(repository, transactionData.getCreatorPublicKey());
+		try {
+			creator.setLastReference(transactionData.getSignature());
+		} catch (DataException e) {
+			// Not good
+			return false;
+		}
+		return true;
 	}
 
 	public void shutdown() {

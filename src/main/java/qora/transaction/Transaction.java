@@ -411,6 +411,28 @@ public abstract class Transaction {
 	}
 
 	/**
+	 * Returns whether transaction can be added to unconfirmed transactions.
+	 * <p>
+	 * NOTE: temporarily updates creator's lastReference to that from
+	 * unconfirmed transactions, and hence calls <tt>repository.discardChanges()</tt>
+	 * before exit.
+	 * <p>
+	 * This is not done normally because we don't want unconfirmed transactions affecting validity of transactions already included in a block.
+	 * 
+	 * @return true if transaction can be added to unconfirmed transactions, false otherwise
+	 * @throws DataException
+	 */
+	public ValidationResult isValidUnconfirmed() throws DataException {
+		try {
+			Account creator = this.getCreator();
+			creator.setLastReference(creator.getUnconfirmedLastReference());
+			return this.isValid();
+		} finally {
+			repository.discardChanges();
+		}
+	}
+
+	/**
 	 * Returns whether transaction can be added to the blockchain.
 	 * <p>
 	 * Checks if transaction can have {@link TransactionHandler#process()} called.

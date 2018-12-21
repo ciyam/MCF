@@ -111,6 +111,11 @@ public abstract class TransactionData {
 		return Crypto.toAddress(this.creatorPublicKey);
 	}
 
+	@XmlTransient
+	public void setCreatorPublicKey(byte[] creatorPublicKey) {
+		this.creatorPublicKey = creatorPublicKey;
+	}
+
 	// Comparison
 
 	@Override

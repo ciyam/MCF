@@ -319,7 +319,7 @@ public class TransactionsResource {
 			if (!transaction.isSignatureValid())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE);
 
-			ValidationResult result = transaction.isValid();
+			ValidationResult result = transaction.isValidUnconfirmed();
 			if (result != ValidationResult.OK)
 				throw createTransactionInvalidException(request, result);
 

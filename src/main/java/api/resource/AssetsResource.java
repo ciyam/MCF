@@ -258,7 +258,7 @@ public class AssetsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
-			ValidationResult result = transaction.isValid();
+			ValidationResult result = transaction.isValidUnconfirmed();
 			if (result != ValidationResult.OK)
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 

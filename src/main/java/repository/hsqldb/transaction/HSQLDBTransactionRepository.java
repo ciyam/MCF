@@ -517,6 +517,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete transaction from repository", e);
 		}
+		try {
+			this.repository.delete("UnconfirmedTransactions", "signature = ?", transactionData.getSignature());
+		} catch (SQLException e) {
+			throw new DataException("Unable to remove transaction from unconfirmed transactions repository", e);
+		}
 	}
 
 }

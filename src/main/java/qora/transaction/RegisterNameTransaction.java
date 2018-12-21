@@ -28,6 +28,10 @@ public class RegisterNameTransaction extends Transaction {
 		super(repository, transactionData);
 
 		this.registerNameTransactionData = (RegisterNameTransactionData) this.transactionData;
+
+		// XXX This is horrible - thanks to JAXB unmarshalling not calling constructor
+		if (this.transactionData.getCreatorPublicKey() == null)
+			this.transactionData.setCreatorPublicKey(this.registerNameTransactionData.getRegistrantPublicKey());
 	}
 
 	// More information
