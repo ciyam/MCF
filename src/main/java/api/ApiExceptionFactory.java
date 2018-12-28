@@ -8,8 +8,7 @@ public enum ApiExceptionFactory {
 	INSTANCE;
 
 	public ApiException createException(HttpServletRequest request, ApiError apiError, Throwable throwable, Object... args) {
-		String template = Translator.INSTANCE.translate("ApiError", request.getLocale().getLanguage(), apiError.name());
-		String message = String.format(template, args);
+		String message = Translator.INSTANCE.translate("ApiError", request.getLocale().getLanguage(), apiError.name(), args);
 		return new ApiException(apiError.getStatus(), apiError.getCode(), message, throwable);
 	}
 

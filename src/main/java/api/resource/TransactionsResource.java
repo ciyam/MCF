@@ -261,8 +261,11 @@ public class TransactionsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.TRANSFORMATION_ERROR})
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.TRANSFORMATION_ERROR})
 	public String signTransaction(SimpleTransactionSignRequest signRequest) {
+		if (signRequest.transactionBytes.length == 0)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.JSON);
+
 		try {
 			// Append null signature on the end before transformation
 			byte[] rawBytes = Bytes.concat(signRequest.transactionBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
@@ -277,6 +280,9 @@ public class TransactionsResource {
 			byte[] signedBytes = TransactionTransformer.toBytes(transactionData);
 
 			return Base58.encode(signedBytes);
+		} catch (IllegalArgumentException e) {
+			// Invalid private key
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		}
@@ -328,6 +334,8 @@ public class TransactionsResource {
 			repository.saveChanges();
 
 			return "true";
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		} catch (ApiException e) {
@@ -391,6 +399,8 @@ public class TransactionsResource {
 				transactionData.setSignature(null);
 
 			return transactionData;
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		} catch (ApiException e) {

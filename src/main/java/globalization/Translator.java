@@ -3,6 +3,7 @@ package globalization;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.MissingFormatArgumentException;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
@@ -46,7 +47,12 @@ public enum Translator {
 		if (resourceBundle == null || !resourceBundle.containsKey(key))
 			return "!!" + lang + ":" + className + "." + key + "!!";
 
-		return String.format(resourceBundle.getString(key), args);
+		String template = resourceBundle.getString(key);
+		try {
+			return String.format(template, args);
+		} catch (MissingFormatArgumentException e) {
+			return template;
+		}
 	}
 
 }

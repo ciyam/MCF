@@ -8,9 +8,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
+import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.account.Account;
 import qora.account.PrivateKeyAccount;
@@ -20,6 +24,8 @@ import repository.DataException;
 import repository.Repository;
 import transform.TransformationException;
 import transform.transaction.TransactionTransformer;
+import utils.Base58;
+import utils.NTP;
 
 public abstract class Transaction {
 
@@ -117,6 +123,8 @@ public abstract class Transaction {
 			return map.get(value);
 		}
 	}
+
+	private static final Logger LOGGER = LogManager.getLogger(Transaction.class);
 
 	// Properties
 	protected Repository repository;
@@ -433,6 +441,78 @@ public abstract class Transaction {
 	}
 
 	/**
+	 * Returns sorted, unconfirmed transactions, deleting invalid.
+	 * <p>
+	 * NOTE: temporarily updates accounts' lastReference to that from
+	 * unconfirmed transactions, and hence calls <tt>repository.discardChanges()</tt>
+	 * before exit.
+	 * 
+	 * @return sorted unconfirmed transactions
+	 * @throws DataException
+	 */
+	public static List<TransactionData> getUnconfirmedTransactions(Repository repository) throws DataException {
+		BlockData latestBlockData = repository.getBlockRepository().getLastBlock();
+
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
+		List<TransactionData> invalidTransactions = new ArrayList<>();
+
+		unconfirmedTransactions.sort(getDataComparator());
+
+		for (int i = 0; i < unconfirmedTransactions.size(); ++i) {
+			TransactionData transactionData = unconfirmedTransactions.get(i);
+
+			if (!isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp())) {
+				invalidTransactions.add(transactionData);
+
+				unconfirmedTransactions.remove(i);
+				--i;
+				continue;
+			}
+		}
+
+		// Throw away temporary updates to account lastReference
+		repository.discardChanges();
+
+		// Actually delete invalid transactions from database
+		for (TransactionData invalidTransactionData : invalidTransactions) {
+			LOGGER.trace(String.format("Deleting invalid, unconfirmed transaction %s", Base58.encode(invalidTransactionData.getSignature())));
+			repository.getTransactionRepository().delete(invalidTransactionData);
+		}
+		repository.saveChanges();
+
+		return unconfirmedTransactions;
+	}
+
+	/**
+	 * Returns whether transaction is still a valid unconfirmed transaction.
+	 * <p>
+	 * NOTE: temporarily updates creator's lastReference to that from
+	 * unconfirmed transactions, and hence caller should invoke
+	 * <tt>repository.discardChanges()</tt>.
+	 * 
+	 * @return true if transaction can be added to unconfirmed transactions, false otherwise
+	 * @throws DataException
+	 */
+	private static boolean isStillValidUnconfirmed(Repository repository, TransactionData transactionData, long blockTimestamp) throws DataException {
+		Transaction transaction = Transaction.fromData(repository, transactionData);
+
+		// Check transaction has not expired
+		if (transaction.getDeadline() <= blockTimestamp || transaction.getDeadline() < NTP.getTime())
+			return false;
+
+		// Check transaction is currently valid
+		if (transaction.isValid() != Transaction.ValidationResult.OK)
+			return false;
+
+		// Good for adding to a block
+		// Temporarily update sender's last reference so that subsequent transactions validations work
+		// These updates should be discarded by some caller further up stack
+		PublicKeyAccount creator = new PublicKeyAccount(repository, transactionData.getCreatorPublicKey());
+		creator.setLastReference(transactionData.getSignature());
+		return true;
+	}
+
+	/**
 	 * Returns whether transaction can be added to the blockchain.
 	 * <p>
 	 * Checks if transaction can have {@link TransactionHandler#process()} called.
@@ -467,12 +547,32 @@ public abstract class Transaction {
 	public static Comparator<Transaction> getComparator() {
 		class TransactionComparator implements Comparator<Transaction> {
 
+			private Comparator<TransactionData> transactionDataComparator;
+
+			public TransactionComparator(Comparator<TransactionData> transactionDataComparator) {
+				this.transactionDataComparator = transactionDataComparator;
+			}
+
 			// Compare by type, timestamp, then signature
 			@Override
 			public int compare(Transaction t1, Transaction t2) {
 				TransactionData td1 = t1.getTransactionData();
 				TransactionData td2 = t2.getTransactionData();
 
+				return transactionDataComparator.compare(td1, td2);
+			}
+
+		}
+
+		return new TransactionComparator(getDataComparator());
+	}
+
+	public static Comparator<TransactionData> getDataComparator() {
+		class TransactionDataComparator implements Comparator<TransactionData> {
+
+			// Compare by type, timestamp, then signature
+			@Override
+			public int compare(TransactionData td1, TransactionData td2) {
 				// AT transactions come before non-AT transactions
 				if (td1.getType() == TransactionType.AT && td2.getType() != TransactionType.AT)
 					return -1;
@@ -492,7 +592,7 @@ public abstract class Transaction {
 
 		}
 
-		return new TransactionComparator();
+		return new TransactionDataComparator();
 	}
 
 	@Override

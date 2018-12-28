@@ -27,6 +27,7 @@ public class Settings {
 	private static Settings instance;
 	private String userpath = "";
 	private boolean useBitcoinTestNet = false;
+	private boolean wipeUnconfirmedOnStart = true;
 
 	// RPC
 	private int rpcPort = 9085;
@@ -130,6 +131,12 @@ public class Settings {
 		if (json.containsKey("rpcenabled"))
 			this.rpcEnabled = ((Boolean) json.get("rpcenabled")).booleanValue();
 
+		// Blockchain config
+
+		if (json.containsKey("wipeUnconfirmedOnStart")) {
+			this.wipeUnconfirmedOnStart = (Boolean) getTypedJson(json, "wipeUnconfirmedOnStart", Boolean.class);
+		}
+
 		if (json.containsKey("blockchainConfig")) {
 			String filename = (String) json.get("blockchainConfig");
 			File file = new File(this.userpath + filename);
@@ -170,6 +177,10 @@ public class Settings {
 
 	public boolean useBitcoinTestNet() {
 		return this.useBitcoinTestNet;
+	}
+
+	public boolean getWipeUnconfirmedOnStart() {
+		return this.wipeUnconfirmedOnStart;
 	}
 
 	// Config parsing

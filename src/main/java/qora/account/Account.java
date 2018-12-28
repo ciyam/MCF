@@ -149,13 +149,15 @@ public class Account {
 
 	/**
 	 * Fetch last reference for account, considering unconfirmed transactions.
+	 * <p>
+	 * NOTE: <tt>repository.discardChanges()</tt> may be called during execution.
 	 * 
 	 * @return byte[] reference, or null if no reference or account not found.
 	 * @throws DataException
 	 */
 	public byte[] getUnconfirmedLastReference() throws DataException {
 		// Newest unconfirmed transaction takes priority
-		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
+		List<TransactionData> unconfirmedTransactions = Transaction.getUnconfirmedTransactions(repository);
 
 		byte[] reference = null;
 
