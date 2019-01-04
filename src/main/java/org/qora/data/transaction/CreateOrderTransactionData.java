@@ -4,10 +4,12 @@ import java.math.BigDecimal;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
 
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -15,15 +17,20 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class CreateOrderTransactionData extends TransactionData {
 
 	// Properties
+	@Schema(description = "asset on offer to give by order creator")
 	private long haveAssetId;
+	@Schema(description = "asset wanted to receive by order creator")
 	private long wantAssetId;
+	@Schema(description = "amount of \"have\" asset to trade")
 	private BigDecimal amount;
+	@Schema(description = "amount of \"want\" asset to receive per unit of \"have\" asset traded")
 	private BigDecimal price;
 
 	// Constructors
 
 	// For JAX-RS
 	protected CreateOrderTransactionData() {
+		super(TransactionType.CREATE_ASSET_ORDER);
 	}
 
 	public CreateOrderTransactionData(byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, BigDecimal fee,
@@ -57,6 +64,19 @@ public class CreateOrderTransactionData extends TransactionData {
 
 	public BigDecimal getPrice() {
 		return this.price;
+	}
+
+	// Re-expose creatorPublicKey for this transaction type for JAXB
+	@XmlElement(name = "creatorPublicKey")
+	@Schema(name = "creatorPublicKey", description = "order creator's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
+	public byte[] getOrderCreatorPublicKey() {
+		return this.creatorPublicKey;
+	}
+
+	@XmlElement(name = "creatorPublicKey")
+	@Schema(name = "creatorPublicKey", description = "order creator's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
+	public void setOrderCreatorPublicKey(byte[] creatorPublicKey) {
+		this.creatorPublicKey = creatorPublicKey;
 	}
 
 }

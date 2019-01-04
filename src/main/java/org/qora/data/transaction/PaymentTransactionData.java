@@ -22,9 +22,9 @@ public class PaymentTransactionData extends TransactionData {
 	private String recipient;
 	@Schema(description = "amount to send", example = "123.456")
 	@XmlJavaTypeAdapter(
-			type = BigDecimal.class,
-			value = org.qora.api.BigDecimalTypeAdapter.class
-		)
+		type = BigDecimal.class,
+		value = org.qora.api.BigDecimalTypeAdapter.class
+	)
 	private BigDecimal amount;
 
 	// Constructors

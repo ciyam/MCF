@@ -32,6 +32,7 @@ import org.qora.data.account.AccountBalanceData;
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
 import org.qora.data.asset.TradeData;
+import org.qora.data.transaction.CreateOrderTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -39,6 +40,7 @@ import org.qora.repository.RepositoryManager;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.transform.TransformationException;
+import org.qora.transform.transaction.CreateOrderTransactionTransformer;
 import org.qora.transform.transaction.IssueAssetTransactionTransformer;
 import org.qora.utils.Base58;
 
@@ -243,7 +245,7 @@ public class AssetsResource {
 		),
 		responses = {
 			@ApiResponse(
-				description = "raw, unsigned payment transaction encoded in Base58",
+				description = "raw, unsigned, ISSUE_ASSET transaction encoded in Base58",
 				content = @Content(
 					mediaType = MediaType.TEXT_PLAIN,
 					schema = @Schema(
@@ -263,6 +265,47 @@ public class AssetsResource {
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 
 			byte[] bytes = IssueAssetTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/order")
+	@Operation(
+		summary = "Create asset order",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(implementation = CreateOrderTransactionData.class)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, CREATE_ORDER transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID})
+	public String createOrder(CreateOrderTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = CreateOrderTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);

@@ -38,7 +38,7 @@ public class PaymentsResource {
 	@POST
 	@Path("/pay")
 	@Operation(
-		summary = "Build raw, unsigned payment transaction",
+		summary = "Build raw, unsigned, PAYMENT transaction",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -50,7 +50,7 @@ public class PaymentsResource {
 		),
 		responses = {
 			@ApiResponse(
-				description = "raw, unsigned payment transaction encoded in Base58",
+				description = "raw, unsigned, PAYMENT transaction encoded in Base58",
 				content = @Content(
 					mediaType = MediaType.TEXT_PLAIN,
 					schema = @Schema(

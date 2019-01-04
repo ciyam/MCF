@@ -108,6 +108,7 @@ public abstract class Transaction {
 		AT_IS_FINISHED(40),
 		ASSET_DOES_NOT_MATCH_AT(41),
 		ASSET_ALREADY_EXISTS(43),
+		MISSING_CREATOR(44),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -364,6 +365,9 @@ public abstract class Transaction {
 	 * @throws DataException
 	 */
 	protected Account getCreator() throws DataException {
+		if (this.transactionData.getCreatorPublicKey() == null)
+			return null;
+
 		return new PublicKeyAccount(this.repository, this.transactionData.getCreatorPublicKey());
 	}
 
@@ -432,6 +436,9 @@ public abstract class Transaction {
 	public ValidationResult isValidUnconfirmed() throws DataException {
 		try {
 			Account creator = this.getCreator();
+			if (creator == null)
+				return ValidationResult.MISSING_CREATOR;
+
 			creator.setLastReference(creator.getUnconfirmedLastReference());
 			return this.isValid();
 		} finally {

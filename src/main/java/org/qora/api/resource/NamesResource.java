@@ -38,7 +38,7 @@ public class NamesResource {
 	@POST
 	@Path("/register")
 	@Operation(
-		summary = "Build raw, unsigned REGISTER_NAME transaction",
+		summary = "Build raw, unsigned, REGISTER_NAME transaction",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -50,7 +50,7 @@ public class NamesResource {
 		),
 		responses = {
 			@ApiResponse(
-				description = "raw, unsigned REGISTER_NAME transaction encoded in Base58",
+				description = "raw, unsigned, REGISTER_NAME transaction encoded in Base58",
 				content = @Content(
 					mediaType = MediaType.TEXT_PLAIN,
 					schema = @Schema(
