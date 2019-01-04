@@ -4,7 +4,7 @@
 	<groupId>org.qora</groupId>
 	<artifactId>qora-core</artifactId>
 	<version>2.0.0-SNAPSHOT</version>
-	<packaging>jar</packaging>
+	<packaging>bundle</packaging>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<bouncycastle.version>1.60</bouncycastle.version>
@@ -15,6 +15,7 @@
 		<slf4j.version>1.7.12</slf4j.version>
 		<swagger-api.version>2.0.6</swagger-api.version>
 		<swagger-ui.version>3.19.0</swagger-ui.version>
+		<felix-bundle-plugin.version>3.5.0</felix-bundle-plugin.version>
 	</properties>
 	<build>
 		<sourceDirectory>src/main/java</sourceDirectory>
@@ -118,12 +119,12 @@
 				<configuration>
 					<packages>
 						<package>
-							<pattern>data.**</pattern>
-							<template>${project.build.sourceDirectory}/data/package-info.java</template>
+							<pattern>org.qora.data.**</pattern>
+							<template>${project.build.sourceDirectory}/org/qora/data/package-info.java</template>
 						</package>
 						<package>
-							<pattern>api.models**</pattern>
-							<template>${project.build.sourceDirectory}/data/package-info.java</template>
+							<pattern>org.qora.api.model**</pattern>
+							<template>${project.build.sourceDirectory}/org/qora/data/package-info.java</template>
 						</package>
 					</packages>
 					<outputDirectory>${project.build.directory}/generated-sources/package-info</outputDirectory>
@@ -203,7 +204,7 @@
 									implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
 								<transformer
 									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>controller.Controller</mainClass>
+									<mainClass>org.qora.controller.Controller</mainClass>
 									<manifestEntries>
 										<Class-Path>. ..</Class-Path>
 									</manifestEntries>
@@ -212,6 +213,20 @@
 						</configuration>
 					</execution>
 				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-bundle-plugin</artifactId>
+				<version>${felix-bundle-plugin.version}</version>
+				<extensions>true</extensions>
+				<configuration>
+					<instructions>
+						<Include-Resource>
+							{maven-resources}, {maven-dependencies}
+						</Include-Resource>
+						<Bundle-ClassPath>.,..,{maven-dependencies}</Bundle-ClassPath>
+					</instructions>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
@@ -234,6 +249,11 @@
 			<groupId>com.github.bohnman</groupId>
 			<artifactId>package-info-maven-plugin</artifactId>
 			<version>1.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.felix</groupId>
+			<artifactId>maven-bundle-plugin</artifactId>
+			<version>3.5.0</version>
 		</dependency>
 		<!-- HSQLDB for repository -->
 		<dependency>
