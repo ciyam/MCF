@@ -27,6 +27,7 @@ public class Settings {
 	private String userpath = "";
 	private boolean useBitcoinTestNet = false;
 	private boolean wipeUnconfirmedOnStart = true;
+	private String blockchainConfigPath = "blockchain.json";
 
 	// RPC
 	private int rpcPort = 9085;
@@ -132,27 +133,26 @@ public class Settings {
 
 		// Blockchain config
 
-		if (json.containsKey("wipeUnconfirmedOnStart")) {
+		if (json.containsKey("wipeUnconfirmedOnStart"))
 			this.wipeUnconfirmedOnStart = (Boolean) getTypedJson(json, "wipeUnconfirmedOnStart", Boolean.class);
+
+		if (json.containsKey("blockchainConfig"))
+			blockchainConfigPath = (String) getTypedJson(json, "blockchainConfig", String.class);
+
+		File file = new File(this.userpath + blockchainConfigPath);
+
+		if (!file.exists()) {
+			LOGGER.info("Blockchain config file not found: " + this.userpath + blockchainConfigPath);
+			throw new RuntimeException("Unable to read blockchain config file");
 		}
 
-		if (json.containsKey("blockchainConfig")) {
-			String filename = (String) json.get("blockchainConfig");
-			File file = new File(this.userpath + filename);
-
-			if (!file.exists()) {
-				LOGGER.info("Blockchain config file not found: " + this.userpath + filename);
-				throw new RuntimeException("Unable to read blockchain config file");
-			}
-
-			try {
-				List<String> lines = Files.readLines(file, Charsets.UTF_8);
-				JSONObject blockchainJSON = (JSONObject) JSONValue.parse(String.join("\n", lines));
-				BlockChain.fromJSON(blockchainJSON);
-			} catch (IOException e) {
-				LOGGER.error("Unable to parse blockchain config file: " + this.userpath + filename);
-				throw new RuntimeException("Unable to parse blockchain config file", e);
-			}
+		try {
+			List<String> lines = Files.readLines(file, Charsets.UTF_8);
+			JSONObject blockchainJSON = (JSONObject) JSONValue.parse(String.join("\n", lines));
+			BlockChain.fromJSON(blockchainJSON);
+		} catch (IOException e) {
+			LOGGER.error("Unable to parse blockchain config file: " + this.userpath + blockchainConfigPath);
+			throw new RuntimeException("Unable to parse blockchain config file", e);
 		}
 	}
 

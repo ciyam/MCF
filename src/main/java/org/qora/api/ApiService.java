@@ -25,7 +25,7 @@ public class ApiService {
 
 	public ApiService() {
 		config = new ResourceConfig();
-		config.packages("api.resource");
+		config.packages("org.qora.api.resource");
 		config.register(OpenApiResource.class);
 		config.register(ApiDefinition.class);
 		config.register(AnnotationPostProcessor.class);
