@@ -9,7 +9,6 @@ import javax.xml.bind.annotation.XmlElement;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -17,9 +16,9 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 public class CreateOrderTransactionData extends TransactionData {
 
 	// Properties
-	@Schema(description = "asset on offer to give by order creator")
+	@Schema(description = "ID of asset on offer to give by order creator", example = "1")
 	private long haveAssetId;
-	@Schema(description = "asset wanted to receive by order creator")
+	@Schema(description = "ID of asset wanted to receive by order creator", example = "0")
 	private long wantAssetId;
 	@Schema(description = "amount of \"have\" asset to trade")
 	private BigDecimal amount;
