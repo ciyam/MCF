@@ -1,7 +1,10 @@
 package org.qora.controller;
 
+import java.security.Security;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qora.api.ApiService;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockGenerator;
@@ -26,6 +29,8 @@ public class Controller {
 
 	public static void main(String args[]) {
 		LOGGER.info("Starting up...");
+
+		Security.insertProviderAt(new BouncyCastleProvider(), 0);
 
 		// Load/check settings, which potentially sets up blockchain config, etc.
 		Settings.getInstance();

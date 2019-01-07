@@ -18,7 +18,7 @@ public class PaymentTransactionData extends TransactionData {
 	// Properties
 	@Schema(description = "sender's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] senderPublicKey;
-	@Schema(description = "recipient's address", example = "Qj2Stco8ziE3ZQN2AdpWCmkBFfYjuz8fGu")
+	@Schema(description = "recipient's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
 	private String recipient;
 	@Schema(description = "amount to send", example = "123.456")
 	@XmlJavaTypeAdapter(

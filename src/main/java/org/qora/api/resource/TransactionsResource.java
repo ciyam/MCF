@@ -69,7 +69,7 @@ public class TransactionsResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
-	public TransactionData getTransactions(@PathParam("signature") String signature58) {
+	public TransactionData getTransaction(@PathParam("signature") String signature58) {
 		byte[] signature;
 		try {
 			signature = Base58.decode(signature58);
@@ -87,6 +87,47 @@ public class TransactionsResource {
 			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/signature/{signature}/raw")
+	@Operation(
+		summary = "Fetch raw, base58-encoded, transaction using transaction signature",
+		description = "Returns transaction",
+		responses = {
+			@ApiResponse(
+				description = "raw transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(type = "string")
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_NO_EXISTS, ApiError.REPOSITORY_ISSUE, ApiError.TRANSFORMATION_ERROR})
+	public String getRawTransaction(@PathParam("signature") String signature58) {
+		byte[] signature;
+		try {
+			signature = Base58.decode(signature58);
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE, e);
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSACTION_NO_EXISTS);
+
+			byte[] transactionBytes = TransactionTransformer.toBytes(transactionData);
+
+			return Base58.encode(transactionBytes);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		}
 	}
 
@@ -372,7 +413,7 @@ public class TransactionsResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.INVALID_DATA, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
-	public TransactionData decodeTransaction(String rawBytes58) {
+	public TransactionData decodeTransaction(String rawBytes58, @QueryParam("ignoreValidityChecks") boolean ignoreValidityChecks) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] rawBytes = Base58.decode(rawBytes58);
 			boolean hasSignature = true;
@@ -388,12 +429,15 @@ public class TransactionsResource {
 			}
 
 			Transaction transaction = Transaction.fromData(repository, transactionData);
-			if (hasSignature && !transaction.isSignatureValid())
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE);
 
-			ValidationResult result = transaction.isValid();
-			if (result != ValidationResult.OK)
-				throw createTransactionInvalidException(request, result);
+			if (!ignoreValidityChecks) {
+				if (hasSignature && !transaction.isSignatureValid())
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE);
+
+				ValidationResult result = transaction.isValid();
+				if (result != ValidationResult.OK)
+					throw createTransactionInvalidException(request, result);
+			}
 
 			if (!hasSignature)
 				transactionData.setSignature(null);

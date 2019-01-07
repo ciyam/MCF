@@ -66,7 +66,7 @@ public class AnnotationPostProcessor implements ReaderListener {
 				if (apiErrors == null)
 					continue;
 
-				LOGGER.info("Found @ApiErrors annotation on " + clazz.getSimpleName() + "." + method.getName());
+				LOGGER.trace("Found @ApiErrors annotation on " + clazz.getSimpleName() + "." + method.getName());
 				PathItem pathItem = getPathItemFromMethod(openAPI, classPathString, method);
 
 				for (Operation operation : pathItem.readOperations())

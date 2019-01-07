@@ -19,11 +19,17 @@ public class IssueAssetTransactionData extends TransactionData {
 	// assetId can be null but assigned during save() or during load from repository
 	@Schema(accessMode = AccessMode.READ_ONLY)
 	private Long assetId = null;
+	@Schema(description = "asset issuer's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] issuerPublicKey;
+	@Schema(description = "asset owner's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
 	private String owner;
+	@Schema(description = "asset name", example = "GOLD")
 	private String assetName;
+	@Schema(description = "asset description", example = "Gold asset - 1 unit represents one 1kg of gold")
 	private String description;
+	@Schema(description = "total supply of asset in existence (integer)", example = "1000")
 	private long quantity;
+	@Schema(description = "whether asset quantities can be fractional", example = "true")
 	private boolean isDivisible;
 
 	// Constructors

@@ -11,7 +11,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import org.json.simple.JSONObject;
-import org.qora.asset.Asset;
 import org.qora.data.asset.AssetData;
 import org.qora.data.block.BlockData;
 import org.qora.repository.BlockRepository;
@@ -52,6 +51,9 @@ public class BlockChain {
 	/** Map of which blockchain features are enabled when (height/timestamp) */
 	private Map<String, Map<FeatureValueType, Long>> featureTriggers;
 
+	// This property is slightly different as we need it early and we want to avoid getInstance() loop
+	private static boolean useBrokenMD160ForAddresses = false;
+
 	// Constructors, etc.
 
 	private BlockChain() {
@@ -59,7 +61,8 @@ public class BlockChain {
 
 	public static BlockChain getInstance() {
 		if (instance == null)
-			Settings.getInstance();
+			// This will call BlockChain.fromJSON in turn
+			Settings.getInstance(); // synchronized
 
 		return instance;
 	}
@@ -96,6 +99,10 @@ public class BlockChain {
 
 	public long getBlockTimestampMargin() {
 		return this.blockTimestampMargin;
+	}
+
+	public static boolean getUseBrokenMD160ForAddresses() {
+		return useBrokenMD160ForAddresses;
 	}
 
 	private long getFeatureTrigger(String feature, FeatureValueType valueType) {
@@ -143,6 +150,14 @@ public class BlockChain {
 	// Blockchain config from JSON
 
 	public static void fromJSON(JSONObject json) {
+		// Determine hash function for generating addresses as we need that to build genesis block, etc.
+		Boolean useBrokenMD160 = null;
+		if (json.containsKey("useBrokenMD160ForAddresses"))
+			useBrokenMD160 = (Boolean) Settings.getTypedJson(json, "useBrokenMD160ForAddresses", Boolean.class);
+
+		if (useBrokenMD160 != null)
+			useBrokenMD160ForAddresses = useBrokenMD160.booleanValue();
+
 		Object genesisJson = json.get("genesis");
 		if (genesisJson == null) {
 			LOGGER.error("No \"genesis\" entry found in blockchain config");
@@ -228,15 +243,15 @@ public class BlockChain {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.rebuild();
 
-			// Add Genesis Block
 			GenesisBlock genesisBlock = GenesisBlock.getInstance(repository);
-			genesisBlock.process();
 
-			// Add QORA asset.
-			// NOTE: Asset's transaction reference is Genesis Block's generator signature which doesn't exist as a transaction!
-			AssetData qoraAssetData = new AssetData(Asset.QORA, genesisBlock.getGenerator().getAddress(), "Qora", "This is the simulated Qora asset.",
-					BlockChain.getInstance().getMaxBalance().longValue(), true, genesisBlock.getBlockData().getGeneratorSignature());
-			repository.getAssetRepository().save(qoraAssetData);
+			// Add initial assets
+			// NOTE: Asset's [transaction] reference doesn't exist as a transaction!
+			for (AssetData assetData : genesisBlock.getInitialAssets())
+				repository.getAssetRepository().save(assetData);
+
+			// Add Genesis Block to blockchain
+			genesisBlock.process();
 
 			repository.saveChanges();
 		}

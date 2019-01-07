@@ -43,12 +43,16 @@ public abstract class TransactionData {
 	protected byte[] creatorPublicKey;
 	@Schema(description = "timestamp when transaction created, in milliseconds since unix epoch", example = "1545062012000")
 	protected long timestamp;
-	@Schema(description = "sender's last transaction ID", example = "47fw82McxnTQ8wtTS5A51Qojhg62b8px1rF3FhJp5a3etKeb5Y2DniL4Q6E7GbVCs6BAjHVe6sA4gTPxtYzng3AX")
+	@Schema(description = "sender's last transaction ID", example = "real_transaction_reference_in_base58")
 	protected byte[] reference;
 	@Schema(description = "fee for processing transaction", example = "1.0")
 	protected BigDecimal fee;
-	@Schema(accessMode = AccessMode.READ_ONLY, description = "signature for transaction's raw bytes, using sender's private key", example = "28u54WRcMfGujtQMZ9dNKFXVqucY7XfPihXAqPFsnx853NPUwfDJy1sMH5boCkahFgjUNYqc5fkduxdBhQTKgUsC")
+	@Schema(accessMode = AccessMode.READ_ONLY, description = "signature for transaction's raw bytes, using sender's private key", example = "real_transaction_signature_in_base58")
 	protected byte[] signature;
+
+	// For JAX-RS use
+	@Schema(accessMode = AccessMode.READ_ONLY, description = "height of block containing transaction")
+	protected Integer blockHeight;
 
 	// Constructors
 
@@ -114,6 +118,10 @@ public abstract class TransactionData {
 	@XmlTransient
 	public void setCreatorPublicKey(byte[] creatorPublicKey) {
 		this.creatorPublicKey = creatorPublicKey;
+	}
+
+	public void setBlockHeight(int blockHeight) {
+		this.blockHeight = blockHeight;
 	}
 
 	// Comparison

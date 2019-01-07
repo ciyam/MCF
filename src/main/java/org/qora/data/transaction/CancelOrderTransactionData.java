@@ -17,7 +17,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class CancelOrderTransactionData extends TransactionData {
 
 	// Properties
-	@Schema(description = "order ID to cancel", example = "2zYCM8P3PSzUxFNPAKFsSdwg9dWQcYTPCuKkuQbx3GVxTUVjXAUwEmEnvUUss11SZ3p38C16UfYb3cbXP9sRuqFx")
+	@Schema(description = "order ID to cancel", example = "real_order_ID_in_base58")
 	private byte[] orderId;
 
 	// Constructors
