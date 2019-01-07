@@ -8,12 +8,12 @@
 	"unitFee": "1.0",
 	"genesis": {
 		"assets": [
-			{ "name": "MCF", "description": "MCF coin" }
+			{ "name": "MCF", "description": "MCF native coin", "quantity": 10000000000, "isDivisible": true, "reference": "3Verk6ZKBJc3WTTVfxFC9icSjKdM8b92eeJEpJP8qNizG4ZszNFq8wdDYdSjJXq2iogDFR1njyhsBdVpbvDfjzU7" }
 		]
-		"timestamp": "1545066200000",
+		"timestamp": "now",
 		"generatingBalance": "10000000",
 		"transactions": [
-			{ "recipient": "Qj2Stco8ziE3ZQN2AdpWCmkBFfYjuz8fGu", "amount": "9876543210.12345678" }
+			{ "recipient": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "amount": "9876543210.12345678" }
 		]
 	},
 	"featureTriggers": {
