@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,7 @@ import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
+import org.qora.settings.Settings;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.utils.Base58;
@@ -109,6 +111,9 @@ public abstract class Transaction {
 		ASSET_DOES_NOT_MATCH_AT(41),
 		ASSET_ALREADY_EXISTS(43),
 		MISSING_CREATOR(44),
+		TIMESTAMP_TOO_OLD(45),
+		TIMESTAMP_TOO_NEW(46),
+		TOO_MANY_UNCONFIRMED(47),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -364,7 +369,7 @@ public abstract class Transaction {
 	 * @return creator
 	 * @throws DataException
 	 */
-	protected Account getCreator() throws DataException {
+	protected PublicKeyAccount getCreator() throws DataException {
 		if (this.transactionData.getCreatorPublicKey() == null)
 			return null;
 
@@ -434,16 +439,47 @@ public abstract class Transaction {
 	 * @throws DataException
 	 */
 	public ValidationResult isValidUnconfirmed() throws DataException {
+		// Transactions with a timestamp prior to latest block's timestamp are too old
+		BlockData latestBlock = repository.getBlockRepository().getLastBlock();
+		if (this.transactionData.getTimestamp() <= latestBlock.getTimestamp())
+			return ValidationResult.TIMESTAMP_TOO_OLD;
+
+		// Transactions with a timestamp too far into future are too new
+		long maxTimestamp = NTP.getTime() + Settings.getInstance().getMaxTransactionTimestampFuture();
+		if (this.transactionData.getTimestamp() > maxTimestamp)
+			return ValidationResult.TIMESTAMP_TOO_NEW;
+
 		try {
-			Account creator = this.getCreator();
+			PublicKeyAccount creator = this.getCreator();
 			if (creator == null)
 				return ValidationResult.MISSING_CREATOR;
 
 			creator.setLastReference(creator.getUnconfirmedLastReference());
-			return this.isValid();
+			ValidationResult result = this.isValid();
+
+			// Reject if unconfirmed pile already has X transactions from same creator
+			if (result == ValidationResult.OK && countUnconfirmedByCreator(creator) >= Settings.getInstance().getMaxUnconfirmedPerAccount())
+				return ValidationResult.TOO_MANY_UNCONFIRMED;
+
+			return result;
 		} finally {
 			repository.discardChanges();
 		}
+	}
+
+	private int countUnconfirmedByCreator(PublicKeyAccount creator) throws DataException {
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
+
+		int count = 0;
+		for (TransactionData transactionData : unconfirmedTransactions) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			PublicKeyAccount otherCreator = transaction.getCreator();
+
+			if (Arrays.equals(creator.getPublicKey(), otherCreator.getPublicKey()))
+				++count;
+		}
+
+		return count;
 	}
 
 	/**

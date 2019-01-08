@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 
 import org.qora.data.naming.NameData;
 import org.qora.repository.DataException;
@@ -50,6 +52,71 @@ public class HSQLDBNameRepository implements NameRepository {
 			return this.repository.exists("Names", "name = ?", name);
 		} catch (SQLException e) {
 			throw new DataException("Unable to check for name in repository", e);
+		}
+	}
+
+	@Override
+	public List<NameData> getAllNames() throws DataException {
+		List<NameData> names = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT name, data, registrant, owner, registered, updated, reference, is_for_sale, sale_price FROM Names")) {
+			if (resultSet == null)
+				return names;
+
+			do {
+				String name = resultSet.getString(1);
+				String data = resultSet.getString(2);
+				byte[] registrantPublicKey = resultSet.getBytes(3);
+				String owner = resultSet.getString(4);
+				long registered = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+
+				// Special handling for possibly-NULL "updated" column
+				Timestamp updatedTimestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC));
+				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+
+				byte[] reference = resultSet.getBytes(7);
+				boolean isForSale = resultSet.getBoolean(8);
+				BigDecimal salePrice = resultSet.getBigDecimal(9);
+
+				names.add(new NameData(registrantPublicKey, owner, name, data, registered, updated, reference, isForSale, salePrice));
+			} while (resultSet.next());
+
+			return names;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch names from repository", e);
+		}
+	}
+
+	@Override
+	public List<NameData> getNamesByOwner(String owner) throws DataException {
+		List<NameData> names = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT name, data, registrant, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE owner = ?", owner)) {
+			if (resultSet == null)
+				return names;
+
+			do {
+				String name = resultSet.getString(1);
+				String data = resultSet.getString(2);
+				byte[] registrantPublicKey = resultSet.getBytes(3);
+				long registered = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+
+				// Special handling for possibly-NULL "updated" column
+				Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
+				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+
+				byte[] reference = resultSet.getBytes(6);
+				boolean isForSale = resultSet.getBoolean(7);
+				BigDecimal salePrice = resultSet.getBigDecimal(8);
+
+				names.add(new NameData(registrantPublicKey, owner, name, data, registered, updated, reference, isForSale, salePrice));
+			} while (resultSet.next());
+
+			return names;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's names from repository", e);
 		}
 	}
 

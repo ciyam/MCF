@@ -28,6 +28,10 @@ public class Settings {
 	private boolean useBitcoinTestNet = false;
 	private boolean wipeUnconfirmedOnStart = true;
 	private String blockchainConfigPath = "blockchain.json";
+	/** Maximum number of unconfirmed transactions allowed per account */
+	private int maxUnconfirmedPerAccount = 100;
+	/** Max milliseconds into future for accepting new, unconfirmed transactions */
+	private long maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
 
 	// RPC
 	private int rpcPort = 9085;
@@ -131,10 +135,18 @@ public class Settings {
 		if (json.containsKey("rpcenabled"))
 			this.rpcEnabled = ((Boolean) json.get("rpcenabled")).booleanValue();
 
-		// Blockchain config
+		// Node-specific behaviour
 
 		if (json.containsKey("wipeUnconfirmedOnStart"))
 			this.wipeUnconfirmedOnStart = (Boolean) getTypedJson(json, "wipeUnconfirmedOnStart", Boolean.class);
+
+		if (json.containsKey("maxUnconfirmedPerAccount"))
+			this.maxUnconfirmedPerAccount = ((Long) getTypedJson(json, "maxUnconfirmedPerAccount", Long.class)).intValue();
+
+		if (json.containsKey("maxTransactionTimestampFuture"))
+			this.maxTransactionTimestampFuture = (Long) getTypedJson(json, "maxTransactionTimestampFuture", Long.class);
+
+		// Blockchain config
 
 		if (json.containsKey("blockchainConfig"))
 			blockchainConfigPath = (String) getTypedJson(json, "blockchainConfig", String.class);
@@ -180,6 +192,14 @@ public class Settings {
 
 	public boolean getWipeUnconfirmedOnStart() {
 		return this.wipeUnconfirmedOnStart;
+	}
+
+	public int getMaxUnconfirmedPerAccount() {
+		return this.maxUnconfirmedPerAccount;
+	}
+
+	public long getMaxTransactionTimestampFuture() {
+		return this.maxTransactionTimestampFuture;
 	}
 
 	// Config parsing

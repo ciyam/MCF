@@ -1,22 +1,33 @@
 package org.qora.api.resource;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiExceptionFactory;
+import org.qora.api.model.NameSummary;
+import org.qora.crypto.Crypto;
+import org.qora.data.naming.NameData;
 import org.qora.data.transaction.RegisterNameTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -28,12 +39,93 @@ import org.qora.transform.transaction.RegisterNameTransactionTransformer;
 import org.qora.utils.Base58;
 
 @Path("/names")
-@Produces({	MediaType.TEXT_PLAIN})
+@Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
 @Tag(name = "Names")
 public class NamesResource {
 
 	@Context
 	HttpServletRequest request;
+
+	@GET
+	@Operation(
+		summary = "List all registered names",
+		responses = {
+			@ApiResponse(
+				description = "registered name info",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					array = @ArraySchema(schema = @Schema(implementation = NameSummary.class))
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<NameSummary> getAllNames(@Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<NameData> names = repository.getNameRepository().getAllNames();
+
+			// Pagination would take effect here (or as part of the repository access)
+			int fromIndex = Integer.min(offset, names.size());
+			int toIndex = limit == 0 ? names.size() : Integer.min(fromIndex + limit, names.size());
+			names = names.subList(fromIndex, toIndex);
+
+			return names.stream().map(nameData -> new NameSummary(nameData)).collect(Collectors.toList());
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/address/{address}")
+	@Operation(
+		summary = "List all names owned by address",
+		responses = {
+			@ApiResponse(
+				description = "registered name info",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					array = @ArraySchema(schema = @Schema(implementation = NameSummary.class))
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public List<NameSummary> getNamesByAddress(@PathParam("address") String address) {
+		if (!Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<NameData> names = repository.getNameRepository().getNamesByOwner(address);
+
+			return names.stream().map(nameData -> new NameSummary(nameData)).collect(Collectors.toList());
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/{name}")
+	@Operation(
+		summary = "Info on registered name",
+		responses = {
+			@ApiResponse(
+				description = "registered name info",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					schema = @Schema(implementation = NameData.class)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public NameData getName(@PathParam("name") String name) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getNameRepository().fromName(name);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 
 	@POST
 	@Path("/register")

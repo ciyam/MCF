@@ -79,7 +79,7 @@ public class AnnotationPostProcessor implements ReaderListener {
 	private PathItem getPathItemFromMethod(OpenAPI openAPI, String classPathString, Method method) {
 		Path path = method.getAnnotation(Path.class);
 		if (path == null)
-			throw new RuntimeException("API method has no @Path annotation?");
+			return openAPI.getPaths().get(classPathString);
 
 		String pathString = path.value();
 		return openAPI.getPaths().get(classPathString + pathString);
