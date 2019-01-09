@@ -10,7 +10,6 @@ import javax.xml.bind.annotation.XmlAccessorType;
 public class NameData {
 
 	// Properties
-	private byte[] registrantPublicKey;
 	private String owner;
 	private String name;
 	private String data;
@@ -26,9 +25,8 @@ public class NameData {
 	protected NameData() {
 	}
 
-	public NameData(byte[] registrantPublicKey, String owner, String name, String data, long registered, Long updated, byte[] reference, boolean isForSale,
+	public NameData(String owner, String name, String data, long registered, Long updated, byte[] reference, boolean isForSale,
 			BigDecimal salePrice) {
-		this.registrantPublicKey = registrantPublicKey;
 		this.owner = owner;
 		this.name = name;
 		this.data = data;
@@ -39,15 +37,11 @@ public class NameData {
 		this.salePrice = salePrice;
 	}
 
-	public NameData(byte[] registrantPublicKey, String owner, String name, String data, long registered, byte[] reference) {
-		this(registrantPublicKey, owner, name, data, registered, null, reference, false, null);
+	public NameData(String owner, String name, String data, long registered, byte[] reference) {
+		this(owner, name, data, registered, null, reference, false, null);
 	}
 
 	// Getters / setters
-
-	public byte[] getRegistrantPublicKey() {
-		return this.registrantPublicKey;
-	}
 
 	public String getOwner() {
 		return this.owner;

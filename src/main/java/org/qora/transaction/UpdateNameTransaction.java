@@ -29,6 +29,10 @@ public class UpdateNameTransaction extends Transaction {
 		super(repository, transactionData);
 
 		this.updateNameTransactionData = (UpdateNameTransactionData) this.transactionData;
+
+		// XXX This is horrible - thanks to JAXB unmarshalling not calling constructor
+		if (this.transactionData.getCreatorPublicKey() == null)
+			this.transactionData.setCreatorPublicKey(this.updateNameTransactionData.getOwnerPublicKey());
 	}
 
 	// More information
