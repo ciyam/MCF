@@ -15,13 +15,16 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class CancelSellNameTransactionData extends TransactionData {
 
 	// Properties
+	@Schema(description = "owner's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] ownerPublicKey;
+	@Schema(description = "which name to cancel selling", example = "my-name")
 	private String name;
 
 	// Constructors
 
 	// For JAX-RS
 	protected CancelSellNameTransactionData() {
+		super(TransactionType.CANCEL_SELL_NAME);
 	}
 
 	public CancelSellNameTransactionData(byte[] ownerPublicKey, String name, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
