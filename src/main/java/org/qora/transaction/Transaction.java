@@ -128,6 +128,7 @@ public abstract class Transaction {
 		GROUP_ALREADY_EXISTS(48),
 		GROUP_DOES_NOT_EXIST(49),
 		INVALID_GROUP_OWNER(50),
+		ALREADY_GROUP_MEMBER(51),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -232,6 +233,9 @@ public abstract class Transaction {
 
 			case UPDATE_GROUP:
 				return new UpdateGroupTransaction(repository, transactionData);
+
+			case JOIN_GROUP:
+				return new JoinGroupTransaction(repository, transactionData);
 
 			default:
 				throw new IllegalStateException("Unsupported transaction type [" + transactionData.getType().value + "] during fetch from repository");

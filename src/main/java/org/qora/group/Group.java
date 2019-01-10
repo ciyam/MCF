@@ -1,7 +1,12 @@
 package org.qora.group;
 
+import org.qora.account.Account;
+import org.qora.account.PublicKeyAccount;
+import org.qora.data.group.GroupAdminData;
 import org.qora.data.group.GroupData;
+import org.qora.data.group.GroupMemberData;
 import org.qora.data.transaction.CreateGroupTransactionData;
+import org.qora.data.transaction.JoinGroupTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.UpdateGroupTransactionData;
 import org.qora.repository.DataException;
@@ -48,9 +53,16 @@ public class Group {
 
 	public void create() throws DataException {
 		this.repository.getGroupRepository().save(this.groupData);
+
+		// Add owner as admin too
+		this.repository.getGroupRepository().save(new GroupAdminData(this.groupData.getGroupName(), this.groupData.getOwner()));
+
+		// Add owner as member too
+		this.repository.getGroupRepository().save(new GroupMemberData(this.groupData.getGroupName(), this.groupData.getOwner(), this.groupData.getCreated()));
 	}
 
 	public void uncreate() throws DataException {
+		// Repository takes care of cleaning up ancilliary data!
 		this.repository.getGroupRepository().delete(this.groupData.getGroupName());
 	}
 
@@ -58,6 +70,8 @@ public class Group {
 		TransactionData previousTransactionData = this.repository.getTransactionRepository().fromSignature(this.groupData.getReference());
 		if (previousTransactionData == null)
 			throw new DataException("Unable to revert group transaction as referenced transaction not found in repository");
+
+		// XXX needs code to reinstate owner as admin and member
 
 		switch (previousTransactionData.getType()) {
 			case CREATE_GROUP:
@@ -96,6 +110,11 @@ public class Group {
 
 		// Save updated group data
 		this.repository.getGroupRepository().save(this.groupData);
+
+		// XXX new owner should be an admin if not already
+		// XXX new owner should be a member if not already
+
+		// XXX what happens to previous owner? retained as admin?
 	}
 
 	public void revert(UpdateGroupTransactionData updateGroupTransactionData) throws DataException {
@@ -107,6 +126,20 @@ public class Group {
 
 		// Save reverted group data
 		this.repository.getGroupRepository().save(this.groupData);
+	}
+
+	public void join(JoinGroupTransactionData joinGroupTransactionData) throws DataException {
+		Account joiner = new PublicKeyAccount(this.repository, joinGroupTransactionData.getJoinerPublicKey());
+
+		GroupMemberData groupMemberData = new GroupMemberData(joinGroupTransactionData.getGroupName(), joiner.getAddress(), joinGroupTransactionData.getTimestamp());
+		this.repository.getGroupRepository().save(groupMemberData);
+	}
+
+	public void unjoin(JoinGroupTransactionData joinGroupTransactionData) throws DataException {
+		Account joiner = new PublicKeyAccount(this.repository, joinGroupTransactionData.getJoinerPublicKey());
+
+		GroupMemberData groupMemberData = new GroupMemberData(joinGroupTransactionData.getGroupName(), joiner.getAddress(), joinGroupTransactionData.getTimestamp());
+		this.repository.getGroupRepository().delete(groupMemberData);
 	}
 
 }

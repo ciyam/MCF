@@ -43,6 +43,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBATTransactionRepository atTransactionRepository;
 	private HSQLDBCreateGroupTransactionRepository createGroupTransactionRepository;
 	private HSQLDBUpdateGroupTransactionRepository updateGroupTransactionRepository;
+	private HSQLDBJoinGroupTransactionRepository joinGroupTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
@@ -66,6 +67,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.atTransactionRepository = new HSQLDBATTransactionRepository(repository);
 		this.createGroupTransactionRepository = new HSQLDBCreateGroupTransactionRepository(repository);
 		this.updateGroupTransactionRepository = new HSQLDBUpdateGroupTransactionRepository(repository);
+		this.joinGroupTransactionRepository = new HSQLDBJoinGroupTransactionRepository(repository);
 	}
 
 	protected HSQLDBTransactionRepository() {
@@ -197,6 +199,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case UPDATE_GROUP:
 				return this.updateGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case JOIN_GROUP:
+				return this.joinGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			default:
 				throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
@@ -524,6 +529,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case UPDATE_GROUP:
 				this.updateGroupTransactionRepository.save(transactionData);
+				break;
+
+			case JOIN_GROUP:
+				this.joinGroupTransactionRepository.save(transactionData);
 				break;
 
 			default:

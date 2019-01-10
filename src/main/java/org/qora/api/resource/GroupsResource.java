@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
@@ -24,9 +25,13 @@ import javax.ws.rs.core.MediaType;
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiExceptionFactory;
+import org.qora.api.model.GroupWithMemberInfo;
 import org.qora.crypto.Crypto;
+import org.qora.data.group.GroupAdminData;
 import org.qora.data.group.GroupData;
+import org.qora.data.group.GroupMemberData;
 import org.qora.data.transaction.CreateGroupTransactionData;
+import org.qora.data.transaction.JoinGroupTransactionData;
 import org.qora.data.transaction.UpdateGroupTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -35,6 +40,7 @@ import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.CreateGroupTransactionTransformer;
+import org.qora.transform.transaction.JoinGroupTransactionTransformer;
 import org.qora.transform.transaction.UpdateGroupTransactionTransformer;
 import org.qora.utils.Base58;
 
@@ -112,15 +118,40 @@ public class GroupsResource {
 				description = "group info",
 				content = @Content(
 					mediaType = MediaType.APPLICATION_JSON,
-					schema = @Schema(implementation = GroupData.class)
+					schema = @Schema(implementation = GroupWithMemberInfo.class)
 				)
 			)
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public GroupData getGroup(@PathParam("groupname") String groupName) {
+	public GroupWithMemberInfo getGroup(@PathParam("groupname") String groupName, @QueryParam("includeMembers") boolean includeMembers) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getGroupRepository().fromGroupName(groupName);
+			GroupData groupData = repository.getGroupRepository().fromGroupName(groupName);
+			if (groupData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.GROUP_UNKNOWN);
+
+			List<GroupMemberData> groupMembers = null;
+			Integer memberCount = null;
+
+			if (includeMembers) {
+				groupMembers = repository.getGroupRepository().getAllGroupMembers(groupData.getGroupName());
+
+				// Strip groupName from member info
+				groupMembers = groupMembers.stream().map(groupMemberData -> new GroupMemberData(null, groupMemberData.getMember(), groupMemberData.getJoined())).collect(Collectors.toList());
+
+				memberCount = groupMembers.size();
+			} else {
+				// Just count members instead
+				memberCount = repository.getGroupRepository().countGroupMembers(groupData.getGroupName());
+			}
+
+			// Always include admins
+			List<GroupAdminData> groupAdmins = repository.getGroupRepository().getAllGroupAdmins(groupData.getGroupName());
+
+			// Strip groupName from admin info
+			groupAdmins = groupAdmins.stream().map(groupAdminData -> new GroupAdminData(null, groupAdminData.getAdmin())).collect(Collectors.toList());
+
+			return new GroupWithMemberInfo(groupData, groupAdmins, groupMembers, memberCount);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -205,6 +236,49 @@ public class GroupsResource {
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 
 			byte[] bytes = UpdateGroupTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/join")
+	@Operation(
+		summary = "Build raw, unsigned, JOIN_GROUP transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = JoinGroupTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, JOIN_GROUP transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String joinGroup(JoinGroupTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = JoinGroupTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);

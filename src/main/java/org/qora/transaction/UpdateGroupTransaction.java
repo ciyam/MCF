@@ -141,7 +141,7 @@ public class UpdateGroupTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Revert name
+		// Revert Group update
 		Group group = new Group(this.repository, updateGroupTransactionData.getGroupName());
 		group.revert(updateGroupTransactionData);
 

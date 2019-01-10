@@ -100,6 +100,9 @@ public class TransactionTransformer extends Transformer {
 				case UPDATE_GROUP:
 					return UpdateGroupTransactionTransformer.fromByteBuffer(byteBuffer);
 
+				case JOIN_GROUP:
+					return JoinGroupTransactionTransformer.fromByteBuffer(byteBuffer);
+
 				default:
 					throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
 			}
@@ -167,6 +170,9 @@ public class TransactionTransformer extends Transformer {
 			case UPDATE_GROUP:
 				return UpdateGroupTransactionTransformer.getDataLength(transactionData);
 
+			case JOIN_GROUP:
+				return JoinGroupTransactionTransformer.getDataLength(transactionData);
+
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] when requesting byte length");
 		}
@@ -230,6 +236,9 @@ public class TransactionTransformer extends Transformer {
 
 			case UPDATE_GROUP:
 				return UpdateGroupTransactionTransformer.toBytes(transactionData);
+
+			case JOIN_GROUP:
+				return JoinGroupTransactionTransformer.toBytes(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes");
@@ -303,6 +312,9 @@ public class TransactionTransformer extends Transformer {
 
 			case UPDATE_GROUP:
 				return UpdateGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case JOIN_GROUP:
+				return JoinGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
 
 			default:
 				throw new TransformationException(
@@ -388,6 +400,9 @@ public class TransactionTransformer extends Transformer {
 
 			case UPDATE_GROUP:
 				return UpdateGroupTransactionTransformer.toJSON(transactionData);
+
+			case JOIN_GROUP:
+				return JoinGroupTransactionTransformer.toJSON(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to JSON");
