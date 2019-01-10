@@ -52,7 +52,18 @@ public abstract class Transaction {
 		DELEGATION(18),
 		SUPERNODE(19),
 		AIRDROP(20),
-		AT(21);
+		AT(21),
+		CREATE_GROUP(22),
+		UPDATE_GROUP(23),
+		ADD_GROUP_ADMIN(24),
+		REMOVE_GROUP_ADMIN(25),
+		GROUP_BAN(26),
+		GROUP_UNBAN(27),
+		GROUP_KICK(28),
+		GROUP_INVITE(29),
+		CANCEL_GROUP_INVITE(30),
+		JOIN_GROUP(31),
+		LEAVE_GROUP(32);
 
 		public final int value;
 
@@ -114,6 +125,9 @@ public abstract class Transaction {
 		TIMESTAMP_TOO_OLD(45),
 		TIMESTAMP_TOO_NEW(46),
 		TOO_MANY_UNCONFIRMED(47),
+		GROUP_ALREADY_EXISTS(48),
+		GROUP_DOES_NOT_EXIST(49),
+		INVALID_GROUP_OWNER(50),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -212,6 +226,12 @@ public abstract class Transaction {
 
 			case AT:
 				return new ATTransaction(repository, transactionData);
+
+			case CREATE_GROUP:
+				return new CreateGroupTransaction(repository, transactionData);
+
+			case UPDATE_GROUP:
+				return new UpdateGroupTransaction(repository, transactionData);
 
 			default:
 				throw new IllegalStateException("Unsupported transaction type [" + transactionData.getType().value + "] during fetch from repository");

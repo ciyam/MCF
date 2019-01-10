@@ -1,4 +1,7 @@
 package org.qora;
+import java.security.Security;
+
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.controller.Controller;
@@ -8,6 +11,7 @@ import org.qora.repository.Repository;
 import org.qora.repository.RepositoryFactory;
 import org.qora.repository.RepositoryManager;
 import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
+import org.qora.settings.Settings;
 
 public class orphan {
 
@@ -18,6 +22,11 @@ public class orphan {
 		}
 
 		int targetHeight = Integer.parseInt(args[0]);
+
+		Security.insertProviderAt(new BouncyCastleProvider(), 0);
+
+		// Load/check settings, which potentially sets up blockchain config, etc.
+		Settings.getInstance();
 
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.connectionUrl);

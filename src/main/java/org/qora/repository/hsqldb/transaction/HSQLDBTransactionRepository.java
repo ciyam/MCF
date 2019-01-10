@@ -41,6 +41,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBDeployATTransactionRepository deployATTransactionRepository;
 	private HSQLDBMessageTransactionRepository messageTransactionRepository;
 	private HSQLDBATTransactionRepository atTransactionRepository;
+	private HSQLDBCreateGroupTransactionRepository createGroupTransactionRepository;
+	private HSQLDBUpdateGroupTransactionRepository updateGroupTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
@@ -62,6 +64,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.deployATTransactionRepository = new HSQLDBDeployATTransactionRepository(repository);
 		this.messageTransactionRepository = new HSQLDBMessageTransactionRepository(repository);
 		this.atTransactionRepository = new HSQLDBATTransactionRepository(repository);
+		this.createGroupTransactionRepository = new HSQLDBCreateGroupTransactionRepository(repository);
+		this.updateGroupTransactionRepository = new HSQLDBUpdateGroupTransactionRepository(repository);
 	}
 
 	protected HSQLDBTransactionRepository() {
@@ -187,6 +191,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case AT:
 				return this.atTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case CREATE_GROUP:
+				return this.createGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case UPDATE_GROUP:
+				return this.updateGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			default:
 				throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
@@ -506,6 +516,14 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case AT:
 				this.atTransactionRepository.save(transactionData);
+				break;
+
+			case CREATE_GROUP:
+				this.createGroupTransactionRepository.save(transactionData);
+				break;
+
+			case UPDATE_GROUP:
+				this.updateGroupTransactionRepository.save(transactionData);
 				break;
 
 			default:

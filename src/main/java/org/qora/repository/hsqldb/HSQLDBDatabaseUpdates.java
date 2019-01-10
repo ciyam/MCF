@@ -73,6 +73,7 @@ public class HSQLDBDatabaseUpdates {
 			switch (databaseVersion) {
 				case 0:
 					// create from new
+					// FYI: "UCC" in HSQLDB means "upper-case comparison", i.e. case-insensitive
 					stmt.execute("SET DATABASE SQL NAMES TRUE"); // SQL keywords cannot be used as DB object names, e.g. table names
 					stmt.execute("SET DATABASE SQL SYNTAX MYS TRUE"); // Required for our use of INSERT ... ON DUPLICATE KEY UPDATE ... syntax
 					stmt.execute("SET DATABASE SQL RESTRICT EXEC TRUE"); // No multiple-statement execute() or DDL/DML executeQuery()
@@ -89,6 +90,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE QoraAddress AS VARCHAR(36)");
 					stmt.execute("CREATE TYPE QoraPublicKey AS VARBINARY(32)");
 					stmt.execute("CREATE TYPE QoraAmount AS DECIMAL(27, 8)");
+					stmt.execute("CREATE TYPE GenericDescription AS VARCHAR(4000)");
 					stmt.execute("CREATE TYPE RegisteredName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
 					stmt.execute("CREATE TYPE NameData AS VARCHAR(4000)");
 					stmt.execute("CREATE TYPE PollName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
@@ -104,6 +106,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE ATState AS BLOB(1M)"); // 16bit * 8 + 16bit * 4 + 16bit * 4
 					stmt.execute("CREATE TYPE ATStateHash as VARBINARY(32)");
 					stmt.execute("CREATE TYPE ATMessage AS VARBINARY(256)");
+					stmt.execute("CREATE TYPE GroupName AS VARCHAR(400) COLLATE SQL_TEXT_UCC_NO_PAD");
 					break;
 
 				case 1:
@@ -210,7 +213,7 @@ public class HSQLDBDatabaseUpdates {
 				case 10:
 					// Create Poll Transactions
 					stmt.execute("CREATE TABLE CreatePollTransactions (signature Signature, creator QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
-							+ "poll_name PollName NOT NULL, description VARCHAR(4000) NOT NULL, "
+							+ "poll_name PollName NOT NULL, description GenericDescription NOT NULL, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					// Poll options. NB: option is implicitly NON NULL and UNIQUE due to being part of compound primary key
 					stmt.execute("CREATE TABLE CreatePollTransactionOptions (signature Signature, option_index TINYINT NOT NULL, option_name PollOption, "
@@ -245,7 +248,7 @@ public class HSQLDBDatabaseUpdates {
 					// Issue Asset Transactions
 					stmt.execute(
 							"CREATE TABLE IssueAssetTransactions (signature Signature, issuer QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, asset_name AssetName NOT NULL, "
-									+ "description VARCHAR(4000) NOT NULL, quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, asset_id AssetID, "
+									+ "description GenericDescription NOT NULL, quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, asset_id AssetID, "
 									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					// For the future: maybe convert quantity from BIGINT to QoraAmount, regardless of divisibility
 					break;
@@ -298,7 +301,7 @@ public class HSQLDBDatabaseUpdates {
 				case 21:
 					// Assets (including QORA coin itself)
 					stmt.execute("CREATE TABLE Assets (asset_id AssetID, owner QoraAddress NOT NULL, "
-							+ "asset_name AssetName NOT NULL, description VARCHAR(4000) NOT NULL, "
+							+ "asset_name AssetName NOT NULL, description GenericDescription NOT NULL, "
 							+ "quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, reference Signature NOT NULL, PRIMARY KEY (asset_id))");
 					// We need a corresponding trigger to make sure new asset_id values are assigned sequentially
 					stmt.execute(
@@ -342,7 +345,7 @@ public class HSQLDBDatabaseUpdates {
 				case 25:
 					// Polls/Voting
 					stmt.execute(
-							"CREATE TABLE Polls (poll_name PollName, description VARCHAR(4000) NOT NULL, creator QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
+							"CREATE TABLE Polls (poll_name PollName, description GenericDescription NOT NULL, creator QoraPublicKey NOT NULL, owner QoraAddress NOT NULL, "
 									+ "published TIMESTAMP WITH TIME ZONE NOT NULL, " + "PRIMARY KEY (poll_name))");
 					// Various options available on a poll
 					stmt.execute("CREATE TABLE PollOptions (poll_name PollName, option_index TINYINT NOT NULL, option_name PollOption, "
@@ -390,12 +393,61 @@ public class HSQLDBDatabaseUpdates {
 					break;
 
 				case 28:
-					// XXX TEMP fix until database rebuild
+					// XXX TEMP fixes to registered names - remove before database rebuild!
 					// Allow name_reference to be NULL while transaction is unconfirmed
 					stmt.execute("ALTER TABLE UpdateNameTransactions ALTER COLUMN name_reference SET NULL");
 					stmt.execute("ALTER TABLE BuyNameTransactions ALTER COLUMN name_reference SET NULL");
 					// Names.registrant shouldn't be there
 					stmt.execute("ALTER TABLE Names DROP COLUMN registrant");
+					break;
+
+				case 29:
+					// XXX TEMP bridging statements for AccountGroups - remove before database rebuild!
+					stmt.execute("CREATE TYPE GenericDescription AS VARCHAR(4000)");
+					stmt.execute("CREATE TYPE GroupName AS VARCHAR(400) COLLATE SQL_TEXT_UCC_NO_PAD");
+					break;
+
+				case 30:
+					// Account groups
+					stmt.execute("CREATE TABLE AccountGroups (group_name GroupName, owner QoraAddress NOT NULL, description GenericDescription NOT NULL, "
+							+ "created TIMESTAMP WITH TIME ZONE NOT NULL, updated TIMESTAMP WITH TIME ZONE, is_open BOOLEAN NOT NULL, "
+							+ "reference Signature, PRIMARY KEY (group_name))");
+					// For finding groups by owner
+					stmt.execute("CREATE INDEX AccountGroupOwnerIndex on AccountGroups (owner)");
+					// Admins
+					stmt.execute("CREATE TABLE AccountGroupAdmins (group_name GroupName, admin QoraAddress, PRIMARY KEY (group_name, admin))");
+					// For finding groups that address administrates
+					stmt.execute("CREATE INDEX AccountGroupAdminIndex on AccountGroupAdmins (admin)");
+					// Members
+					stmt.execute("CREATE TABLE AccountGroupMembers (group_name GroupName, address QoraAddress, joined TIMESTAMP WITH TIME ZONE NOT NULL, PRIMARY KEY (group_name, address))");
+					// For finding groups that address is member
+					stmt.execute("CREATE INDEX AccountGroupMemberIndex on AccountGroupMembers (address)");
+
+					// Invites
+					// PRIMARY KEY (invitee + group + inviter) because most queries will be "what have I been invited to?" from UI
+					stmt.execute("CREATE TABLE AccountGroupInvites (group_name GroupName, invitee QoraAddress, inviter QoraAddress, "
+							+ "expiry TIMESTAMP WITH TIME ZONE NOT NULL, PRIMARY KEY (invitee, group_name, inviter))");
+					// For finding invites sent by inviter
+					stmt.execute("CREATE INDEX AccountGroupSentInviteIndex on AccountGroupInvites (inviter)");
+					// For finding invites by group
+					stmt.execute("CREATE INDEX AccountGroupInviteIndex on AccountGroupInvites (group_name)");
+
+					// Bans
+					// NULL expiry means does not expire!
+					stmt.execute("CREATE TABLE AccountGroupBans (group_name GroupName, offender QoraAddress, admin QoraAddress NOT NULL, banned TIMESTAMP WITH TIME ZONE NOT NULL, "
+							+ "reason GenericDescription NOT NULL, expiry TIMESTAMP WITH TIME ZONE, PRIMARY KEY (group_name, offender))");
+					// For expiry maintenance
+					stmt.execute("CREATE INDEX AccountGroupBanExpiryIndex on AccountGroupBans (expiry)");
+					break;
+
+				case 31:
+					// Account group transactions
+					stmt.execute("CREATE TABLE CreateGroupTransactions (signature Signature, creator QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
+							+ "owner QoraAddress NOT NULL, description GenericDescription NOT NULL, is_open BOOLEAN NOT NULL, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute("CREATE TABLE UpdateGroupTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
+							+ "new_owner QoraAddress NOT NULL, new_description GenericDescription NOT NULL, new_is_open BOOLEAN NOT NULL, group_reference Signature, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
 				default:

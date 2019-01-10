@@ -14,6 +14,7 @@ import org.qora.repository.ATRepository;
 import org.qora.repository.AccountRepository;
 import org.qora.repository.AssetRepository;
 import org.qora.repository.BlockRepository;
+import org.qora.repository.GroupRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.NameRepository;
 import org.qora.repository.Repository;
@@ -55,6 +56,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public BlockRepository getBlockRepository() {
 		return new HSQLDBBlockRepository(this);
+	}
+
+	@Override
+	public GroupRepository getGroupRepository() {
+		return new HSQLDBGroupRepository(this);
 	}
 
 	@Override

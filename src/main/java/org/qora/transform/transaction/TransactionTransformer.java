@@ -94,6 +94,12 @@ public class TransactionTransformer extends Transformer {
 				case DEPLOY_AT:
 					return DeployATTransactionTransformer.fromByteBuffer(byteBuffer);
 
+				case CREATE_GROUP:
+					return CreateGroupTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case UPDATE_GROUP:
+					return UpdateGroupTransactionTransformer.fromByteBuffer(byteBuffer);
+
 				default:
 					throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
 			}
@@ -155,6 +161,12 @@ public class TransactionTransformer extends Transformer {
 			case DEPLOY_AT:
 				return DeployATTransactionTransformer.getDataLength(transactionData);
 
+			case CREATE_GROUP:
+				return CreateGroupTransactionTransformer.getDataLength(transactionData);
+
+			case UPDATE_GROUP:
+				return UpdateGroupTransactionTransformer.getDataLength(transactionData);
+
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] when requesting byte length");
 		}
@@ -212,6 +224,12 @@ public class TransactionTransformer extends Transformer {
 
 			case DEPLOY_AT:
 				return DeployATTransactionTransformer.toBytes(transactionData);
+
+			case CREATE_GROUP:
+				return CreateGroupTransactionTransformer.toBytes(transactionData);
+
+			case UPDATE_GROUP:
+				return UpdateGroupTransactionTransformer.toBytes(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes");
@@ -279,6 +297,12 @@ public class TransactionTransformer extends Transformer {
 
 			case DEPLOY_AT:
 				return DeployATTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case CREATE_GROUP:
+				return CreateGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case UPDATE_GROUP:
+				return UpdateGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
 
 			default:
 				throw new TransformationException(
@@ -358,6 +382,12 @@ public class TransactionTransformer extends Transformer {
 
 			case DEPLOY_AT:
 				return DeployATTransactionTransformer.toJSON(transactionData);
+
+			case CREATE_GROUP:
+				return CreateGroupTransactionTransformer.toJSON(transactionData);
+
+			case UPDATE_GROUP:
+				return UpdateGroupTransactionTransformer.toJSON(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to JSON");
