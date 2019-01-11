@@ -1,5 +1,7 @@
 package org.qora.group;
 
+import java.util.Arrays;
+
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.group.GroupAdminData;
@@ -7,9 +9,11 @@ import org.qora.data.group.GroupData;
 import org.qora.data.group.GroupMemberData;
 import org.qora.data.transaction.CreateGroupTransactionData;
 import org.qora.data.transaction.JoinGroupTransactionData;
+import org.qora.data.transaction.LeaveGroupTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.UpdateGroupTransactionData;
 import org.qora.repository.DataException;
+import org.qora.repository.GroupRepository;
 import org.qora.repository.Repository;
 
 public class Group {
@@ -51,14 +55,14 @@ public class Group {
 
 	// Processing
 
-	public void create() throws DataException {
+	public void create(CreateGroupTransactionData createGroupTransactionData) throws DataException {
 		this.repository.getGroupRepository().save(this.groupData);
 
 		// Add owner as admin too
-		this.repository.getGroupRepository().save(new GroupAdminData(this.groupData.getGroupName(), this.groupData.getOwner()));
+		this.repository.getGroupRepository().save(new GroupAdminData(this.groupData.getGroupName(), this.groupData.getOwner(), createGroupTransactionData.getSignature()));
 
 		// Add owner as member too
-		this.repository.getGroupRepository().save(new GroupMemberData(this.groupData.getGroupName(), this.groupData.getOwner(), this.groupData.getCreated()));
+		this.repository.getGroupRepository().save(new GroupMemberData(this.groupData.getGroupName(), this.groupData.getOwner(), this.groupData.getCreated(), createGroupTransactionData.getSignature()));
 	}
 
 	public void uncreate() throws DataException {
@@ -70,8 +74,6 @@ public class Group {
 		TransactionData previousTransactionData = this.repository.getTransactionRepository().fromSignature(this.groupData.getReference());
 		if (previousTransactionData == null)
 			throw new DataException("Unable to revert group transaction as referenced transaction not found in repository");
-
-		// XXX needs code to reinstate owner as admin and member
 
 		switch (previousTransactionData.getType()) {
 			case CREATE_GROUP:
@@ -93,9 +95,14 @@ public class Group {
 			default:
 				throw new IllegalStateException("Unable to revert group transaction due to unsupported referenced transaction");
 		}
+
+		// Previous owner will still be admin and member at this point
 	}
 
 	public void update(UpdateGroupTransactionData updateGroupTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = updateGroupTransactionData.getGroupName();
+
 		// Update reference in transaction data
 		updateGroupTransactionData.setGroupReference(this.groupData.getReference());
 
@@ -109,15 +116,29 @@ public class Group {
 		this.groupData.setUpdated(updateGroupTransactionData.getTimestamp());
 
 		// Save updated group data
-		this.repository.getGroupRepository().save(this.groupData);
+		groupRepository.save(this.groupData);
 
-		// XXX new owner should be an admin if not already
-		// XXX new owner should be a member if not already
+		String newOwner = updateGroupTransactionData.getNewOwner();
 
-		// XXX what happens to previous owner? retained as admin?
+		// New owner should be a member if not already
+		if (!groupRepository.memberExists(groupName, newOwner)) {
+			GroupMemberData groupMemberData = new GroupMemberData(groupName, newOwner, updateGroupTransactionData.getTimestamp(), updateGroupTransactionData.getSignature());
+			groupRepository.save(groupMemberData);
+		}
+
+		// New owner should be an admin if not already
+		if (!groupRepository.adminExists(groupName, newOwner)) {
+			GroupAdminData groupAdminData = new GroupAdminData(groupName, newOwner, updateGroupTransactionData.getSignature());
+			groupRepository.save(groupAdminData);
+		}
+
+		// Previous owner retained as admin and member
 	}
 
 	public void revert(UpdateGroupTransactionData updateGroupTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = updateGroupTransactionData.getGroupName();
+
 		// Previous group reference is taken from this transaction's cached copy
 		this.groupData.setReference(updateGroupTransactionData.getGroupReference());
 
@@ -125,21 +146,83 @@ public class Group {
 		this.revert();
 
 		// Save reverted group data
-		this.repository.getGroupRepository().save(this.groupData);
+		groupRepository.save(this.groupData);
+
+		// If ownership changed we need to do more work. Note groupData's owner is reverted at this point.
+		String newOwner = updateGroupTransactionData.getNewOwner();
+		if (!this.groupData.getOwner().equals(newOwner)) {
+			// If this update caused [what was] new owner to become admin, then revoke that now.
+			// (It's possible they were an admin prior to being given ownership so we need to retain that).
+			GroupAdminData groupAdminData = groupRepository.getAdmin(groupName, newOwner);
+			if (Arrays.equals(groupAdminData.getGroupReference(), updateGroupTransactionData.getSignature()))
+				groupRepository.deleteAdmin(groupName, newOwner);
+
+			// If this update caused [what was] new owner to become member, then revoke that now.
+			// (It's possible they were a member prior to being given ownership so we need to retain that).
+			GroupMemberData groupMemberData = groupRepository.getMember(groupName, newOwner);
+			if (Arrays.equals(groupMemberData.getGroupReference(), updateGroupTransactionData.getSignature()))
+				groupRepository.deleteMember(groupName, newOwner);
+		}
 	}
 
 	public void join(JoinGroupTransactionData joinGroupTransactionData) throws DataException {
 		Account joiner = new PublicKeyAccount(this.repository, joinGroupTransactionData.getJoinerPublicKey());
 
-		GroupMemberData groupMemberData = new GroupMemberData(joinGroupTransactionData.getGroupName(), joiner.getAddress(), joinGroupTransactionData.getTimestamp());
+		GroupMemberData groupMemberData = new GroupMemberData(joinGroupTransactionData.getGroupName(), joiner.getAddress(), joinGroupTransactionData.getTimestamp(), joinGroupTransactionData.getSignature());
 		this.repository.getGroupRepository().save(groupMemberData);
 	}
 
 	public void unjoin(JoinGroupTransactionData joinGroupTransactionData) throws DataException {
 		Account joiner = new PublicKeyAccount(this.repository, joinGroupTransactionData.getJoinerPublicKey());
 
-		GroupMemberData groupMemberData = new GroupMemberData(joinGroupTransactionData.getGroupName(), joiner.getAddress(), joinGroupTransactionData.getTimestamp());
-		this.repository.getGroupRepository().delete(groupMemberData);
+		this.repository.getGroupRepository().deleteMember(joinGroupTransactionData.getGroupName(), joiner.getAddress());
+	}
+
+	public void leave(LeaveGroupTransactionData leaveGroupTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = leaveGroupTransactionData.getGroupName();
+		Account leaver = new PublicKeyAccount(this.repository, leaveGroupTransactionData.getLeaverPublicKey());
+
+		// Potentially record reference to transaction that restores previous admin state.
+		// Owners can't leave as that would leave group ownerless and in unrecoverable state.
+
+		// Owners are also admins, so skip if owner
+		if (!leaver.getAddress().equals(this.groupData.getOwner())) {
+			// Fetch admin data for leaver
+			GroupAdminData groupAdminData = groupRepository.getAdmin(groupName, leaver.getAddress());
+
+			if (groupAdminData != null) {
+				// Leaver is admin - use promotion transaction reference as restore-state reference
+				leaveGroupTransactionData.setAdminReference(groupAdminData.getGroupReference());
+
+				// Remove as admin
+				groupRepository.deleteAdmin(groupName, leaver.getAddress());
+			}
+		}
+
+		// Save membership transaction reference
+		GroupMemberData groupMemberData = groupRepository.getMember(groupName, leaver.getAddress());
+		leaveGroupTransactionData.setMemberReference(groupMemberData.getGroupReference());
+
+		// Remove as member
+		groupRepository.deleteMember(leaveGroupTransactionData.getGroupName(), leaver.getAddress());
+	}
+
+	public void unleave(LeaveGroupTransactionData leaveGroupTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = leaveGroupTransactionData.getGroupName();
+		Account leaver = new PublicKeyAccount(this.repository, leaveGroupTransactionData.getLeaverPublicKey());
+
+		// Rejoin as member
+		TransactionData membershipTransactionData = this.repository.getTransactionRepository().fromSignature(leaveGroupTransactionData.getMemberReference());
+		groupRepository.save(new GroupMemberData(groupName, leaver.getAddress(), membershipTransactionData.getTimestamp(), membershipTransactionData.getSignature()));
+
+		// Put back any admin state based on referenced group-related transaction
+		byte[] adminTransactionSignature = leaveGroupTransactionData.getAdminReference();
+		if (adminTransactionSignature != null) {
+			GroupAdminData groupAdminData = new GroupAdminData(leaveGroupTransactionData.getGroupName(), leaver.getAddress(), adminTransactionSignature);
+			groupRepository.save(groupAdminData);
+		}
 	}
 
 }

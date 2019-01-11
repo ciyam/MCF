@@ -2,6 +2,7 @@ package org.qora.data.group;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -14,6 +15,9 @@ public class GroupData {
 	private long created;
 	private Long updated;
 	private boolean isOpen;
+	/** Reference to transaction that created group */
+	// No need to ever expose this via API
+	@XmlTransient
 	private byte[] reference;
 
 	// Constructors

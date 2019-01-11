@@ -18,7 +18,7 @@ public class JoinGroupTransactionData extends TransactionData {
 	// Properties
 	@Schema(description = "joiner's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] joinerPublicKey;
-	@Schema(description = "which group to update", example = "my-group")
+	@Schema(description = "which group to join", example = "my-group")
 	private String groupName;
 
 	// Constructors

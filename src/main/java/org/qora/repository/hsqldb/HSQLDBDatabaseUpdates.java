@@ -416,12 +416,13 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX AccountGroupOwnerIndex on AccountGroups (owner)");
 
 					// Admins
-					stmt.execute("CREATE TABLE AccountGroupAdmins (group_name GroupName, admin QoraAddress, PRIMARY KEY (group_name, admin))");
+					stmt.execute("CREATE TABLE AccountGroupAdmins (group_name GroupName, admin QoraAddress, group_reference Signature NOT NULL, PRIMARY KEY (group_name, admin))");
 					// For finding groups that address administrates
 					stmt.execute("CREATE INDEX AccountGroupAdminIndex on AccountGroupAdmins (admin)");
 
 					// Members
-					stmt.execute("CREATE TABLE AccountGroupMembers (group_name GroupName, address QoraAddress, joined TIMESTAMP WITH TIME ZONE NOT NULL, PRIMARY KEY (group_name, address))");
+					stmt.execute("CREATE TABLE AccountGroupMembers (group_name GroupName, address QoraAddress, joined TIMESTAMP WITH TIME ZONE NOT NULL, group_reference Signature NOT NULL, "
+							+ "PRIMARY KEY (group_name, address))");
 					// For finding groups that address is member
 					stmt.execute("CREATE INDEX AccountGroupMemberIndex on AccountGroupMembers (address)");
 
@@ -450,13 +451,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TABLE UpdateGroupTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
 							+ "new_owner QoraAddress NOT NULL, new_description GenericDescription NOT NULL, new_is_open BOOLEAN NOT NULL, group_reference Signature, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
-					break;
 
-				case 32:
 					// Account group join/leave transactions
 					stmt.execute("CREATE TABLE JoinGroupTransactions (signature Signature, joiner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					stmt.execute("CREATE TABLE LeaveGroupTransactions (signature Signature, leaver QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
+							+ "member_reference Signature, admin_reference Signature, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 

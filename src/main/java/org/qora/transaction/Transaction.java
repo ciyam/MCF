@@ -129,6 +129,8 @@ public abstract class Transaction {
 		GROUP_DOES_NOT_EXIST(49),
 		INVALID_GROUP_OWNER(50),
 		ALREADY_GROUP_MEMBER(51),
+		GROUP_OWNER_CANNOT_LEAVE(52),
+		NOT_GROUP_MEMBER(53),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -236,6 +238,9 @@ public abstract class Transaction {
 
 			case JOIN_GROUP:
 				return new JoinGroupTransaction(repository, transactionData);
+
+			case LEAVE_GROUP:
+				return new LeaveGroupTransaction(repository, transactionData);
 
 			default:
 				throw new IllegalStateException("Unsupported transaction type [" + transactionData.getType().value + "] during fetch from repository");

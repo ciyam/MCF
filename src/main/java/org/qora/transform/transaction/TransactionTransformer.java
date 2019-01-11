@@ -103,6 +103,9 @@ public class TransactionTransformer extends Transformer {
 				case JOIN_GROUP:
 					return JoinGroupTransactionTransformer.fromByteBuffer(byteBuffer);
 
+				case LEAVE_GROUP:
+					return LeaveGroupTransactionTransformer.fromByteBuffer(byteBuffer);
+
 				default:
 					throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
 			}
@@ -173,6 +176,9 @@ public class TransactionTransformer extends Transformer {
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.getDataLength(transactionData);
 
+			case LEAVE_GROUP:
+				return LeaveGroupTransactionTransformer.getDataLength(transactionData);
+
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] when requesting byte length");
 		}
@@ -239,6 +245,9 @@ public class TransactionTransformer extends Transformer {
 
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.toBytes(transactionData);
+
+			case LEAVE_GROUP:
+				return LeaveGroupTransactionTransformer.toBytes(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes");
@@ -315,6 +324,9 @@ public class TransactionTransformer extends Transformer {
 
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case LEAVE_GROUP:
+				return LeaveGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
 
 			default:
 				throw new TransformationException(
@@ -403,6 +415,9 @@ public class TransactionTransformer extends Transformer {
 
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.toJSON(transactionData);
+
+			case LEAVE_GROUP:
+				return LeaveGroupTransactionTransformer.toJSON(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to JSON");

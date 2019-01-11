@@ -34,7 +34,7 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 	CreateOrderTransactionData.class, CancelOrderTransactionData.class,
 	MultiPaymentTransactionData.class, DeployATTransactionData.class, MessageTransactionData.class, ATTransactionData.class,
 	CreateGroupTransactionData.class, UpdateGroupTransactionData.class,
-	JoinGroupTransactionData.class
+	JoinGroupTransactionData.class, LeaveGroupTransactionData.class
 })
 //All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)

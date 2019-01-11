@@ -113,7 +113,7 @@ public class CreateGroupTransaction extends Transaction {
 	public void process() throws DataException {
 		// Create Group
 		Group group = new Group(this.repository, createGroupTransactionData);
-		group.create();
+		group.create(createGroupTransactionData);
 
 		// Save this transaction
 		this.repository.getTransactionRepository().save(createGroupTransactionData);

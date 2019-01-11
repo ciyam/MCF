@@ -6,7 +6,6 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
-import org.qora.data.group.GroupAdminData;
 import org.qora.data.group.GroupData;
 import org.qora.data.group.GroupMemberData;
 
@@ -23,16 +22,19 @@ public class GroupWithMemberInfo {
 
 	Integer memberCount;
 
-	public List<GroupAdminData> groupAdmins;
+	@XmlElement(name = "admins")
+	public List<String> groupAdminAddresses;
+
+	@XmlElement(name = "members")
 	public List<GroupMemberData> groupMembers;
 
 	// For JAX-RS
 	protected GroupWithMemberInfo() {
 	}
 
-	public GroupWithMemberInfo(GroupData groupData, List<GroupAdminData> groupAdmins, List<GroupMemberData> groupMembers, Integer memberCount) {
+	public GroupWithMemberInfo(GroupData groupData, List<String> groupAdminAddresses, List<GroupMemberData> groupMembers, Integer memberCount) {
 		this.groupData = groupData;
-		this.groupAdmins = groupAdmins;
+		this.groupAdminAddresses = groupAdminAddresses;
 		this.groupMembers = groupMembers;
 		this.memberCount = memberCount;
 	}

@@ -24,15 +24,21 @@ public interface GroupRepository {
 
 	// Group Admins
 
+	public GroupAdminData getAdmin(String groupName, String address) throws DataException;
+
+	public boolean adminExists(String groupName, String address) throws DataException;
+
 	public List<GroupAdminData> getAllGroupAdmins(String groupName) throws DataException;
 
 	public void save(GroupAdminData groupAdminData) throws DataException;
 
-	public void delete(GroupAdminData groupAdminData) throws DataException;
+	public void deleteAdmin(String groupName, String address) throws DataException;
 
 	// Group Members
 
-	public boolean memberExists(String groupName, String member) throws DataException;
+	public GroupMemberData getMember(String groupName, String address) throws DataException;
+
+	public boolean memberExists(String groupName, String address) throws DataException;
 
 	public List<GroupMemberData> getAllGroupMembers(String groupName) throws DataException;
 
@@ -41,6 +47,6 @@ public interface GroupRepository {
 
 	public void save(GroupMemberData groupMemberData) throws DataException;
 
-	public void delete(GroupMemberData groupMemberData) throws DataException;
+	public void deleteMember(String groupName, String address) throws DataException;
 
 }

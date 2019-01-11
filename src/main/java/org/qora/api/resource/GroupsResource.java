@@ -32,6 +32,7 @@ import org.qora.data.group.GroupData;
 import org.qora.data.group.GroupMemberData;
 import org.qora.data.transaction.CreateGroupTransactionData;
 import org.qora.data.transaction.JoinGroupTransactionData;
+import org.qora.data.transaction.LeaveGroupTransactionData;
 import org.qora.data.transaction.UpdateGroupTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -41,6 +42,7 @@ import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.CreateGroupTransactionTransformer;
 import org.qora.transform.transaction.JoinGroupTransactionTransformer;
+import org.qora.transform.transaction.LeaveGroupTransactionTransformer;
 import org.qora.transform.transaction.UpdateGroupTransactionTransformer;
 import org.qora.utils.Base58;
 
@@ -137,7 +139,7 @@ public class GroupsResource {
 				groupMembers = repository.getGroupRepository().getAllGroupMembers(groupData.getGroupName());
 
 				// Strip groupName from member info
-				groupMembers = groupMembers.stream().map(groupMemberData -> new GroupMemberData(null, groupMemberData.getMember(), groupMemberData.getJoined())).collect(Collectors.toList());
+				groupMembers = groupMembers.stream().map(groupMemberData -> new GroupMemberData(null, groupMemberData.getMember(), groupMemberData.getJoined(), null)).collect(Collectors.toList());
 
 				memberCount = groupMembers.size();
 			} else {
@@ -148,10 +150,10 @@ public class GroupsResource {
 			// Always include admins
 			List<GroupAdminData> groupAdmins = repository.getGroupRepository().getAllGroupAdmins(groupData.getGroupName());
 
-			// Strip groupName from admin info
-			groupAdmins = groupAdmins.stream().map(groupAdminData -> new GroupAdminData(null, groupAdminData.getAdmin())).collect(Collectors.toList());
+			// We only need admin addresses
+			List<String> groupAdminAddresses = groupAdmins.stream().map(groupAdminData -> groupAdminData.getAdmin()).collect(Collectors.toList());
 
-			return new GroupWithMemberInfo(groupData, groupAdmins, groupMembers, memberCount);
+			return new GroupWithMemberInfo(groupData, groupAdminAddresses, groupMembers, memberCount);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -279,6 +281,49 @@ public class GroupsResource {
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 
 			byte[] bytes = JoinGroupTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/leave")
+	@Operation(
+		summary = "Build raw, unsigned, LEAVE_GROUP transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = LeaveGroupTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, LEAVE_GROUP transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String leaveGroup(LeaveGroupTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = LeaveGroupTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
