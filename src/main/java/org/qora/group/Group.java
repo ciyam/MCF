@@ -7,9 +7,11 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.data.group.GroupAdminData;
 import org.qora.data.group.GroupData;
 import org.qora.data.group.GroupMemberData;
+import org.qora.data.transaction.AddGroupAdminTransactionData;
 import org.qora.data.transaction.CreateGroupTransactionData;
 import org.qora.data.transaction.JoinGroupTransactionData;
 import org.qora.data.transaction.LeaveGroupTransactionData;
+import org.qora.data.transaction.RemoveGroupAdminTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.UpdateGroupTransactionData;
 import org.qora.repository.DataException;
@@ -163,6 +165,38 @@ public class Group {
 			if (Arrays.equals(groupMemberData.getGroupReference(), updateGroupTransactionData.getSignature()))
 				groupRepository.deleteMember(groupName, newOwner);
 		}
+	}
+
+	public void promoteToAdmin(AddGroupAdminTransactionData addGroupAdminTransactionData) throws DataException {
+		GroupAdminData groupAdminData = new GroupAdminData(addGroupAdminTransactionData.getGroupName(), addGroupAdminTransactionData.getMember(), addGroupAdminTransactionData.getSignature());
+		this.repository.getGroupRepository().save(groupAdminData);
+	}
+
+	public void unpromoteToAdmin(AddGroupAdminTransactionData addGroupAdminTransactionData) throws DataException {
+		this.repository.getGroupRepository().deleteAdmin(addGroupAdminTransactionData.getGroupName(), addGroupAdminTransactionData.getMember());
+	}
+
+	public void demoteFromAdmin(RemoveGroupAdminTransactionData removeGroupAdminTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = removeGroupAdminTransactionData.getGroupName();
+		String admin = removeGroupAdminTransactionData.getAdmin();
+
+		// Save admin's promotion transaction reference for orphaning purposes
+		GroupAdminData groupAdminData = groupRepository.getAdmin(groupName, admin);
+		removeGroupAdminTransactionData.setGroupReference(groupAdminData.getGroupReference());
+
+		// Demote
+		groupRepository.deleteAdmin(groupName, admin);
+	}
+
+	public void undemoteFromAdmin(RemoveGroupAdminTransactionData removeGroupAdminTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = removeGroupAdminTransactionData.getGroupName();
+		String admin = removeGroupAdminTransactionData.getAdmin();
+
+		// Rebuild admin entry using stored promotion transaction reference
+		GroupAdminData groupAdminData = new GroupAdminData(groupName, admin, removeGroupAdminTransactionData.getGroupReference());
+		groupRepository.save(groupAdminData);
 	}
 
 	public void join(JoinGroupTransactionData joinGroupTransactionData) throws DataException {

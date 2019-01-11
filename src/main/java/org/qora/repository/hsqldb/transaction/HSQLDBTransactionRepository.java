@@ -43,6 +43,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBATTransactionRepository atTransactionRepository;
 	private HSQLDBCreateGroupTransactionRepository createGroupTransactionRepository;
 	private HSQLDBUpdateGroupTransactionRepository updateGroupTransactionRepository;
+	private HSQLDBAddGroupAdminTransactionRepository addGroupAdminTransactionRepository;
+	private HSQLDBRemoveGroupAdminTransactionRepository removeGroupAdminTransactionRepository;
 	private HSQLDBJoinGroupTransactionRepository joinGroupTransactionRepository;
 	private HSQLDBLeaveGroupTransactionRepository leaveGroupTransactionRepository;
 
@@ -68,6 +70,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.atTransactionRepository = new HSQLDBATTransactionRepository(repository);
 		this.createGroupTransactionRepository = new HSQLDBCreateGroupTransactionRepository(repository);
 		this.updateGroupTransactionRepository = new HSQLDBUpdateGroupTransactionRepository(repository);
+		this.addGroupAdminTransactionRepository = new HSQLDBAddGroupAdminTransactionRepository(repository);
+		this.removeGroupAdminTransactionRepository = new HSQLDBRemoveGroupAdminTransactionRepository(repository);
 		this.joinGroupTransactionRepository = new HSQLDBJoinGroupTransactionRepository(repository);
 		this.leaveGroupTransactionRepository = new HSQLDBLeaveGroupTransactionRepository(repository);
 	}
@@ -201,6 +205,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case UPDATE_GROUP:
 				return this.updateGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case ADD_GROUP_ADMIN:
+				return this.addGroupAdminTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case REMOVE_GROUP_ADMIN:
+				return this.removeGroupAdminTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case JOIN_GROUP:
 				return this.joinGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
@@ -534,6 +544,14 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case UPDATE_GROUP:
 				this.updateGroupTransactionRepository.save(transactionData);
+				break;
+
+			case ADD_GROUP_ADMIN:
+				this.addGroupAdminTransactionRepository.save(transactionData);
+				break;
+
+			case REMOVE_GROUP_ADMIN:
+				this.removeGroupAdminTransactionRepository.save(transactionData);
 				break;
 
 			case JOIN_GROUP:

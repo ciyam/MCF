@@ -452,6 +452,12 @@ public class HSQLDBDatabaseUpdates {
 							+ "new_owner QoraAddress NOT NULL, new_description GenericDescription NOT NULL, new_is_open BOOLEAN NOT NULL, group_reference Signature, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 
+					// Account group add/remove admin transactions
+					stmt.execute("CREATE TABLE AddGroupAdminTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, address QoraAddress NOT NULL, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute("CREATE TABLE RemoveGroupAdminTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, admin QoraAddress NOT NULL, "
+							+ "group_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+
 					// Account group join/leave transactions
 					stmt.execute("CREATE TABLE JoinGroupTransactions (signature Signature, joiner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");

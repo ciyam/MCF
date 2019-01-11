@@ -131,6 +131,8 @@ public abstract class Transaction {
 		ALREADY_GROUP_MEMBER(51),
 		GROUP_OWNER_CANNOT_LEAVE(52),
 		NOT_GROUP_MEMBER(53),
+		ALREADY_GROUP_ADMIN(54),
+		NOT_GROUP_ADMIN(55),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -235,6 +237,12 @@ public abstract class Transaction {
 
 			case UPDATE_GROUP:
 				return new UpdateGroupTransaction(repository, transactionData);
+
+			case ADD_GROUP_ADMIN:
+				return new AddGroupAdminTransaction(repository, transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return new RemoveGroupAdminTransaction(repository, transactionData);
 
 			case JOIN_GROUP:
 				return new JoinGroupTransaction(repository, transactionData);

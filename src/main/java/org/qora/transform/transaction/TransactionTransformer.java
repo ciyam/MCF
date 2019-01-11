@@ -100,6 +100,12 @@ public class TransactionTransformer extends Transformer {
 				case UPDATE_GROUP:
 					return UpdateGroupTransactionTransformer.fromByteBuffer(byteBuffer);
 
+				case ADD_GROUP_ADMIN:
+					return AddGroupAdminTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case REMOVE_GROUP_ADMIN:
+					return RemoveGroupAdminTransactionTransformer.fromByteBuffer(byteBuffer);
+
 				case JOIN_GROUP:
 					return JoinGroupTransactionTransformer.fromByteBuffer(byteBuffer);
 
@@ -173,6 +179,12 @@ public class TransactionTransformer extends Transformer {
 			case UPDATE_GROUP:
 				return UpdateGroupTransactionTransformer.getDataLength(transactionData);
 
+			case ADD_GROUP_ADMIN:
+				return AddGroupAdminTransactionTransformer.getDataLength(transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return RemoveGroupAdminTransactionTransformer.getDataLength(transactionData);
+
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.getDataLength(transactionData);
 
@@ -242,6 +254,12 @@ public class TransactionTransformer extends Transformer {
 
 			case UPDATE_GROUP:
 				return UpdateGroupTransactionTransformer.toBytes(transactionData);
+
+			case ADD_GROUP_ADMIN:
+				return AddGroupAdminTransactionTransformer.toBytes(transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return RemoveGroupAdminTransactionTransformer.toBytes(transactionData);
 
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.toBytes(transactionData);
@@ -321,6 +339,12 @@ public class TransactionTransformer extends Transformer {
 
 			case UPDATE_GROUP:
 				return UpdateGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case ADD_GROUP_ADMIN:
+				return AddGroupAdminTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return RemoveGroupAdminTransactionTransformer.toBytesForSigningImpl(transactionData);
 
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
@@ -412,6 +436,12 @@ public class TransactionTransformer extends Transformer {
 
 			case UPDATE_GROUP:
 				return UpdateGroupTransactionTransformer.toJSON(transactionData);
+
+			case ADD_GROUP_ADMIN:
+				return AddGroupAdminTransactionTransformer.toJSON(transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return RemoveGroupAdminTransactionTransformer.toJSON(transactionData);
 
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.toJSON(transactionData);
