@@ -1,14 +1,20 @@
 package org.qora.group;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.group.GroupAdminData;
 import org.qora.data.group.GroupData;
+import org.qora.data.group.GroupInviteData;
+import org.qora.data.group.GroupJoinRequestData;
 import org.qora.data.group.GroupMemberData;
 import org.qora.data.transaction.AddGroupAdminTransactionData;
+import org.qora.data.transaction.CancelGroupInviteTransactionData;
 import org.qora.data.transaction.CreateGroupTransactionData;
+import org.qora.data.transaction.GroupInviteTransactionData;
+import org.qora.data.transaction.GroupKickTransactionData;
 import org.qora.data.transaction.JoinGroupTransactionData;
 import org.qora.data.transaction.LeaveGroupTransactionData;
 import org.qora.data.transaction.RemoveGroupAdminTransactionData;
@@ -27,6 +33,8 @@ public class Group {
 	// Useful constants
 	public static final int MAX_NAME_SIZE = 400;
 	public static final int MAX_DESCRIPTION_SIZE = 4000;
+	/** Max size of kick/ban reason */
+	public static final int MAX_REASON_SIZE = 400;
 
 	// Constructors
 
@@ -38,9 +46,9 @@ public class Group {
 	 */
 	public Group(Repository repository, CreateGroupTransactionData createGroupTransactionData) {
 		this.repository = repository;
-		this.groupData = new GroupData(createGroupTransactionData.getOwner(),
-				createGroupTransactionData.getGroupName(), createGroupTransactionData.getDescription(), createGroupTransactionData.getTimestamp(),
-				createGroupTransactionData.getIsOpen(), createGroupTransactionData.getSignature());
+		this.groupData = new GroupData(createGroupTransactionData.getOwner(), createGroupTransactionData.getGroupName(),
+				createGroupTransactionData.getDescription(), createGroupTransactionData.getTimestamp(), createGroupTransactionData.getIsOpen(),
+				createGroupTransactionData.getSignature());
 	}
 
 	/**
@@ -61,10 +69,12 @@ public class Group {
 		this.repository.getGroupRepository().save(this.groupData);
 
 		// Add owner as admin too
-		this.repository.getGroupRepository().save(new GroupAdminData(this.groupData.getGroupName(), this.groupData.getOwner(), createGroupTransactionData.getSignature()));
+		this.repository.getGroupRepository()
+				.save(new GroupAdminData(this.groupData.getGroupName(), this.groupData.getOwner(), createGroupTransactionData.getSignature()));
 
 		// Add owner as member too
-		this.repository.getGroupRepository().save(new GroupMemberData(this.groupData.getGroupName(), this.groupData.getOwner(), this.groupData.getCreated(), createGroupTransactionData.getSignature()));
+		this.repository.getGroupRepository().save(new GroupMemberData(this.groupData.getGroupName(), this.groupData.getOwner(), this.groupData.getCreated(),
+				createGroupTransactionData.getSignature()));
 	}
 
 	public void uncreate() throws DataException {
@@ -124,7 +134,8 @@ public class Group {
 
 		// New owner should be a member if not already
 		if (!groupRepository.memberExists(groupName, newOwner)) {
-			GroupMemberData groupMemberData = new GroupMemberData(groupName, newOwner, updateGroupTransactionData.getTimestamp(), updateGroupTransactionData.getSignature());
+			GroupMemberData groupMemberData = new GroupMemberData(groupName, newOwner, updateGroupTransactionData.getTimestamp(),
+					updateGroupTransactionData.getSignature());
 			groupRepository.save(groupMemberData);
 		}
 
@@ -168,7 +179,8 @@ public class Group {
 	}
 
 	public void promoteToAdmin(AddGroupAdminTransactionData addGroupAdminTransactionData) throws DataException {
-		GroupAdminData groupAdminData = new GroupAdminData(addGroupAdminTransactionData.getGroupName(), addGroupAdminTransactionData.getMember(), addGroupAdminTransactionData.getSignature());
+		GroupAdminData groupAdminData = new GroupAdminData(addGroupAdminTransactionData.getGroupName(), addGroupAdminTransactionData.getMember(),
+				addGroupAdminTransactionData.getSignature());
 		this.repository.getGroupRepository().save(groupAdminData);
 	}
 
@@ -199,17 +211,160 @@ public class Group {
 		groupRepository.save(groupAdminData);
 	}
 
+	public void kick(GroupKickTransactionData groupKickTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = groupKickTransactionData.getGroupName();
+		String member = groupKickTransactionData.getMember();
+
+		// Store membership and (optionally) adminship transactions for orphaning purposes
+		GroupAdminData groupAdminData = groupRepository.getAdmin(groupName, member);
+		if (groupAdminData != null) {
+			groupKickTransactionData.setAdminReference(groupAdminData.getGroupReference());
+
+			groupRepository.deleteAdmin(groupName, member);
+		}
+
+		GroupMemberData groupMemberData = groupRepository.getMember(groupName, member);
+		groupKickTransactionData.setMemberReference(groupMemberData.getGroupReference());
+
+		groupRepository.deleteMember(groupName, member);
+	}
+
+	public void unkick(GroupKickTransactionData groupKickTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = groupKickTransactionData.getGroupName();
+		String member = groupKickTransactionData.getMember();
+
+		// Rebuild member entry using stored transaction reference
+		TransactionData membershipTransactionData = this.repository.getTransactionRepository().fromSignature(groupKickTransactionData.getMemberReference());
+		GroupMemberData groupMemberData = new GroupMemberData(groupName, member, membershipTransactionData.getTimestamp(),
+				membershipTransactionData.getSignature());
+		groupRepository.save(groupMemberData);
+
+		if (groupKickTransactionData.getAdminReference() != null) {
+			// Rebuild admin entry using stored transaction reference
+			GroupAdminData groupAdminData = new GroupAdminData(groupName, member, groupKickTransactionData.getAdminReference());
+			groupRepository.save(groupAdminData);
+		}
+	}
+
+	public void invite(GroupInviteTransactionData groupInviteTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = groupInviteTransactionData.getGroupName();
+		Account inviter = new PublicKeyAccount(this.repository, groupInviteTransactionData.getAdminPublicKey());
+
+		// If there is a pending "join request" then add new group member
+		if (groupRepository.joinRequestExists(groupName, groupInviteTransactionData.getInvitee())) {
+			GroupMemberData groupMemberData = new GroupMemberData(groupName, groupInviteTransactionData.getInvitee(), groupInviteTransactionData.getTimestamp(),
+					groupInviteTransactionData.getSignature());
+			groupRepository.save(groupMemberData);
+
+			// Delete join request
+			groupRepository.deleteJoinRequest(groupName, groupInviteTransactionData.getInvitee());
+
+			return;
+		}
+
+		Long expiry;
+		int timeToLive = groupInviteTransactionData.getTimeToLive();
+		if (timeToLive == 0)
+			expiry = null;
+		else
+			expiry = groupInviteTransactionData.getTimestamp() + timeToLive;
+
+		GroupInviteData groupInviteData = new GroupInviteData(groupName, inviter.getAddress(), groupInviteTransactionData.getInvitee(), expiry,
+				groupInviteTransactionData.getSignature());
+		groupRepository.save(groupInviteData);
+	}
+
+	public void uninvite(GroupInviteTransactionData groupInviteTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = groupInviteTransactionData.getGroupName();
+		Account inviter = new PublicKeyAccount(this.repository, groupInviteTransactionData.getAdminPublicKey());
+		String invitee = groupInviteTransactionData.getInvitee();
+
+		// Put back any "join request"
+		if (groupRepository.memberExists(groupName, invitee)) {
+			GroupJoinRequestData groupJoinRequestData = new GroupJoinRequestData(groupName, invitee);
+			groupRepository.save(groupJoinRequestData);
+
+			// Delete member
+			groupRepository.deleteMember(groupName, invitee);
+		}
+
+		// Delete invite
+		groupRepository.deleteInvite(groupName, inviter.getAddress(), invitee);
+	}
+
+	public void cancelInvite(CancelGroupInviteTransactionData cancelGroupInviteTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = cancelGroupInviteTransactionData.getGroupName();
+		Account inviter = new PublicKeyAccount(this.repository, cancelGroupInviteTransactionData.getAdminPublicKey());
+		String invitee = cancelGroupInviteTransactionData.getInvitee();
+
+		// Save invite's transaction signature for orphaning purposes
+		GroupInviteData groupInviteData = groupRepository.getInvite(groupName, inviter.getAddress(), invitee);
+		cancelGroupInviteTransactionData.setGroupReference(groupInviteData.getReference());
+
+		// Delete invite
+		groupRepository.deleteInvite(groupName, inviter.getAddress(), invitee);
+	}
+
+	public void uncancelInvite(CancelGroupInviteTransactionData cancelGroupInviteTransactionData) throws DataException {
+		// Reinstate invite
+		TransactionData transactionData = this.repository.getTransactionRepository().fromSignature(cancelGroupInviteTransactionData.getGroupReference());
+		invite((GroupInviteTransactionData) transactionData);
+
+		cancelGroupInviteTransactionData.setGroupReference(null);
+	}
+
 	public void join(JoinGroupTransactionData joinGroupTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = joinGroupTransactionData.getGroupName();
 		Account joiner = new PublicKeyAccount(this.repository, joinGroupTransactionData.getJoinerPublicKey());
 
-		GroupMemberData groupMemberData = new GroupMemberData(joinGroupTransactionData.getGroupName(), joiner.getAddress(), joinGroupTransactionData.getTimestamp(), joinGroupTransactionData.getSignature());
-		this.repository.getGroupRepository().save(groupMemberData);
+		// Set invite transactions' group-reference to this transaction's signature so the invites can be put back if we orphan this join
+		// Delete any pending invites
+		List<GroupInviteData> invites = groupRepository.getInvitesByInvitee(groupName, joiner.getAddress());
+		for (GroupInviteData invite : invites) {
+			TransactionData transactionData = this.repository.getTransactionRepository().fromSignature(invite.getReference());
+			((GroupInviteTransactionData) transactionData).setGroupReference(joinGroupTransactionData.getSignature());
+
+			groupRepository.deleteInvite(groupName, invite.getInviter(), joiner.getAddress());
+		}
+
+		// If there were no invites and this group is "closed" (i.e. invite-only) then
+		// this is now a pending "join request"
+		if (invites.isEmpty() && !groupData.getIsOpen()) {
+			GroupJoinRequestData groupJoinRequestData = new GroupJoinRequestData(groupName, joiner.getAddress());
+			groupRepository.save(groupJoinRequestData);
+			return;
+		}
+
+		// Actually add new member to group
+		GroupMemberData groupMemberData = new GroupMemberData(groupName, joiner.getAddress(), joinGroupTransactionData.getTimestamp(),
+				joinGroupTransactionData.getSignature());
+		groupRepository.save(groupMemberData);
+
 	}
 
 	public void unjoin(JoinGroupTransactionData joinGroupTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = joinGroupTransactionData.getGroupName();
 		Account joiner = new PublicKeyAccount(this.repository, joinGroupTransactionData.getJoinerPublicKey());
 
-		this.repository.getGroupRepository().deleteMember(joinGroupTransactionData.getGroupName(), joiner.getAddress());
+		groupRepository.deleteMember(groupName, joiner.getAddress());
+
+		// Put back any pending invites
+		List<GroupInviteTransactionData> inviteTransactions = this.repository.getTransactionRepository()
+				.getInvitesWithGroupReference(joinGroupTransactionData.getSignature());
+		for (GroupInviteTransactionData inviteTransaction : inviteTransactions) {
+			this.invite(inviteTransaction);
+
+			// Remove group-reference
+			inviteTransaction.setGroupReference(null);
+			this.repository.getTransactionRepository().save(inviteTransaction);
+		}
 	}
 
 	public void leave(LeaveGroupTransactionData leaveGroupTransactionData) throws DataException {
@@ -249,7 +404,8 @@ public class Group {
 
 		// Rejoin as member
 		TransactionData membershipTransactionData = this.repository.getTransactionRepository().fromSignature(leaveGroupTransactionData.getMemberReference());
-		groupRepository.save(new GroupMemberData(groupName, leaver.getAddress(), membershipTransactionData.getTimestamp(), membershipTransactionData.getSignature()));
+		groupRepository
+				.save(new GroupMemberData(groupName, leaver.getAddress(), membershipTransactionData.getTimestamp(), membershipTransactionData.getSignature()));
 
 		// Put back any admin state based on referenced group-related transaction
 		byte[] adminTransactionSignature = leaveGroupTransactionData.getAdminReference();

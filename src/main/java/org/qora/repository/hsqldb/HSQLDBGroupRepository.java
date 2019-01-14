@@ -9,6 +9,8 @@ import java.util.List;
 
 import org.qora.data.group.GroupAdminData;
 import org.qora.data.group.GroupData;
+import org.qora.data.group.GroupInviteData;
+import org.qora.data.group.GroupJoinRequestData;
 import org.qora.data.group.GroupMemberData;
 import org.qora.repository.DataException;
 import org.qora.repository.GroupRepository;
@@ -181,7 +183,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupAdminData> getAllGroupAdmins(String groupName) throws DataException {
+	public List<GroupAdminData> getGroupAdmins(String groupName) throws DataException {
 		List<GroupAdminData> admins = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT admin, group_reference FROM AccountGroupAdmins WHERE group_name = ?", groupName)) {
@@ -253,7 +255,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupMemberData> getAllGroupMembers(String groupName) throws DataException {
+	public List<GroupMemberData> getGroupMembers(String groupName) throws DataException {
 		List<GroupMemberData> members = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT address, joined, group_reference FROM AccountGroupMembers WHERE group_name = ?",
@@ -308,6 +310,180 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			this.repository.delete("AccountGroupMembers", "group_name = ? AND address = ?", groupName, address);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete group member info from repository", e);
+		}
+	}
+
+	// Group Invites
+
+	@Override
+	public GroupInviteData getInvite(String groupName, String inviter, String invitee) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT expiry, reference FROM AccountGroupInvites WHERE group_name = ?",
+				groupName)) {
+			if (resultSet == null)
+				return null;
+
+			Timestamp expiryTimestamp = resultSet.getTimestamp(1, Calendar.getInstance(HSQLDBRepository.UTC));
+			Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+
+			byte[] reference = resultSet.getBytes(2);
+
+			return new GroupInviteData(groupName, inviter, invitee, expiry, reference);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group invite from repository", e);
+		}
+	}
+
+	@Override
+	public boolean hasInvite(String groupName, String invitee) throws DataException {
+		try {
+			return this.repository.exists("AccountGroupInvites", "group_name = ? AND invitee = ?", groupName, invitee);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for group invite in repository", e);
+		}
+	}
+
+	@Override
+	public boolean inviteExists(String groupName, String inviter, String invitee) throws DataException {
+		try {
+			return this.repository.exists("AccountGroupInvites", "group_name = ? AND inviter = ? AND invitee = ?", groupName, inviter, invitee);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for group invite in repository", e);
+		}
+	}
+
+	@Override
+	public List<GroupInviteData> getGroupInvites(String groupName) throws DataException {
+		List<GroupInviteData> invites = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT inviter, invitee, expiry, reference FROM AccountGroupInvites WHERE group_name = ?",
+				groupName)) {
+			if (resultSet == null)
+				return invites;
+
+			do {
+				String inviter = resultSet.getString(1);
+				String invitee = resultSet.getString(2);
+
+				Timestamp expiryTimestamp = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC));
+				Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+
+				byte[] reference = resultSet.getBytes(4);
+
+				invites.add(new GroupInviteData(groupName, inviter, invitee, expiry, reference));
+			} while (resultSet.next());
+
+			return invites;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group invites from repository", e);
+		}
+	}
+
+	@Override
+	public List<GroupInviteData> getInvitesByInvitee(String groupName, String invitee) throws DataException {
+		List<GroupInviteData> invites = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT inviter, expiry, reference FROM AccountGroupInvites WHERE group_name = ? AND invitee = ?", groupName, invitee)) {
+			if (resultSet == null)
+				return invites;
+
+			do {
+				String inviter = resultSet.getString(1);
+
+				Timestamp expiryTimestamp = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC));
+				Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+
+				byte[] reference = resultSet.getBytes(3);
+
+				invites.add(new GroupInviteData(groupName, inviter, invitee, expiry, reference));
+			} while (resultSet.next());
+
+			return invites;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group invites from repository", e);
+		}
+	}
+
+	@Override
+	public void save(GroupInviteData groupInviteData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroupInvites");
+
+		Timestamp expiryTimestamp;
+		if (groupInviteData.getExpiry() == null)
+			expiryTimestamp = null;
+		else
+			expiryTimestamp = new Timestamp(groupInviteData.getExpiry());
+
+		saveHelper.bind("group_name", groupInviteData.getGroupName()).bind("inviter", groupInviteData.getInviter())
+				.bind("invitee", groupInviteData.getInvitee()).bind("expiry", expiryTimestamp).bind("reference", groupInviteData.getReference());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save group invite into repository", e);
+		}
+	}
+
+	@Override
+	public void deleteInvite(String groupName, String inviter, String invitee) throws DataException {
+		try {
+			this.repository.delete("AccountGroupInvites", "group_name = ? AND inviter = ? AND invitee = ?", groupName, inviter, invitee);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete group invite from repository", e);
+		}
+	}
+
+	// Group Join Requests
+
+	@Override
+	public boolean joinRequestExists(String groupName, String joiner) throws DataException {
+		try {
+			return this.repository.exists("AccountGroupJoinRequests", "group_name = ? AND joiner = ?", groupName, joiner);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for group join request in repository", e);
+		}
+	}
+
+	@Override
+	public List<GroupJoinRequestData> getGroupJoinRequests(String groupName) throws DataException {
+		List<GroupJoinRequestData> joinRequests = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT joiner FROM AccountGroupJoinRequests WHERE group_name = ?", groupName)) {
+			if (resultSet == null)
+				return joinRequests;
+
+			do {
+				String joiner = resultSet.getString(1);
+
+				joinRequests.add(new GroupJoinRequestData(groupName, joiner));
+			} while (resultSet.next());
+
+			return joinRequests;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group join requests from repository", e);
+		}
+	}
+
+	@Override
+	public void save(GroupJoinRequestData groupJoinRequestData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroupJoinRequests");
+
+		saveHelper.bind("group_name", groupJoinRequestData.getGroupName()).bind("joiner", groupJoinRequestData.getJoiner());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save group join request into repository", e);
+		}
+	}
+
+	@Override
+	public void deleteJoinRequest(String groupName, String joiner) throws DataException {
+		try {
+			this.repository.delete("AccountGroupJoinRequests", "group_name = ? AND joiner = ?", groupName, joiner);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete group join request from repository", e);
 		}
 	}
 

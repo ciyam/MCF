@@ -29,9 +29,14 @@ import org.qora.api.model.GroupWithMemberInfo;
 import org.qora.crypto.Crypto;
 import org.qora.data.group.GroupAdminData;
 import org.qora.data.group.GroupData;
+import org.qora.data.group.GroupInviteData;
+import org.qora.data.group.GroupJoinRequestData;
 import org.qora.data.group.GroupMemberData;
 import org.qora.data.transaction.AddGroupAdminTransactionData;
+import org.qora.data.transaction.CancelGroupInviteTransactionData;
 import org.qora.data.transaction.CreateGroupTransactionData;
+import org.qora.data.transaction.GroupInviteTransactionData;
+import org.qora.data.transaction.GroupKickTransactionData;
 import org.qora.data.transaction.JoinGroupTransactionData;
 import org.qora.data.transaction.LeaveGroupTransactionData;
 import org.qora.data.transaction.RemoveGroupAdminTransactionData;
@@ -43,7 +48,10 @@ import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.AddGroupAdminTransactionTransformer;
+import org.qora.transform.transaction.CancelGroupInviteTransactionTransformer;
 import org.qora.transform.transaction.CreateGroupTransactionTransformer;
+import org.qora.transform.transaction.GroupInviteTransactionTransformer;
+import org.qora.transform.transaction.GroupKickTransactionTransformer;
 import org.qora.transform.transaction.JoinGroupTransactionTransformer;
 import org.qora.transform.transaction.LeaveGroupTransactionTransformer;
 import org.qora.transform.transaction.RemoveGroupAdminTransactionTransformer;
@@ -140,7 +148,7 @@ public class GroupsResource {
 			Integer memberCount = null;
 
 			if (includeMembers) {
-				groupMembers = repository.getGroupRepository().getAllGroupMembers(groupData.getGroupName());
+				groupMembers = repository.getGroupRepository().getGroupMembers(groupData.getGroupName());
 
 				// Strip groupName from member info
 				groupMembers = groupMembers.stream().map(groupMemberData -> new GroupMemberData(null, groupMemberData.getMember(), groupMemberData.getJoined(), null)).collect(Collectors.toList());
@@ -152,7 +160,7 @@ public class GroupsResource {
 			}
 
 			// Always include admins
-			List<GroupAdminData> groupAdmins = repository.getGroupRepository().getAllGroupAdmins(groupData.getGroupName());
+			List<GroupAdminData> groupAdmins = repository.getGroupRepository().getGroupAdmins(groupData.getGroupName());
 
 			// We only need admin addresses
 			List<String> groupAdminAddresses = groupAdmins.stream().map(groupAdminData -> groupAdminData.getAdmin()).collect(Collectors.toList());
@@ -337,6 +345,135 @@ public class GroupsResource {
 	}
 
 	@POST
+	@Path("/kick")
+	@Operation(
+		summary = "Build raw, unsigned, GROUP_KICK transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = GroupKickTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, GROUP_KICK transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String groupKick(GroupKickTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = GroupKickTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/invite")
+	@Operation(
+		summary = "Build raw, unsigned, GROUP_INVITE transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = GroupInviteTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, GROUP_INVITE transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String groupInvite(GroupInviteTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = GroupInviteTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/invite/cancel")
+	@Operation(
+		summary = "Build raw, unsigned, CANCEL_GROUP_INVITE transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = CancelGroupInviteTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, CANCEL_GROUP_INVITE transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String cancelGroupInvite(CancelGroupInviteTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = CancelGroupInviteTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
 	@Path("/join")
 	@Operation(
 		summary = "Build raw, unsigned, JOIN_GROUP transaction",
@@ -417,6 +554,52 @@ public class GroupsResource {
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/invites/{groupname}")
+	@Operation(
+		summary = "Pending group invites",
+		responses = {
+			@ApiResponse(
+				description = "group invite",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					schema = @Schema(implementation = GroupInviteData.class)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<GroupInviteData> getInvites(@PathParam("groupname") String groupName) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getGroupRepository().getGroupInvites(groupName);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/joinrequests/{groupname}")
+	@Operation(
+		summary = "Pending group join requests",
+		responses = {
+			@ApiResponse(
+				description = "group jon requests",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					schema = @Schema(implementation = GroupJoinRequestData.class)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<GroupJoinRequestData> getJoinRequests(@PathParam("groupname") String groupName) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getGroupRepository().getGroupJoinRequests(groupName);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

@@ -106,6 +106,15 @@ public class TransactionTransformer extends Transformer {
 				case REMOVE_GROUP_ADMIN:
 					return RemoveGroupAdminTransactionTransformer.fromByteBuffer(byteBuffer);
 
+				case GROUP_KICK:
+					return GroupKickTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case GROUP_INVITE:
+					return GroupInviteTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case CANCEL_GROUP_INVITE:
+					return CancelGroupInviteTransactionTransformer.fromByteBuffer(byteBuffer);
+
 				case JOIN_GROUP:
 					return JoinGroupTransactionTransformer.fromByteBuffer(byteBuffer);
 
@@ -185,6 +194,15 @@ public class TransactionTransformer extends Transformer {
 			case REMOVE_GROUP_ADMIN:
 				return RemoveGroupAdminTransactionTransformer.getDataLength(transactionData);
 
+			case GROUP_KICK:
+				return GroupKickTransactionTransformer.getDataLength(transactionData);
+
+			case GROUP_INVITE:
+				return GroupInviteTransactionTransformer.getDataLength(transactionData);
+
+			case CANCEL_GROUP_INVITE:
+				return CancelGroupInviteTransactionTransformer.getDataLength(transactionData);
+
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.getDataLength(transactionData);
 
@@ -260,6 +278,15 @@ public class TransactionTransformer extends Transformer {
 
 			case REMOVE_GROUP_ADMIN:
 				return RemoveGroupAdminTransactionTransformer.toBytes(transactionData);
+
+			case GROUP_KICK:
+				return GroupKickTransactionTransformer.toBytes(transactionData);
+
+			case GROUP_INVITE:
+				return GroupInviteTransactionTransformer.toBytes(transactionData);
+
+			case CANCEL_GROUP_INVITE:
+				return CancelGroupInviteTransactionTransformer.toBytes(transactionData);
 
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.toBytes(transactionData);
@@ -345,6 +372,15 @@ public class TransactionTransformer extends Transformer {
 
 			case REMOVE_GROUP_ADMIN:
 				return RemoveGroupAdminTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case GROUP_KICK:
+				return GroupKickTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case GROUP_INVITE:
+				return GroupInviteTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case CANCEL_GROUP_INVITE:
+				return CancelGroupInviteTransactionTransformer.toBytesForSigningImpl(transactionData);
 
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
@@ -442,6 +478,15 @@ public class TransactionTransformer extends Transformer {
 
 			case REMOVE_GROUP_ADMIN:
 				return RemoveGroupAdminTransactionTransformer.toJSON(transactionData);
+
+			case GROUP_KICK:
+				return GroupKickTransactionTransformer.toJSON(transactionData);
+
+			case GROUP_INVITE:
+				return GroupInviteTransactionTransformer.toJSON(transactionData);
+
+			case CANCEL_GROUP_INVITE:
+				return CancelGroupInviteTransactionTransformer.toJSON(transactionData);
 
 			case JOIN_GROUP:
 				return JoinGroupTransactionTransformer.toJSON(transactionData);

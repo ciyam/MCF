@@ -8,6 +8,7 @@ import java.util.List;
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
+import org.qora.crypto.Crypto;
 import org.qora.data.transaction.AddGroupAdminTransactionData;
 import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
@@ -96,11 +97,15 @@ public class AddGroupAdminTransaction extends Transaction {
 		if (!owner.getAddress().equals(groupData.getOwner()))
 			return ValidationResult.INVALID_GROUP_OWNER;
 
-		// Check address is a member
-		if (!this.repository.getGroupRepository().memberExists(addGroupAdminTransactionData.getGroupName(), owner.getAddress()))
-			return ValidationResult.NOT_GROUP_MEMBER;
+		// Check member address is valid
+		if (!Crypto.isValidAddress(addGroupAdminTransactionData.getMember()))
+			return ValidationResult.INVALID_ADDRESS;
 
 		Account member = getMember();
+
+		// Check address is a member
+		if (!this.repository.getGroupRepository().memberExists(addGroupAdminTransactionData.getGroupName(), member.getAddress()))
+			return ValidationResult.NOT_GROUP_MEMBER;
 
 		// Check member is not already an admin
 		if (this.repository.getGroupRepository().adminExists(addGroupAdminTransactionData.getGroupName(), member.getAddress()))

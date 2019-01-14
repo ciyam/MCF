@@ -8,6 +8,7 @@ import java.util.List;
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
+import org.qora.crypto.Crypto;
 import org.qora.data.transaction.RemoveGroupAdminTransactionData;
 import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
@@ -75,6 +76,10 @@ public class RemoveGroupAdminTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		// Check admin address is valid
+		if (!Crypto.isValidAddress(removeGroupAdminTransactionData.getAdmin()))
+			return ValidationResult.INVALID_ADDRESS;
+
 		// Check group name size bounds
 		int groupNameLength = Utf8.encodedLength(removeGroupAdminTransactionData.getGroupName());
 		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)

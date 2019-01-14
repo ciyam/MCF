@@ -393,57 +393,48 @@ public class HSQLDBDatabaseUpdates {
 					break;
 
 				case 28:
-					// XXX TEMP fixes to registered names - remove before database rebuild!
-					// Allow name_reference to be NULL while transaction is unconfirmed
-					stmt.execute("ALTER TABLE UpdateNameTransactions ALTER COLUMN name_reference SET NULL");
-					stmt.execute("ALTER TABLE BuyNameTransactions ALTER COLUMN name_reference SET NULL");
-					// Names.registrant shouldn't be there
-					stmt.execute("ALTER TABLE Names DROP COLUMN registrant");
-					break;
-
-				case 29:
-					// XXX TEMP bridging statements for AccountGroups - remove before database rebuild!
-					stmt.execute("CREATE TYPE GenericDescription AS VARCHAR(4000)");
-					stmt.execute("CREATE TYPE GroupName AS VARCHAR(400) COLLATE SQL_TEXT_UCC_NO_PAD");
-					break;
-
-				case 30:
 					// Account groups
 					stmt.execute("CREATE TABLE AccountGroups (group_name GroupName, owner QoraAddress NOT NULL, description GenericDescription NOT NULL, "
 							+ "created TIMESTAMP WITH TIME ZONE NOT NULL, updated TIMESTAMP WITH TIME ZONE, is_open BOOLEAN NOT NULL, "
 							+ "reference Signature, PRIMARY KEY (group_name))");
 					// For finding groups by owner
-					stmt.execute("CREATE INDEX AccountGroupOwnerIndex on AccountGroups (owner)");
+					stmt.execute("CREATE INDEX AccountGroupOwnerIndex ON AccountGroups (owner)");
 
 					// Admins
 					stmt.execute("CREATE TABLE AccountGroupAdmins (group_name GroupName, admin QoraAddress, group_reference Signature NOT NULL, PRIMARY KEY (group_name, admin))");
 					// For finding groups that address administrates
-					stmt.execute("CREATE INDEX AccountGroupAdminIndex on AccountGroupAdmins (admin)");
+					stmt.execute("CREATE INDEX AccountGroupAdminIndex ON AccountGroupAdmins (admin)");
 
 					// Members
 					stmt.execute("CREATE TABLE AccountGroupMembers (group_name GroupName, address QoraAddress, joined TIMESTAMP WITH TIME ZONE NOT NULL, group_reference Signature NOT NULL, "
 							+ "PRIMARY KEY (group_name, address))");
 					// For finding groups that address is member
-					stmt.execute("CREATE INDEX AccountGroupMemberIndex on AccountGroupMembers (address)");
+					stmt.execute("CREATE INDEX AccountGroupMemberIndex ON AccountGroupMembers (address)");
 
 					// Invites
 					// PRIMARY KEY (invitee + group + inviter) because most queries will be "what have I been invited to?" from UI
-					stmt.execute("CREATE TABLE AccountGroupInvites (group_name GroupName, invitee QoraAddress, inviter QoraAddress, "
-							+ "expiry TIMESTAMP WITH TIME ZONE NOT NULL, PRIMARY KEY (invitee, group_name, inviter))");
+					stmt.execute("CREATE TABLE AccountGroupInvites (group_name GroupName, inviter QoraAddress, invitee QoraAddress, "
+							+ "expiry TIMESTAMP WITH TIME ZONE NOT NULL, reference Signature, PRIMARY KEY (invitee, group_name, inviter))");
 					// For finding invites sent by inviter
-					stmt.execute("CREATE INDEX AccountGroupSentInviteIndex on AccountGroupInvites (inviter)");
+					stmt.execute("CREATE INDEX AccountGroupSentInviteIndex ON AccountGroupInvites (inviter)");
 					// For finding invites by group
-					stmt.execute("CREATE INDEX AccountGroupInviteIndex on AccountGroupInvites (group_name)");
+					stmt.execute("CREATE INDEX AccountGroupInviteIndex ON AccountGroupInvites (group_name)");
+					// For expiry maintenance
+					stmt.execute("CREATE INDEX AccountGroupInviteExpiryIndex ON AccountGroupInvites (expiry)");
+
+					// Pending "join requests"
+					stmt.execute("CREATE TABLE AccountGroupJoinRequests (group_name GroupName, joiner QoraAddress, "
+							+ "PRIMARY KEY (group_name, joiner))");
 
 					// Bans
 					// NULL expiry means does not expire!
 					stmt.execute("CREATE TABLE AccountGroupBans (group_name GroupName, offender QoraAddress, admin QoraAddress NOT NULL, banned TIMESTAMP WITH TIME ZONE NOT NULL, "
 							+ "reason GenericDescription NOT NULL, expiry TIMESTAMP WITH TIME ZONE, PRIMARY KEY (group_name, offender))");
 					// For expiry maintenance
-					stmt.execute("CREATE INDEX AccountGroupBanExpiryIndex on AccountGroupBans (expiry)");
+					stmt.execute("CREATE INDEX AccountGroupBanExpiryIndex ON AccountGroupBans (expiry)");
 					break;
 
-				case 31:
+				case 29:
 					// Account group transactions
 					stmt.execute("CREATE TABLE CreateGroupTransactions (signature Signature, creator QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
 							+ "owner QoraAddress NOT NULL, description GenericDescription NOT NULL, is_open BOOLEAN NOT NULL, "
@@ -464,6 +455,21 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TABLE LeaveGroupTransactions (signature Signature, leaver QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
 							+ "member_reference Signature, admin_reference Signature, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+
+					// Account group kick transaction
+					stmt.execute("CREATE TABLE GroupKickTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, address QoraAddress NOT NULL, "
+							+ "reason VARCHAR(400), member_reference Signature, admin_reference Signature, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+
+					// Account group invite/cancel-invite transactions
+					stmt.execute("CREATE TABLE GroupInviteTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, invitee QoraAddress NOT NULL, "
+							+ "time_to_live INTEGER NOT NULL, group_reference Signature, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// For finding invite transactions during orphaning
+					stmt.execute("CREATE INDEX GroupInviteTransactionReferenceIndex ON GroupInviteTransactions (group_reference)");
+					// Cancel group invite
+					stmt.execute("CREATE TABLE CancelGroupInviteTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, invitee QoraAddress NOT NULL, "
+							+ "group_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
 				default:
