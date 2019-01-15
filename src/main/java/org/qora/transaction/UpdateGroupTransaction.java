@@ -126,7 +126,7 @@ public class UpdateGroupTransaction extends Transaction {
 	public void process() throws DataException {
 		// Update Group
 		Group group = new Group(this.repository, updateGroupTransactionData.getGroupName());
-		group.update(updateGroupTransactionData);
+		group.updateGroup(updateGroupTransactionData);
 
 		// Save this transaction, now with updated "group reference" to previous transaction that updated group
 		this.repository.getTransactionRepository().save(updateGroupTransactionData);
@@ -143,7 +143,7 @@ public class UpdateGroupTransaction extends Transaction {
 	public void orphan() throws DataException {
 		// Revert Group update
 		Group group = new Group(this.repository, updateGroupTransactionData.getGroupName());
-		group.revert(updateGroupTransactionData);
+		group.unupdateGroup(updateGroupTransactionData);
 
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(updateGroupTransactionData);

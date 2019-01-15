@@ -135,6 +135,9 @@ public abstract class Transaction {
 		NOT_GROUP_ADMIN(55),
 		INVALID_LIFETIME(56),
 		INVITE_UNKNOWN(57),
+		BAN_EXISTS(58),
+		BAN_UNKNOWN(59),
+		BANNED_FROM_GROUP(60),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -245,6 +248,12 @@ public abstract class Transaction {
 
 			case REMOVE_GROUP_ADMIN:
 				return new RemoveGroupAdminTransaction(repository, transactionData);
+
+			case GROUP_BAN:
+				return new GroupBanTransaction(repository, transactionData);
+
+			case GROUP_UNBAN:
+				return new GroupUnbanTransaction(repository, transactionData);
 
 			case GROUP_KICK:
 				return new GroupKickTransaction(repository, transactionData);

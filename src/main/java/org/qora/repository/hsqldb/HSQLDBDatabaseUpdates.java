@@ -429,7 +429,8 @@ public class HSQLDBDatabaseUpdates {
 					// Bans
 					// NULL expiry means does not expire!
 					stmt.execute("CREATE TABLE AccountGroupBans (group_name GroupName, offender QoraAddress, admin QoraAddress NOT NULL, banned TIMESTAMP WITH TIME ZONE NOT NULL, "
-							+ "reason GenericDescription NOT NULL, expiry TIMESTAMP WITH TIME ZONE, PRIMARY KEY (group_name, offender))");
+							+ "reason GenericDescription NOT NULL, expiry TIMESTAMP WITH TIME ZONE, reference Signature NOT NULL, "
+							+ "PRIMARY KEY (group_name, offender))");
 					// For expiry maintenance
 					stmt.execute("CREATE INDEX AccountGroupBanExpiryIndex ON AccountGroupBans (expiry)");
 					break;
@@ -469,6 +470,13 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX GroupInviteTransactionReferenceIndex ON GroupInviteTransactions (group_reference)");
 					// Cancel group invite
 					stmt.execute("CREATE TABLE CancelGroupInviteTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, invitee QoraAddress NOT NULL, "
+							+ "group_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+
+					// Account ban/unban transactions
+					stmt.execute("CREATE TABLE GroupBanTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, address QoraAddress NOT NULL, "
+							+ "reason VARCHAR(400), time_to_live INTEGER NOT NULL, member_reference Signature, admin_reference Signature, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute("CREATE TABLE GroupUnbanTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, address QoraAddress NOT NULL, "
 							+ "group_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 

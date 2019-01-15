@@ -88,7 +88,9 @@ public class JoinGroupTransaction extends Transaction {
 		if (this.repository.getGroupRepository().memberExists(joinGroupTransactionData.getGroupName(), joiner.getAddress()))
 			return ValidationResult.ALREADY_GROUP_MEMBER;
 
-		// XXX Check member is not banned
+		// Check member is not banned
+		if (this.repository.getGroupRepository().banExists(joinGroupTransactionData.getGroupName(), joiner.getAddress()))
+			return ValidationResult.BANNED_FROM_GROUP;
 
 		// Check fee is positive
 		if (joinGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)

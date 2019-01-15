@@ -3,6 +3,7 @@ package org.qora.repository;
 import java.util.List;
 
 import org.qora.data.group.GroupAdminData;
+import org.qora.data.group.GroupBanData;
 import org.qora.data.group.GroupData;
 import org.qora.data.group.GroupInviteData;
 import org.qora.data.group.GroupJoinRequestData;
@@ -55,7 +56,7 @@ public interface GroupRepository {
 
 	public GroupInviteData getInvite(String groupName, String inviter, String invitee) throws DataException;
 
-	public boolean hasInvite(String groupName, String invitee) throws DataException;
+	public boolean inviteExists(String groupName, String invitee) throws DataException;
 
 	public boolean inviteExists(String groupName, String inviter, String invitee) throws DataException;
 
@@ -76,5 +77,17 @@ public interface GroupRepository {
 	public void save(GroupJoinRequestData groupJoinRequestData) throws DataException;
 
 	public void deleteJoinRequest(String groupName, String joiner) throws DataException;
+
+	// Group Bans
+
+	public GroupBanData getBan(String groupName, String member) throws DataException;
+
+	public boolean banExists(String groupName, String offender) throws DataException;
+
+	public List<GroupBanData> getGroupBans(String groupName) throws DataException;
+
+	public void save(GroupBanData groupBanData) throws DataException;
+
+	public void deleteBan(String groupName, String offender) throws DataException;
 
 }

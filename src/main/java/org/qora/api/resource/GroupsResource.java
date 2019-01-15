@@ -28,6 +28,7 @@ import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.GroupWithMemberInfo;
 import org.qora.crypto.Crypto;
 import org.qora.data.group.GroupAdminData;
+import org.qora.data.group.GroupBanData;
 import org.qora.data.group.GroupData;
 import org.qora.data.group.GroupInviteData;
 import org.qora.data.group.GroupJoinRequestData;
@@ -35,8 +36,10 @@ import org.qora.data.group.GroupMemberData;
 import org.qora.data.transaction.AddGroupAdminTransactionData;
 import org.qora.data.transaction.CancelGroupInviteTransactionData;
 import org.qora.data.transaction.CreateGroupTransactionData;
+import org.qora.data.transaction.GroupBanTransactionData;
 import org.qora.data.transaction.GroupInviteTransactionData;
 import org.qora.data.transaction.GroupKickTransactionData;
+import org.qora.data.transaction.GroupUnbanTransactionData;
 import org.qora.data.transaction.JoinGroupTransactionData;
 import org.qora.data.transaction.LeaveGroupTransactionData;
 import org.qora.data.transaction.RemoveGroupAdminTransactionData;
@@ -50,8 +53,10 @@ import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.AddGroupAdminTransactionTransformer;
 import org.qora.transform.transaction.CancelGroupInviteTransactionTransformer;
 import org.qora.transform.transaction.CreateGroupTransactionTransformer;
+import org.qora.transform.transaction.GroupBanTransactionTransformer;
 import org.qora.transform.transaction.GroupInviteTransactionTransformer;
 import org.qora.transform.transaction.GroupKickTransactionTransformer;
+import org.qora.transform.transaction.GroupUnbanTransactionTransformer;
 import org.qora.transform.transaction.JoinGroupTransactionTransformer;
 import org.qora.transform.transaction.LeaveGroupTransactionTransformer;
 import org.qora.transform.transaction.RemoveGroupAdminTransactionTransformer;
@@ -345,6 +350,92 @@ public class GroupsResource {
 	}
 
 	@POST
+	@Path("/ban")
+	@Operation(
+		summary = "Build raw, unsigned, GROUP_BAN transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = GroupBanTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, GROUP_BAN transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String groupBan(GroupBanTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = GroupBanTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/unban")
+	@Operation(
+		summary = "Build raw, unsigned, GROUP_UNBAN transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = GroupUnbanTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, GROUP_UNBAN transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String groupBan(GroupUnbanTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = GroupUnbanTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
 	@Path("/kick")
 	@Operation(
 		summary = "Build raw, unsigned, GROUP_KICK transaction",
@@ -588,7 +679,7 @@ public class GroupsResource {
 		summary = "Pending group join requests",
 		responses = {
 			@ApiResponse(
-				description = "group jon requests",
+				description = "group join requests",
 				content = @Content(
 					mediaType = MediaType.APPLICATION_JSON,
 					schema = @Schema(implementation = GroupJoinRequestData.class)
@@ -600,6 +691,29 @@ public class GroupsResource {
 	public List<GroupJoinRequestData> getJoinRequests(@PathParam("groupname") String groupName) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getGroupRepository().getGroupJoinRequests(groupName);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/bans/{groupname}")
+	@Operation(
+		summary = "Current group join bans",
+		responses = {
+			@ApiResponse(
+				description = "group bans",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					schema = @Schema(implementation = GroupJoinRequestData.class)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<GroupBanData> getBans(@PathParam("groupname") String groupName) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getGroupRepository().getGroupBans(groupName);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

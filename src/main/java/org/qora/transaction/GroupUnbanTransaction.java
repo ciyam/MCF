@@ -9,7 +9,7 @@ import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
-import org.qora.data.transaction.GroupKickTransactionData;
+import org.qora.data.transaction.GroupUnbanTransactionData;
 import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
@@ -19,17 +19,17 @@ import org.qora.repository.Repository;
 
 import com.google.common.base.Utf8;
 
-public class GroupKickTransaction extends Transaction {
+public class GroupUnbanTransaction extends Transaction {
 
 	// Properties
-	private GroupKickTransactionData groupKickTransactionData;
+	private GroupUnbanTransactionData groupUnbanTransactionData;
 
 	// Constructors
 
-	public GroupKickTransaction(Repository repository, TransactionData transactionData) {
+	public GroupUnbanTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
 
-		this.groupKickTransactionData = (GroupKickTransactionData) this.transactionData;
+		this.groupUnbanTransactionData = (GroupUnbanTransactionData) this.transactionData;
 	}
 
 	// More information
@@ -66,11 +66,11 @@ public class GroupKickTransaction extends Transaction {
 	// Navigation
 
 	public Account getAdmin() throws DataException {
-		return new PublicKeyAccount(this.repository, this.groupKickTransactionData.getAdminPublicKey());
+		return new PublicKeyAccount(this.repository, this.groupUnbanTransactionData.getAdminPublicKey());
 	}
 
 	public Account getMember() throws DataException {
-		return new Account(this.repository, this.groupKickTransactionData.getMember());
+		return new Account(this.repository, this.groupUnbanTransactionData.getMember());
 	}
 
 	// Processing
@@ -78,10 +78,10 @@ public class GroupKickTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		GroupRepository groupRepository = this.repository.getGroupRepository();
-		String groupName = groupKickTransactionData.getGroupName();
+		String groupName = groupUnbanTransactionData.getGroupName();
 		
 		// Check member address is valid
-		if (!Crypto.isValidAddress(groupKickTransactionData.getMember()))
+		if (!Crypto.isValidAddress(groupUnbanTransactionData.getMember()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check group name size bounds
@@ -102,27 +102,23 @@ public class GroupKickTransaction extends Transaction {
 		Account admin = getAdmin();
 		Account member = getMember();
 
-		// Can't kick if not an admin
+		// Can't unban if not an admin
 		if (!groupRepository.adminExists(groupName, admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
-		// Check member actually in group UNLESS there's a pending join request
-		if (!groupRepository.joinRequestExists(groupName, member.getAddress()) && !groupRepository.memberExists(groupName, member.getAddress()))
-			return ValidationResult.NOT_GROUP_MEMBER;
-
-		// Can't kick another admin unless the group owner
-		if (!admin.getAddress().equals(groupData.getOwner()) && groupRepository.adminExists(groupName, member.getAddress()))
-			return ValidationResult.INVALID_GROUP_OWNER;
+		// Check ban actually exists
+		if (!groupRepository.banExists(groupName, member.getAddress()))
+			return ValidationResult.BAN_UNKNOWN;
 
 		// Check fee is positive
-		if (groupKickTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
+		if (groupUnbanTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		if (!Arrays.equals(admin.getLastReference(), groupKickTransactionData.getReference()))
+		if (!Arrays.equals(admin.getLastReference(), groupUnbanTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check creator has enough funds
-		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupKickTransactionData.getFee()) < 0)
+		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupUnbanTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -131,35 +127,35 @@ public class GroupKickTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, groupKickTransactionData.getGroupName());
-		group.kick(groupKickTransactionData);
+		Group group = new Group(this.repository, groupUnbanTransactionData.getGroupName());
+		group.cancelBan(groupUnbanTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
-		this.repository.getTransactionRepository().save(groupKickTransactionData);
+		this.repository.getTransactionRepository().save(groupUnbanTransactionData);
 
 		// Update admin's balance
 		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).subtract(groupKickTransactionData.getFee()));
+		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).subtract(groupUnbanTransactionData.getFee()));
 
 		// Update admin's reference
-		admin.setLastReference(groupKickTransactionData.getSignature());
+		admin.setLastReference(groupUnbanTransactionData.getSignature());
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, groupKickTransactionData.getGroupName());
-		group.unkick(groupKickTransactionData);
+		Group group = new Group(this.repository, groupUnbanTransactionData.getGroupName());
+		group.uncancelBan(groupUnbanTransactionData);
 
 		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(groupKickTransactionData);
+		this.repository.getTransactionRepository().delete(groupUnbanTransactionData);
 
 		// Update admin's balance
 		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(groupKickTransactionData.getFee()));
+		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(groupUnbanTransactionData.getFee()));
 
 		// Update admin's reference
-		admin.setLastReference(groupKickTransactionData.getReference());
+		admin.setLastReference(groupUnbanTransactionData.getReference());
 	}
 
 }

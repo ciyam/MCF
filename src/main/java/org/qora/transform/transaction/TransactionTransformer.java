@@ -106,6 +106,12 @@ public class TransactionTransformer extends Transformer {
 				case REMOVE_GROUP_ADMIN:
 					return RemoveGroupAdminTransactionTransformer.fromByteBuffer(byteBuffer);
 
+				case GROUP_BAN:
+					return GroupBanTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case GROUP_UNBAN:
+					return GroupUnbanTransactionTransformer.fromByteBuffer(byteBuffer);
+
 				case GROUP_KICK:
 					return GroupKickTransactionTransformer.fromByteBuffer(byteBuffer);
 
@@ -194,6 +200,12 @@ public class TransactionTransformer extends Transformer {
 			case REMOVE_GROUP_ADMIN:
 				return RemoveGroupAdminTransactionTransformer.getDataLength(transactionData);
 
+			case GROUP_BAN:
+				return GroupBanTransactionTransformer.getDataLength(transactionData);
+
+			case GROUP_UNBAN:
+				return GroupUnbanTransactionTransformer.getDataLength(transactionData);
+
 			case GROUP_KICK:
 				return GroupKickTransactionTransformer.getDataLength(transactionData);
 
@@ -278,6 +290,12 @@ public class TransactionTransformer extends Transformer {
 
 			case REMOVE_GROUP_ADMIN:
 				return RemoveGroupAdminTransactionTransformer.toBytes(transactionData);
+
+			case GROUP_BAN:
+				return GroupBanTransactionTransformer.toBytes(transactionData);
+
+			case GROUP_UNBAN:
+				return GroupUnbanTransactionTransformer.toBytes(transactionData);
 
 			case GROUP_KICK:
 				return GroupKickTransactionTransformer.toBytes(transactionData);
@@ -372,6 +390,12 @@ public class TransactionTransformer extends Transformer {
 
 			case REMOVE_GROUP_ADMIN:
 				return RemoveGroupAdminTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case GROUP_BAN:
+				return GroupBanTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case GROUP_UNBAN:
+				return GroupUnbanTransactionTransformer.toBytesForSigningImpl(transactionData);
 
 			case GROUP_KICK:
 				return GroupKickTransactionTransformer.toBytesForSigningImpl(transactionData);
@@ -478,6 +502,12 @@ public class TransactionTransformer extends Transformer {
 
 			case REMOVE_GROUP_ADMIN:
 				return RemoveGroupAdminTransactionTransformer.toJSON(transactionData);
+
+			case GROUP_BAN:
+				return GroupBanTransactionTransformer.toJSON(transactionData);
+
+			case GROUP_UNBAN:
+				return GroupUnbanTransactionTransformer.toJSON(transactionData);
 
 			case GROUP_KICK:
 				return GroupKickTransactionTransformer.toJSON(transactionData);

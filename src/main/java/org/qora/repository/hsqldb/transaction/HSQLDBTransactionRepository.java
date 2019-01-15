@@ -46,6 +46,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBUpdateGroupTransactionRepository updateGroupTransactionRepository;
 	private HSQLDBAddGroupAdminTransactionRepository addGroupAdminTransactionRepository;
 	private HSQLDBRemoveGroupAdminTransactionRepository removeGroupAdminTransactionRepository;
+	private HSQLDBGroupBanTransactionRepository groupBanTransactionRepository;
+	private HSQLDBGroupUnbanTransactionRepository groupUnbanTransactionRepository;
 	private HSQLDBGroupKickTransactionRepository groupKickTransactionRepository;
 	private HSQLDBGroupInviteTransactionRepository groupInviteTransactionRepository;
 	private HSQLDBCancelGroupInviteTransactionRepository cancelGroupInviteTransactionRepository;
@@ -76,6 +78,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.updateGroupTransactionRepository = new HSQLDBUpdateGroupTransactionRepository(repository);
 		this.addGroupAdminTransactionRepository = new HSQLDBAddGroupAdminTransactionRepository(repository);
 		this.removeGroupAdminTransactionRepository = new HSQLDBRemoveGroupAdminTransactionRepository(repository);
+		this.groupBanTransactionRepository = new HSQLDBGroupBanTransactionRepository(repository);
+		this.groupUnbanTransactionRepository = new HSQLDBGroupUnbanTransactionRepository(repository);
 		this.groupKickTransactionRepository = new HSQLDBGroupKickTransactionRepository(repository);
 		this.groupInviteTransactionRepository = new HSQLDBGroupInviteTransactionRepository(repository);
 		this.cancelGroupInviteTransactionRepository = new HSQLDBCancelGroupInviteTransactionRepository(repository);
@@ -218,6 +222,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case REMOVE_GROUP_ADMIN:
 				return this.removeGroupAdminTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case GROUP_BAN:
+				return this.groupBanTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case GROUP_UNBAN:
+				return this.groupUnbanTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case GROUP_KICK:
 				return this.groupKickTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
@@ -568,6 +578,14 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case REMOVE_GROUP_ADMIN:
 				this.removeGroupAdminTransactionRepository.save(transactionData);
+				break;
+
+			case GROUP_BAN:
+				this.groupBanTransactionRepository.save(transactionData);
+				break;
+
+			case GROUP_UNBAN:
+				this.groupUnbanTransactionRepository.save(transactionData);
 				break;
 
 			case GROUP_KICK:

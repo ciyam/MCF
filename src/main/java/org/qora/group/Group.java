@@ -6,6 +6,7 @@ import java.util.List;
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.group.GroupAdminData;
+import org.qora.data.group.GroupBanData;
 import org.qora.data.group.GroupData;
 import org.qora.data.group.GroupInviteData;
 import org.qora.data.group.GroupJoinRequestData;
@@ -13,8 +14,10 @@ import org.qora.data.group.GroupMemberData;
 import org.qora.data.transaction.AddGroupAdminTransactionData;
 import org.qora.data.transaction.CancelGroupInviteTransactionData;
 import org.qora.data.transaction.CreateGroupTransactionData;
+import org.qora.data.transaction.GroupBanTransactionData;
 import org.qora.data.transaction.GroupInviteTransactionData;
 import org.qora.data.transaction.GroupKickTransactionData;
+import org.qora.data.transaction.GroupUnbanTransactionData;
 import org.qora.data.transaction.JoinGroupTransactionData;
 import org.qora.data.transaction.LeaveGroupTransactionData;
 import org.qora.data.transaction.RemoveGroupAdminTransactionData;
@@ -65,16 +68,30 @@ public class Group {
 
 	// Processing
 
+	/*
+	 * GroupData records can be changed by CREATE_GROUP or UPDATE_GROUP transactions.
+	 * 
+	 * GroupData stores the signature of the last transaction that caused a change to its contents
+	 * in a field called "reference".
+	 * 
+	 * During orphaning, "reference" is used to fetch the previous GroupData-changing transaction
+	 * and that transaction's contents are used to restore the previous GroupData state.
+	 */
+
+	// CREATE GROUP
+
 	public void create(CreateGroupTransactionData createGroupTransactionData) throws DataException {
+		// Note: this.groupData already populated by our constructor above
 		this.repository.getGroupRepository().save(this.groupData);
 
-		// Add owner as admin too
-		this.repository.getGroupRepository()
-				.save(new GroupAdminData(this.groupData.getGroupName(), this.groupData.getOwner(), createGroupTransactionData.getSignature()));
+		// Add owner as admin
+		GroupAdminData groupAdminData = new GroupAdminData(this.groupData.getGroupName(), this.groupData.getOwner(), createGroupTransactionData.getSignature());
+		this.repository.getGroupRepository().save(groupAdminData);
 
-		// Add owner as member too
-		this.repository.getGroupRepository().save(new GroupMemberData(this.groupData.getGroupName(), this.groupData.getOwner(), this.groupData.getCreated(),
-				createGroupTransactionData.getSignature()));
+		// Add owner as member
+		GroupMemberData groupMemberData = new GroupMemberData(this.groupData.getGroupName(), this.groupData.getOwner(), this.groupData.getCreated(),
+				createGroupTransactionData.getSignature());
+		this.repository.getGroupRepository().save(groupMemberData);
 	}
 
 	public void uncreate() throws DataException {
@@ -82,43 +99,22 @@ public class Group {
 		this.repository.getGroupRepository().delete(this.groupData.getGroupName());
 	}
 
-	private void revert() throws DataException {
-		TransactionData previousTransactionData = this.repository.getTransactionRepository().fromSignature(this.groupData.getReference());
-		if (previousTransactionData == null)
-			throw new DataException("Unable to revert group transaction as referenced transaction not found in repository");
+	// UPDATE GROUP
 
-		switch (previousTransactionData.getType()) {
-			case CREATE_GROUP:
-				CreateGroupTransactionData previousCreateGroupTransactionData = (CreateGroupTransactionData) previousTransactionData;
-				this.groupData.setOwner(previousCreateGroupTransactionData.getOwner());
-				this.groupData.setDescription(previousCreateGroupTransactionData.getDescription());
-				this.groupData.setIsOpen(previousCreateGroupTransactionData.getIsOpen());
-				this.groupData.setUpdated(null);
-				break;
+	/*
+	 * In UPDATE_GROUP transactions we store the current GroupData's "reference" in the
+	 * transaction's field "group_reference" and update GroupData's "reference" to
+	 * our transaction's signature to form an undo chain.
+	 */
 
-			case UPDATE_GROUP:
-				UpdateGroupTransactionData previousUpdateGroupTransactionData = (UpdateGroupTransactionData) previousTransactionData;
-				this.groupData.setOwner(previousUpdateGroupTransactionData.getNewOwner());
-				this.groupData.setDescription(previousUpdateGroupTransactionData.getNewDescription());
-				this.groupData.setIsOpen(previousUpdateGroupTransactionData.getNewIsOpen());
-				this.groupData.setUpdated(previousUpdateGroupTransactionData.getTimestamp());
-				break;
-
-			default:
-				throw new IllegalStateException("Unable to revert group transaction due to unsupported referenced transaction");
-		}
-
-		// Previous owner will still be admin and member at this point
-	}
-
-	public void update(UpdateGroupTransactionData updateGroupTransactionData) throws DataException {
+	public void updateGroup(UpdateGroupTransactionData updateGroupTransactionData) throws DataException {
 		GroupRepository groupRepository = this.repository.getGroupRepository();
 		String groupName = updateGroupTransactionData.getGroupName();
 
-		// Update reference in transaction data
+		// Save GroupData's reference in our transaction data
 		updateGroupTransactionData.setGroupReference(this.groupData.getReference());
 
-		// New group reference is this transaction's signature
+		// Update GroupData's reference to this transaction's signature
 		this.groupData.setReference(updateGroupTransactionData.getSignature());
 
 		// Update Group's owner and description
@@ -148,7 +144,7 @@ public class Group {
 		// Previous owner retained as admin and member
 	}
 
-	public void revert(UpdateGroupTransactionData updateGroupTransactionData) throws DataException {
+	public void unupdateGroup(UpdateGroupTransactionData updateGroupTransactionData) throws DataException {
 		GroupRepository groupRepository = this.repository.getGroupRepository();
 		String groupName = updateGroupTransactionData.getGroupName();
 
@@ -156,7 +152,7 @@ public class Group {
 		this.groupData.setReference(updateGroupTransactionData.getGroupReference());
 
 		// Previous Group's owner and/or description taken from referenced transaction
-		this.revert();
+		this.revertGroupUpdate();
 
 		// Save reverted group data
 		groupRepository.save(this.groupData);
@@ -176,6 +172,35 @@ public class Group {
 			if (Arrays.equals(groupMemberData.getGroupReference(), updateGroupTransactionData.getSignature()))
 				groupRepository.deleteMember(groupName, newOwner);
 		}
+	}
+
+	private void revertGroupUpdate() throws DataException {
+		TransactionData previousTransactionData = this.repository.getTransactionRepository().fromSignature(this.groupData.getReference());
+		if (previousTransactionData == null)
+			throw new DataException("Unable to revert group transaction as referenced transaction not found in repository");
+
+		switch (previousTransactionData.getType()) {
+			case CREATE_GROUP:
+				CreateGroupTransactionData previousCreateGroupTransactionData = (CreateGroupTransactionData) previousTransactionData;
+				this.groupData.setOwner(previousCreateGroupTransactionData.getOwner());
+				this.groupData.setDescription(previousCreateGroupTransactionData.getDescription());
+				this.groupData.setIsOpen(previousCreateGroupTransactionData.getIsOpen());
+				this.groupData.setUpdated(null);
+				break;
+
+			case UPDATE_GROUP:
+				UpdateGroupTransactionData previousUpdateGroupTransactionData = (UpdateGroupTransactionData) previousTransactionData;
+				this.groupData.setOwner(previousUpdateGroupTransactionData.getNewOwner());
+				this.groupData.setDescription(previousUpdateGroupTransactionData.getNewDescription());
+				this.groupData.setIsOpen(previousUpdateGroupTransactionData.getNewIsOpen());
+				this.groupData.setUpdated(previousUpdateGroupTransactionData.getTimestamp());
+				break;
+
+			default:
+				throw new IllegalStateException("Unable to revert group transaction due to unsupported referenced transaction");
+		}
+
+		// Previous owner will still be admin and member at this point
 	}
 
 	public void promoteToAdmin(AddGroupAdminTransactionData addGroupAdminTransactionData) throws DataException {
@@ -216,12 +241,29 @@ public class Group {
 		String groupName = groupKickTransactionData.getGroupName();
 		String member = groupKickTransactionData.getMember();
 
+		// If pending join request then this is a essentially a deny response so delete join request and exit
+		if (groupRepository.joinRequestExists(groupName, member)) {
+			// Delete join request
+			groupRepository.deleteJoinRequest(groupName, member);
+
+			// Make sure kick transaction's member/admin-references are null to indicate that there
+			// was no existing member but actually only a join request. This should prevent orphaning code
+			// from trying to incorrectly recreate a member/admin.
+			groupKickTransactionData.setMemberReference(null);
+			groupKickTransactionData.setAdminReference(null);
+
+			return;
+		}
+
 		// Store membership and (optionally) adminship transactions for orphaning purposes
 		GroupAdminData groupAdminData = groupRepository.getAdmin(groupName, member);
 		if (groupAdminData != null) {
 			groupKickTransactionData.setAdminReference(groupAdminData.getGroupReference());
 
 			groupRepository.deleteAdmin(groupName, member);
+		} else {
+			// Not an admin
+			groupKickTransactionData.setAdminReference(null);
 		}
 
 		GroupMemberData groupMemberData = groupRepository.getMember(groupName, member);
@@ -235,6 +277,15 @@ public class Group {
 		String groupName = groupKickTransactionData.getGroupName();
 		String member = groupKickTransactionData.getMember();
 
+		// If there's no member-reference then there wasn't an actual member, only a join request
+		if (groupKickTransactionData.getMemberReference() == null) {
+			// Rebuild join-request
+			GroupJoinRequestData groupJoinRequestData = new GroupJoinRequestData(groupName, member);
+			groupRepository.save(groupJoinRequestData);
+
+			return;
+		}
+
 		// Rebuild member entry using stored transaction reference
 		TransactionData membershipTransactionData = this.repository.getTransactionRepository().fromSignature(groupKickTransactionData.getMemberReference());
 		GroupMemberData groupMemberData = new GroupMemberData(groupName, member, membershipTransactionData.getTimestamp(),
@@ -246,6 +297,105 @@ public class Group {
 			GroupAdminData groupAdminData = new GroupAdminData(groupName, member, groupKickTransactionData.getAdminReference());
 			groupRepository.save(groupAdminData);
 		}
+	}
+
+	public void ban(GroupBanTransactionData groupBanTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = groupBanTransactionData.getGroupName();
+		String offender = groupBanTransactionData.getOffender();
+
+		// Kick if member
+		if (groupRepository.memberExists(groupName, offender)) {
+			// Store membership and (optionally) adminship transactions for orphaning purposes
+			GroupAdminData groupAdminData = groupRepository.getAdmin(groupName, offender);
+			if (groupAdminData != null) {
+				groupBanTransactionData.setAdminReference(groupAdminData.getGroupReference());
+
+				groupRepository.deleteAdmin(groupName, offender);
+			} else {
+				// Not an admin
+				groupBanTransactionData.setAdminReference(null);
+			}
+
+			GroupMemberData groupMemberData = groupRepository.getMember(groupName, offender);
+			groupBanTransactionData.setMemberReference(groupMemberData.getGroupReference());
+
+			groupRepository.deleteMember(groupName, offender);
+		} else {
+			groupBanTransactionData.setMemberReference(null);
+
+			// XXX maybe set join-request reference here?
+			// XXX what about invites?
+		}
+
+		// XXX Delete pending join request
+		// XXX Delete pending invites
+
+		// Ban
+		Account admin = new PublicKeyAccount(this.repository, groupBanTransactionData.getAdminPublicKey());
+		long banned = groupBanTransactionData.getTimestamp();
+		String reason = groupBanTransactionData.getReason();
+
+		Long expiry = null;
+		int timeToLive = groupBanTransactionData.getTimeToLive();
+		if (timeToLive != 0)
+			expiry = groupBanTransactionData.getTimestamp() + timeToLive * 1000;
+
+		// Save reference to banning transaction for orphaning purposes
+		byte[] reference = groupBanTransactionData.getSignature();
+
+		GroupBanData groupBanData = new GroupBanData(groupName, offender, admin.getAddress(), banned, reason, expiry, reference);
+		groupRepository.save(groupBanData);
+	}
+
+	public void unban(GroupBanTransactionData groupBanTransactionData) throws DataException {
+		// Orphaning version of "ban" - not actual "unban"
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = groupBanTransactionData.getGroupName();
+		String offender = groupBanTransactionData.getOffender();
+
+		// If was kicked as part of ban then reinstate
+		if (groupBanTransactionData.getMemberReference() != null) {
+			// Rebuild member entry using stored transaction reference
+			TransactionData membershipTransactionData = this.repository.getTransactionRepository().fromSignature(groupBanTransactionData.getMemberReference());
+			GroupMemberData groupMemberData = new GroupMemberData(groupName, offender, membershipTransactionData.getTimestamp(),
+					membershipTransactionData.getSignature());
+			groupRepository.save(groupMemberData);
+
+			if (groupBanTransactionData.getAdminReference() != null) {
+				// Rebuild admin entry using stored transaction reference
+				GroupAdminData groupAdminData = new GroupAdminData(groupName, offender, groupBanTransactionData.getAdminReference());
+				groupRepository.save(groupAdminData);
+			}
+		}
+
+		// XXX Reinstate pending join request
+		// XXX Reinstate pending invites
+
+		// Delete ban
+		groupRepository.deleteBan(groupName, offender);
+	}
+
+	public void cancelBan(GroupUnbanTransactionData groupUnbanTransactionData) throws DataException {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		String groupName = groupUnbanTransactionData.getGroupName();
+		String member = groupUnbanTransactionData.getMember();
+
+		GroupBanData groupBanData = groupRepository.getBan(groupName, member);
+
+		// Save reference to banning transaction for orphaning purposes
+		groupUnbanTransactionData.setGroupReference(groupBanData.getReference());
+
+		// Delete ban
+		groupRepository.deleteBan(groupName, member);
+	}
+
+	public void uncancelBan(GroupUnbanTransactionData groupUnbanTransactionData) throws DataException {
+		// Reinstate ban
+		TransactionData transactionData = this.repository.getTransactionRepository().fromSignature(groupUnbanTransactionData.getGroupReference());
+		ban((GroupBanTransactionData) transactionData);
+
+		groupUnbanTransactionData.setGroupReference(null);
 	}
 
 	public void invite(GroupInviteTransactionData groupInviteTransactionData) throws DataException {
@@ -265,12 +415,10 @@ public class Group {
 			return;
 		}
 
-		Long expiry;
+		Long expiry = null;
 		int timeToLive = groupInviteTransactionData.getTimeToLive();
-		if (timeToLive == 0)
-			expiry = null;
-		else
-			expiry = groupInviteTransactionData.getTimestamp() + timeToLive;
+		if (timeToLive != 0)
+			expiry = groupInviteTransactionData.getTimestamp() + timeToLive * 1000;
 
 		GroupInviteData groupInviteData = new GroupInviteData(groupName, inviter.getAddress(), groupInviteTransactionData.getInvitee(), expiry,
 				groupInviteTransactionData.getSignature());

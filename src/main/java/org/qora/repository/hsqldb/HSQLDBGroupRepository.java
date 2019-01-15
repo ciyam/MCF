@@ -8,6 +8,7 @@ import java.util.Calendar;
 import java.util.List;
 
 import org.qora.data.group.GroupAdminData;
+import org.qora.data.group.GroupBanData;
 import org.qora.data.group.GroupData;
 import org.qora.data.group.GroupInviteData;
 import org.qora.data.group.GroupJoinRequestData;
@@ -317,8 +318,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupInviteData getInvite(String groupName, String inviter, String invitee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT expiry, reference FROM AccountGroupInvites WHERE group_name = ?",
-				groupName)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT expiry, reference FROM AccountGroupInvites WHERE group_name = ?", groupName)) {
 			if (resultSet == null)
 				return null;
 
@@ -334,7 +334,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public boolean hasInvite(String groupName, String invitee) throws DataException {
+	public boolean inviteExists(String groupName, String invitee) throws DataException {
 		try {
 			return this.repository.exists("AccountGroupInvites", "group_name = ? AND invitee = ?", groupName, invitee);
 		} catch (SQLException e) {
@@ -408,10 +408,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	public void save(GroupInviteData groupInviteData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroupInvites");
 
-		Timestamp expiryTimestamp;
-		if (groupInviteData.getExpiry() == null)
-			expiryTimestamp = null;
-		else
+		Timestamp expiryTimestamp = null;
+		if (groupInviteData.getExpiry() != null)
 			expiryTimestamp = new Timestamp(groupInviteData.getExpiry());
 
 		saveHelper.bind("group_name", groupInviteData.getGroupName()).bind("inviter", groupInviteData.getInviter())
@@ -448,8 +446,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	public List<GroupJoinRequestData> getGroupJoinRequests(String groupName) throws DataException {
 		List<GroupJoinRequestData> joinRequests = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT joiner FROM AccountGroupJoinRequests WHERE group_name = ?", groupName)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT joiner FROM AccountGroupJoinRequests WHERE group_name = ?", groupName)) {
 			if (resultSet == null)
 				return joinRequests;
 
@@ -484,6 +481,94 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			this.repository.delete("AccountGroupJoinRequests", "group_name = ? AND joiner = ?", groupName, joiner);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete group join request from repository", e);
+		}
+	}
+
+	// Group Bans
+
+	@Override
+	public GroupBanData getBan(String groupName, String member) throws DataException {
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT offender, admin, banned, reason, expiry, reference FROM AccountGroupBans WHERE group_name = ?", groupName)) {
+			String offender = resultSet.getString(1);
+			String admin = resultSet.getString(2);
+			long banned = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			String reason = resultSet.getString(4);
+
+			Timestamp expiryTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
+			Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+
+			byte[] reference = resultSet.getBytes(6);
+
+			return new GroupBanData(groupName, offender, admin, banned, reason, expiry, reference);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group bans from repository", e);
+		}
+	}
+
+	@Override
+	public boolean banExists(String groupName, String offender) throws DataException {
+		try {
+			return this.repository.exists("AccountGroupBans", "group_name = ? AND offender = ?", groupName, offender);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for group ban in repository", e);
+		}
+	}
+
+	@Override
+	public List<GroupBanData> getGroupBans(String groupName) throws DataException {
+		List<GroupBanData> bans = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT offender, admin, banned, reason, expiry, reference FROM AccountGroupBans WHERE group_name = ?", groupName)) {
+			if (resultSet == null)
+				return bans;
+
+			do {
+				String offender = resultSet.getString(1);
+				String admin = resultSet.getString(2);
+				long banned = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				String reason = resultSet.getString(4);
+
+				Timestamp expiryTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
+				Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
+
+				byte[] reference = resultSet.getBytes(6);
+
+				bans.add(new GroupBanData(groupName, offender, admin, banned, reason, expiry, reference));
+			} while (resultSet.next());
+
+			return bans;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group bans from repository", e);
+		}
+	}
+
+	@Override
+	public void save(GroupBanData groupBanData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroupBans");
+
+		Timestamp expiryTimestamp = null;
+		if (groupBanData.getExpiry() != null)
+			expiryTimestamp = new Timestamp(groupBanData.getExpiry());
+
+		saveHelper.bind("group_name", groupBanData.getGroupName()).bind("offender", groupBanData.getOffender()).bind("admin", groupBanData.getAdmin())
+				.bind("banned", new Timestamp(groupBanData.getBanned())).bind("reason", groupBanData.getReason()).bind("expiry", expiryTimestamp)
+				.bind("reference", groupBanData.getReference());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save group ban into repository", e);
+		}
+	}
+
+	@Override
+	public void deleteBan(String groupName, String offender) throws DataException {
+		try {
+			this.repository.delete("AccountGroupBans", "group_name = ? AND offender = ?", groupName, offender);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete group ban from repository", e);
 		}
 	}
 
