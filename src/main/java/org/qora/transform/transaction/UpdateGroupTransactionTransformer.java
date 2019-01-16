@@ -22,12 +22,13 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int OWNER_LENGTH = PUBLIC_KEY_LENGTH;
+	private static final int GROUPID_LENGTH = INT_LENGTH;
 	private static final int NEW_OWNER_LENGTH = ADDRESS_LENGTH;
-	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int NEW_DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int NEW_IS_OPEN_LENGTH = BOOLEAN_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + OWNER_LENGTH + NEW_OWNER_LENGTH + NAME_SIZE_LENGTH + NEW_DESCRIPTION_SIZE_LENGTH + NEW_IS_OPEN_LENGTH;
+	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + OWNER_LENGTH + GROUPID_LENGTH + NEW_OWNER_LENGTH + NEW_DESCRIPTION_SIZE_LENGTH
+			+ NEW_IS_OPEN_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
@@ -37,7 +38,7 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 
 		byte[] ownerPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String groupName = Serialization.deserializeSizedString(byteBuffer, Group.MAX_NAME_SIZE);
+		int groupId = byteBuffer.getInt();
 
 		String newOwner = Serialization.deserializeAddress(byteBuffer);
 
@@ -50,14 +51,13 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new UpdateGroupTransactionData(ownerPublicKey, groupName, newOwner, newDescription, newIsOpen, fee, timestamp, reference, signature);
+		return new UpdateGroupTransactionData(ownerPublicKey, groupId, newOwner, newDescription, newIsOpen, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		UpdateGroupTransactionData updateGroupTransactionData = (UpdateGroupTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(updateGroupTransactionData.getGroupName())
-				+ Utf8.encodedLength(updateGroupTransactionData.getNewDescription());
+		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(updateGroupTransactionData.getNewDescription());
 
 		return dataLength;
 	}
@@ -73,7 +73,7 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 			bytes.write(updateGroupTransactionData.getReference());
 
 			bytes.write(updateGroupTransactionData.getCreatorPublicKey());
-			Serialization.serializeSizedString(bytes, updateGroupTransactionData.getGroupName());
+			bytes.write(Ints.toByteArray(updateGroupTransactionData.getGroupId()));
 
 			Serialization.serializeAddress(bytes, updateGroupTransactionData.getNewOwner());
 			Serialization.serializeSizedString(bytes, updateGroupTransactionData.getNewDescription());
@@ -103,7 +103,7 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 			json.put("owner", PublicKeyAccount.getAddress(ownerPublicKey));
 			json.put("ownerPublicKey", HashCode.fromBytes(ownerPublicKey).toString());
 
-			json.put("groupName", updateGroupTransactionData.getGroupName());
+			json.put("groupId", updateGroupTransactionData.getGroupId());
 			json.put("newOwner", updateGroupTransactionData.getNewOwner());
 			json.put("newDescription", updateGroupTransactionData.getNewDescription());
 			json.put("newIsOpen", updateGroupTransactionData.getNewIsOpen());

@@ -91,22 +91,27 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE QoraPublicKey AS VARBINARY(32)");
 					stmt.execute("CREATE TYPE QoraAmount AS DECIMAL(27, 8)");
 					stmt.execute("CREATE TYPE GenericDescription AS VARCHAR(4000)");
-					stmt.execute("CREATE TYPE RegisteredName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
+					stmt.execute("CREATE TYPE RegisteredName AS VARCHAR(128) COLLATE SQL_TEXT_NO_PAD");
 					stmt.execute("CREATE TYPE NameData AS VARCHAR(4000)");
-					stmt.execute("CREATE TYPE PollName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
-					stmt.execute("CREATE TYPE PollOption AS VARCHAR(400) COLLATE SQL_TEXT_UCC_NO_PAD");
+					stmt.execute("CREATE TYPE MessageData AS VARBINARY(4000)");
+					stmt.execute("CREATE TYPE PollName AS VARCHAR(128) COLLATE SQL_TEXT_NO_PAD");
+					stmt.execute("CREATE TYPE PollOption AS VARCHAR(80) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE PollOptionIndex AS INTEGER");
 					stmt.execute("CREATE TYPE DataHash AS VARBINARY(32)");
 					stmt.execute("CREATE TYPE AssetID AS BIGINT");
-					stmt.execute("CREATE TYPE AssetName AS VARCHAR(400) COLLATE SQL_TEXT_NO_PAD");
+					stmt.execute("CREATE TYPE AssetName AS VARCHAR(34) COLLATE SQL_TEXT_NO_PAD");
 					stmt.execute("CREATE TYPE AssetOrderID AS VARBINARY(64)");
-					stmt.execute("CREATE TYPE ATName AS VARCHAR(200) COLLATE SQL_TEXT_UCC_NO_PAD");
-					stmt.execute("CREATE TYPE ATType AS VARCHAR(200) COLLATE SQL_TEXT_UCC_NO_PAD");
+					stmt.execute("CREATE TYPE ATName AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
+					stmt.execute("CREATE TYPE ATType AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
+					stmt.execute("CREATE TYPE ATTags AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE ATCode AS BLOB(64K)"); // 16bit * 1
 					stmt.execute("CREATE TYPE ATState AS BLOB(1M)"); // 16bit * 8 + 16bit * 4 + 16bit * 4
+					stmt.execute("CREATE TYPE ATCreationBytes AS BLOB(576K)"); // 16bit * 1 + 16bit * 8
 					stmt.execute("CREATE TYPE ATStateHash as VARBINARY(32)");
 					stmt.execute("CREATE TYPE ATMessage AS VARBINARY(256)");
+					stmt.execute("CREATE TYPE GroupID AS INTEGER");
 					stmt.execute("CREATE TYPE GroupName AS VARCHAR(400) COLLATE SQL_TEXT_UCC_NO_PAD");
+					stmt.execute("CREATE TYPE GroupReason AS VARCHAR(128) COLLATE SQL_TEXT_UCC_NO_PAD");
 					break;
 
 				case 1:
@@ -283,8 +288,8 @@ public class HSQLDBDatabaseUpdates {
 				case 19:
 					// Deploy CIYAM AT Transactions
 					stmt.execute("CREATE TABLE DeployATTransactions (signature Signature, creator QoraPublicKey NOT NULL, AT_name ATName NOT NULL, "
-							+ "description VARCHAR(2000) NOT NULL, AT_type ATType NOT NULL, AT_tags VARCHAR(200) NOT NULL, "
-							+ "creation_bytes VARBINARY(100000) NOT NULL, amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, AT_address QoraAddress, "
+							+ "description GenericDescription NOT NULL, AT_type ATType NOT NULL, AT_tags ATTags NOT NULL, "
+							+ "creation_bytes ATCreationBytes NOT NULL, amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, AT_address QoraAddress, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					// For looking up the Deploy AT Transaction based on deployed AT address
 					stmt.execute("CREATE INDEX DeployATAddressIndex on DeployATTransactions (AT_address)");
@@ -294,7 +299,7 @@ public class HSQLDBDatabaseUpdates {
 					// Message Transactions
 					stmt.execute(
 							"CREATE TABLE MessageTransactions (signature Signature, version TINYINT NOT NULL, sender QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, "
-									+ "is_text BOOLEAN NOT NULL, is_encrypted BOOLEAN NOT NULL, amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, data VARBINARY(4000) NOT NULL, "
+									+ "is_text BOOLEAN NOT NULL, is_encrypted BOOLEAN NOT NULL, amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, data MessageData NOT NULL, "
 									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
@@ -303,7 +308,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TABLE Assets (asset_id AssetID, owner QoraAddress NOT NULL, "
 							+ "asset_name AssetName NOT NULL, description GenericDescription NOT NULL, "
 							+ "quantity BIGINT NOT NULL, is_divisible BOOLEAN NOT NULL, reference Signature NOT NULL, PRIMARY KEY (asset_id))");
-					// We need a corresponding trigger to make sure new asset_id values are assigned sequentially
+					// We need a corresponding trigger to make sure new asset_id values are assigned sequentially start from 0
 					stmt.execute(
 							"CREATE TRIGGER Asset_ID_Trigger BEFORE INSERT ON Assets REFERENCING NEW ROW AS new_row FOR EACH ROW WHEN (new_row.asset_id IS NULL) "
 									+ "SET new_row.asset_id = (SELECT IFNULL(MAX(asset_id) + 1, 0) FROM Assets)");
@@ -359,10 +364,9 @@ public class HSQLDBDatabaseUpdates {
 
 				case 26:
 					// Registered Names
-					stmt.execute(
-							"CREATE TABLE Names (name RegisteredName, data VARCHAR(4000) NOT NULL, owner QoraAddress NOT NULL, "
-									+ "registered TIMESTAMP WITH TIME ZONE NOT NULL, updated TIMESTAMP WITH TIME ZONE, reference Signature, is_for_sale BOOLEAN NOT NULL, sale_price QoraAmount, "
-									+ "PRIMARY KEY (name))");
+					stmt.execute("CREATE TABLE Names (name RegisteredName, data NameData NOT NULL, owner QoraAddress NOT NULL, "
+							+ "registered TIMESTAMP WITH TIME ZONE NOT NULL, updated TIMESTAMP WITH TIME ZONE, reference Signature, is_for_sale BOOLEAN NOT NULL, sale_price QoraAmount, "
+							+ "PRIMARY KEY (name))");
 					break;
 
 				case 27:
@@ -394,90 +398,106 @@ public class HSQLDBDatabaseUpdates {
 
 				case 28:
 					// Account groups
-					stmt.execute("CREATE TABLE AccountGroups (group_name GroupName, owner QoraAddress NOT NULL, description GenericDescription NOT NULL, "
-							+ "created TIMESTAMP WITH TIME ZONE NOT NULL, updated TIMESTAMP WITH TIME ZONE, is_open BOOLEAN NOT NULL, "
-							+ "reference Signature, PRIMARY KEY (group_name))");
+					stmt.execute(
+							"CREATE TABLE Groups (group_id GroupID, owner QoraAddress NOT NULL, group_name GroupName, description GenericDescription NOT NULL, "
+									+ "created TIMESTAMP WITH TIME ZONE NOT NULL, updated TIMESTAMP WITH TIME ZONE, is_open BOOLEAN NOT NULL, "
+									+ "reference Signature, PRIMARY KEY (group_id))");
+					// We need a corresponding trigger to make sure new group_id values are assigned sequentially starting from 1
+					stmt.execute(
+							"CREATE TRIGGER Group_ID_Trigger BEFORE INSERT ON Groups REFERENCING NEW ROW AS new_row FOR EACH ROW WHEN (new_row.group_id IS NULL) "
+									+ "SET new_row.group_id = (SELECT IFNULL(MAX(group_id) + 1, 1) FROM Groups)");
+					// For when a user wants to lookup an group by name
+					stmt.execute("CREATE INDEX GroupNameIndex on Groups (group_name)");
 					// For finding groups by owner
-					stmt.execute("CREATE INDEX AccountGroupOwnerIndex ON AccountGroups (owner)");
+					stmt.execute("CREATE INDEX GroupOwnerIndex ON Groups (owner)");
 
 					// Admins
-					stmt.execute("CREATE TABLE AccountGroupAdmins (group_name GroupName, admin QoraAddress, group_reference Signature NOT NULL, PRIMARY KEY (group_name, admin))");
+					stmt.execute("CREATE TABLE GroupAdmins (group_id GroupID, admin QoraAddress, reference Signature NOT NULL, "
+							+ "PRIMARY KEY (group_id, admin), FOREIGN KEY (group_id) REFERENCES Groups (group_id) ON DELETE CASCADE)");
 					// For finding groups that address administrates
-					stmt.execute("CREATE INDEX AccountGroupAdminIndex ON AccountGroupAdmins (admin)");
+					stmt.execute("CREATE INDEX GroupAdminIndex ON GroupAdmins (admin)");
 
 					// Members
-					stmt.execute("CREATE TABLE AccountGroupMembers (group_name GroupName, address QoraAddress, joined TIMESTAMP WITH TIME ZONE NOT NULL, group_reference Signature NOT NULL, "
-							+ "PRIMARY KEY (group_name, address))");
+					stmt.execute(
+							"CREATE TABLE GroupMembers (group_id GroupID, address QoraAddress, joined TIMESTAMP WITH TIME ZONE NOT NULL, reference Signature NOT NULL, "
+									+ "PRIMARY KEY (group_id, address), FOREIGN KEY (group_id) REFERENCES Groups (group_id) ON DELETE CASCADE)");
 					// For finding groups that address is member
-					stmt.execute("CREATE INDEX AccountGroupMemberIndex ON AccountGroupMembers (address)");
+					stmt.execute("CREATE INDEX GroupMemberIndex ON GroupMembers (address)");
 
 					// Invites
-					// PRIMARY KEY (invitee + group + inviter) because most queries will be "what have I been invited to?" from UI
-					stmt.execute("CREATE TABLE AccountGroupInvites (group_name GroupName, inviter QoraAddress, invitee QoraAddress, "
-							+ "expiry TIMESTAMP WITH TIME ZONE NOT NULL, reference Signature, PRIMARY KEY (invitee, group_name, inviter))");
+					stmt.execute("CREATE TABLE GroupInvites (group_id GroupID, inviter QoraAddress, invitee QoraAddress, "
+							+ "expiry TIMESTAMP WITH TIME ZONE NOT NULL, reference Signature, "
+							+ "PRIMARY KEY (group_id, invitee), FOREIGN KEY (group_id) REFERENCES Groups (group_id) ON DELETE CASCADE)");
 					// For finding invites sent by inviter
-					stmt.execute("CREATE INDEX AccountGroupSentInviteIndex ON AccountGroupInvites (inviter)");
+					stmt.execute("CREATE INDEX GroupInviteInviterIndex ON GroupInvites (inviter)");
 					// For finding invites by group
-					stmt.execute("CREATE INDEX AccountGroupInviteIndex ON AccountGroupInvites (group_name)");
+					stmt.execute("CREATE INDEX GroupInviteInviteeIndex ON GroupInvites (invitee)");
 					// For expiry maintenance
-					stmt.execute("CREATE INDEX AccountGroupInviteExpiryIndex ON AccountGroupInvites (expiry)");
+					stmt.execute("CREATE INDEX GroupInviteExpiryIndex ON GroupInvites (expiry)");
 
 					// Pending "join requests"
-					stmt.execute("CREATE TABLE AccountGroupJoinRequests (group_name GroupName, joiner QoraAddress, "
-							+ "PRIMARY KEY (group_name, joiner))");
+					stmt.execute(
+							"CREATE TABLE GroupJoinRequests (group_id GroupID, joiner QoraAddress, reference Signature NOT NULL, PRIMARY KEY (group_id, joiner))");
 
 					// Bans
 					// NULL expiry means does not expire!
-					stmt.execute("CREATE TABLE AccountGroupBans (group_name GroupName, offender QoraAddress, admin QoraAddress NOT NULL, banned TIMESTAMP WITH TIME ZONE NOT NULL, "
-							+ "reason GenericDescription NOT NULL, expiry TIMESTAMP WITH TIME ZONE, reference Signature NOT NULL, "
-							+ "PRIMARY KEY (group_name, offender))");
+					stmt.execute(
+							"CREATE TABLE GroupBans (group_id GroupID, offender QoraAddress, admin QoraAddress NOT NULL, banned TIMESTAMP WITH TIME ZONE NOT NULL, "
+									+ "reason GenericDescription NOT NULL, expiry TIMESTAMP WITH TIME ZONE, reference Signature NOT NULL, "
+									+ "PRIMARY KEY (group_id, offender), FOREIGN KEY (group_id) REFERENCES Groups (group_id) ON DELETE CASCADE)");
 					// For expiry maintenance
-					stmt.execute("CREATE INDEX AccountGroupBanExpiryIndex ON AccountGroupBans (expiry)");
+					stmt.execute("CREATE INDEX GroupBanExpiryIndex ON GroupBans (expiry)");
 					break;
 
 				case 29:
 					// Account group transactions
 					stmt.execute("CREATE TABLE CreateGroupTransactions (signature Signature, creator QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
-							+ "owner QoraAddress NOT NULL, description GenericDescription NOT NULL, is_open BOOLEAN NOT NULL, "
+							+ "owner QoraAddress NOT NULL, description GenericDescription NOT NULL, is_open BOOLEAN NOT NULL, group_id GroupID, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
-					stmt.execute("CREATE TABLE UpdateGroupTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
+					stmt.execute("CREATE TABLE UpdateGroupTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_id GroupID NOT NULL, "
 							+ "new_owner QoraAddress NOT NULL, new_description GenericDescription NOT NULL, new_is_open BOOLEAN NOT NULL, group_reference Signature, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 
 					// Account group add/remove admin transactions
-					stmt.execute("CREATE TABLE AddGroupAdminTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, address QoraAddress NOT NULL, "
-							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
-					stmt.execute("CREATE TABLE RemoveGroupAdminTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, admin QoraAddress NOT NULL, "
-							+ "group_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute(
+							"CREATE TABLE AddGroupAdminTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_id GroupID NOT NULL, address QoraAddress NOT NULL, "
+									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute(
+							"CREATE TABLE RemoveGroupAdminTransactions (signature Signature, owner QoraPublicKey NOT NULL, group_id GroupID NOT NULL, admin QoraAddress NOT NULL, "
+									+ "admin_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 
 					// Account group join/leave transactions
-					stmt.execute("CREATE TABLE JoinGroupTransactions (signature Signature, joiner QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
-							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
-					stmt.execute("CREATE TABLE LeaveGroupTransactions (signature Signature, leaver QoraPublicKey NOT NULL, group_name GroupName NOT NULL, "
+					stmt.execute("CREATE TABLE JoinGroupTransactions (signature Signature, joiner QoraPublicKey NOT NULL, group_id GroupID NOT NULL, "
+							+ "invite_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute("CREATE TABLE LeaveGroupTransactions (signature Signature, leaver QoraPublicKey NOT NULL, group_id GroupID NOT NULL, "
 							+ "member_reference Signature, admin_reference Signature, "
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 
 					// Account group kick transaction
-					stmt.execute("CREATE TABLE GroupKickTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, address QoraAddress NOT NULL, "
-							+ "reason VARCHAR(400), member_reference Signature, admin_reference Signature, "
-							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute(
+							"CREATE TABLE GroupKickTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_id GroupID NOT NULL, address QoraAddress NOT NULL, "
+									+ "reason GroupReason, member_reference Signature, admin_reference Signature, join_reference Signature, "
+									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 
 					// Account group invite/cancel-invite transactions
-					stmt.execute("CREATE TABLE GroupInviteTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, invitee QoraAddress NOT NULL, "
-							+ "time_to_live INTEGER NOT NULL, group_reference Signature, "
-							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
-					// For finding invite transactions during orphaning
-					stmt.execute("CREATE INDEX GroupInviteTransactionReferenceIndex ON GroupInviteTransactions (group_reference)");
+					stmt.execute(
+							"CREATE TABLE GroupInviteTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_id GroupID NOT NULL, invitee QoraAddress NOT NULL, "
+									+ "time_to_live INTEGER NOT NULL, join_reference Signature, "
+									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					// Cancel group invite
-					stmt.execute("CREATE TABLE CancelGroupInviteTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, invitee QoraAddress NOT NULL, "
-							+ "group_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute(
+							"CREATE TABLE CancelGroupInviteTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_id GroupID NOT NULL, invitee QoraAddress NOT NULL, "
+									+ "invite_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 
-					// Account ban/unban transactions
-					stmt.execute("CREATE TABLE GroupBanTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, address QoraAddress NOT NULL, "
-							+ "reason VARCHAR(400), time_to_live INTEGER NOT NULL, member_reference Signature, admin_reference Signature, "
-							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
-					stmt.execute("CREATE TABLE GroupUnbanTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_name GroupName NOT NULL, address QoraAddress NOT NULL, "
-							+ "group_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// Account ban/cancel-ban transactions
+					stmt.execute(
+							"CREATE TABLE GroupBanTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_id GroupID NOT NULL, address QoraAddress NOT NULL, "
+									+ "reason GroupReason, time_to_live INTEGER NOT NULL, "
+									+ "member_reference Signature, admin_reference Signature, join_invite_reference Signature, "
+									+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					stmt.execute(
+							"CREATE TABLE CancelGroupBanTransactions (signature Signature, admin QoraPublicKey NOT NULL, group_id GroupID NOT NULL, address QoraAddress NOT NULL, "
+									+ "ban_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
 				default:

@@ -14,10 +14,7 @@ import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
-import org.qora.repository.GroupRepository;
 import org.qora.repository.Repository;
-
-import com.google.common.base.Utf8;
 
 public class GroupInviteTransaction extends Transaction {
 
@@ -77,9 +74,6 @@ public class GroupInviteTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		GroupRepository groupRepository = this.repository.getGroupRepository();
-		String groupName = groupInviteTransactionData.getGroupName();
-
 		// Check time to live zero (infinite) or positive
 		if (groupInviteTransactionData.getTimeToLive() < 0)
 			return ValidationResult.INVALID_LIFETIME;
@@ -88,36 +82,33 @@ public class GroupInviteTransaction extends Transaction {
 		if (!Crypto.isValidAddress(groupInviteTransactionData.getInvitee()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(groupName);
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
-
-		// Check group name is lowercase
-		if (!groupName.equals(groupName.toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = groupRepository.fromGroupName(groupName);
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(groupInviteTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		Account admin = getAdmin();
-		Account invitee = getInvitee();
 
 		// Can't invite if not an admin
-		if (!groupRepository.adminExists(groupName, admin.getAddress()))
+		if (!this.repository.getGroupRepository().adminExists(groupInviteTransactionData.getGroupId(), admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
+		Account invitee = getInvitee();
+
 		// Check invitee not already in group
-		if (groupRepository.memberExists(groupName, invitee.getAddress()))
+		if (this.repository.getGroupRepository().memberExists(groupInviteTransactionData.getGroupId(), invitee.getAddress()))
 			return ValidationResult.ALREADY_GROUP_MEMBER;
+
+		// Check invitee is not banned
+		if (this.repository.getGroupRepository().banExists(groupInviteTransactionData.getGroupId(), invitee.getAddress()))
+			return ValidationResult.BANNED_FROM_GROUP;
 
 		// Check fee is positive
 		if (groupInviteTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
+		// Check reference
 		if (!Arrays.equals(admin.getLastReference(), groupInviteTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
@@ -131,7 +122,7 @@ public class GroupInviteTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, groupInviteTransactionData.getGroupName());
+		Group group = new Group(this.repository, groupInviteTransactionData.getGroupId());
 		group.invite(groupInviteTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
@@ -148,7 +139,7 @@ public class GroupInviteTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, groupInviteTransactionData.getGroupName());
+		Group group = new Group(this.repository, groupInviteTransactionData.getGroupId());
 		group.uninvite(groupInviteTransactionData);
 
 		// Delete this transaction itself

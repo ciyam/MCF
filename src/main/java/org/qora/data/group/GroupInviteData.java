@@ -9,10 +9,11 @@ import javax.xml.bind.annotation.XmlTransient;
 public class GroupInviteData {
 
 	// Properties
-	private String groupName;
+	private int groupId;
 	private String inviter;
 	private String invitee;
 	private Long expiry;
+	/** Reference to GROUP_INVITE transaction, used to rebuild this invite during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
 	private byte[] reference;
@@ -23,8 +24,8 @@ public class GroupInviteData {
 	protected GroupInviteData() {
 	}
 
-	public GroupInviteData(String groupName, String inviter, String invitee, Long expiry, byte[] reference) {
-		this.groupName = groupName;
+	public GroupInviteData(int groupId, String inviter, String invitee, Long expiry, byte[] reference) {
+		this.groupId = groupId;
 		this.inviter = inviter;
 		this.invitee = invitee;
 		this.expiry = expiry;
@@ -33,8 +34,8 @@ public class GroupInviteData {
 
 	// Getters / setters
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getInviter() {

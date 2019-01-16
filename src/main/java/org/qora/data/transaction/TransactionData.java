@@ -35,7 +35,7 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 	MultiPaymentTransactionData.class, DeployATTransactionData.class, MessageTransactionData.class, ATTransactionData.class,
 	CreateGroupTransactionData.class, UpdateGroupTransactionData.class,
 	AddGroupAdminTransactionData.class, RemoveGroupAdminTransactionData.class,
-	GroupBanTransactionData.class, GroupUnbanTransactionData.class,
+	GroupBanTransactionData.class, CancelGroupBanTransactionData.class,
 	GroupKickTransactionData.class, GroupInviteTransactionData.class,
 	JoinGroupTransactionData.class, LeaveGroupTransactionData.class
 })

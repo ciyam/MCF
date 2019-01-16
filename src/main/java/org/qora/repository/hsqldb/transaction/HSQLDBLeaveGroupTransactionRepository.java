@@ -18,15 +18,15 @@ public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepo
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_name, member_reference, admin_reference FROM LeaveGroupTransactions WHERE signature = ?", signature)) {
+				.checkedExecute("SELECT group_id, member_reference, admin_reference FROM LeaveGroupTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
-			String groupName = resultSet.getString(1);
+			int groupId = resultSet.getInt(1);
 			byte[] memberReference = resultSet.getBytes(2);
 			byte[] adminReference = resultSet.getBytes(3);
 
-			return new LeaveGroupTransactionData(creatorPublicKey, groupName, memberReference, adminReference, fee, timestamp, reference, signature);
+			return new LeaveGroupTransactionData(creatorPublicKey, groupId, memberReference, adminReference, fee, timestamp, reference, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch leave group transaction from repository", e);
 		}
@@ -39,7 +39,7 @@ public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepo
 		HSQLDBSaver saveHelper = new HSQLDBSaver("LeaveGroupTransactions");
 
 		saveHelper.bind("signature", leaveGroupTransactionData.getSignature()).bind("leaver", leaveGroupTransactionData.getLeaverPublicKey())
-				.bind("group_name", leaveGroupTransactionData.getGroupName()).bind("member_reference", leaveGroupTransactionData.getMemberReference())
+				.bind("group_id", leaveGroupTransactionData.getGroupId()).bind("member_reference", leaveGroupTransactionData.getMemberReference())
 				.bind("admin_reference", leaveGroupTransactionData.getAdminReference());
 
 		try {

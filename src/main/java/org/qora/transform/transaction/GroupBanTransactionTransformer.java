@@ -22,12 +22,12 @@ public class GroupBanTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int ADMIN_LENGTH = PUBLIC_KEY_LENGTH;
-	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
+	private static final int GROUPID_LENGTH = INT_LENGTH;
 	private static final int MEMBER_LENGTH = ADDRESS_LENGTH;
 	private static final int REASON_SIZE_LENGTH = INT_LENGTH;
 	private static final int TTL_LENGTH = INT_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + NAME_SIZE_LENGTH + MEMBER_LENGTH + REASON_SIZE_LENGTH + TTL_LENGTH;
+	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + GROUPID_LENGTH + MEMBER_LENGTH + REASON_SIZE_LENGTH + TTL_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
@@ -37,7 +37,7 @@ public class GroupBanTransactionTransformer extends TransactionTransformer {
 
 		byte[] adminPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String groupName = Serialization.deserializeSizedString(byteBuffer, Group.MAX_NAME_SIZE);
+		int groupId = byteBuffer.getInt();
 
 		String offender = Serialization.deserializeAddress(byteBuffer);
 
@@ -50,14 +50,13 @@ public class GroupBanTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new GroupBanTransactionData(adminPublicKey, groupName, offender, reason, timeToLive, fee, timestamp, reference, signature);
+		return new GroupBanTransactionData(adminPublicKey, groupId, offender, reason, timeToLive, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		GroupBanTransactionData groupBanTransactionData = (GroupBanTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(groupBanTransactionData.getGroupName())
-				+ Utf8.encodedLength(groupBanTransactionData.getReason());
+		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(groupBanTransactionData.getReason());
 
 		return dataLength;
 	}
@@ -73,7 +72,7 @@ public class GroupBanTransactionTransformer extends TransactionTransformer {
 			bytes.write(groupBanTransactionData.getReference());
 
 			bytes.write(groupBanTransactionData.getCreatorPublicKey());
-			Serialization.serializeSizedString(bytes, groupBanTransactionData.getGroupName());
+			bytes.write(Ints.toByteArray(groupBanTransactionData.getGroupId()));
 			Serialization.serializeAddress(bytes, groupBanTransactionData.getOffender());
 			Serialization.serializeSizedString(bytes, groupBanTransactionData.getReason());
 			bytes.write(Ints.toByteArray(groupBanTransactionData.getTimeToLive()));
@@ -101,7 +100,7 @@ public class GroupBanTransactionTransformer extends TransactionTransformer {
 			json.put("admin", PublicKeyAccount.getAddress(adminPublicKey));
 			json.put("adminPublicKey", HashCode.fromBytes(adminPublicKey).toString());
 
-			json.put("groupName", groupBanTransactionData.getGroupName());
+			json.put("groupId", groupBanTransactionData.getGroupId());
 			json.put("offender", groupBanTransactionData.getOffender());
 			json.put("reason", groupBanTransactionData.getReason());
 			json.put("timeToLive", groupBanTransactionData.getTimeToLive());

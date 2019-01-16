@@ -25,14 +25,30 @@ public class GroupWithMemberInfo {
 	@XmlElement(name = "admins")
 	public List<String> groupAdminAddresses;
 
+	@XmlAccessorType(XmlAccessType.FIELD)
+	@Schema(description = "Member info")
+	public static class MemberInfo {
+		public String member;
+		public long joined;
+
+		// For JAX-RS
+		protected MemberInfo() {
+		}
+
+		public MemberInfo(GroupMemberData groupMemberData) {
+			this.member = groupMemberData.getMember();
+			this.joined = groupMemberData.getJoined();
+		}
+	}
+
 	@XmlElement(name = "members")
-	public List<GroupMemberData> groupMembers;
+	public List<MemberInfo> groupMembers;
 
 	// For JAX-RS
 	protected GroupWithMemberInfo() {
 	}
 
-	public GroupWithMemberInfo(GroupData groupData, List<String> groupAdminAddresses, List<GroupMemberData> groupMembers, Integer memberCount) {
+	public GroupWithMemberInfo(GroupData groupData, List<String> groupAdminAddresses, List<MemberInfo> groupMembers, Integer memberCount) {
 		this.groupData = groupData;
 		this.groupAdminAddresses = groupAdminAddresses;
 		this.groupMembers = groupMembers;

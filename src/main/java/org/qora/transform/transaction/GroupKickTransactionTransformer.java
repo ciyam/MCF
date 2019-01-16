@@ -22,11 +22,11 @@ public class GroupKickTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int ADMIN_LENGTH = PUBLIC_KEY_LENGTH;
-	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
+	private static final int GROUPID_LENGTH = INT_LENGTH;
 	private static final int MEMBER_LENGTH = ADDRESS_LENGTH;
 	private static final int REASON_SIZE_LENGTH = INT_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + NAME_SIZE_LENGTH + MEMBER_LENGTH + REASON_SIZE_LENGTH;
+	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + GROUPID_LENGTH + MEMBER_LENGTH + REASON_SIZE_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
@@ -36,7 +36,7 @@ public class GroupKickTransactionTransformer extends TransactionTransformer {
 
 		byte[] adminPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String groupName = Serialization.deserializeSizedString(byteBuffer, Group.MAX_NAME_SIZE);
+		int groupId = byteBuffer.getInt();
 
 		String member = Serialization.deserializeAddress(byteBuffer);
 
@@ -47,14 +47,13 @@ public class GroupKickTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new GroupKickTransactionData(adminPublicKey, groupName, member, reason, fee, timestamp, reference, signature);
+		return new GroupKickTransactionData(adminPublicKey, groupId, member, reason, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		GroupKickTransactionData groupKickTransactionData = (GroupKickTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(groupKickTransactionData.getGroupName())
-				+ Utf8.encodedLength(groupKickTransactionData.getReason());
+		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(groupKickTransactionData.getReason());
 
 		return dataLength;
 	}
@@ -70,7 +69,7 @@ public class GroupKickTransactionTransformer extends TransactionTransformer {
 			bytes.write(groupKickTransactionData.getReference());
 
 			bytes.write(groupKickTransactionData.getCreatorPublicKey());
-			Serialization.serializeSizedString(bytes, groupKickTransactionData.getGroupName());
+			bytes.write(Ints.toByteArray(groupKickTransactionData.getGroupId()));
 			Serialization.serializeAddress(bytes, groupKickTransactionData.getMember());
 			Serialization.serializeSizedString(bytes, groupKickTransactionData.getReason());
 
@@ -97,7 +96,7 @@ public class GroupKickTransactionTransformer extends TransactionTransformer {
 			json.put("admin", PublicKeyAccount.getAddress(adminPublicKey));
 			json.put("adminPublicKey", HashCode.fromBytes(adminPublicKey).toString());
 
-			json.put("groupName", groupKickTransactionData.getGroupName());
+			json.put("groupId", groupKickTransactionData.getGroupId());
 			json.put("member", groupKickTransactionData.getMember());
 			json.put("reason", groupKickTransactionData.getReason());
 		} catch (ClassCastException e) {

@@ -17,8 +17,6 @@ import org.qora.repository.DataException;
 import org.qora.repository.GroupRepository;
 import org.qora.repository.Repository;
 
-import com.google.common.base.Utf8;
-
 public class GroupKickTransaction extends Transaction {
 
 	// Properties
@@ -77,47 +75,39 @@ public class GroupKickTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		GroupRepository groupRepository = this.repository.getGroupRepository();
-		String groupName = groupKickTransactionData.getGroupName();
-		
 		// Check member address is valid
 		if (!Crypto.isValidAddress(groupKickTransactionData.getMember()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(groupName);
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
-
-		// Check group name is lowercase
-		if (!groupName.equals(groupName.toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = groupRepository.fromGroupName(groupName);
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+		int groupId = groupKickTransactionData.getGroupId();
+		GroupData groupData = groupRepository.fromGroupId(groupId);
 
 		// Check group exists
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		Account admin = getAdmin();
-		Account member = getMember();
 
 		// Can't kick if not an admin
-		if (!groupRepository.adminExists(groupName, admin.getAddress()))
+		if (!groupRepository.adminExists(groupId, admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
+		Account member = getMember();
+
 		// Check member actually in group UNLESS there's a pending join request
-		if (!groupRepository.joinRequestExists(groupName, member.getAddress()) && !groupRepository.memberExists(groupName, member.getAddress()))
+		if (!groupRepository.joinRequestExists(groupId, member.getAddress()) && !groupRepository.memberExists(groupId, member.getAddress()))
 			return ValidationResult.NOT_GROUP_MEMBER;
 
 		// Can't kick another admin unless the group owner
-		if (!admin.getAddress().equals(groupData.getOwner()) && groupRepository.adminExists(groupName, member.getAddress()))
+		if (!admin.getAddress().equals(groupData.getOwner()) && groupRepository.adminExists(groupId, member.getAddress()))
 			return ValidationResult.INVALID_GROUP_OWNER;
 
 		// Check fee is positive
 		if (groupKickTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
+		// Check reference
 		if (!Arrays.equals(admin.getLastReference(), groupKickTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
@@ -131,7 +121,7 @@ public class GroupKickTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, groupKickTransactionData.getGroupName());
+		Group group = new Group(this.repository, groupKickTransactionData.getGroupId());
 		group.kick(groupKickTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
@@ -148,7 +138,7 @@ public class GroupKickTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, groupKickTransactionData.getGroupName());
+		Group group = new Group(this.repository, groupKickTransactionData.getGroupId());
 		group.unkick(groupKickTransactionData);
 
 		// Delete this transaction itself

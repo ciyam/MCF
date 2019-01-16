@@ -9,11 +9,9 @@ import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.LeaveGroupTransactionData;
 import org.qora.data.transaction.TransactionData;
-import org.qora.group.Group;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
-import com.google.common.base.Utf8;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
@@ -22,9 +20,9 @@ public class LeaveGroupTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int JOINER_LENGTH = PUBLIC_KEY_LENGTH;
-	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
+	private static final int GROUPID_LENGTH = INT_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + JOINER_LENGTH + NAME_SIZE_LENGTH;
+	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + JOINER_LENGTH + GROUPID_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
@@ -34,22 +32,18 @@ public class LeaveGroupTransactionTransformer extends TransactionTransformer {
 
 		byte[] leaverPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String groupName = Serialization.deserializeSizedString(byteBuffer, Group.MAX_NAME_SIZE);
+		int groupId = byteBuffer.getInt();
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new LeaveGroupTransactionData(leaverPublicKey, groupName, fee, timestamp, reference, signature);
+		return new LeaveGroupTransactionData(leaverPublicKey, groupId, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		LeaveGroupTransactionData leaveGroupTransactionData = (LeaveGroupTransactionData) transactionData;
-
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(leaveGroupTransactionData.getGroupName());
-
-		return dataLength;
+		return TYPE_LENGTH + TYPELESS_LENGTH;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -63,7 +57,7 @@ public class LeaveGroupTransactionTransformer extends TransactionTransformer {
 			bytes.write(leaveGroupTransactionData.getReference());
 
 			bytes.write(leaveGroupTransactionData.getCreatorPublicKey());
-			Serialization.serializeSizedString(bytes, leaveGroupTransactionData.getGroupName());
+			bytes.write(Ints.toByteArray(leaveGroupTransactionData.getGroupId()));
 
 			Serialization.serializeBigDecimal(bytes, leaveGroupTransactionData.getFee());
 
@@ -88,7 +82,7 @@ public class LeaveGroupTransactionTransformer extends TransactionTransformer {
 			json.put("leaver", PublicKeyAccount.getAddress(leaverPublicKey));
 			json.put("leaverPublicKey", HashCode.fromBytes(leaverPublicKey).toString());
 
-			json.put("groupName", leaveGroupTransactionData.getGroupName());
+			json.put("groupId", leaveGroupTransactionData.getGroupId());
 		} catch (ClassCastException e) {
 			throw new TransformationException(e);
 		}

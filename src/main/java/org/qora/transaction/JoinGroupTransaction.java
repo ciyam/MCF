@@ -15,8 +15,6 @@ import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 
-import com.google.common.base.Utf8;
-
 public class JoinGroupTransaction extends Transaction {
 
 	// Properties
@@ -68,16 +66,7 @@ public class JoinGroupTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(joinGroupTransactionData.getGroupName());
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
-
-		// Check group name is lowercase
-		if (!joinGroupTransactionData.getGroupName().equals(joinGroupTransactionData.getGroupName().toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = this.repository.getGroupRepository().fromGroupName(joinGroupTransactionData.getGroupName());
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(joinGroupTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
@@ -85,12 +74,16 @@ public class JoinGroupTransaction extends Transaction {
 
 		Account joiner = getJoiner();
 
-		if (this.repository.getGroupRepository().memberExists(joinGroupTransactionData.getGroupName(), joiner.getAddress()))
+		if (this.repository.getGroupRepository().memberExists(joinGroupTransactionData.getGroupId(), joiner.getAddress()))
 			return ValidationResult.ALREADY_GROUP_MEMBER;
 
 		// Check member is not banned
-		if (this.repository.getGroupRepository().banExists(joinGroupTransactionData.getGroupName(), joiner.getAddress()))
+		if (this.repository.getGroupRepository().banExists(joinGroupTransactionData.getGroupId(), joiner.getAddress()))
 			return ValidationResult.BANNED_FROM_GROUP;
+
+		// Check join request doesn't already exist
+		if (this.repository.getGroupRepository().joinRequestExists(joinGroupTransactionData.getGroupId(), joiner.getAddress()))
+			return ValidationResult.JOIN_REQUEST_EXISTS;
 
 		// Check fee is positive
 		if (joinGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
@@ -109,7 +102,7 @@ public class JoinGroupTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, joinGroupTransactionData.getGroupName());
+		Group group = new Group(this.repository, joinGroupTransactionData.getGroupId());
 		group.join(joinGroupTransactionData);
 
 		// Save this transaction
@@ -126,7 +119,7 @@ public class JoinGroupTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, joinGroupTransactionData.getGroupName());
+		Group group = new Group(this.repository, joinGroupTransactionData.getGroupId());
 		group.unjoin(joinGroupTransactionData);
 
 		// Delete this transaction itself

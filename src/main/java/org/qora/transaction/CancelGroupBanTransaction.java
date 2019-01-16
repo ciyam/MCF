@@ -9,27 +9,24 @@ import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
-import org.qora.data.transaction.GroupUnbanTransactionData;
+import org.qora.data.transaction.CancelGroupBanTransactionData;
 import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
-import org.qora.repository.GroupRepository;
 import org.qora.repository.Repository;
 
-import com.google.common.base.Utf8;
-
-public class GroupUnbanTransaction extends Transaction {
+public class CancelGroupBanTransaction extends Transaction {
 
 	// Properties
-	private GroupUnbanTransactionData groupUnbanTransactionData;
+	private CancelGroupBanTransactionData groupUnbanTransactionData;
 
 	// Constructors
 
-	public GroupUnbanTransaction(Repository repository, TransactionData transactionData) {
+	public CancelGroupBanTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
 
-		this.groupUnbanTransactionData = (GroupUnbanTransactionData) this.transactionData;
+		this.groupUnbanTransactionData = (CancelGroupBanTransactionData) this.transactionData;
 	}
 
 	// More information
@@ -77,43 +74,33 @@ public class GroupUnbanTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		GroupRepository groupRepository = this.repository.getGroupRepository();
-		String groupName = groupUnbanTransactionData.getGroupName();
-		
 		// Check member address is valid
 		if (!Crypto.isValidAddress(groupUnbanTransactionData.getMember()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(groupName);
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
-
-		// Check group name is lowercase
-		if (!groupName.equals(groupName.toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = groupRepository.fromGroupName(groupName);
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(groupUnbanTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		Account admin = getAdmin();
-		Account member = getMember();
 
 		// Can't unban if not an admin
-		if (!groupRepository.adminExists(groupName, admin.getAddress()))
+		if (!this.repository.getGroupRepository().adminExists(groupUnbanTransactionData.getGroupId(), admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
+		Account member = getMember();
+
 		// Check ban actually exists
-		if (!groupRepository.banExists(groupName, member.getAddress()))
+		if (!this.repository.getGroupRepository().banExists(groupUnbanTransactionData.getGroupId(), member.getAddress()))
 			return ValidationResult.BAN_UNKNOWN;
 
 		// Check fee is positive
 		if (groupUnbanTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
+		// Check reference
 		if (!Arrays.equals(admin.getLastReference(), groupUnbanTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
@@ -127,7 +114,7 @@ public class GroupUnbanTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, groupUnbanTransactionData.getGroupName());
+		Group group = new Group(this.repository, groupUnbanTransactionData.getGroupId());
 		group.cancelBan(groupUnbanTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
@@ -144,7 +131,7 @@ public class GroupUnbanTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, groupUnbanTransactionData.getGroupName());
+		Group group = new Group(this.repository, groupUnbanTransactionData.getGroupId());
 		group.uncancelBan(groupUnbanTransactionData);
 
 		// Delete this transaction itself

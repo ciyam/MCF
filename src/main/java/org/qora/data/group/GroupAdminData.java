@@ -9,12 +9,12 @@ import javax.xml.bind.annotation.XmlTransient;
 public class GroupAdminData {
 
 	// Properties
-	private String groupName;
+	private int groupId;
 	private String admin;
-	/** Reference to transaction that triggered adminship */
+	/** Reference to transaction that triggered adminship. Could be JOIN_GROUP, GROUP_INVITE, CREATE_GROUP or others... */
 	// No need to ever expose this via API
 	@XmlTransient
-	private byte[] groupReference;
+	private byte[] reference;
 
 	// Constructors
 
@@ -22,28 +22,28 @@ public class GroupAdminData {
 	protected GroupAdminData() {
 	}
 
-	public GroupAdminData(String groupName, String admin, byte[] groupReference) {
-		this.groupName = groupName;
+	public GroupAdminData(int groupId, String admin, byte[] reference) {
+		this.groupId = groupId;
 		this.admin = admin;
-		this.groupReference = groupReference;
+		this.reference = reference;
 	}
 
 	// Getters / setters
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getAdmin() {
 		return this.admin;
 	}
 
-	public byte[] getGroupReference() {
-		return this.groupReference;
+	public byte[] getReference() {
+		return this.reference;
 	}
 
-	public void setGroupReference(byte[] groupReference) {
-		this.groupReference = groupReference;
+	public void setReference(byte[] reference) {
+		this.reference = reference;
 	}
 
 }

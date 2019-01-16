@@ -9,11 +9,9 @@ import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.GroupInviteTransactionData;
 import org.qora.data.transaction.TransactionData;
-import org.qora.group.Group;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
-import com.google.common.base.Utf8;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
@@ -22,11 +20,11 @@ public class GroupInviteTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int ADMIN_LENGTH = PUBLIC_KEY_LENGTH;
-	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
+	private static final int GROUPID_LENGTH = INT_LENGTH;
 	private static final int INVITEE_LENGTH = ADDRESS_LENGTH;
 	private static final int TTL_LENGTH = INT_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + NAME_SIZE_LENGTH + INVITEE_LENGTH + TTL_LENGTH;
+	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + GROUPID_LENGTH + INVITEE_LENGTH + TTL_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
@@ -36,10 +34,10 @@ public class GroupInviteTransactionTransformer extends TransactionTransformer {
 
 		byte[] adminPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String groupName = Serialization.deserializeSizedString(byteBuffer, Group.MAX_NAME_SIZE);
+		int groupId = byteBuffer.getInt();
 
 		String invitee = Serialization.deserializeAddress(byteBuffer);
-		
+
 		int timeToLive = byteBuffer.getInt();
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
@@ -47,15 +45,11 @@ public class GroupInviteTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new GroupInviteTransactionData(adminPublicKey, groupName, invitee, timeToLive, fee, timestamp, reference, signature);
+		return new GroupInviteTransactionData(adminPublicKey, groupId, invitee, timeToLive, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		GroupInviteTransactionData groupInviteTransactionData = (GroupInviteTransactionData) transactionData;
-
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(groupInviteTransactionData.getGroupName());
-
-		return dataLength;
+		return TYPE_LENGTH + TYPELESS_LENGTH;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -69,7 +63,7 @@ public class GroupInviteTransactionTransformer extends TransactionTransformer {
 			bytes.write(groupInviteTransactionData.getReference());
 
 			bytes.write(groupInviteTransactionData.getCreatorPublicKey());
-			Serialization.serializeSizedString(bytes, groupInviteTransactionData.getGroupName());
+			bytes.write(Ints.toByteArray(groupInviteTransactionData.getGroupId()));
 			Serialization.serializeAddress(bytes, groupInviteTransactionData.getInvitee());
 			bytes.write(Ints.toByteArray(groupInviteTransactionData.getTimeToLive()));
 
@@ -96,7 +90,7 @@ public class GroupInviteTransactionTransformer extends TransactionTransformer {
 			json.put("admin", PublicKeyAccount.getAddress(adminPublicKey));
 			json.put("adminPublicKey", HashCode.fromBytes(adminPublicKey).toString());
 
-			json.put("groupName", groupInviteTransactionData.getGroupName());
+			json.put("groupId", groupInviteTransactionData.getGroupId());
 			json.put("invitee", groupInviteTransactionData.getInvitee());
 			json.put("timeToLive", groupInviteTransactionData.getTimeToLive());
 		} catch (ClassCastException e) {

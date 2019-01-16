@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
 
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -19,7 +20,11 @@ public class JoinGroupTransactionData extends TransactionData {
 	@Schema(description = "joiner's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] joinerPublicKey;
 	@Schema(description = "which group to join", example = "my-group")
-	private String groupName;
+	private int groupId;
+	/** Reference to GROUP_INVITE transaction, used to rebuild invite during orphaning. */
+	// No need to ever expose this via API
+	@XmlTransient
+	private byte[] inviteReference;
 
 	// Constructors
 
@@ -32,15 +37,17 @@ public class JoinGroupTransactionData extends TransactionData {
 		this.creatorPublicKey = this.joinerPublicKey;
 	}
 
-	public JoinGroupTransactionData(byte[] joinerPublicKey, String groupName, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+	public JoinGroupTransactionData(byte[] joinerPublicKey, int groupId, byte[] inviteReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.JOIN_GROUP, fee, joinerPublicKey, timestamp, reference, signature);
 
 		this.joinerPublicKey = joinerPublicKey;
-		this.groupName = groupName;
+		this.groupId = groupId;
+		this.inviteReference = inviteReference;
 	}
 
-	public JoinGroupTransactionData(byte[] joinerPublicKey, String groupName, BigDecimal fee, long timestamp, byte[] reference) {
-		this(joinerPublicKey, groupName, fee, timestamp, reference, null);
+	/** Constructor typically used after deserialization */
+	public JoinGroupTransactionData(byte[] joinerPublicKey, int groupId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+		this(joinerPublicKey, groupId, null, fee, timestamp, reference, signature);
 	}
 
 	// Getters / setters
@@ -49,8 +56,16 @@ public class JoinGroupTransactionData extends TransactionData {
 		return this.joinerPublicKey;
 	}
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
+	}
+
+	public byte[] getInviteReference() {
+		return this.inviteReference;
+	}
+
+	public void setInviteReference(byte[] inviteReference) {
+		this.inviteReference = inviteReference;
 	}
 
 }

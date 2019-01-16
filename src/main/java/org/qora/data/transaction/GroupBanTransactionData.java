@@ -13,26 +13,48 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
-@Schema(allOf = { TransactionData.class })
+@Schema(
+	allOf = {
+		TransactionData.class
+	}
+)
 public class GroupBanTransactionData extends TransactionData {
 
 	// Properties
-	@Schema(description = "admin's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
+	@Schema(
+		description = "admin's public key",
+		example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP"
+	)
 	private byte[] adminPublicKey;
-	@Schema(description = "group name", example = "my-group")
-	private String groupName;
-	@Schema(description = "offender to ban from group", example = "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK")
-	private String offender; 
-	@Schema(description = "reason for ban")
+	@Schema(
+		description = "group ID"
+	)
+	private int groupId;
+	@Schema(
+		description = "offender to ban from group",
+		example = "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK"
+	)
+	private String offender;
+	@Schema(
+		description = "reason for ban"
+	)
 	private String reason;
-	@Schema(description = "ban lifetime in seconds")
+	@Schema(
+		description = "ban lifetime in seconds"
+	)
 	private int timeToLive;
+	/** Reference to transaction that triggered membership. Could be JOIN_GROUP, GROUP_INVITE or UPDATE_GROUP transaction. */
 	// No need to ever expose this via API
 	@XmlTransient
 	private byte[] memberReference;
+	/** Reference to transaction that triggered adminship. */
 	// No need to ever expose this via API
 	@XmlTransient
 	private byte[] adminReference;
+	/** Reference to pending join-request or invite transaction that was deleted by this so it (invite/join-request) can be rebuilt during orphaning. */
+	// No need to ever expose this via API
+	@XmlTransient
+	private byte[] joinInviteReference;
 
 	// Constructors
 
@@ -45,28 +67,24 @@ public class GroupBanTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public GroupBanTransactionData(byte[] adminPublicKey, String groupName, String member, String reason, int timeToLive, byte[] memberReference, byte[] adminReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+	public GroupBanTransactionData(byte[] adminPublicKey, int groupId, String member, String reason, int timeToLive, byte[] memberReference,
+			byte[] adminReference, byte[] joinInviteReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.GROUP_BAN, fee, adminPublicKey, timestamp, reference, signature);
 
 		this.adminPublicKey = adminPublicKey;
-		this.groupName = groupName;
+		this.groupId = groupId;
 		this.offender = member;
 		this.reason = reason;
 		this.timeToLive = timeToLive;
 		this.memberReference = memberReference;
 		this.adminReference = adminReference;
+		this.joinInviteReference = joinInviteReference;
 	}
 
-	public GroupBanTransactionData(byte[] adminPublicKey, String groupName, String offender, String reason, int timeToLive, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(adminPublicKey, groupName, offender, reason, timeToLive, null, null, fee, timestamp, reference, signature);
-	}
-
-	public GroupBanTransactionData(byte[] adminPublicKey, String groupName, String offender, String reason, int timeToLive, byte[] memberReference, byte[] adminReference, BigDecimal fee, long timestamp, byte[] reference) {
-		this(adminPublicKey, groupName, offender, reason, timeToLive, memberReference, adminReference, fee, timestamp, reference, null);
-	}
-
-	public GroupBanTransactionData(byte[] adminPublicKey, String groupName, String offender, String reason, int timeToLive, BigDecimal fee, long timestamp, byte[] reference) {
-		this(adminPublicKey, groupName, offender, reason, timeToLive, null, null, fee, timestamp, reference, null);
+	/** Constructor typically used after deserialization */
+	public GroupBanTransactionData(byte[] adminPublicKey, int groupId, String offender, String reason, int timeToLive, BigDecimal fee, long timestamp,
+			byte[] reference, byte[] signature) {
+		this(adminPublicKey, groupId, offender, reason, timeToLive, null, null, null, fee, timestamp, reference, signature);
 	}
 
 	// Getters / setters
@@ -75,8 +93,8 @@ public class GroupBanTransactionData extends TransactionData {
 		return this.adminPublicKey;
 	}
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getOffender() {
@@ -105,6 +123,14 @@ public class GroupBanTransactionData extends TransactionData {
 
 	public void setAdminReference(byte[] adminReference) {
 		this.adminReference = adminReference;
+	}
+
+	public byte[] getJoinInviteReference() {
+		return this.joinInviteReference;
+	}
+
+	public void setJoinInviteReference(byte[] reference) {
+		this.joinInviteReference = reference;
 	}
 
 }

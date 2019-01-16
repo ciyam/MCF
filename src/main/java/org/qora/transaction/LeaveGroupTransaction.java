@@ -15,8 +15,6 @@ import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 
-import com.google.common.base.Utf8;
-
 public class LeaveGroupTransaction extends Transaction {
 
 	// Properties
@@ -68,16 +66,7 @@ public class LeaveGroupTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(leaveGroupTransactionData.getGroupName());
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
-
-		// Check group name is lowercase
-		if (!leaveGroupTransactionData.getGroupName().equals(leaveGroupTransactionData.getGroupName().toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = this.repository.getGroupRepository().fromGroupName(leaveGroupTransactionData.getGroupName());
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(leaveGroupTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
@@ -89,13 +78,15 @@ public class LeaveGroupTransaction extends Transaction {
 		if (leaver.getAddress().equals(groupData.getOwner()))
 			return ValidationResult.GROUP_OWNER_CANNOT_LEAVE;
 
-		if (!this.repository.getGroupRepository().memberExists(leaveGroupTransactionData.getGroupName(), leaver.getAddress()))
+		// Check leaver is actually a member of group
+		if (!this.repository.getGroupRepository().memberExists(leaveGroupTransactionData.getGroupId(), leaver.getAddress()))
 			return ValidationResult.NOT_GROUP_MEMBER;
 
 		// Check fee is positive
 		if (leaveGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
+		// Check reference
 		if (!Arrays.equals(leaver.getLastReference(), leaveGroupTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
@@ -109,7 +100,7 @@ public class LeaveGroupTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, leaveGroupTransactionData.getGroupName());
+		Group group = new Group(this.repository, leaveGroupTransactionData.getGroupId());
 		group.leave(leaveGroupTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
@@ -126,7 +117,7 @@ public class LeaveGroupTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, leaveGroupTransactionData.getGroupName());
+		Group group = new Group(this.repository, leaveGroupTransactionData.getGroupId());
 		group.unleave(leaveGroupTransactionData);
 
 		// Delete this transaction itself

@@ -2,14 +2,19 @@ package org.qora.data.group;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 public class GroupJoinRequestData {
 
 	// Properties
-	private String groupName;
+	private int groupId;
 	private String joiner;
+	/** Reference to JOIN_GROUP transaction, used to rebuild this join request during orphaning. */
+	// No need to ever expose this via API
+	@XmlTransient
+	private byte[] reference;
 
 	// Constructors
 
@@ -17,19 +22,28 @@ public class GroupJoinRequestData {
 	protected GroupJoinRequestData() {
 	}
 
-	public GroupJoinRequestData(String groupName, String joiner) {
-		this.groupName = groupName;
+	public GroupJoinRequestData(int groupId, String joiner, byte[] reference) {
+		this.groupId = groupId;
 		this.joiner = joiner;
+		this.reference = reference;
 	}
 
 	// Getters / setters
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getJoiner() {
 		return this.joiner;
+	}
+
+	public byte[] getReference() {
+		return this.reference;
+	}
+
+	public void setReference(byte[] reference) {
+		this.reference = reference;
 	}
 
 }

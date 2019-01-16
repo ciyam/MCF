@@ -9,12 +9,13 @@ import javax.xml.bind.annotation.XmlTransient;
 public class GroupBanData {
 
 	// Properties
-	private String groupName;
+	private int groupId;
 	private String offender;
 	private String admin;
 	private long banned;
 	private String reason;
 	private Long expiry;
+	/** Reference to GROUP_BAN transaction, used to rebuild this ban during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
 	private byte[] reference;
@@ -25,8 +26,8 @@ public class GroupBanData {
 	protected GroupBanData() {
 	}
 
-	public GroupBanData(String groupName, String offender, String admin, long banned, String reason, Long expiry, byte[] reference) {
-		this.groupName = groupName;
+	public GroupBanData(int groupId, String offender, String admin, long banned, String reason, Long expiry, byte[] reference) {
+		this.groupId = groupId;
 		this.offender = offender;
 		this.admin = admin;
 		this.banned = banned;
@@ -37,8 +38,8 @@ public class GroupBanData {
 
 	// Getters / setters
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getOffender() {

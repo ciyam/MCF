@@ -16,8 +16,6 @@ import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 
-import com.google.common.base.Utf8;
-
 public class RemoveGroupAdminTransaction extends Transaction {
 
 	// Properties
@@ -80,16 +78,7 @@ public class RemoveGroupAdminTransaction extends Transaction {
 		if (!Crypto.isValidAddress(removeGroupAdminTransactionData.getAdmin()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(removeGroupAdminTransactionData.getGroupName());
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
-
-		// Check group name is lowercase
-		if (!removeGroupAdminTransactionData.getGroupName().equals(removeGroupAdminTransactionData.getGroupName().toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = this.repository.getGroupRepository().fromGroupName(removeGroupAdminTransactionData.getGroupName());
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(removeGroupAdminTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
@@ -104,13 +93,14 @@ public class RemoveGroupAdminTransaction extends Transaction {
 		Account admin = getAdmin();
 
 		// Check member is an admin
-		if (!this.repository.getGroupRepository().adminExists(removeGroupAdminTransactionData.getGroupName(), admin.getAddress()))
+		if (!this.repository.getGroupRepository().adminExists(removeGroupAdminTransactionData.getGroupId(), admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
 		// Check fee is positive
 		if (removeGroupAdminTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
+		// Check reference
 		if (!Arrays.equals(owner.getLastReference(), removeGroupAdminTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
@@ -124,7 +114,7 @@ public class RemoveGroupAdminTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group adminship
-		Group group = new Group(this.repository, removeGroupAdminTransactionData.getGroupName());
+		Group group = new Group(this.repository, removeGroupAdminTransactionData.getGroupId());
 		group.demoteFromAdmin(removeGroupAdminTransactionData);
 
 		// Save this transaction
@@ -141,7 +131,7 @@ public class RemoveGroupAdminTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert group adminship
-		Group group = new Group(this.repository, removeGroupAdminTransactionData.getGroupName());
+		Group group = new Group(this.repository, removeGroupAdminTransactionData.getGroupId());
 		group.undemoteFromAdmin(removeGroupAdminTransactionData);
 
 		// Delete this transaction itself

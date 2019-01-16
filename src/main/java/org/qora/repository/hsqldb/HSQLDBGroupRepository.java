@@ -27,33 +27,68 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	// Groups
 
 	@Override
-	public GroupData fromGroupName(String groupName) throws DataException {
+	public GroupData fromGroupId(int groupId) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT owner, description, created, updated, reference, is_open FROM AccountGroups WHERE group_name = ?", groupName)) {
+				.checkedExecute("SELECT group_name, owner, description, created, updated, reference, is_open FROM Groups WHERE group_id = ?", groupId)) {
 			if (resultSet == null)
 				return null;
 
-			String owner = resultSet.getString(1);
-			String description = resultSet.getString(2);
-			long created = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			String groupName = resultSet.getString(1);
+			String owner = resultSet.getString(2);
+			String description = resultSet.getString(3);
+			long created = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 			// Special handling for possibly-NULL "updated" column
-			Timestamp updatedTimestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC));
+			Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
 			Long updated = resultSet.wasNull() ? null : updatedTimestamp.getTime();
 
-			byte[] reference = resultSet.getBytes(5);
-			boolean isOpen = resultSet.getBoolean(6);
+			byte[] reference = resultSet.getBytes(6);
+			boolean isOpen = resultSet.getBoolean(7);
 
-			return new GroupData(owner, groupName, description, created, updated, isOpen, reference);
+			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group info from repository", e);
 		}
 	}
 
 	@Override
+	public GroupData fromGroupName(String groupName) throws DataException {
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT group_id, owner, description, created, updated, reference, is_open FROM Groups WHERE group_name = ?", groupName)) {
+			if (resultSet == null)
+				return null;
+
+			int groupId = resultSet.getInt(1);
+			String owner = resultSet.getString(2);
+			String description = resultSet.getString(3);
+			long created = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+
+			// Special handling for possibly-NULL "updated" column
+			Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
+			Long updated = resultSet.wasNull() ? null : updatedTimestamp.getTime();
+
+			byte[] reference = resultSet.getBytes(6);
+			boolean isOpen = resultSet.getBoolean(7);
+
+			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group info from repository", e);
+		}
+	}
+
+	@Override
+	public boolean groupExists(int groupId) throws DataException {
+		try {
+			return this.repository.exists("Groups", "group_id = ?", groupId);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for group in repository", e);
+		}
+	}
+
+	@Override
 	public boolean groupExists(String groupName) throws DataException {
 		try {
-			return this.repository.exists("AccountGroups", "group_name = ?", groupName);
+			return this.repository.exists("Groups", "group_name = ?", groupName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to check for group in repository", e);
 		}
@@ -64,24 +99,25 @@ public class HSQLDBGroupRepository implements GroupRepository {
 		List<GroupData> groups = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_name, description, owner, created, updated, reference, is_open FROM AccountGroups")) {
+				.checkedExecute("SELECT group_id, owner, group_name, description, created, updated, reference, is_open FROM Groups")) {
 			if (resultSet == null)
 				return groups;
 
 			do {
-				String groupName = resultSet.getString(1);
-				String description = resultSet.getString(2);
-				String owner = resultSet.getString(3);
-				long created = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				int groupId = resultSet.getInt(1);
+				String owner = resultSet.getString(2);
+				String groupName = resultSet.getString(3);
+				String description = resultSet.getString(4);
+				long created = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
+				Timestamp updatedTimestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC));
 				Long updated = resultSet.wasNull() ? null : updatedTimestamp.getTime();
 
-				byte[] reference = resultSet.getBytes(6);
-				boolean isOpen = resultSet.getBoolean(7);
+				byte[] reference = resultSet.getBytes(7);
+				boolean isOpen = resultSet.getBoolean(8);
 
-				groups.add(new GroupData(owner, groupName, description, created, updated, isOpen, reference));
+				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference));
 			} while (resultSet.next());
 
 			return groups;
@@ -95,23 +131,57 @@ public class HSQLDBGroupRepository implements GroupRepository {
 		List<GroupData> groups = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_name, description, created, updated, reference, is_open FROM AccountGroups WHERE owner = ?", owner)) {
+				.checkedExecute("SELECT group_id, group_name, description, created, updated, reference, is_open FROM Groups WHERE owner = ?", owner)) {
 			if (resultSet == null)
 				return groups;
 
 			do {
-				String groupName = resultSet.getString(1);
-				String description = resultSet.getString(2);
-				long created = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				int groupId = resultSet.getInt(1);
+				String groupName = resultSet.getString(2);
+				String description = resultSet.getString(3);
+				long created = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC));
+				Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
 				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
 
-				byte[] reference = resultSet.getBytes(5);
-				boolean isOpen = resultSet.getBoolean(6);
+				byte[] reference = resultSet.getBytes(6);
+				boolean isOpen = resultSet.getBoolean(7);
 
-				groups.add(new GroupData(owner, groupName, description, created, updated, isOpen, reference));
+				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference));
+			} while (resultSet.next());
+
+			return groups;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's groups from repository", e);
+		}
+	}
+
+	@Override
+	public List<GroupData> getGroupsWithMember(String member) throws DataException {
+		List<GroupData> groups = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT group_id, owner, group_name, description, created, updated, reference, is_open FROM Groups JOIN GroupMembers USING (group_id) WHERE address = ?",
+				member)) {
+			if (resultSet == null)
+				return groups;
+
+			do {
+				int groupId = resultSet.getInt(1);
+				String owner = resultSet.getString(2);
+				String groupName = resultSet.getString(3);
+				String description = resultSet.getString(4);
+				long created = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+
+				// Special handling for possibly-NULL "updated" column
+				Timestamp updatedTimestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC));
+				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+
+				byte[] reference = resultSet.getBytes(7);
+				boolean isOpen = resultSet.getBoolean(8);
+
+				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference));
 			} while (resultSet.next());
 
 			return groups;
@@ -122,36 +192,48 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public void save(GroupData groupData) throws DataException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroups");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Groups");
 
 		// Special handling for "updated" timestamp
 		Long updated = groupData.getUpdated();
 		Timestamp updatedTimestamp = updated == null ? null : new Timestamp(updated);
 
-		saveHelper.bind("owner", groupData.getOwner()).bind("group_name", groupData.getGroupName()).bind("description", groupData.getDescription())
-				.bind("created", new Timestamp(groupData.getCreated())).bind("updated", updatedTimestamp).bind("reference", groupData.getReference())
-				.bind("is_open", groupData.getIsOpen());
+		saveHelper.bind("group_id", groupData.getGroupId()).bind("owner", groupData.getOwner()).bind("group_name", groupData.getGroupName())
+				.bind("description", groupData.getDescription()).bind("created", new Timestamp(groupData.getCreated())).bind("updated", updatedTimestamp)
+				.bind("reference", groupData.getReference()).bind("is_open", groupData.getIsOpen());
 
 		try {
 			saveHelper.execute(this.repository);
+
+			if (groupData.getGroupId() == null) {
+				// Fetch new groupId
+				try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id FROM Groups WHERE reference = ?", groupData.getReference())) {
+					if (resultSet == null)
+						throw new DataException("Unable to fetch new group ID from repository");
+
+					groupData.setGroupId(resultSet.getInt(1));
+				}
+			}
 		} catch (SQLException e) {
 			throw new DataException("Unable to save group info into repository", e);
 		}
 	}
 
 	@Override
+	public void delete(int groupId) throws DataException {
+		try {
+			// Remove group
+			this.repository.delete("Groups", "group_id = ?", groupId);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete group info from repository", e);
+		}
+	}
+
+	@Override
 	public void delete(String groupName) throws DataException {
 		try {
-			// Remove invites
-			this.repository.delete("AccountGroupInvites", "group_name = ?", groupName);
-			// Remove bans
-			this.repository.delete("AccountGroupBans", "group_name = ?", groupName);
-			// Remove members
-			this.repository.delete("AccountGroupMembers", "group_name = ?", groupName);
-			// Remove admins
-			this.repository.delete("AccountGroupAdmins", "group_name = ?", groupName);
 			// Remove group
-			this.repository.delete("AccountGroups", "group_name = ?", groupName);
+			this.repository.delete("Groups", "group_name = ?", groupName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete group info from repository", e);
 		}
@@ -160,42 +242,42 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	// Group Admins
 
 	@Override
-	public GroupAdminData getAdmin(String groupName, String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT admin, group_reference FROM AccountGroupAdmins WHERE group_name = ?", groupName)) {
+	public GroupAdminData getAdmin(int groupId, String address) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT admin, reference FROM GroupAdmins WHERE group_id = ?", groupId)) {
 			if (resultSet == null)
 				return null;
 
 			String admin = resultSet.getString(1);
-			byte[] groupReference = resultSet.getBytes(2);
+			byte[] reference = resultSet.getBytes(2);
 
-			return new GroupAdminData(groupName, admin, groupReference);
+			return new GroupAdminData(groupId, admin, reference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group admin from repository", e);
 		}
 	}
 
 	@Override
-	public boolean adminExists(String groupName, String address) throws DataException {
+	public boolean adminExists(int groupId, String address) throws DataException {
 		try {
-			return this.repository.exists("AccountGroupAdmins", "group_name = ? AND admin = ?", groupName, address);
+			return this.repository.exists("GroupAdmins", "group_id = ? AND admin = ?", groupId, address);
 		} catch (SQLException e) {
 			throw new DataException("Unable to check for group admin in repository", e);
 		}
 	}
 
 	@Override
-	public List<GroupAdminData> getGroupAdmins(String groupName) throws DataException {
+	public List<GroupAdminData> getGroupAdmins(int groupId) throws DataException {
 		List<GroupAdminData> admins = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT admin, group_reference FROM AccountGroupAdmins WHERE group_name = ?", groupName)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT admin, reference FROM GroupAdmins WHERE group_id = ?", groupId)) {
 			if (resultSet == null)
 				return admins;
 
 			do {
 				String admin = resultSet.getString(1);
-				byte[] groupReference = resultSet.getBytes(2);
+				byte[] reference = resultSet.getBytes(2);
 
-				admins.add(new GroupAdminData(groupName, admin, groupReference));
+				admins.add(new GroupAdminData(groupId, admin, reference));
 			} while (resultSet.next());
 
 			return admins;
@@ -206,10 +288,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public void save(GroupAdminData groupAdminData) throws DataException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroupAdmins");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupAdmins");
 
-		saveHelper.bind("group_name", groupAdminData.getGroupName()).bind("admin", groupAdminData.getAdmin()).bind("group_reference",
-				groupAdminData.getGroupReference());
+		saveHelper.bind("group_id", groupAdminData.getGroupId()).bind("admin", groupAdminData.getAdmin()).bind("reference", groupAdminData.getReference());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -219,9 +300,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public void deleteAdmin(String groupName, String address) throws DataException {
+	public void deleteAdmin(int groupId, String address) throws DataException {
 		try {
-			this.repository.delete("AccountGroupAdmins", "group_name = ? AND admin = ?", groupName, address);
+			this.repository.delete("GroupAdmins", "group_id = ? AND admin = ?", groupId, address);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete group admin info from repository", e);
 		}
@@ -230,46 +311,44 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	// Group Members
 
 	@Override
-	public GroupMemberData getMember(String groupName, String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT address, joined, group_reference FROM AccountGroupMembers WHERE group_name = ?",
-				groupName)) {
+	public GroupMemberData getMember(int groupId, String address) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT address, joined, reference FROM GroupMembers WHERE group_id = ?", groupId)) {
 			if (resultSet == null)
 				return null;
 
 			String member = resultSet.getString(1);
 			long joined = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-			byte[] groupReference = resultSet.getBytes(3);
+			byte[] reference = resultSet.getBytes(3);
 
-			return new GroupMemberData(groupName, member, joined, groupReference);
+			return new GroupMemberData(groupId, member, joined, reference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group members from repository", e);
 		}
 	}
 
 	@Override
-	public boolean memberExists(String groupName, String address) throws DataException {
+	public boolean memberExists(int groupId, String address) throws DataException {
 		try {
-			return this.repository.exists("AccountGroupMembers", "group_name = ? AND address = ?", groupName, address);
+			return this.repository.exists("GroupMembers", "group_id = ? AND address = ?", groupId, address);
 		} catch (SQLException e) {
 			throw new DataException("Unable to check for group member in repository", e);
 		}
 	}
 
 	@Override
-	public List<GroupMemberData> getGroupMembers(String groupName) throws DataException {
+	public List<GroupMemberData> getGroupMembers(int groupId) throws DataException {
 		List<GroupMemberData> members = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT address, joined, group_reference FROM AccountGroupMembers WHERE group_name = ?",
-				groupName)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT address, joined, reference FROM GroupMembers WHERE group_id = ?", groupId)) {
 			if (resultSet == null)
 				return members;
 
 			do {
 				String member = resultSet.getString(1);
 				long joined = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-				byte[] groupReference = resultSet.getBytes(3);
+				byte[] reference = resultSet.getBytes(3);
 
-				members.add(new GroupMemberData(groupName, member, joined, groupReference));
+				members.add(new GroupMemberData(groupId, member, joined, reference));
 			} while (resultSet.next());
 
 			return members;
@@ -279,9 +358,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public Integer countGroupMembers(String groupName) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_name, COUNT(*) FROM AccountGroupMembers WHERE group_name = ? GROUP BY group_name", groupName)) {
+	public Integer countGroupMembers(int groupId) throws DataException {
+		// "GROUP BY" clause required to avoid error "expression not in aggregate or GROUP BY columns: PUBLIC.GROUPS.GROUP_ID"
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, COUNT(*) FROM GroupMembers WHERE group_id = ? GROUP BY group_id",
+				groupId)) {
 			if (resultSet == null)
 				return null;
 
@@ -293,10 +373,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public void save(GroupMemberData groupMemberData) throws DataException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroupMembers");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupMembers");
 
-		saveHelper.bind("group_name", groupMemberData.getGroupName()).bind("address", groupMemberData.getMember())
-				.bind("joined", new Timestamp(groupMemberData.getJoined())).bind("group_reference", groupMemberData.getGroupReference());
+		saveHelper.bind("group_id", groupMemberData.getGroupId()).bind("address", groupMemberData.getMember())
+				.bind("joined", new Timestamp(groupMemberData.getJoined())).bind("reference", groupMemberData.getReference());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -306,9 +386,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public void deleteMember(String groupName, String address) throws DataException {
+	public void deleteMember(int groupId, String address) throws DataException {
 		try {
-			this.repository.delete("AccountGroupMembers", "group_name = ? AND address = ?", groupName, address);
+			this.repository.delete("GroupMembers", "group_id = ? AND address = ?", groupId, address);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete group member info from repository", e);
 		}
@@ -317,46 +397,38 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	// Group Invites
 
 	@Override
-	public GroupInviteData getInvite(String groupName, String inviter, String invitee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT expiry, reference FROM AccountGroupInvites WHERE group_name = ?", groupName)) {
+	public GroupInviteData getInvite(int groupId, String invitee) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT inviter, expiry, reference FROM GroupInvites WHERE group_id = ? AND invitee = ?",
+				groupId, invitee)) {
 			if (resultSet == null)
 				return null;
 
-			Timestamp expiryTimestamp = resultSet.getTimestamp(1, Calendar.getInstance(HSQLDBRepository.UTC));
+			String inviter = resultSet.getString(1);
+			Timestamp expiryTimestamp = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC));
 			Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
 
-			byte[] reference = resultSet.getBytes(2);
+			byte[] reference = resultSet.getBytes(3);
 
-			return new GroupInviteData(groupName, inviter, invitee, expiry, reference);
+			return new GroupInviteData(groupId, inviter, invitee, expiry, reference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group invite from repository", e);
 		}
 	}
 
 	@Override
-	public boolean inviteExists(String groupName, String invitee) throws DataException {
+	public boolean inviteExists(int groupId, String invitee) throws DataException {
 		try {
-			return this.repository.exists("AccountGroupInvites", "group_name = ? AND invitee = ?", groupName, invitee);
+			return this.repository.exists("GroupInvites", "group_id = ? AND invitee = ?", groupId, invitee);
 		} catch (SQLException e) {
 			throw new DataException("Unable to check for group invite in repository", e);
 		}
 	}
 
 	@Override
-	public boolean inviteExists(String groupName, String inviter, String invitee) throws DataException {
-		try {
-			return this.repository.exists("AccountGroupInvites", "group_name = ? AND inviter = ? AND invitee = ?", groupName, inviter, invitee);
-		} catch (SQLException e) {
-			throw new DataException("Unable to check for group invite in repository", e);
-		}
-	}
-
-	@Override
-	public List<GroupInviteData> getGroupInvites(String groupName) throws DataException {
+	public List<GroupInviteData> getGroupInvites(int groupId) throws DataException {
 		List<GroupInviteData> invites = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT inviter, invitee, expiry, reference FROM AccountGroupInvites WHERE group_name = ?",
-				groupName)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT inviter, invitee, expiry, reference FROM GroupInvites WHERE group_id = ?", groupId)) {
 			if (resultSet == null)
 				return invites;
 
@@ -369,7 +441,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 				byte[] reference = resultSet.getBytes(4);
 
-				invites.add(new GroupInviteData(groupName, inviter, invitee, expiry, reference));
+				invites.add(new GroupInviteData(groupId, inviter, invitee, expiry, reference));
 			} while (resultSet.next());
 
 			return invites;
@@ -379,23 +451,23 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupInviteData> getInvitesByInvitee(String groupName, String invitee) throws DataException {
+	public List<GroupInviteData> getInvitesByInvitee(String invitee) throws DataException {
 		List<GroupInviteData> invites = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT inviter, expiry, reference FROM AccountGroupInvites WHERE group_name = ? AND invitee = ?", groupName, invitee)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, inviter, expiry, reference FROM GroupInvites WHERE invitee = ?", invitee)) {
 			if (resultSet == null)
 				return invites;
 
 			do {
-				String inviter = resultSet.getString(1);
+				int groupId = resultSet.getInt(1);
+				String inviter = resultSet.getString(2);
 
-				Timestamp expiryTimestamp = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC));
+				Timestamp expiryTimestamp = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC));
 				Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
 
-				byte[] reference = resultSet.getBytes(3);
+				byte[] reference = resultSet.getBytes(4);
 
-				invites.add(new GroupInviteData(groupName, inviter, invitee, expiry, reference));
+				invites.add(new GroupInviteData(groupId, inviter, invitee, expiry, reference));
 			} while (resultSet.next());
 
 			return invites;
@@ -406,14 +478,14 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public void save(GroupInviteData groupInviteData) throws DataException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroupInvites");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupInvites");
 
 		Timestamp expiryTimestamp = null;
 		if (groupInviteData.getExpiry() != null)
 			expiryTimestamp = new Timestamp(groupInviteData.getExpiry());
 
-		saveHelper.bind("group_name", groupInviteData.getGroupName()).bind("inviter", groupInviteData.getInviter())
-				.bind("invitee", groupInviteData.getInvitee()).bind("expiry", expiryTimestamp).bind("reference", groupInviteData.getReference());
+		saveHelper.bind("group_id", groupInviteData.getGroupId()).bind("inviter", groupInviteData.getInviter()).bind("invitee", groupInviteData.getInvitee())
+				.bind("expiry", expiryTimestamp).bind("reference", groupInviteData.getReference());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -423,9 +495,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public void deleteInvite(String groupName, String inviter, String invitee) throws DataException {
+	public void deleteInvite(int groupId, String invitee) throws DataException {
 		try {
-			this.repository.delete("AccountGroupInvites", "group_name = ? AND inviter = ? AND invitee = ?", groupName, inviter, invitee);
+			this.repository.delete("GroupInvites", "group_id = ? AND invitee = ?", groupId, invitee);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete group invite from repository", e);
 		}
@@ -434,26 +506,42 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	// Group Join Requests
 
 	@Override
-	public boolean joinRequestExists(String groupName, String joiner) throws DataException {
+	public GroupJoinRequestData getJoinRequest(Integer groupId, String joiner) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM GroupJoinRequests WHERE group_id = ? AND joiner = ?", groupId,
+				joiner)) {
+			if (resultSet == null)
+				return null;
+
+			byte[] reference = resultSet.getBytes(1);
+
+			return new GroupJoinRequestData(groupId, joiner, reference);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group join requests from repository", e);
+		}
+	}
+
+	@Override
+	public boolean joinRequestExists(int groupId, String joiner) throws DataException {
 		try {
-			return this.repository.exists("AccountGroupJoinRequests", "group_name = ? AND joiner = ?", groupName, joiner);
+			return this.repository.exists("GroupJoinRequests", "group_id = ? AND joiner = ?", groupId, joiner);
 		} catch (SQLException e) {
 			throw new DataException("Unable to check for group join request in repository", e);
 		}
 	}
 
 	@Override
-	public List<GroupJoinRequestData> getGroupJoinRequests(String groupName) throws DataException {
+	public List<GroupJoinRequestData> getGroupJoinRequests(int groupId) throws DataException {
 		List<GroupJoinRequestData> joinRequests = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT joiner FROM AccountGroupJoinRequests WHERE group_name = ?", groupName)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT joiner, reference FROM GroupJoinRequests WHERE group_id = ?", groupId)) {
 			if (resultSet == null)
 				return joinRequests;
 
 			do {
 				String joiner = resultSet.getString(1);
+				byte[] reference = resultSet.getBytes(2);
 
-				joinRequests.add(new GroupJoinRequestData(groupName, joiner));
+				joinRequests.add(new GroupJoinRequestData(groupId, joiner, reference));
 			} while (resultSet.next());
 
 			return joinRequests;
@@ -464,9 +552,10 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public void save(GroupJoinRequestData groupJoinRequestData) throws DataException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroupJoinRequests");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupJoinRequests");
 
-		saveHelper.bind("group_name", groupJoinRequestData.getGroupName()).bind("joiner", groupJoinRequestData.getJoiner());
+		saveHelper.bind("group_id", groupJoinRequestData.getGroupId()).bind("joiner", groupJoinRequestData.getJoiner()).bind("reference",
+				groupJoinRequestData.getReference());
 
 		try {
 			saveHelper.execute(this.repository);
@@ -476,9 +565,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public void deleteJoinRequest(String groupName, String joiner) throws DataException {
+	public void deleteJoinRequest(int groupId, String joiner) throws DataException {
 		try {
-			this.repository.delete("AccountGroupJoinRequests", "group_name = ? AND joiner = ?", groupName, joiner);
+			this.repository.delete("GroupJoinRequests", "group_id = ? AND joiner = ?", groupId, joiner);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete group join request from repository", e);
 		}
@@ -487,40 +576,39 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	// Group Bans
 
 	@Override
-	public GroupBanData getBan(String groupName, String member) throws DataException {
+	public GroupBanData getBan(int groupId, String offender) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT offender, admin, banned, reason, expiry, reference FROM AccountGroupBans WHERE group_name = ?", groupName)) {
-			String offender = resultSet.getString(1);
-			String admin = resultSet.getString(2);
-			long banned = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-			String reason = resultSet.getString(4);
+				.checkedExecute("SELECT admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ? AND offender = ?", groupId, offender)) {
+			String admin = resultSet.getString(1);
+			long banned = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			String reason = resultSet.getString(3);
 
-			Timestamp expiryTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
+			Timestamp expiryTimestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC));
 			Long expiry = expiryTimestamp == null ? null : expiryTimestamp.getTime();
 
-			byte[] reference = resultSet.getBytes(6);
+			byte[] reference = resultSet.getBytes(5);
 
-			return new GroupBanData(groupName, offender, admin, banned, reason, expiry, reference);
+			return new GroupBanData(groupId, offender, admin, banned, reason, expiry, reference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group bans from repository", e);
 		}
 	}
 
 	@Override
-	public boolean banExists(String groupName, String offender) throws DataException {
+	public boolean banExists(int groupId, String offender) throws DataException {
 		try {
-			return this.repository.exists("AccountGroupBans", "group_name = ? AND offender = ?", groupName, offender);
+			return this.repository.exists("GroupBans", "group_id = ? AND offender = ?", groupId, offender);
 		} catch (SQLException e) {
 			throw new DataException("Unable to check for group ban in repository", e);
 		}
 	}
 
 	@Override
-	public List<GroupBanData> getGroupBans(String groupName) throws DataException {
+	public List<GroupBanData> getGroupBans(int groupId) throws DataException {
 		List<GroupBanData> bans = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT offender, admin, banned, reason, expiry, reference FROM AccountGroupBans WHERE group_name = ?", groupName)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT offender, admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ?",
+				groupId)) {
 			if (resultSet == null)
 				return bans;
 
@@ -535,7 +623,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 				byte[] reference = resultSet.getBytes(6);
 
-				bans.add(new GroupBanData(groupName, offender, admin, banned, reason, expiry, reference));
+				bans.add(new GroupBanData(groupId, offender, admin, banned, reason, expiry, reference));
 			} while (resultSet.next());
 
 			return bans;
@@ -546,13 +634,13 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public void save(GroupBanData groupBanData) throws DataException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("AccountGroupBans");
+		HSQLDBSaver saveHelper = new HSQLDBSaver("GroupBans");
 
 		Timestamp expiryTimestamp = null;
 		if (groupBanData.getExpiry() != null)
 			expiryTimestamp = new Timestamp(groupBanData.getExpiry());
 
-		saveHelper.bind("group_name", groupBanData.getGroupName()).bind("offender", groupBanData.getOffender()).bind("admin", groupBanData.getAdmin())
+		saveHelper.bind("group_id", groupBanData.getGroupId()).bind("offender", groupBanData.getOffender()).bind("admin", groupBanData.getAdmin())
 				.bind("banned", new Timestamp(groupBanData.getBanned())).bind("reason", groupBanData.getReason()).bind("expiry", expiryTimestamp)
 				.bind("reference", groupBanData.getReference());
 
@@ -564,9 +652,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public void deleteBan(String groupName, String offender) throws DataException {
+	public void deleteBan(int groupId, String offender) throws DataException {
 		try {
-			this.repository.delete("AccountGroupBans", "group_name = ? AND offender = ?", groupName, offender);
+			this.repository.delete("GroupBans", "group_id = ? AND offender = ?", groupId, offender);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete group ban from repository", e);
 		}

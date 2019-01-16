@@ -17,13 +17,15 @@ public class HSQLDBJoinGroupTransactionRepository extends HSQLDBTransactionRepos
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_name FROM JoinGroupTransactions WHERE signature = ?", signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, invite_reference FROM JoinGroupTransactions WHERE signature = ?",
+				signature)) {
 			if (resultSet == null)
 				return null;
 
-			String groupName = resultSet.getString(1);
+			int groupId = resultSet.getInt(1);
+			byte[] inviteReference = resultSet.getBytes(2);
 
-			return new JoinGroupTransactionData(creatorPublicKey, groupName, fee, timestamp, reference, signature);
+			return new JoinGroupTransactionData(creatorPublicKey, groupId, inviteReference, fee, timestamp, reference, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch join group transaction from repository", e);
 		}
@@ -36,7 +38,7 @@ public class HSQLDBJoinGroupTransactionRepository extends HSQLDBTransactionRepos
 		HSQLDBSaver saveHelper = new HSQLDBSaver("JoinGroupTransactions");
 
 		saveHelper.bind("signature", joinGroupTransactionData.getSignature()).bind("joiner", joinGroupTransactionData.getJoinerPublicKey())
-				.bind("group_name", joinGroupTransactionData.getGroupName());
+				.bind("group_id", joinGroupTransactionData.getGroupId()).bind("invite_reference", joinGroupTransactionData.getInviteReference());
 
 		try {
 			saveHelper.execute(this.repository);

@@ -19,14 +19,15 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 	// Properties
 	@Schema(description = "group owner's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] ownerPublicKey;
-	@Schema(description = "group name", example = "my-group")
-	private String groupName;
+	@Schema(description = "group ID")
+	private int groupId;
 	@Schema(description = "admin to demote", example = "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK")
 	private String admin; 
+	/** Reference to transaction that triggered adminship. */
 	// For internal use when orphaning
 	@XmlTransient
 	@Schema(hidden = true)
-	private byte[] groupReference;
+	private byte[] adminReference;
 
 	// Constructors
 
@@ -39,25 +40,18 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public RemoveGroupAdminTransactionData(byte[] ownerPublicKey, String groupName, String admin, byte[] groupReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+	public RemoveGroupAdminTransactionData(byte[] ownerPublicKey, int groupId, String admin, byte[] adminReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.REMOVE_GROUP_ADMIN, fee, ownerPublicKey, timestamp, reference, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
-		this.groupName = groupName;
+		this.groupId = groupId;
 		this.admin = admin;
-		this.groupReference = groupReference;
+		this.adminReference = adminReference;
 	}
 
-	public RemoveGroupAdminTransactionData(byte[] ownerPublicKey, String groupName, String admin, byte[] groupReference, BigDecimal fee, long timestamp, byte[] reference) {
-		this(ownerPublicKey, groupName, admin, groupReference, fee, timestamp, reference, null);
-	}
-
-	public RemoveGroupAdminTransactionData(byte[] ownerPublicKey, String groupName, String admin, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(ownerPublicKey, groupName, admin, null, fee, timestamp, reference, signature);
-	}
-
-	public RemoveGroupAdminTransactionData(byte[] ownerPublicKey, String groupName, String admin, BigDecimal fee, long timestamp, byte[] reference) {
-		this(ownerPublicKey, groupName, admin, null, fee, timestamp, reference, null);
+	/** Constructor typically used after deserialization */
+	public RemoveGroupAdminTransactionData(byte[] ownerPublicKey, int groupId, String admin, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+		this(ownerPublicKey, groupId, admin, null, fee, timestamp, reference, signature);
 	}
 
 	// Getters / setters
@@ -66,20 +60,20 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 		return this.ownerPublicKey;
 	}
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getAdmin() {
 		return this.admin;
 	}
 
-	public byte[] getGroupReference() {
-		return this.groupReference;
+	public byte[] getAdminReference() {
+		return this.adminReference;
 	}
 
-	public void setGroupReference(byte[] groupReference) {
-		this.groupReference = groupReference;
+	public void setAdminReference(byte[] adminReference) {
+		this.adminReference = adminReference;
 	}
 
 }

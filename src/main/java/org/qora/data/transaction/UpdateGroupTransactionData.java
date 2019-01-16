@@ -22,11 +22,12 @@ public class UpdateGroupTransactionData extends TransactionData {
 	@Schema(description = "new owner's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
 	private String newOwner;
 	@Schema(description = "which group to update", example = "my-group")
-	private String groupName;
+	private int groupId;
 	@Schema(description = "replacement group description", example = "my group for accounts I like")
 	private String newDescription;
 	@Schema(description = "new group join policy", example = "true")
 	private boolean newIsOpen;
+	/** Reference to CREATE_GROUP or UPDATE_GROUP transaction, used to rebuild group during orphaning. */
 	// For internal use when orphaning
 	@XmlTransient
 	@Schema(hidden = true)
@@ -43,26 +44,22 @@ public class UpdateGroupTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public UpdateGroupTransactionData(byte[] ownerPublicKey, String groupName, String newOwner, String newDescription, boolean newIsOpen, byte[] groupReference, BigDecimal fee, long timestamp,
+	public UpdateGroupTransactionData(byte[] ownerPublicKey, int groupId, String newOwner, String newDescription, boolean newIsOpen, byte[] groupReference, BigDecimal fee, long timestamp,
 			byte[] reference, byte[] signature) {
 		super(TransactionType.UPDATE_GROUP, fee, ownerPublicKey, timestamp, reference, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
 		this.newOwner = newOwner;
-		this.groupName = groupName;
+		this.groupId = groupId;
 		this.newDescription = newDescription;
 		this.newIsOpen = newIsOpen;
 		this.groupReference = groupReference;
 	}
 
-	public UpdateGroupTransactionData(byte[] ownerPublicKey, String groupName, String newOwner, String newDescription, boolean newIsOpen, BigDecimal fee, long timestamp, byte[] reference,
+	/** Constructor typically used after deserialization */
+	public UpdateGroupTransactionData(byte[] ownerPublicKey, int groupId, String newOwner, String newDescription, boolean newIsOpen, BigDecimal fee, long timestamp, byte[] reference,
 			byte[] signature) {
-		this(ownerPublicKey, groupName, newOwner, newDescription, newIsOpen, null, fee, timestamp, reference, signature);
-	}
-
-	public UpdateGroupTransactionData(byte[] ownerPublicKey, String groupName, String newOwner, String newDescription, boolean newIsOpen, byte[] groupReference, BigDecimal fee, long timestamp,
-			byte[] reference) {
-		this(ownerPublicKey, groupName, newOwner, newDescription, newIsOpen, groupReference, fee, timestamp, reference, null);
+		this(ownerPublicKey, groupId, newOwner, newDescription, newIsOpen, null, fee, timestamp, reference, signature);
 	}
 
 	// Getters / setters
@@ -75,8 +72,8 @@ public class UpdateGroupTransactionData extends TransactionData {
 		return this.newOwner;
 	}
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getNewDescription() {

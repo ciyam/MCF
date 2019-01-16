@@ -109,8 +109,8 @@ public class TransactionTransformer extends Transformer {
 				case GROUP_BAN:
 					return GroupBanTransactionTransformer.fromByteBuffer(byteBuffer);
 
-				case GROUP_UNBAN:
-					return GroupUnbanTransactionTransformer.fromByteBuffer(byteBuffer);
+				case CANCEL_GROUP_BAN:
+					return CancelGroupBanTransactionTransformer.fromByteBuffer(byteBuffer);
 
 				case GROUP_KICK:
 					return GroupKickTransactionTransformer.fromByteBuffer(byteBuffer);
@@ -203,8 +203,8 @@ public class TransactionTransformer extends Transformer {
 			case GROUP_BAN:
 				return GroupBanTransactionTransformer.getDataLength(transactionData);
 
-			case GROUP_UNBAN:
-				return GroupUnbanTransactionTransformer.getDataLength(transactionData);
+			case CANCEL_GROUP_BAN:
+				return CancelGroupBanTransactionTransformer.getDataLength(transactionData);
 
 			case GROUP_KICK:
 				return GroupKickTransactionTransformer.getDataLength(transactionData);
@@ -294,8 +294,8 @@ public class TransactionTransformer extends Transformer {
 			case GROUP_BAN:
 				return GroupBanTransactionTransformer.toBytes(transactionData);
 
-			case GROUP_UNBAN:
-				return GroupUnbanTransactionTransformer.toBytes(transactionData);
+			case CANCEL_GROUP_BAN:
+				return CancelGroupBanTransactionTransformer.toBytes(transactionData);
 
 			case GROUP_KICK:
 				return GroupKickTransactionTransformer.toBytes(transactionData);
@@ -394,8 +394,8 @@ public class TransactionTransformer extends Transformer {
 			case GROUP_BAN:
 				return GroupBanTransactionTransformer.toBytesForSigningImpl(transactionData);
 
-			case GROUP_UNBAN:
-				return GroupUnbanTransactionTransformer.toBytesForSigningImpl(transactionData);
+			case CANCEL_GROUP_BAN:
+				return CancelGroupBanTransactionTransformer.toBytesForSigningImpl(transactionData);
 
 			case GROUP_KICK:
 				return GroupKickTransactionTransformer.toBytesForSigningImpl(transactionData);
@@ -506,8 +506,8 @@ public class TransactionTransformer extends Transformer {
 			case GROUP_BAN:
 				return GroupBanTransactionTransformer.toJSON(transactionData);
 
-			case GROUP_UNBAN:
-				return GroupUnbanTransactionTransformer.toJSON(transactionData);
+			case CANCEL_GROUP_BAN:
+				return CancelGroupBanTransactionTransformer.toJSON(transactionData);
 
 			case GROUP_KICK:
 				return GroupKickTransactionTransformer.toJSON(transactionData);

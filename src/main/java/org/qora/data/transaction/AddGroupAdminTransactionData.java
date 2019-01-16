@@ -18,8 +18,8 @@ public class AddGroupAdminTransactionData extends TransactionData {
 	// Properties
 	@Schema(description = "group owner's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] ownerPublicKey;
-	@Schema(description = "group name", example = "my-group")
-	private String groupName;
+	@Schema(description = "group ID")
+	private int groupId;
 	@Schema(description = "member to promote to admin", example = "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK")
 	private String member; 
 
@@ -34,16 +34,12 @@ public class AddGroupAdminTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public AddGroupAdminTransactionData(byte[] ownerPublicKey, String groupName, String member, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+	public AddGroupAdminTransactionData(byte[] ownerPublicKey, int groupId, String member, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.ADD_GROUP_ADMIN, fee, ownerPublicKey, timestamp, reference, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
-		this.groupName = groupName;
+		this.groupId = groupId;
 		this.member = member;
-	}
-
-	public AddGroupAdminTransactionData(byte[] ownerPublicKey, String groupName, String member, BigDecimal fee, long timestamp, byte[] reference) {
-		this(ownerPublicKey, groupName, member, fee, timestamp, reference, null);
 	}
 
 	// Getters / setters
@@ -52,8 +48,8 @@ public class AddGroupAdminTransactionData extends TransactionData {
 		return this.ownerPublicKey;
 	}
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getMember() {

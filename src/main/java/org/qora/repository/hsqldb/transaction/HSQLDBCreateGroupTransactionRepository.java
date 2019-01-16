@@ -17,8 +17,8 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT owner, group_name, description, is_open FROM CreateGroupTransactions WHERE signature = ?",
-				signature)) {
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT owner, group_name, description, is_open, group_id FROM CreateGroupTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
@@ -27,7 +27,11 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 			String description = resultSet.getString(3);
 			boolean isOpen = resultSet.getBoolean(4);
 
-			return new CreateGroupTransactionData(creatorPublicKey, owner, groupName, description, isOpen, fee, timestamp, reference, signature);
+			Integer groupId = resultSet.getInt(5);
+			if (resultSet.wasNull())
+				groupId = null;
+
+			return new CreateGroupTransactionData(creatorPublicKey, owner, groupName, description, isOpen, groupId, fee, timestamp, reference, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create group transaction from repository", e);
 		}
@@ -41,7 +45,8 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 
 		saveHelper.bind("signature", createGroupTransactionData.getSignature()).bind("creator", createGroupTransactionData.getCreatorPublicKey())
 				.bind("owner", createGroupTransactionData.getOwner()).bind("group_name", createGroupTransactionData.getGroupName())
-				.bind("description", createGroupTransactionData.getDescription()).bind("is_open", createGroupTransactionData.getIsOpen());
+				.bind("description", createGroupTransactionData.getDescription()).bind("is_open", createGroupTransactionData.getIsOpen())
+				.bind("group_id", createGroupTransactionData.getGroupId());
 
 		try {
 			saveHelper.execute(this.repository);

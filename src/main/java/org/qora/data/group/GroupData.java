@@ -9,13 +9,14 @@ import javax.xml.bind.annotation.XmlTransient;
 public class GroupData {
 
 	// Properties
+	private Integer groupId;
 	private String owner;
 	private String groupName;
 	private String description;
 	private long created;
 	private Long updated;
 	private boolean isOpen;
-	/** Reference to transaction that created group */
+	/** Reference to CREATE_GROUP or UPDATE_GROUP transaction, used to rebuild group during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
 	private byte[] reference;
@@ -26,7 +27,9 @@ public class GroupData {
 	protected GroupData() {
 	}
 
-	public GroupData(String owner, String name, String description, long created, Long updated, boolean isOpen, byte[] reference) {
+	/** Constructs new GroupData with nullable groupId and nullable updated [timestamp] */
+	public GroupData(Integer groupId, String owner, String name, String description, long created, Long updated, boolean isOpen, byte[] reference) {
+		this.groupId = groupId;
 		this.owner = owner;
 		this.groupName = name;
 		this.description = description;
@@ -36,11 +39,20 @@ public class GroupData {
 		this.reference = reference;
 	}
 
+	/** Constructs new GroupData with unassigned groupId */
 	public GroupData(String owner, String name, String description, long created, boolean isOpen, byte[] reference) {
-		this(owner, name, description, created, null, isOpen, reference);
+		this(null, owner, name, description, created, null, isOpen, reference);
 	}
 
 	// Getters / setters
+
+	public Integer getGroupId() {
+		return this.groupId;
+	}
+
+	public void setGroupId(Integer groupId) {
+		this.groupId = groupId;
+	}
 
 	public String getOwner() {
 		return this.owner;

@@ -27,7 +27,8 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int IS_OPEN_LENGTH = BOOLEAN_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + IS_OPEN_LENGTH;
+	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH
+			+ IS_OPEN_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
@@ -50,7 +51,7 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new CreateGroupTransactionData(creatorPublicKey, owner, groupName, description, isOpen, fee, timestamp, reference, signature);
+		return new CreateGroupTransactionData(creatorPublicKey, owner, groupName, description, isOpen, null, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

@@ -80,43 +80,39 @@ public class UpdateGroupTransaction extends Transaction {
 		if (!Crypto.isValidAddress(updateGroupTransactionData.getNewOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(updateGroupTransactionData.getGroupName());
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
-
 		// Check new description size bounds
 		int newDescriptionLength = Utf8.encodedLength(updateGroupTransactionData.getNewDescription());
 		if (newDescriptionLength < 1 || newDescriptionLength > Group.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
-		// Check group name is lowercase
-		if (!updateGroupTransactionData.getGroupName().equals(updateGroupTransactionData.getGroupName().toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = this.repository.getGroupRepository().fromGroupName(updateGroupTransactionData.getGroupName());
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(updateGroupTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
-		// Check transaction's public key matches group's current owner
 		Account owner = getOwner();
+
+		// Check transaction's public key matches group's current owner
 		if (!owner.getAddress().equals(groupData.getOwner()))
 			return ValidationResult.INVALID_GROUP_OWNER;
+
+		Account newOwner = getNewOwner();
+
+		// Check new owner is not banned
+		if (this.repository.getGroupRepository().banExists(updateGroupTransactionData.getGroupId(), newOwner.getAddress()))
+			return ValidationResult.BANNED_FROM_GROUP;
 
 		// Check fee is positive
 		if (updateGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		Account creator = getCreator();
-
-		if (!Arrays.equals(creator.getLastReference(), updateGroupTransactionData.getReference()))
+		if (!Arrays.equals(owner.getLastReference(), updateGroupTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check creator has enough funds
-		if (creator.getConfirmedBalance(Asset.QORA).compareTo(updateGroupTransactionData.getFee()) < 0)
+		if (owner.getConfirmedBalance(Asset.QORA).compareTo(updateGroupTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -125,7 +121,7 @@ public class UpdateGroupTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group
-		Group group = new Group(this.repository, updateGroupTransactionData.getGroupName());
+		Group group = new Group(this.repository, updateGroupTransactionData.getGroupId());
 		group.updateGroup(updateGroupTransactionData);
 
 		// Save this transaction, now with updated "group reference" to previous transaction that updated group
@@ -142,7 +138,7 @@ public class UpdateGroupTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert Group update
-		Group group = new Group(this.repository, updateGroupTransactionData.getGroupName());
+		Group group = new Group(this.repository, updateGroupTransactionData.getGroupId());
 		group.unupdateGroup(updateGroupTransactionData);
 
 		// Delete this transaction itself

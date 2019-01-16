@@ -14,10 +14,7 @@ import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
-import org.qora.repository.GroupRepository;
 import org.qora.repository.Repository;
-
-import com.google.common.base.Utf8;
 
 public class GroupBanTransaction extends Transaction {
 
@@ -77,47 +74,38 @@ public class GroupBanTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		GroupRepository groupRepository = this.repository.getGroupRepository();
-		String groupName = groupBanTransactionData.getGroupName();
-		
-		// Check member address is valid
+		// Check offender address is valid
 		if (!Crypto.isValidAddress(groupBanTransactionData.getOffender()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(groupName);
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
-
-		// Check group name is lowercase
-		if (!groupName.equals(groupName.toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = groupRepository.fromGroupName(groupName);
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(groupBanTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		Account admin = getAdmin();
-		Account member = getOffender();
 
 		// Can't ban if not an admin
-		if (!groupRepository.adminExists(groupName, admin.getAddress()))
+		if (!this.repository.getGroupRepository().adminExists(groupBanTransactionData.getGroupId(), admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
+		Account offender = getOffender();
+
 		// Can't ban another admin unless the group owner
-		if (!admin.getAddress().equals(groupData.getOwner()) && groupRepository.adminExists(groupName, member.getAddress()))
+		if (!admin.getAddress().equals(groupData.getOwner())
+				&& this.repository.getGroupRepository().adminExists(groupBanTransactionData.getGroupId(), offender.getAddress()))
 			return ValidationResult.INVALID_GROUP_OWNER;
 
 		// Check fee is positive
 		if (groupBanTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
+		// Check reference
 		if (!Arrays.equals(admin.getLastReference(), groupBanTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
-		// Check creator has enough funds
+		// Check admin has enough funds
 		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupBanTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
@@ -127,7 +115,7 @@ public class GroupBanTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, groupBanTransactionData.getGroupName());
+		Group group = new Group(this.repository, groupBanTransactionData.getGroupId());
 		group.ban(groupBanTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
@@ -144,7 +132,7 @@ public class GroupBanTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, groupBanTransactionData.getGroupName());
+		Group group = new Group(this.repository, groupBanTransactionData.getGroupId());
 		group.unban(groupBanTransactionData);
 
 		// Delete this transaction itself

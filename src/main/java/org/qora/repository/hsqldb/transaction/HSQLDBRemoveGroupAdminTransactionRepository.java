@@ -18,15 +18,15 @@ public class HSQLDBRemoveGroupAdminTransactionRepository extends HSQLDBTransacti
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_name, admin, group_reference FROM RemoveGroupAdminTransactions WHERE signature = ?", signature)) {
+				.checkedExecute("SELECT group_id, admin, admin_reference FROM RemoveGroupAdminTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
-			String groupName = resultSet.getString(1);
+			int groupId = resultSet.getInt(1);
 			String admin = resultSet.getString(2);
-			byte[] groupReference = resultSet.getBytes(3);
+			byte[] adminReference = resultSet.getBytes(3);
 
-			return new RemoveGroupAdminTransactionData(creatorPublicKey, groupName, admin, groupReference, fee, timestamp, reference, signature);
+			return new RemoveGroupAdminTransactionData(creatorPublicKey, groupId, admin, adminReference, fee, timestamp, reference, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch remove group admin transaction from repository", e);
 		}
@@ -39,8 +39,8 @@ public class HSQLDBRemoveGroupAdminTransactionRepository extends HSQLDBTransacti
 		HSQLDBSaver saveHelper = new HSQLDBSaver("RemoveGroupAdminTransactions");
 
 		saveHelper.bind("signature", removeGroupAdminTransactionData.getSignature()).bind("owner", removeGroupAdminTransactionData.getOwnerPublicKey())
-				.bind("group_name", removeGroupAdminTransactionData.getGroupName()).bind("admin", removeGroupAdminTransactionData.getAdmin())
-				.bind("group_reference", removeGroupAdminTransactionData.getGroupReference());
+				.bind("group_id", removeGroupAdminTransactionData.getGroupId()).bind("admin", removeGroupAdminTransactionData.getAdmin())
+				.bind("admin_reference", removeGroupAdminTransactionData.getAdminReference());
 
 		try {
 			saveHelper.execute(this.repository);

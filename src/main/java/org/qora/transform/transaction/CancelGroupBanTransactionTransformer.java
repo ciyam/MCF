@@ -7,25 +7,23 @@ import java.nio.ByteBuffer;
 
 import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
-import org.qora.data.transaction.GroupUnbanTransactionData;
+import org.qora.data.transaction.CancelGroupBanTransactionData;
 import org.qora.data.transaction.TransactionData;
-import org.qora.group.Group;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
-import com.google.common.base.Utf8;
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
-public class GroupUnbanTransactionTransformer extends TransactionTransformer {
+public class CancelGroupBanTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int ADMIN_LENGTH = PUBLIC_KEY_LENGTH;
-	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
+	private static final int GROUPID_LENGTH = INT_LENGTH;
 	private static final int MEMBER_LENGTH = ADDRESS_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + NAME_SIZE_LENGTH + MEMBER_LENGTH;
+	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + GROUPID_LENGTH + MEMBER_LENGTH;
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
@@ -35,7 +33,7 @@ public class GroupUnbanTransactionTransformer extends TransactionTransformer {
 
 		byte[] adminPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String groupName = Serialization.deserializeSizedString(byteBuffer, Group.MAX_NAME_SIZE);
+		int groupId = byteBuffer.getInt();
 
 		String member = Serialization.deserializeAddress(byteBuffer);
 
@@ -44,20 +42,16 @@ public class GroupUnbanTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new GroupUnbanTransactionData(adminPublicKey, groupName, member, fee, timestamp, reference, signature);
+		return new CancelGroupBanTransactionData(adminPublicKey, groupId, member, fee, timestamp, reference, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		GroupUnbanTransactionData groupUnbanTransactionData = (GroupUnbanTransactionData) transactionData;
-
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(groupUnbanTransactionData.getGroupName());
-
-		return dataLength;
+		return TYPE_LENGTH + TYPELESS_LENGTH;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
 		try {
-			GroupUnbanTransactionData groupUnbanTransactionData = (GroupUnbanTransactionData) transactionData;
+			CancelGroupBanTransactionData groupUnbanTransactionData = (CancelGroupBanTransactionData) transactionData;
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -66,7 +60,7 @@ public class GroupUnbanTransactionTransformer extends TransactionTransformer {
 			bytes.write(groupUnbanTransactionData.getReference());
 
 			bytes.write(groupUnbanTransactionData.getCreatorPublicKey());
-			Serialization.serializeSizedString(bytes, groupUnbanTransactionData.getGroupName());
+			bytes.write(Ints.toByteArray(groupUnbanTransactionData.getGroupId()));
 			Serialization.serializeAddress(bytes, groupUnbanTransactionData.getMember());
 
 			Serialization.serializeBigDecimal(bytes, groupUnbanTransactionData.getFee());
@@ -85,14 +79,14 @@ public class GroupUnbanTransactionTransformer extends TransactionTransformer {
 		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
 
 		try {
-			GroupUnbanTransactionData groupUnbanTransactionData = (GroupUnbanTransactionData) transactionData;
+			CancelGroupBanTransactionData groupUnbanTransactionData = (CancelGroupBanTransactionData) transactionData;
 
 			byte[] adminPublicKey = groupUnbanTransactionData.getAdminPublicKey();
 
 			json.put("admin", PublicKeyAccount.getAddress(adminPublicKey));
 			json.put("adminPublicKey", HashCode.fromBytes(adminPublicKey).toString());
 
-			json.put("groupName", groupUnbanTransactionData.getGroupName());
+			json.put("groupId", groupUnbanTransactionData.getGroupId());
 			json.put("member", groupUnbanTransactionData.getMember());
 		} catch (ClassCastException e) {
 			throw new TransformationException(e);

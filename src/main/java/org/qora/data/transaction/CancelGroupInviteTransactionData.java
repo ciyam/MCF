@@ -19,13 +19,14 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 	// Properties
 	@Schema(description = "admin's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] adminPublicKey;
-	@Schema(description = "group name", example = "my-group")
-	private String groupName;
+	@Schema(description = "group ID")
+	private int groupId;
 	@Schema(description = "invitee's address", example = "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK")
 	private String invitee;
+	/** Reference to GROUP_INVITE transaction, used to rebuild invite during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
-	private byte[] groupReference;
+	private byte[] inviteReference;
 
 	// Constructors
 
@@ -38,25 +39,18 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public CancelGroupInviteTransactionData(byte[] adminPublicKey, String groupName, String invitee, byte[] groupReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+	public CancelGroupInviteTransactionData(byte[] adminPublicKey, int groupId, String invitee, byte[] inviteReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.CANCEL_GROUP_INVITE, fee, adminPublicKey, timestamp, reference, signature);
 
 		this.adminPublicKey = adminPublicKey;
-		this.groupName = groupName;
+		this.groupId = groupId;
 		this.invitee = invitee;
-		this.groupReference = groupReference;
+		this.inviteReference = inviteReference;
 	}
 
-	public CancelGroupInviteTransactionData(byte[] adminPublicKey, String groupName, String invitee, byte[] groupReference, BigDecimal fee, long timestamp, byte[] reference) {
-		this(adminPublicKey, groupName, invitee, groupReference, fee, timestamp, reference, null);
-	}
-
-	public CancelGroupInviteTransactionData(byte[] adminPublicKey, String groupName, String invitee, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(adminPublicKey, groupName, invitee, null, fee, timestamp, reference, signature);
-	}
-
-	public CancelGroupInviteTransactionData(byte[] adminPublicKey, String groupName, String invitee, BigDecimal fee, long timestamp, byte[] reference) {
-		this(adminPublicKey, groupName, invitee, null, fee, timestamp, reference, null);
+	/** Constructor typically used after deserialization */
+	public CancelGroupInviteTransactionData(byte[] adminPublicKey, int groupId, String invitee, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+		this(adminPublicKey, groupId, invitee, null, fee, timestamp, reference, signature);
 	}
 
 	// Getters / setters
@@ -65,20 +59,20 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 		return this.adminPublicKey;
 	}
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getInvitee() {
 		return this.invitee;
 	}
 
-	public byte[] getGroupReference() {
-		return this.groupReference;
+	public byte[] getInviteReference() {
+		return this.inviteReference;
 	}
 
-	public void setGroupReference(byte[] groupReference) {
-		this.groupReference = groupReference;
+	public void setInviteReference(byte[] inviteReference) {
+		this.inviteReference = inviteReference;
 	}
 
 }

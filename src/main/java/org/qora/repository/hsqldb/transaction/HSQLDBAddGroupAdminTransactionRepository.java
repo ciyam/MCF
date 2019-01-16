@@ -17,14 +17,14 @@ public class HSQLDBAddGroupAdminTransactionRepository extends HSQLDBTransactionR
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_name, address FROM AddGroupAdminTransactions WHERE signature = ?", signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, address FROM AddGroupAdminTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
-			String groupName = resultSet.getString(1);
+			int groupId = resultSet.getInt(1);
 			String member = resultSet.getString(2);
 
-			return new AddGroupAdminTransactionData(creatorPublicKey, groupName, member, fee, timestamp, reference, signature);
+			return new AddGroupAdminTransactionData(creatorPublicKey, groupId, member, fee, timestamp, reference, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch add group admin transaction from repository", e);
 		}
@@ -37,7 +37,7 @@ public class HSQLDBAddGroupAdminTransactionRepository extends HSQLDBTransactionR
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AddGroupAdminTransactions");
 
 		saveHelper.bind("signature", addGroupAdminTransactionData.getSignature()).bind("owner", addGroupAdminTransactionData.getOwnerPublicKey())
-				.bind("group_name", addGroupAdminTransactionData.getGroupName()).bind("address", addGroupAdminTransactionData.getMember());
+				.bind("group_id", addGroupAdminTransactionData.getGroupId()).bind("address", addGroupAdminTransactionData.getMember());
 
 		try {
 			saveHelper.execute(this.repository);

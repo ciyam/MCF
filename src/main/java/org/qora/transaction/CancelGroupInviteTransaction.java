@@ -14,22 +14,19 @@ import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
-import org.qora.repository.GroupRepository;
 import org.qora.repository.Repository;
-
-import com.google.common.base.Utf8;
 
 public class CancelGroupInviteTransaction extends Transaction {
 
 	// Properties
-	private CancelGroupInviteTransactionData cancelCancelGroupInviteTransactionData;
+	private CancelGroupInviteTransactionData cancelGroupInviteTransactionData;
 
 	// Constructors
 
 	public CancelGroupInviteTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
 
-		this.cancelCancelGroupInviteTransactionData = (CancelGroupInviteTransactionData) this.transactionData;
+		this.cancelGroupInviteTransactionData = (CancelGroupInviteTransactionData) this.transactionData;
 	}
 
 	// More information
@@ -66,55 +63,49 @@ public class CancelGroupInviteTransaction extends Transaction {
 	// Navigation
 
 	public Account getAdmin() throws DataException {
-		return new PublicKeyAccount(this.repository, this.cancelCancelGroupInviteTransactionData.getAdminPublicKey());
+		return new PublicKeyAccount(this.repository, this.cancelGroupInviteTransactionData.getAdminPublicKey());
 	}
 
 	public Account getInvitee() throws DataException {
-		return new Account(this.repository, this.cancelCancelGroupInviteTransactionData.getInvitee());
+		return new Account(this.repository, this.cancelGroupInviteTransactionData.getInvitee());
 	}
 
 	// Processing
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		GroupRepository groupRepository = this.repository.getGroupRepository();
-		String groupName = cancelCancelGroupInviteTransactionData.getGroupName();
-
-		// Check member address is valid
-		if (!Crypto.isValidAddress(cancelCancelGroupInviteTransactionData.getInvitee()))
+		// Check invitee address is valid
+		if (!Crypto.isValidAddress(cancelGroupInviteTransactionData.getInvitee()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(groupName);
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
-
-		// Check group name is lowercase
-		if (!groupName.equals(groupName.toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = groupRepository.fromGroupName(groupName);
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(cancelGroupInviteTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		Account admin = getAdmin();
+
+		// Check admin is actually an admin
+		if (!this.repository.getGroupRepository().adminExists(cancelGroupInviteTransactionData.getGroupId(), admin.getAddress()))
+			return ValidationResult.NOT_GROUP_ADMIN;
+
 		Account invitee = getInvitee();
 
 		// Check invite exists
-		if (!groupRepository.inviteExists(groupName, admin.getAddress(), invitee.getAddress()))
+		if (!this.repository.getGroupRepository().inviteExists(cancelGroupInviteTransactionData.getGroupId(), invitee.getAddress()))
 			return ValidationResult.INVITE_UNKNOWN;
 
 		// Check fee is positive
-		if (cancelCancelGroupInviteTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
+		if (cancelGroupInviteTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		if (!Arrays.equals(admin.getLastReference(), cancelCancelGroupInviteTransactionData.getReference()))
+		// Check reference
+		if (!Arrays.equals(admin.getLastReference(), cancelGroupInviteTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
 		// Check creator has enough funds
-		if (admin.getConfirmedBalance(Asset.QORA).compareTo(cancelCancelGroupInviteTransactionData.getFee()) < 0)
+		if (admin.getConfirmedBalance(Asset.QORA).compareTo(cancelGroupInviteTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
@@ -123,35 +114,35 @@ public class CancelGroupInviteTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group Membership
-		Group group = new Group(this.repository, cancelCancelGroupInviteTransactionData.getGroupName());
-		group.cancelInvite(cancelCancelGroupInviteTransactionData);
+		Group group = new Group(this.repository, cancelGroupInviteTransactionData.getGroupId());
+		group.cancelInvite(cancelGroupInviteTransactionData);
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
-		this.repository.getTransactionRepository().save(cancelCancelGroupInviteTransactionData);
+		this.repository.getTransactionRepository().save(cancelGroupInviteTransactionData);
 
 		// Update admin's balance
 		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).subtract(cancelCancelGroupInviteTransactionData.getFee()));
+		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).subtract(cancelGroupInviteTransactionData.getFee()));
 
 		// Update admin's reference
-		admin.setLastReference(cancelCancelGroupInviteTransactionData.getSignature());
+		admin.setLastReference(cancelGroupInviteTransactionData.getSignature());
 	}
 
 	@Override
 	public void orphan() throws DataException {
 		// Revert group membership
-		Group group = new Group(this.repository, cancelCancelGroupInviteTransactionData.getGroupName());
-		group.uncancelInvite(cancelCancelGroupInviteTransactionData);
+		Group group = new Group(this.repository, cancelGroupInviteTransactionData.getGroupId());
+		group.uncancelInvite(cancelGroupInviteTransactionData);
 
 		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(cancelCancelGroupInviteTransactionData);
+		this.repository.getTransactionRepository().delete(cancelGroupInviteTransactionData);
 
 		// Update admin's balance
 		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(cancelCancelGroupInviteTransactionData.getFee()));
+		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(cancelGroupInviteTransactionData.getFee()));
 
 		// Update admin's reference
-		admin.setLastReference(cancelCancelGroupInviteTransactionData.getReference());
+		admin.setLastReference(cancelGroupInviteTransactionData.getReference());
 	}
 
 }

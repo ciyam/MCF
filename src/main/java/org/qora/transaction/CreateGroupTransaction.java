@@ -96,9 +96,9 @@ public class CreateGroupTransaction extends Transaction {
 		if (createGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference is correct
 		Account creator = getCreator();
 
+		// Check reference is correct
 		if (!Arrays.equals(creator.getLastReference(), createGroupTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
@@ -115,6 +115,9 @@ public class CreateGroupTransaction extends Transaction {
 		Group group = new Group(this.repository, createGroupTransactionData);
 		group.create(createGroupTransactionData);
 
+		// Note newly assigned group ID in our transaction record
+		createGroupTransactionData.setGroupId(group.getGroupData().getGroupId());
+
 		// Save this transaction
 		this.repository.getTransactionRepository().save(createGroupTransactionData);
 
@@ -129,7 +132,7 @@ public class CreateGroupTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Uncreate group
-		Group group = new Group(this.repository, createGroupTransactionData.getGroupName());
+		Group group = new Group(this.repository, createGroupTransactionData.getGroupId());
 		group.uncreate();
 
 		// Delete this transaction itself

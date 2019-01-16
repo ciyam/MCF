@@ -19,15 +19,16 @@ public class GroupInviteTransactionData extends TransactionData {
 	// Properties
 	@Schema(description = "admin's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] adminPublicKey;
-	@Schema(description = "group name", example = "my-group")
-	private String groupName;
+	@Schema(description = "group ID")
+	private int groupId;
 	@Schema(description = "invitee's address", example = "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK")
 	private String invitee;
 	@Schema(description = "invitation lifetime in seconds")
 	private int timeToLive;
+	/** Reference to JOIN_GROUP transaction, used to rebuild this join request during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
-	private byte[] groupReference;
+	private byte[] joinReference;
 
 	// Constructors
 
@@ -40,26 +41,19 @@ public class GroupInviteTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public GroupInviteTransactionData(byte[] adminPublicKey, String groupName, String invitee, int timeToLive, byte[] groupReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+	public GroupInviteTransactionData(byte[] adminPublicKey, int groupId, String invitee, int timeToLive, byte[] joinReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.GROUP_INVITE, fee, adminPublicKey, timestamp, reference, signature);
 
 		this.adminPublicKey = adminPublicKey;
-		this.groupName = groupName;
+		this.groupId = groupId;
 		this.invitee = invitee;
 		this.timeToLive = timeToLive;
-		this.groupReference = groupReference;
+		this.joinReference = joinReference;
 	}
 
-	public GroupInviteTransactionData(byte[] adminPublicKey, String groupName, String invitee, int timeToLive, byte[] groupReference, BigDecimal fee, long timestamp, byte[] reference) {
-		this(adminPublicKey, groupName, invitee, timeToLive, groupReference, fee, timestamp, reference, null);
-	}
-
-	public GroupInviteTransactionData(byte[] adminPublicKey, String groupName, String invitee, int timeToLive, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(adminPublicKey, groupName, invitee, timeToLive, null, fee, timestamp, reference, signature);
-	}
-
-	public GroupInviteTransactionData(byte[] adminPublicKey, String groupName, String invitee, int timeToLive, BigDecimal fee, long timestamp, byte[] reference) {
-		this(adminPublicKey, groupName, invitee, timeToLive, null, fee, timestamp, reference, null);
+	/** Constructor typically used after deserialization */
+	public GroupInviteTransactionData(byte[] adminPublicKey, int groupId, String invitee, int timeToLive, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+		this(adminPublicKey, groupId, invitee, timeToLive, null, fee, timestamp, reference, signature);
 	}
 
 	// Getters / setters
@@ -68,8 +62,8 @@ public class GroupInviteTransactionData extends TransactionData {
 		return this.adminPublicKey;
 	}
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getInvitee() {
@@ -80,12 +74,12 @@ public class GroupInviteTransactionData extends TransactionData {
 		return this.timeToLive;
 	}
 
-	public byte[] getGroupReference() {
-		return this.groupReference;
+	public byte[] getJoinReference() {
+		return this.joinReference;
 	}
 
-	public void setGroupReference(byte[] groupReference) {
-		this.groupReference = groupReference;
+	public void setJoinReference(byte[] joinReference) {
+		this.joinReference = joinReference;
 	}
 
 }

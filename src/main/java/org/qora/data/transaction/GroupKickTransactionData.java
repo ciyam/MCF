@@ -13,24 +13,45 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
-@Schema(allOf = { TransactionData.class })
+@Schema(
+	allOf = {
+		TransactionData.class
+	}
+)
 public class GroupKickTransactionData extends TransactionData {
 
 	// Properties
-	@Schema(description = "admin's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
+	@Schema(
+		description = "admin's public key",
+		example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP"
+	)
 	private byte[] adminPublicKey;
-	@Schema(description = "group name", example = "my-group")
-	private String groupName;
-	@Schema(description = "member to kick from group", example = "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK")
-	private String member; 
-	@Schema(description = "reason for kick")
+	@Schema(
+		description = "group name",
+		example = "my-group"
+	)
+	private int groupId;
+	@Schema(
+		description = "member to kick from group",
+		example = "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK"
+	)
+	private String member;
+	@Schema(
+		description = "reason for kick"
+	)
 	private String reason;
+	/** Reference to transaction that triggered membership. */
 	// No need to ever expose this via API
 	@XmlTransient
 	private byte[] memberReference;
+	/** Reference to transaction that triggered adminship. */
 	// No need to ever expose this via API
 	@XmlTransient
 	private byte[] adminReference;
+	/** Reference to JOIN_GROUP transaction, used to rebuild this join request during orphaning. */
+	// No need to ever expose this via API
+	@XmlTransient
+	private byte[] joinReference;
 
 	// Constructors
 
@@ -43,27 +64,23 @@ public class GroupKickTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public GroupKickTransactionData(byte[] adminPublicKey, String groupName, String member, String reason, byte[] memberReference, byte[] adminReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+	public GroupKickTransactionData(byte[] adminPublicKey, int groupId, String member, String reason, byte[] memberReference, byte[] adminReference,
+			byte[] joinReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.GROUP_KICK, fee, adminPublicKey, timestamp, reference, signature);
 
 		this.adminPublicKey = adminPublicKey;
-		this.groupName = groupName;
+		this.groupId = groupId;
 		this.member = member;
 		this.reason = reason;
 		this.memberReference = memberReference;
 		this.adminReference = adminReference;
+		this.joinReference = joinReference;
 	}
 
-	public GroupKickTransactionData(byte[] adminPublicKey, String groupName, String member, String reason, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(adminPublicKey, groupName, member, reason, null, null, fee, timestamp, reference, signature);
-	}
-
-	public GroupKickTransactionData(byte[] adminPublicKey, String groupName, String member, String reason, byte[] memberReference, byte[] adminReference, BigDecimal fee, long timestamp, byte[] reference) {
-		this(adminPublicKey, groupName, member, reason, memberReference, adminReference, fee, timestamp, reference, null);
-	}
-
-	public GroupKickTransactionData(byte[] adminPublicKey, String groupName, String member, String reason, BigDecimal fee, long timestamp, byte[] reference) {
-		this(adminPublicKey, groupName, member, reason, null, null, fee, timestamp, reference, null);
+	/** Constructor typically used after deserialization */
+	public GroupKickTransactionData(byte[] adminPublicKey, int groupId, String member, String reason, BigDecimal fee, long timestamp, byte[] reference,
+			byte[] signature) {
+		this(adminPublicKey, groupId, member, reason, null, null, null, fee, timestamp, reference, signature);
 	}
 
 	// Getters / setters
@@ -72,8 +89,8 @@ public class GroupKickTransactionData extends TransactionData {
 		return this.adminPublicKey;
 	}
 
-	public String getGroupName() {
-		return this.groupName;
+	public int getGroupId() {
+		return this.groupId;
 	}
 
 	public String getMember() {
@@ -98,6 +115,14 @@ public class GroupKickTransactionData extends TransactionData {
 
 	public void setAdminReference(byte[] adminReference) {
 		this.adminReference = adminReference;
+	}
+
+	public byte[] getJoinReference() {
+		return this.joinReference;
+	}
+
+	public void setJoinReference(byte[] joinReference) {
+		this.joinReference = joinReference;
 	}
 
 }

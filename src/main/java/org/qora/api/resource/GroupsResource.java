@@ -26,6 +26,7 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.GroupWithMemberInfo;
+import org.qora.api.model.GroupWithMemberInfo.MemberInfo;
 import org.qora.crypto.Crypto;
 import org.qora.data.group.GroupAdminData;
 import org.qora.data.group.GroupBanData;
@@ -39,7 +40,7 @@ import org.qora.data.transaction.CreateGroupTransactionData;
 import org.qora.data.transaction.GroupBanTransactionData;
 import org.qora.data.transaction.GroupInviteTransactionData;
 import org.qora.data.transaction.GroupKickTransactionData;
-import org.qora.data.transaction.GroupUnbanTransactionData;
+import org.qora.data.transaction.CancelGroupBanTransactionData;
 import org.qora.data.transaction.JoinGroupTransactionData;
 import org.qora.data.transaction.LeaveGroupTransactionData;
 import org.qora.data.transaction.RemoveGroupAdminTransactionData;
@@ -56,7 +57,7 @@ import org.qora.transform.transaction.CreateGroupTransactionTransformer;
 import org.qora.transform.transaction.GroupBanTransactionTransformer;
 import org.qora.transform.transaction.GroupInviteTransactionTransformer;
 import org.qora.transform.transaction.GroupKickTransactionTransformer;
-import org.qora.transform.transaction.GroupUnbanTransactionTransformer;
+import org.qora.transform.transaction.CancelGroupBanTransactionTransformer;
 import org.qora.transform.transaction.JoinGroupTransactionTransformer;
 import org.qora.transform.transaction.LeaveGroupTransactionTransformer;
 import org.qora.transform.transaction.RemoveGroupAdminTransactionTransformer;
@@ -101,7 +102,7 @@ public class GroupsResource {
 	}
 
 	@GET
-	@Path("/address/{address}")
+	@Path("/owner/{address}")
 	@Operation(
 		summary = "List all groups owned by address",
 		responses = {
@@ -115,12 +116,40 @@ public class GroupsResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public List<GroupData> getGroupsByAddress(@PathParam("address") String address) {
-		if (!Crypto.isValidAddress(address))
+	public List<GroupData> getGroupsByOwner(@PathParam("address") String owner) {
+		if (!Crypto.isValidAddress(owner))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<GroupData> groups = repository.getGroupRepository().getGroupsByOwner(address);
+			List<GroupData> groups = repository.getGroupRepository().getGroupsByOwner(owner);
+
+			return groups;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/member/{address}")
+	@Operation(
+		summary = "List all groups where address is a member",
+		responses = {
+			@ApiResponse(
+				description = "group info",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					array = @ArraySchema(schema = @Schema(implementation = GroupData.class))
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public List<GroupData> getGroupsWithMember(@PathParam("address") String member) {
+		if (!Crypto.isValidAddress(member))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<GroupData> groups = repository.getGroupRepository().getGroupsWithMember(member);
 
 			return groups;
 		} catch (DataException e) {
@@ -149,28 +178,28 @@ public class GroupsResource {
 			if (groupData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.GROUP_UNKNOWN);
 
-			List<GroupMemberData> groupMembers = null;
+			List<MemberInfo> members = null;
 			Integer memberCount = null;
 
 			if (includeMembers) {
-				groupMembers = repository.getGroupRepository().getGroupMembers(groupData.getGroupName());
+				List<GroupMemberData> groupMembers = repository.getGroupRepository().getGroupMembers(groupData.getGroupId());
 
-				// Strip groupName from member info
-				groupMembers = groupMembers.stream().map(groupMemberData -> new GroupMemberData(null, groupMemberData.getMember(), groupMemberData.getJoined(), null)).collect(Collectors.toList());
+				// Convert to MemberInfo
+				members = groupMembers.stream().map(groupMemberData -> new MemberInfo(groupMemberData)).collect(Collectors.toList());
 
-				memberCount = groupMembers.size();
+				memberCount = members.size();
 			} else {
 				// Just count members instead
-				memberCount = repository.getGroupRepository().countGroupMembers(groupData.getGroupName());
+				memberCount = repository.getGroupRepository().countGroupMembers(groupData.getGroupId());
 			}
 
 			// Always include admins
-			List<GroupAdminData> groupAdmins = repository.getGroupRepository().getGroupAdmins(groupData.getGroupName());
+			List<GroupAdminData> groupAdmins = repository.getGroupRepository().getGroupAdmins(groupData.getGroupId());
 
 			// We only need admin addresses
-			List<String> groupAdminAddresses = groupAdmins.stream().map(groupAdminData -> groupAdminData.getAdmin()).collect(Collectors.toList());
+			List<String> adminAddresses = groupAdmins.stream().map(groupAdminData -> groupAdminData.getAdmin()).collect(Collectors.toList());
 
-			return new GroupWithMemberInfo(groupData, groupAdminAddresses, groupMembers, memberCount);
+			return new GroupWithMemberInfo(groupData, adminAddresses, members, memberCount);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -393,21 +422,21 @@ public class GroupsResource {
 	}
 
 	@POST
-	@Path("/unban")
+	@Path("/ban/cancel")
 	@Operation(
-		summary = "Build raw, unsigned, GROUP_UNBAN transaction",
+		summary = "Build raw, unsigned, CANCEL_GROUP_BAN transaction",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
 				schema = @Schema(
-					implementation = GroupUnbanTransactionData.class
+					implementation = CancelGroupBanTransactionData.class
 				)
 			)
 		),
 		responses = {
 			@ApiResponse(
-				description = "raw, unsigned, GROUP_UNBAN transaction encoded in Base58",
+				description = "raw, unsigned, CANCEL_GROUP_BAN transaction encoded in Base58",
 				content = @Content(
 					mediaType = MediaType.TEXT_PLAIN,
 					schema = @Schema(
@@ -418,7 +447,7 @@ public class GroupsResource {
 		}
 	)
 	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
-	public String groupBan(GroupUnbanTransactionData transactionData) {
+	public String cancelGroupBan(CancelGroupBanTransactionData transactionData) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
@@ -426,7 +455,7 @@ public class GroupsResource {
 			if (result != ValidationResult.OK)
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 
-			byte[] bytes = GroupUnbanTransactionTransformer.toBytes(transactionData);
+			byte[] bytes = CancelGroupBanTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
@@ -651,7 +680,7 @@ public class GroupsResource {
 	}
 
 	@GET
-	@Path("/invites/{groupname}")
+	@Path("/invites/{groupid}")
 	@Operation(
 		summary = "Pending group invites",
 		responses = {
@@ -665,16 +694,16 @@ public class GroupsResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<GroupInviteData> getInvites(@PathParam("groupname") String groupName) {
+	public List<GroupInviteData> getInvites(@PathParam("groupid") int groupId) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getGroupRepository().getGroupInvites(groupName);
+			return repository.getGroupRepository().getGroupInvites(groupId);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	@GET
-	@Path("/joinrequests/{groupname}")
+	@Path("/joinrequests/{groupid}")
 	@Operation(
 		summary = "Pending group join requests",
 		responses = {
@@ -688,16 +717,16 @@ public class GroupsResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<GroupJoinRequestData> getJoinRequests(@PathParam("groupname") String groupName) {
+	public List<GroupJoinRequestData> getJoinRequests(@PathParam("groupid") int groupId) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getGroupRepository().getGroupJoinRequests(groupName);
+			return repository.getGroupRepository().getGroupJoinRequests(groupId);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	@GET
-	@Path("/bans/{groupname}")
+	@Path("/bans/{groupid}")
 	@Operation(
 		summary = "Current group join bans",
 		responses = {
@@ -711,9 +740,9 @@ public class GroupsResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<GroupBanData> getBans(@PathParam("groupname") String groupName) {
+	public List<GroupBanData> getBans(@PathParam("groupid") int groupId) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getGroupRepository().getGroupBans(groupName);
+			return repository.getGroupRepository().getGroupBans(groupId);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

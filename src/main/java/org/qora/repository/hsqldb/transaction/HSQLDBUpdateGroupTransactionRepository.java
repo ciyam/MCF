@@ -17,18 +17,19 @@ public class HSQLDBUpdateGroupTransactionRepository extends HSQLDBTransactionRep
 	}
 
 	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_name, new_owner, new_description, new_is_open, group_reference FROM UpdateGroupTransactions WHERE signature = ?",
-				signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT group_id, new_owner, new_description, new_is_open, group_reference FROM UpdateGroupTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
-			String groupName = resultSet.getString(1);
+			int groupId = resultSet.getInt(1);
 			String newOwner = resultSet.getString(2);
 			String newDescription = resultSet.getString(3);
 			boolean newIsOpen = resultSet.getBoolean(4);
 			byte[] groupReference = resultSet.getBytes(5);
 
-			return new UpdateGroupTransactionData(creatorPublicKey, groupName, newOwner, newDescription, newIsOpen, groupReference, fee, timestamp, reference, signature);
+			return new UpdateGroupTransactionData(creatorPublicKey, groupId, newOwner, newDescription, newIsOpen, groupReference, fee, timestamp, reference,
+					signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch update group transaction from repository", e);
 		}
@@ -41,7 +42,7 @@ public class HSQLDBUpdateGroupTransactionRepository extends HSQLDBTransactionRep
 		HSQLDBSaver saveHelper = new HSQLDBSaver("UpdateGroupTransactions");
 
 		saveHelper.bind("signature", updateGroupTransactionData.getSignature()).bind("owner", updateGroupTransactionData.getOwnerPublicKey())
-				.bind("group_name", updateGroupTransactionData.getGroupName()).bind("new_owner", updateGroupTransactionData.getNewOwner())
+				.bind("group_id", updateGroupTransactionData.getGroupId()).bind("new_owner", updateGroupTransactionData.getNewOwner())
 				.bind("new_description", updateGroupTransactionData.getNewDescription()).bind("new_is_open", updateGroupTransactionData.getNewIsOpen())
 				.bind("group_reference", updateGroupTransactionData.getGroupReference());
 

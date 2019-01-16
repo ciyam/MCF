@@ -16,8 +16,6 @@ import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 
-import com.google.common.base.Utf8;
-
 public class AddGroupAdminTransaction extends Transaction {
 
 	// Properties
@@ -76,16 +74,11 @@ public class AddGroupAdminTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Check group name size bounds
-		int groupNameLength = Utf8.encodedLength(addGroupAdminTransactionData.getGroupName());
-		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)
-			return ValidationResult.INVALID_NAME_LENGTH;
+		// Check member address is valid
+		if (!Crypto.isValidAddress(addGroupAdminTransactionData.getMember()))
+			return ValidationResult.INVALID_ADDRESS;
 
-		// Check group name is lowercase
-		if (!addGroupAdminTransactionData.getGroupName().equals(addGroupAdminTransactionData.getGroupName().toLowerCase()))
-			return ValidationResult.NAME_NOT_LOWER_CASE;
-
-		GroupData groupData = this.repository.getGroupRepository().fromGroupName(addGroupAdminTransactionData.getGroupName());
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(addGroupAdminTransactionData.getGroupId());
 
 		// Check group exists
 		if (groupData == null)
@@ -97,24 +90,21 @@ public class AddGroupAdminTransaction extends Transaction {
 		if (!owner.getAddress().equals(groupData.getOwner()))
 			return ValidationResult.INVALID_GROUP_OWNER;
 
-		// Check member address is valid
-		if (!Crypto.isValidAddress(addGroupAdminTransactionData.getMember()))
-			return ValidationResult.INVALID_ADDRESS;
-
 		Account member = getMember();
 
 		// Check address is a member
-		if (!this.repository.getGroupRepository().memberExists(addGroupAdminTransactionData.getGroupName(), member.getAddress()))
+		if (!this.repository.getGroupRepository().memberExists(addGroupAdminTransactionData.getGroupId(), member.getAddress()))
 			return ValidationResult.NOT_GROUP_MEMBER;
 
 		// Check member is not already an admin
-		if (this.repository.getGroupRepository().adminExists(addGroupAdminTransactionData.getGroupName(), member.getAddress()))
+		if (this.repository.getGroupRepository().adminExists(addGroupAdminTransactionData.getGroupId(), member.getAddress()))
 			return ValidationResult.ALREADY_GROUP_ADMIN;
 
 		// Check fee is positive
 		if (addGroupAdminTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
+		// Check reference
 		if (!Arrays.equals(owner.getLastReference(), addGroupAdminTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 
@@ -128,7 +118,7 @@ public class AddGroupAdminTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Update Group adminship
-		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupName());
+		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
 		group.promoteToAdmin(addGroupAdminTransactionData);
 
 		// Save this transaction
@@ -145,7 +135,7 @@ public class AddGroupAdminTransaction extends Transaction {
 	@Override
 	public void orphan() throws DataException {
 		// Revert group adminship
-		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupName());
+		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
 		group.unpromoteToAdmin(addGroupAdminTransactionData);
 
 		// Delete this transaction itself

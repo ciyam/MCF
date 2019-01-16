@@ -11,7 +11,6 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.data.PaymentData;
-import org.qora.data.transaction.GroupInviteTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.TransactionRepository;
@@ -47,7 +46,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBAddGroupAdminTransactionRepository addGroupAdminTransactionRepository;
 	private HSQLDBRemoveGroupAdminTransactionRepository removeGroupAdminTransactionRepository;
 	private HSQLDBGroupBanTransactionRepository groupBanTransactionRepository;
-	private HSQLDBGroupUnbanTransactionRepository groupUnbanTransactionRepository;
+	private HSQLDBCancelGroupBanTransactionRepository groupUnbanTransactionRepository;
 	private HSQLDBGroupKickTransactionRepository groupKickTransactionRepository;
 	private HSQLDBGroupInviteTransactionRepository groupInviteTransactionRepository;
 	private HSQLDBCancelGroupInviteTransactionRepository cancelGroupInviteTransactionRepository;
@@ -79,7 +78,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.addGroupAdminTransactionRepository = new HSQLDBAddGroupAdminTransactionRepository(repository);
 		this.removeGroupAdminTransactionRepository = new HSQLDBRemoveGroupAdminTransactionRepository(repository);
 		this.groupBanTransactionRepository = new HSQLDBGroupBanTransactionRepository(repository);
-		this.groupUnbanTransactionRepository = new HSQLDBGroupUnbanTransactionRepository(repository);
+		this.groupUnbanTransactionRepository = new HSQLDBCancelGroupBanTransactionRepository(repository);
 		this.groupKickTransactionRepository = new HSQLDBGroupKickTransactionRepository(repository);
 		this.groupInviteTransactionRepository = new HSQLDBGroupInviteTransactionRepository(repository);
 		this.cancelGroupInviteTransactionRepository = new HSQLDBCancelGroupInviteTransactionRepository(repository);
@@ -226,7 +225,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			case GROUP_BAN:
 				return this.groupBanTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
-			case GROUP_UNBAN:
+			case CANCEL_GROUP_BAN:
 				return this.groupUnbanTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			case GROUP_KICK:
@@ -584,7 +583,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				this.groupBanTransactionRepository.save(transactionData);
 				break;
 
-			case GROUP_UNBAN:
+			case CANCEL_GROUP_BAN:
 				this.groupUnbanTransactionRepository.save(transactionData);
 				break;
 
@@ -627,12 +626,6 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		} catch (SQLException e) {
 			throw new DataException("Unable to remove transaction from unconfirmed transactions repository", e);
 		}
-	}
-
-	@Override
-	public List<GroupInviteTransactionData> getInvitesWithGroupReference(byte[] groupReference) throws DataException {
-		// Let specialized subclass handle this
-		return this.groupInviteTransactionRepository.getInvitesWithGroupReference(groupReference);
 	}
 
 }

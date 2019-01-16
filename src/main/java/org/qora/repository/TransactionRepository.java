@@ -2,7 +2,6 @@ package org.qora.repository;
 
 import java.util.List;
 
-import org.qora.data.transaction.GroupInviteTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -52,9 +51,5 @@ public interface TransactionRepository {
 	public void save(TransactionData transactionData) throws DataException;
 
 	public void delete(TransactionData transactionData) throws DataException;
-
-	/** Returns transaction data for group invite transactions that have groupReference that matches passed value.
-	 * @throws DataException */
-	public List<GroupInviteTransactionData> getInvitesWithGroupReference(byte[] groupReference) throws DataException;
 
 }
