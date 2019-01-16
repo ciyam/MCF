@@ -66,7 +66,7 @@ public interface GroupRepository {
 
 	public boolean inviteExists(int groupId, String invitee) throws DataException;
 
-	public List<GroupInviteData> getGroupInvites(int groupId) throws DataException;
+	public List<GroupInviteData> getInvitesByGroupId(int groupId) throws DataException;
 
 	public List<GroupInviteData> getInvitesByInvitee(String invitee) throws DataException;
 
