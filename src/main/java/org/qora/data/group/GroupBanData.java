@@ -4,6 +4,8 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 public class GroupBanData {
@@ -18,6 +20,7 @@ public class GroupBanData {
 	/** Reference to GROUP_BAN transaction, used to rebuild this ban during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] reference;
 
 	// Constructors

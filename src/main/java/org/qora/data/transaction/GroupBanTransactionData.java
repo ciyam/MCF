@@ -46,14 +46,17 @@ public class GroupBanTransactionData extends TransactionData {
 	/** Reference to transaction that triggered membership. Could be JOIN_GROUP, GROUP_INVITE or UPDATE_GROUP transaction. */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] memberReference;
 	/** Reference to transaction that triggered adminship. */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] adminReference;
 	/** Reference to pending join-request or invite transaction that was deleted by this so it (invite/join-request) can be rebuilt during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] joinInviteReference;
 
 	// Constructors
