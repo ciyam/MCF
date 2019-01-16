@@ -87,6 +87,38 @@ public class HSQLDBNameRepository implements NameRepository {
 	}
 
 	@Override
+	public List<NameData> getNamesForSale() throws DataException {
+		List<NameData> names = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT name, data, owner, registered, updated, reference, sale_price FROM Names WHERE is_for_sale = TRUE")) {
+			if (resultSet == null)
+				return names;
+
+			do {
+				String name = resultSet.getString(1);
+				String data = resultSet.getString(2);
+				String owner = resultSet.getString(3);
+				long registered = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+
+				// Special handling for possibly-NULL "updated" column
+				Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
+				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
+
+				byte[] reference = resultSet.getBytes(6);
+				boolean isForSale = true;
+				BigDecimal salePrice = resultSet.getBigDecimal(7);
+
+				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice));
+			} while (resultSet.next());
+
+			return names;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch names from repository", e);
+		}
+	}
+
+	@Override
 	public List<NameData> getNamesByOwner(String owner) throws DataException {
 		List<NameData> names = new ArrayList<>();
 

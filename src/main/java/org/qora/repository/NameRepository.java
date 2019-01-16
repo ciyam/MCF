@@ -12,6 +12,8 @@ public interface NameRepository {
 
 	public List<NameData> getAllNames() throws DataException;
 
+	public List<NameData> getNamesForSale() throws DataException;
+
 	public List<NameData> getNamesByOwner(String address) throws DataException;
 
 	public void save(NameData nameData) throws DataException;
