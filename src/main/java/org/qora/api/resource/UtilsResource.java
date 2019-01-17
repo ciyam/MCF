@@ -1,6 +1,7 @@
 package org.qora.api.resource;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
@@ -27,6 +29,9 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.crypto.Crypto;
+import org.qora.transaction.Transaction.TransactionType;
+import org.qora.transform.transaction.TransactionTransformer;
+import org.qora.transform.transaction.TransactionTransformer.Transformation;
 import org.qora.utils.BIP39;
 import org.qora.utils.Base58;
 import org.qora.utils.NTP;
@@ -37,7 +42,7 @@ import com.google.common.primitives.Longs;
 
 @Path("/utils")
 @Produces({
-	MediaType.TEXT_PLAIN
+	MediaType.TEXT_PLAIN, MediaType.APPLICATION_JSON
 })
 @Tag(
 	name = "Utilities"
@@ -370,6 +375,24 @@ public class UtilsResource {
 	)
 	public long getTimestamp() {
 		return NTP.getTime();
+	}
+
+	@GET
+	@Path("/layout/{txtype}")
+	@Operation(
+		summary = "Returns raw transaction layout based on transaction type",
+		description = "Components are returned in sequential order used to build transaction. Components marked with * are part of a repeatable group. For example, multiple payments within a MULTI-PAYMENT transaction.",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					array = @ArraySchema(schema = @Schema( implementation = Transformation.class ))
+				)
+			)
+		}
+	)
+	public List<Transformation> getLayout(@PathParam("txtype") TransactionType txType) {
+		return TransactionTransformer.getLayoutByTxType(txType);
 	}
 
 }

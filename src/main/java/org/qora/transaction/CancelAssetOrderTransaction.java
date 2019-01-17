@@ -11,23 +11,23 @@ import org.qora.asset.Asset;
 import org.qora.asset.Order;
 import org.qora.crypto.Crypto;
 import org.qora.data.asset.OrderData;
-import org.qora.data.transaction.CancelOrderTransactionData;
+import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.AssetRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 
-public class CancelOrderTransaction extends Transaction {
+public class CancelAssetOrderTransaction extends Transaction {
 
 	// Properties
-	private CancelOrderTransactionData cancelOrderTransactionData;
+	private CancelAssetOrderTransactionData cancelOrderTransactionData;
 
 	// Constructors
 
-	public CancelOrderTransaction(Repository repository, TransactionData transactionData) {
+	public CancelAssetOrderTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
 
-		this.cancelOrderTransactionData = (CancelOrderTransactionData) this.transactionData;
+		this.cancelOrderTransactionData = (CancelAssetOrderTransactionData) this.transactionData;
 	}
 
 	// More information

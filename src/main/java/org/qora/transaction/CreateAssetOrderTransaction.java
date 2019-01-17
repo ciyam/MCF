@@ -12,23 +12,23 @@ import org.qora.asset.Order;
 import org.qora.block.BlockChain;
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
-import org.qora.data.transaction.CreateOrderTransactionData;
+import org.qora.data.transaction.CreateAssetOrderTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.AssetRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 
-public class CreateOrderTransaction extends Transaction {
+public class CreateAssetOrderTransaction extends Transaction {
 
 	// Properties
-	private CreateOrderTransactionData createOrderTransactionData;
+	private CreateAssetOrderTransactionData createOrderTransactionData;
 
 	// Constructors
 
-	public CreateOrderTransaction(Repository repository, TransactionData transactionData) {
+	public CreateAssetOrderTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
 
-		this.createOrderTransactionData = (CreateOrderTransactionData) this.transactionData;
+		this.createOrderTransactionData = (CreateAssetOrderTransactionData) this.transactionData;
 	}
 
 	// More information

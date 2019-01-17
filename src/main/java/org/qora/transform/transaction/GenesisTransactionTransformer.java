@@ -10,6 +10,7 @@ import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
 import org.qora.data.transaction.GenesisTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -26,6 +27,19 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 	// Note that Genesis transactions don't require reference, fee or signature:
 	private static final int TYPELESS_LENGTH_V1 = TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
 	private static final int TYPELESS_LENGTH_V4 = TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.GENESIS.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("recipient", TransformationType.ADDRESS);
+		layout.add("amount", TransformationType.AMOUNT);
+		layout.add("asset ID", TransformationType.LONG);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

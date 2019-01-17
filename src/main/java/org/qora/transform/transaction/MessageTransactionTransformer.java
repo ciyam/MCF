@@ -12,6 +12,7 @@ import org.qora.asset.Asset;
 import org.qora.data.transaction.MessageTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.MessageTransaction;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -34,6 +35,25 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 			+ IS_TEXT_LENGTH + IS_ENCRYPTED_LENGTH;
 	private static final int TYPELESS_DATALESS_LENGTH_V3 = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + ASSET_ID_LENGTH + AMOUNT_LENGTH
 			+ DATA_SIZE_LENGTH + IS_TEXT_LENGTH + IS_ENCRYPTED_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.MESSAGE.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
+		layout.add("recipient", TransformationType.ADDRESS);
+		layout.add("asset ID of payment", TransformationType.LONG);
+		layout.add("payment (can be zero)", TransformationType.AMOUNT);
+		layout.add("message length", TransformationType.INT);
+		layout.add("message", TransformationType.DATA);
+		layout.add("is message encrypted?", TransformationType.BOOLEAN);
+		layout.add("is message text?", TransformationType.BOOLEAN);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

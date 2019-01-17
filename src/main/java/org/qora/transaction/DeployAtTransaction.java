@@ -15,7 +15,7 @@ import org.qora.at.AT;
 import org.qora.block.BlockChain;
 import org.qora.crypto.Crypto;
 import org.qora.data.asset.AssetData;
-import org.qora.data.transaction.DeployATTransactionData;
+import org.qora.data.transaction.DeployAtTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -23,10 +23,10 @@ import org.qora.transform.Transformer;
 
 import com.google.common.base.Utf8;
 
-public class DeployATTransaction extends Transaction {
+public class DeployAtTransaction extends Transaction {
 
 	// Properties
-	private DeployATTransactionData deployATTransactionData;
+	private DeployAtTransactionData deployATTransactionData;
 
 	// Other useful constants
 	public static final int MAX_NAME_SIZE = 200;
@@ -37,10 +37,10 @@ public class DeployATTransaction extends Transaction {
 
 	// Constructors
 
-	public DeployATTransaction(Repository repository, TransactionData transactionData) {
+	public DeployAtTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
 
-		this.deployATTransactionData = (DeployATTransactionData) this.transactionData;
+		this.deployATTransactionData = (DeployAtTransactionData) this.transactionData;
 	}
 
 	// More information

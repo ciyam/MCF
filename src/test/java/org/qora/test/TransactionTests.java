@@ -16,9 +16,9 @@ import org.qora.data.asset.TradeData;
 import org.qora.data.block.BlockData;
 import org.qora.data.naming.NameData;
 import org.qora.data.transaction.BuyNameTransactionData;
-import org.qora.data.transaction.CancelOrderTransactionData;
+import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.CancelSellNameTransactionData;
-import org.qora.data.transaction.CreateOrderTransactionData;
+import org.qora.data.transaction.CreateAssetOrderTransactionData;
 import org.qora.data.transaction.CreatePollTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.MessageTransactionData;
@@ -41,9 +41,9 @@ import org.qora.repository.RepositoryManager;
 import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qora.settings.Settings;
 import org.qora.transaction.BuyNameTransaction;
-import org.qora.transaction.CancelOrderTransaction;
+import org.qora.transaction.CancelAssetOrderTransaction;
 import org.qora.transaction.CancelSellNameTransaction;
-import org.qora.transaction.CreateOrderTransaction;
+import org.qora.transaction.CreateAssetOrderTransaction;
 import org.qora.transaction.CreatePollTransaction;
 import org.qora.transaction.IssueAssetTransaction;
 import org.qora.transaction.MessageTransaction;
@@ -816,9 +816,9 @@ public class TransactionTests {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 
-		CreateOrderTransactionData createOrderTransactionData = new CreateOrderTransactionData(buyer.getPublicKey(), haveAssetId, wantAssetId, amount, price,
+		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(buyer.getPublicKey(), haveAssetId, wantAssetId, amount, price,
 				fee, timestamp, buyersReference);
-		Transaction createOrderTransaction = new CreateOrderTransaction(this.repository, createOrderTransactionData);
+		Transaction createOrderTransaction = new CreateAssetOrderTransaction(this.repository, createOrderTransactionData);
 		createOrderTransaction.sign(buyer);
 		assertTrue(createOrderTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());
@@ -897,9 +897,9 @@ public class TransactionTests {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		byte[] buyersReference = buyer.getLastReference();
-		CancelOrderTransactionData cancelOrderTransactionData = new CancelOrderTransactionData(buyer.getPublicKey(), orderId, fee, timestamp, buyersReference);
+		CancelAssetOrderTransactionData cancelOrderTransactionData = new CancelAssetOrderTransactionData(buyer.getPublicKey(), orderId, fee, timestamp, buyersReference);
 
-		Transaction cancelOrderTransaction = new CancelOrderTransaction(this.repository, cancelOrderTransactionData);
+		Transaction cancelOrderTransaction = new CancelAssetOrderTransaction(this.repository, cancelOrderTransactionData);
 		cancelOrderTransaction.sign(buyer);
 		assertTrue(cancelOrderTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, cancelOrderTransaction.isValid());
@@ -972,9 +972,9 @@ public class TransactionTests {
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		BigDecimal senderPreTradeWantBalance = sender.getConfirmedBalance(wantAssetId);
 
-		CreateOrderTransactionData createOrderTransactionData = new CreateOrderTransactionData(sender.getPublicKey(), haveAssetId, wantAssetId, amount, price,
+		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(sender.getPublicKey(), haveAssetId, wantAssetId, amount, price,
 				fee, timestamp, reference);
-		Transaction createOrderTransaction = new CreateOrderTransaction(this.repository, createOrderTransactionData);
+		Transaction createOrderTransaction = new CreateAssetOrderTransaction(this.repository, createOrderTransactionData);
 		createOrderTransaction.sign(sender);
 		assertTrue(createOrderTransaction.isSignatureValid());
 		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());

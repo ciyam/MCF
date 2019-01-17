@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.qora.data.transaction.DeployATTransactionData;
+import org.qora.data.transaction.DeployAtTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -36,7 +36,7 @@ public class HSQLDBDeployATTransactionRepository extends HSQLDBTransactionReposi
 			if (resultSet.wasNull())
 				ATAddress = null;
 
-			return new DeployATTransactionData(ATAddress, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp,
+			return new DeployAtTransactionData(ATAddress, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp,
 					reference, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch deploy AT transaction from repository", e);
@@ -45,7 +45,7 @@ public class HSQLDBDeployATTransactionRepository extends HSQLDBTransactionReposi
 
 	@Override
 	public void save(TransactionData transactionData) throws DataException {
-		DeployATTransactionData deployATTransactionData = (DeployATTransactionData) transactionData;
+		DeployAtTransactionData deployATTransactionData = (DeployAtTransactionData) transactionData;
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("DeployATTransactions");
 

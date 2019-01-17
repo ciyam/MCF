@@ -9,7 +9,7 @@ import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
 import org.qora.data.at.ATData;
 import org.qora.data.at.ATStateData;
-import org.qora.data.transaction.DeployATTransactionData;
+import org.qora.data.transaction.DeployAtTransactionData;
 import org.qora.repository.ATRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -35,7 +35,7 @@ public class AT {
 	}
 
 	/** Constructs AT-handling object when deploying AT */
-	public AT(Repository repository, DeployATTransactionData deployATTransactionData) throws DataException {
+	public AT(Repository repository, DeployAtTransactionData deployATTransactionData) throws DataException {
 		this.repository = repository;
 
 		String atAddress = deployATTransactionData.getATAddress();

@@ -1,5 +1,8 @@
 package org.qora.repository.hsqldb.transaction;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,71 +25,38 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBTransactionRepository.class);
 
+	private HSQLDBTransactionRepository[] repositoryByTxType;
 	protected HSQLDBRepository repository;
-	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
-	private HSQLDBPaymentTransactionRepository paymentTransactionRepository;
-	private HSQLDBRegisterNameTransactionRepository registerNameTransactionRepository;
-	private HSQLDBUpdateNameTransactionRepository updateNameTransactionRepository;
-	private HSQLDBSellNameTransactionRepository sellNameTransactionRepository;
-	private HSQLDBCancelSellNameTransactionRepository cancelSellNameTransactionRepository;
-	private HSQLDBBuyNameTransactionRepository buyNameTransactionRepository;
-	private HSQLDBCreatePollTransactionRepository createPollTransactionRepository;
-	private HSQLDBVoteOnPollTransactionRepository voteOnPollTransactionRepository;
-	private HSQLDBArbitraryTransactionRepository arbitraryTransactionRepository;
-	private HSQLDBIssueAssetTransactionRepository issueAssetTransactionRepository;
-	private HSQLDBTransferAssetTransactionRepository transferAssetTransactionRepository;
-	private HSQLDBCreateOrderTransactionRepository createOrderTransactionRepository;
-	private HSQLDBCancelOrderTransactionRepository cancelOrderTransactionRepository;
-	private HSQLDBMultiPaymentTransactionRepository multiPaymentTransactionRepository;
-	private HSQLDBDeployATTransactionRepository deployATTransactionRepository;
-	private HSQLDBMessageTransactionRepository messageTransactionRepository;
-	private HSQLDBATTransactionRepository atTransactionRepository;
-	private HSQLDBCreateGroupTransactionRepository createGroupTransactionRepository;
-	private HSQLDBUpdateGroupTransactionRepository updateGroupTransactionRepository;
-	private HSQLDBAddGroupAdminTransactionRepository addGroupAdminTransactionRepository;
-	private HSQLDBRemoveGroupAdminTransactionRepository removeGroupAdminTransactionRepository;
-	private HSQLDBGroupBanTransactionRepository groupBanTransactionRepository;
-	private HSQLDBCancelGroupBanTransactionRepository groupUnbanTransactionRepository;
-	private HSQLDBGroupKickTransactionRepository groupKickTransactionRepository;
-	private HSQLDBGroupInviteTransactionRepository groupInviteTransactionRepository;
-	private HSQLDBCancelGroupInviteTransactionRepository cancelGroupInviteTransactionRepository;
-	private HSQLDBJoinGroupTransactionRepository joinGroupTransactionRepository;
-	private HSQLDBLeaveGroupTransactionRepository leaveGroupTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
-		this.genesisTransactionRepository = new HSQLDBGenesisTransactionRepository(repository);
-		this.paymentTransactionRepository = new HSQLDBPaymentTransactionRepository(repository);
-		this.registerNameTransactionRepository = new HSQLDBRegisterNameTransactionRepository(repository);
-		this.updateNameTransactionRepository = new HSQLDBUpdateNameTransactionRepository(repository);
-		this.sellNameTransactionRepository = new HSQLDBSellNameTransactionRepository(repository);
-		this.cancelSellNameTransactionRepository = new HSQLDBCancelSellNameTransactionRepository(repository);
-		this.buyNameTransactionRepository = new HSQLDBBuyNameTransactionRepository(repository);
-		this.createPollTransactionRepository = new HSQLDBCreatePollTransactionRepository(repository);
-		this.voteOnPollTransactionRepository = new HSQLDBVoteOnPollTransactionRepository(repository);
-		this.arbitraryTransactionRepository = new HSQLDBArbitraryTransactionRepository(repository);
-		this.issueAssetTransactionRepository = new HSQLDBIssueAssetTransactionRepository(repository);
-		this.transferAssetTransactionRepository = new HSQLDBTransferAssetTransactionRepository(repository);
-		this.createOrderTransactionRepository = new HSQLDBCreateOrderTransactionRepository(repository);
-		this.cancelOrderTransactionRepository = new HSQLDBCancelOrderTransactionRepository(repository);
-		this.multiPaymentTransactionRepository = new HSQLDBMultiPaymentTransactionRepository(repository);
-		this.deployATTransactionRepository = new HSQLDBDeployATTransactionRepository(repository);
-		this.messageTransactionRepository = new HSQLDBMessageTransactionRepository(repository);
-		this.atTransactionRepository = new HSQLDBATTransactionRepository(repository);
-		this.createGroupTransactionRepository = new HSQLDBCreateGroupTransactionRepository(repository);
-		this.updateGroupTransactionRepository = new HSQLDBUpdateGroupTransactionRepository(repository);
-		this.addGroupAdminTransactionRepository = new HSQLDBAddGroupAdminTransactionRepository(repository);
-		this.removeGroupAdminTransactionRepository = new HSQLDBRemoveGroupAdminTransactionRepository(repository);
-		this.groupBanTransactionRepository = new HSQLDBGroupBanTransactionRepository(repository);
-		this.groupUnbanTransactionRepository = new HSQLDBCancelGroupBanTransactionRepository(repository);
-		this.groupKickTransactionRepository = new HSQLDBGroupKickTransactionRepository(repository);
-		this.groupInviteTransactionRepository = new HSQLDBGroupInviteTransactionRepository(repository);
-		this.cancelGroupInviteTransactionRepository = new HSQLDBCancelGroupInviteTransactionRepository(repository);
-		this.joinGroupTransactionRepository = new HSQLDBJoinGroupTransactionRepository(repository);
-		this.leaveGroupTransactionRepository = new HSQLDBLeaveGroupTransactionRepository(repository);
+
+		this.repositoryByTxType = new HSQLDBTransactionRepository[256];
+
+		for (TransactionType txType : TransactionType.values()) {
+			Class<?> repositoryClass = getClassByTxType(txType);
+			if (repositoryClass == null)
+				continue;
+
+			try {
+				Constructor<?> constructor = repositoryClass.getConstructor(HSQLDBRepository.class);
+				HSQLDBTransactionRepository txRepository = (HSQLDBTransactionRepository) constructor.newInstance(repository);
+				this.repositoryByTxType[txType.value] = txRepository;
+			} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
+				continue;
+			}
+		}
 	}
 
 	protected HSQLDBTransactionRepository() {
+	}
+
+	private static Class<?> getClassByTxType(TransactionType txType) {
+		try {
+			return Class.forName(String.join("", HSQLDBTransactionRepository.class.getPackage().getName(), ".", "HSQLDB", txType.className, "TransactionRepository"));
+		} catch (ClassNotFoundException e) {
+			return null;
+		}
 	}
 
 	@Override
@@ -155,96 +125,15 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	private TransactionData fromBase(TransactionType type, byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee)
 			throws DataException {
-		switch (type) {
-			case GENESIS:
-				return this.genesisTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+		HSQLDBTransactionRepository txRepository = repositoryByTxType[type.value];
+		if (txRepository == null)
+			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 
-			case PAYMENT:
-				return this.paymentTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case REGISTER_NAME:
-				return this.registerNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case UPDATE_NAME:
-				return this.updateNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case SELL_NAME:
-				return this.sellNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case CANCEL_SELL_NAME:
-				return this.cancelSellNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case BUY_NAME:
-				return this.buyNameTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case CREATE_POLL:
-				return this.createPollTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case VOTE_ON_POLL:
-				return this.voteOnPollTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case ARBITRARY:
-				return this.arbitraryTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case ISSUE_ASSET:
-				return this.issueAssetTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case TRANSFER_ASSET:
-				return this.transferAssetTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case CREATE_ASSET_ORDER:
-				return this.createOrderTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case CANCEL_ASSET_ORDER:
-				return this.cancelOrderTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case MULTIPAYMENT:
-				return this.multiPaymentTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case DEPLOY_AT:
-				return this.deployATTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case MESSAGE:
-				return this.messageTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case AT:
-				return this.atTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case CREATE_GROUP:
-				return this.createGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case UPDATE_GROUP:
-				return this.updateGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case ADD_GROUP_ADMIN:
-				return this.addGroupAdminTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case REMOVE_GROUP_ADMIN:
-				return this.removeGroupAdminTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case GROUP_BAN:
-				return this.groupBanTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case CANCEL_GROUP_BAN:
-				return this.groupUnbanTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case GROUP_KICK:
-				return this.groupKickTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case GROUP_INVITE:
-				return this.groupInviteTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case CANCEL_GROUP_INVITE:
-				return this.cancelGroupInviteTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case JOIN_GROUP:
-				return this.joinGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			case LEAVE_GROUP:
-				return this.leaveGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
-
-			default:
-				throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
+		try {
+			Method method = txRepository.getClass().getDeclaredMethod("fromBase", byte[].class, byte[].class, byte[].class, long.class, BigDecimal.class);
+			return (TransactionData) method.invoke(txRepository, signature, reference, creatorPublicKey, timestamp, fee);
+		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 		}
 	}
 
@@ -490,125 +379,16 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 
 		// Now call transaction-type-specific save() method
-		switch (transactionData.getType()) {
-			case GENESIS:
-				this.genesisTransactionRepository.save(transactionData);
-				break;
+		TransactionType type = transactionData.getType();
+		HSQLDBTransactionRepository txRepository = repositoryByTxType[type.value];
+		if (txRepository == null)
+			throw new DataException("Unsupported transaction type [" + type.name() + "] during save into HSQLDB repository");
 
-			case PAYMENT:
-				this.paymentTransactionRepository.save(transactionData);
-				break;
-
-			case REGISTER_NAME:
-				this.registerNameTransactionRepository.save(transactionData);
-				break;
-
-			case UPDATE_NAME:
-				this.updateNameTransactionRepository.save(transactionData);
-				break;
-
-			case SELL_NAME:
-				this.sellNameTransactionRepository.save(transactionData);
-				break;
-
-			case CANCEL_SELL_NAME:
-				this.cancelSellNameTransactionRepository.save(transactionData);
-				break;
-
-			case BUY_NAME:
-				this.buyNameTransactionRepository.save(transactionData);
-				break;
-
-			case CREATE_POLL:
-				this.createPollTransactionRepository.save(transactionData);
-				break;
-
-			case VOTE_ON_POLL:
-				this.voteOnPollTransactionRepository.save(transactionData);
-				break;
-
-			case ARBITRARY:
-				this.arbitraryTransactionRepository.save(transactionData);
-				break;
-
-			case ISSUE_ASSET:
-				this.issueAssetTransactionRepository.save(transactionData);
-				break;
-
-			case TRANSFER_ASSET:
-				this.transferAssetTransactionRepository.save(transactionData);
-				break;
-
-			case CREATE_ASSET_ORDER:
-				this.createOrderTransactionRepository.save(transactionData);
-				break;
-
-			case CANCEL_ASSET_ORDER:
-				this.cancelOrderTransactionRepository.save(transactionData);
-				break;
-
-			case MULTIPAYMENT:
-				this.multiPaymentTransactionRepository.save(transactionData);
-				break;
-
-			case DEPLOY_AT:
-				this.deployATTransactionRepository.save(transactionData);
-				break;
-
-			case MESSAGE:
-				this.messageTransactionRepository.save(transactionData);
-				break;
-
-			case AT:
-				this.atTransactionRepository.save(transactionData);
-				break;
-
-			case CREATE_GROUP:
-				this.createGroupTransactionRepository.save(transactionData);
-				break;
-
-			case UPDATE_GROUP:
-				this.updateGroupTransactionRepository.save(transactionData);
-				break;
-
-			case ADD_GROUP_ADMIN:
-				this.addGroupAdminTransactionRepository.save(transactionData);
-				break;
-
-			case REMOVE_GROUP_ADMIN:
-				this.removeGroupAdminTransactionRepository.save(transactionData);
-				break;
-
-			case GROUP_BAN:
-				this.groupBanTransactionRepository.save(transactionData);
-				break;
-
-			case CANCEL_GROUP_BAN:
-				this.groupUnbanTransactionRepository.save(transactionData);
-				break;
-
-			case GROUP_KICK:
-				this.groupKickTransactionRepository.save(transactionData);
-				break;
-
-			case GROUP_INVITE:
-				this.groupInviteTransactionRepository.save(transactionData);
-				break;
-
-			case CANCEL_GROUP_INVITE:
-				this.cancelGroupInviteTransactionRepository.save(transactionData);
-				break;
-
-			case JOIN_GROUP:
-				this.joinGroupTransactionRepository.save(transactionData);
-				break;
-
-			case LEAVE_GROUP:
-				this.leaveGroupTransactionRepository.save(transactionData);
-				break;
-
-			default:
-				throw new DataException("Unsupported transaction type [" + transactionData.getType().name() + "] during save into HSQLDB repository");
+		try {
+			Method method = txRepository.getClass().getDeclaredMethod("save", TransactionData.class);
+			method.invoke(txRepository, transactionData);
+		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			throw new DataException("Unsupported transaction type [" + type.name() + "] during save into HSQLDB repository");
 		}
 	}
 

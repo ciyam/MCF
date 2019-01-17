@@ -143,7 +143,7 @@ public class SerializationTests extends Common {
 
 	@Test
 	public void testMultiPaymentSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(34500, TransactionType.MULTIPAYMENT);
+		testSpecificBlockTransactions(34500, TransactionType.MULTI_PAYMENT);
 	}
 
 	@Test

@@ -13,7 +13,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
-public class CreateOrderTransactionData extends TransactionData {
+public class CreateAssetOrderTransactionData extends TransactionData {
 
 	// Properties
 	@Schema(description = "ID of asset on offer to give by order creator", example = "1")
@@ -28,11 +28,11 @@ public class CreateOrderTransactionData extends TransactionData {
 	// Constructors
 
 	// For JAX-RS
-	protected CreateOrderTransactionData() {
+	protected CreateAssetOrderTransactionData() {
 		super(TransactionType.CREATE_ASSET_ORDER);
 	}
 
-	public CreateOrderTransactionData(byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, BigDecimal fee,
+	public CreateAssetOrderTransactionData(byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, BigDecimal fee,
 			long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.CREATE_ASSET_ORDER, fee, creatorPublicKey, timestamp, reference, signature);
 
@@ -42,7 +42,7 @@ public class CreateOrderTransactionData extends TransactionData {
 		this.price = price;
 	}
 
-	public CreateOrderTransactionData(byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, BigDecimal fee,
+	public CreateAssetOrderTransactionData(byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, BigDecimal fee,
 			long timestamp, byte[] reference) {
 		this(creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, timestamp, reference, null);
 	}

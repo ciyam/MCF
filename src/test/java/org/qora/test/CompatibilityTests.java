@@ -2,7 +2,7 @@ package org.qora.test;
 
 import org.junit.jupiter.api.Test;
 import org.qora.data.transaction.TransactionData;
-import org.qora.transaction.CreateOrderTransaction;
+import org.qora.transaction.CreateAssetOrderTransaction;
 import org.qora.transaction.CreatePollTransaction;
 import org.qora.transaction.IssueAssetTransaction;
 import org.qora.transform.TransformationException;
@@ -27,7 +27,7 @@ public class CompatibilityTests {
 
 		TransactionData transactionData = TransactionTransformer.fromBytes(rawTx);
 
-		CreateOrderTransaction transaction = new CreateOrderTransaction(null, transactionData);
+		CreateAssetOrderTransaction transaction = new CreateAssetOrderTransaction(null, transactionData);
 		assertTrue(transaction.isSignatureValid());
 	}
 

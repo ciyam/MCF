@@ -10,6 +10,7 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.UpdateGroupTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -29,6 +30,23 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 
 	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + OWNER_LENGTH + GROUPID_LENGTH + NEW_OWNER_LENGTH + NEW_DESCRIPTION_SIZE_LENGTH
 			+ NEW_IS_OPEN_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.UPDATE_GROUP.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("group owner's public key", TransformationType.PUBLIC_KEY);
+		layout.add("group ID", TransformationType.INT);
+		layout.add("group's new owner", TransformationType.ADDRESS);
+		layout.add("group's new description length", TransformationType.INT);
+		layout.add("group's new description", TransformationType.STRING);
+		layout.add("is group \"open\"?", TransformationType.BOOLEAN);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

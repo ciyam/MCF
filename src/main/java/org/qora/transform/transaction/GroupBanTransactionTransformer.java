@@ -10,6 +10,7 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.GroupBanTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -28,6 +29,23 @@ public class GroupBanTransactionTransformer extends TransactionTransformer {
 	private static final int TTL_LENGTH = INT_LENGTH;
 
 	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + GROUPID_LENGTH + MEMBER_LENGTH + REASON_SIZE_LENGTH + TTL_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.GROUP_BAN.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("group admin's public key", TransformationType.PUBLIC_KEY);
+		layout.add("group ID", TransformationType.INT);
+		layout.add("account to ban", TransformationType.ADDRESS);
+		layout.add("ban reason length", TransformationType.INT);
+		layout.add("ban reason", TransformationType.STRING);
+		layout.add("ban period (seconds) or 0 forever", TransformationType.INT);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

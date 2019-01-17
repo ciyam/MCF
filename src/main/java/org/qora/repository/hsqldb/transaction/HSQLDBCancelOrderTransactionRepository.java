@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.qora.data.transaction.CancelOrderTransactionData;
+import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -23,7 +23,7 @@ public class HSQLDBCancelOrderTransactionRepository extends HSQLDBTransactionRep
 
 			byte[] assetOrderId = resultSet.getBytes(1);
 
-			return new CancelOrderTransactionData(creatorPublicKey, assetOrderId, fee, timestamp, reference, signature);
+			return new CancelAssetOrderTransactionData(creatorPublicKey, assetOrderId, fee, timestamp, reference, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch cancel order transaction from repository", e);
 		}
@@ -31,7 +31,7 @@ public class HSQLDBCancelOrderTransactionRepository extends HSQLDBTransactionRep
 
 	@Override
 	public void save(TransactionData transactionData) throws DataException {
-		CancelOrderTransactionData cancelOrderTransactionData = (CancelOrderTransactionData) transactionData;
+		CancelAssetOrderTransactionData cancelOrderTransactionData = (CancelAssetOrderTransactionData) transactionData;
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("CancelAssetOrderTransactions");
 

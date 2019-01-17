@@ -1,8 +1,17 @@
 package org.qora.transform.transaction;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -17,7 +26,7 @@ import org.qora.utils.Base58;
 
 import com.google.common.hash.HashCode;
 
-public class TransactionTransformer extends Transformer {
+public abstract class TransactionTransformer extends Transformer {
 
 	private static final Logger LOGGER = LogManager.getLogger(TransactionTransformer.class);
 
@@ -25,6 +34,86 @@ public class TransactionTransformer extends Transformer {
 	protected static final int REFERENCE_LENGTH = SIGNATURE_LENGTH;
 	protected static final int FEE_LENGTH = BIG_DECIMAL_LENGTH;
 	protected static final int BASE_TYPELESS_LENGTH = TIMESTAMP_LENGTH + REFERENCE_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
+
+	public enum TransformationType {
+		TIMESTAMP("milliseconds (long)", TIMESTAMP_LENGTH),
+		SIGNATURE("transaction signature", SIGNATURE_LENGTH),
+		PUBLIC_KEY("public key", PUBLIC_KEY_LENGTH),
+		ADDRESS("address", ADDRESS_LENGTH),
+		AMOUNT("amount", BIG_DECIMAL_LENGTH),
+		ASSET_QUANTITY("asset-related quantity", 12),
+		INT("int", INT_LENGTH),
+		LONG("long", LONG_LENGTH),
+		STRING("UTF-8 string of variable length", null),
+		DATA("opaque data of variable length", null),
+		BOOLEAN("0 for false, anything else for true", 1);
+
+		public final String description;
+		public final Integer length;
+
+		TransformationType(String description, Integer length) {
+			this.description = description;
+			this.length = length;
+		}
+	}
+
+	@XmlAccessorType(XmlAccessType.NONE)
+	public static class Transformation {
+		@XmlElement
+		public String description;
+		public TransformationType transformation;
+
+		protected Transformation() {
+		}
+
+		public Transformation(String description, TransformationType format) {
+			this.description = description;
+			this.transformation = format;
+		}
+
+		@XmlElement(name = "format")
+		public String getFormat() {
+			return this.transformation.description;
+		}
+
+		@XmlElement(name = "length")
+		public Integer getLength() {
+			return this.transformation.length;
+		}
+	}
+
+	public static class TransactionLayout {
+		private List<Transformation> layout = new ArrayList<>();
+
+		public void add(String name, TransformationType format) {
+			layout.add(new Transformation(name, format));
+		}
+
+		public List<Transformation> getLayout() {
+			return this.layout;
+		}
+	}
+
+	private static Class<?> getClassByTxType(TransactionType txType) {
+		try {
+			return Class.forName(String.join("", TransactionTransformer.class.getPackage().getName(), ".", txType.className, "TransactionTransformer"));
+		} catch (ClassNotFoundException e) {
+			return null;
+		}
+	}
+
+	public static List<Transformation> getLayoutByTxType(TransactionType txType) {
+		try {
+			Class<?> transformerClass = TransactionTransformer.getClassByTxType(txType);
+			if (transformerClass == null)
+				return null;
+
+			Field layoutField = transformerClass.getDeclaredField("layout");
+			return ((TransactionLayout) layoutField.get(null)).getLayout();
+		} catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException e) {
+			return null;
+		}
+	}
 
 	public static TransactionData fromBytes(byte[] bytes) throws TransformationException {
 		if (bytes == null)
@@ -42,278 +131,46 @@ public class TransactionTransformer extends Transformer {
 			return null;
 
 		try {
-			switch (type) {
-				case GENESIS:
-					return GenesisTransactionTransformer.fromByteBuffer(byteBuffer);
+			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
+			if (transformerClass == null)
+				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
 
-				case PAYMENT:
-					return PaymentTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case REGISTER_NAME:
-					return RegisterNameTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case UPDATE_NAME:
-					return UpdateNameTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case SELL_NAME:
-					return SellNameTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case CANCEL_SELL_NAME:
-					return CancelSellNameTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case BUY_NAME:
-					return BuyNameTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case CREATE_POLL:
-					return CreatePollTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case VOTE_ON_POLL:
-					return VoteOnPollTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case ARBITRARY:
-					return ArbitraryTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case ISSUE_ASSET:
-					return IssueAssetTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case TRANSFER_ASSET:
-					return TransferAssetTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case CREATE_ASSET_ORDER:
-					return CreateOrderTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case CANCEL_ASSET_ORDER:
-					return CancelOrderTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case MULTIPAYMENT:
-					return MultiPaymentTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case MESSAGE:
-					return MessageTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case DEPLOY_AT:
-					return DeployATTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case CREATE_GROUP:
-					return CreateGroupTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case UPDATE_GROUP:
-					return UpdateGroupTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case ADD_GROUP_ADMIN:
-					return AddGroupAdminTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case REMOVE_GROUP_ADMIN:
-					return RemoveGroupAdminTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case GROUP_BAN:
-					return GroupBanTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case CANCEL_GROUP_BAN:
-					return CancelGroupBanTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case GROUP_KICK:
-					return GroupKickTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case GROUP_INVITE:
-					return GroupInviteTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case CANCEL_GROUP_INVITE:
-					return CancelGroupInviteTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case JOIN_GROUP:
-					return JoinGroupTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				case LEAVE_GROUP:
-					return LeaveGroupTransactionTransformer.fromByteBuffer(byteBuffer);
-
-				default:
-					throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
-			}
+			Method method = transformerClass.getDeclaredMethod("fromByteBuffer", ByteBuffer.class);
+			return (TransactionData) method.invoke(null, byteBuffer);
 		} catch (BufferUnderflowException e) {
 			throw new TransformationException("Byte data too short for transaction type [" + type.value + "]");
+		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion from bytes");
 		}
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		switch (transactionData.getType()) {
-			case GENESIS:
-				return GenesisTransactionTransformer.getDataLength(transactionData);
+		TransactionType type = transactionData.getType();
 
-			case PAYMENT:
-				return PaymentTransactionTransformer.getDataLength(transactionData);
+		try {
+			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
+			if (transformerClass == null)
+				throw new TransformationException("Unsupported transaction type [" + type.value + "] when requesting byte length");
 
-			case REGISTER_NAME:
-				return RegisterNameTransactionTransformer.getDataLength(transactionData);
-
-			case UPDATE_NAME:
-				return UpdateNameTransactionTransformer.getDataLength(transactionData);
-
-			case SELL_NAME:
-				return SellNameTransactionTransformer.getDataLength(transactionData);
-
-			case CANCEL_SELL_NAME:
-				return CancelSellNameTransactionTransformer.getDataLength(transactionData);
-
-			case BUY_NAME:
-				return BuyNameTransactionTransformer.getDataLength(transactionData);
-
-			case CREATE_POLL:
-				return CreatePollTransactionTransformer.getDataLength(transactionData);
-
-			case VOTE_ON_POLL:
-				return VoteOnPollTransactionTransformer.getDataLength(transactionData);
-
-			case ARBITRARY:
-				return ArbitraryTransactionTransformer.getDataLength(transactionData);
-
-			case ISSUE_ASSET:
-				return IssueAssetTransactionTransformer.getDataLength(transactionData);
-
-			case TRANSFER_ASSET:
-				return TransferAssetTransactionTransformer.getDataLength(transactionData);
-
-			case CREATE_ASSET_ORDER:
-				return CreateOrderTransactionTransformer.getDataLength(transactionData);
-
-			case CANCEL_ASSET_ORDER:
-				return CancelOrderTransactionTransformer.getDataLength(transactionData);
-
-			case MULTIPAYMENT:
-				return MultiPaymentTransactionTransformer.getDataLength(transactionData);
-
-			case MESSAGE:
-				return MessageTransactionTransformer.getDataLength(transactionData);
-
-			case DEPLOY_AT:
-				return DeployATTransactionTransformer.getDataLength(transactionData);
-
-			case CREATE_GROUP:
-				return CreateGroupTransactionTransformer.getDataLength(transactionData);
-
-			case UPDATE_GROUP:
-				return UpdateGroupTransactionTransformer.getDataLength(transactionData);
-
-			case ADD_GROUP_ADMIN:
-				return AddGroupAdminTransactionTransformer.getDataLength(transactionData);
-
-			case REMOVE_GROUP_ADMIN:
-				return RemoveGroupAdminTransactionTransformer.getDataLength(transactionData);
-
-			case GROUP_BAN:
-				return GroupBanTransactionTransformer.getDataLength(transactionData);
-
-			case CANCEL_GROUP_BAN:
-				return CancelGroupBanTransactionTransformer.getDataLength(transactionData);
-
-			case GROUP_KICK:
-				return GroupKickTransactionTransformer.getDataLength(transactionData);
-
-			case GROUP_INVITE:
-				return GroupInviteTransactionTransformer.getDataLength(transactionData);
-
-			case CANCEL_GROUP_INVITE:
-				return CancelGroupInviteTransactionTransformer.getDataLength(transactionData);
-
-			case JOIN_GROUP:
-				return JoinGroupTransactionTransformer.getDataLength(transactionData);
-
-			case LEAVE_GROUP:
-				return LeaveGroupTransactionTransformer.getDataLength(transactionData);
-
-			default:
-				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] when requesting byte length");
+			Method method = transformerClass.getDeclaredMethod("getDataLength", TransactionData.class);
+			return (int) method.invoke(null, transactionData);
+		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			throw new TransformationException("Internal error with transaction type [" + type.value + "] when requesting byte length");
 		}
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
-		switch (transactionData.getType()) {
-			case GENESIS:
-				return GenesisTransactionTransformer.toBytes(transactionData);
+		TransactionType type = transactionData.getType();
 
-			case PAYMENT:
-				return PaymentTransactionTransformer.toBytes(transactionData);
+		try {
+			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
+			if (transformerClass == null)
+				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion to bytes");
 
-			case REGISTER_NAME:
-				return RegisterNameTransactionTransformer.toBytes(transactionData);
-
-			case UPDATE_NAME:
-				return UpdateNameTransactionTransformer.toBytes(transactionData);
-
-			case SELL_NAME:
-				return SellNameTransactionTransformer.toBytes(transactionData);
-
-			case CANCEL_SELL_NAME:
-				return CancelSellNameTransactionTransformer.toBytes(transactionData);
-
-			case BUY_NAME:
-				return BuyNameTransactionTransformer.toBytes(transactionData);
-
-			case CREATE_POLL:
-				return CreatePollTransactionTransformer.toBytes(transactionData);
-
-			case VOTE_ON_POLL:
-				return VoteOnPollTransactionTransformer.toBytes(transactionData);
-
-			case ARBITRARY:
-				return ArbitraryTransactionTransformer.toBytes(transactionData);
-
-			case ISSUE_ASSET:
-				return IssueAssetTransactionTransformer.toBytes(transactionData);
-
-			case TRANSFER_ASSET:
-				return TransferAssetTransactionTransformer.toBytes(transactionData);
-
-			case CREATE_ASSET_ORDER:
-				return CreateOrderTransactionTransformer.toBytes(transactionData);
-
-			case CANCEL_ASSET_ORDER:
-				return CancelOrderTransactionTransformer.toBytes(transactionData);
-
-			case MULTIPAYMENT:
-				return MultiPaymentTransactionTransformer.toBytes(transactionData);
-
-			case MESSAGE:
-				return MessageTransactionTransformer.toBytes(transactionData);
-
-			case DEPLOY_AT:
-				return DeployATTransactionTransformer.toBytes(transactionData);
-
-			case CREATE_GROUP:
-				return CreateGroupTransactionTransformer.toBytes(transactionData);
-
-			case UPDATE_GROUP:
-				return UpdateGroupTransactionTransformer.toBytes(transactionData);
-
-			case ADD_GROUP_ADMIN:
-				return AddGroupAdminTransactionTransformer.toBytes(transactionData);
-
-			case REMOVE_GROUP_ADMIN:
-				return RemoveGroupAdminTransactionTransformer.toBytes(transactionData);
-
-			case GROUP_BAN:
-				return GroupBanTransactionTransformer.toBytes(transactionData);
-
-			case CANCEL_GROUP_BAN:
-				return CancelGroupBanTransactionTransformer.toBytes(transactionData);
-
-			case GROUP_KICK:
-				return GroupKickTransactionTransformer.toBytes(transactionData);
-
-			case GROUP_INVITE:
-				return GroupInviteTransactionTransformer.toBytes(transactionData);
-
-			case CANCEL_GROUP_INVITE:
-				return CancelGroupInviteTransactionTransformer.toBytes(transactionData);
-
-			case JOIN_GROUP:
-				return JoinGroupTransactionTransformer.toBytes(transactionData);
-
-			case LEAVE_GROUP:
-				return LeaveGroupTransactionTransformer.toBytes(transactionData);
-
-			default:
-				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes");
+			Method method = transformerClass.getDeclaredMethod("toBytes", TransactionData.class);
+			return (byte[]) method.invoke(null, transactionData);
+		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to bytes");
 		}
 	}
 
@@ -327,94 +184,21 @@ public class TransactionTransformer extends Transformer {
 	 * @throws TransformationException
 	 */
 	public static byte[] toBytesForSigning(TransactionData transactionData) throws TransformationException {
-		switch (transactionData.getType()) {
-			case GENESIS:
-				return GenesisTransactionTransformer.toBytesForSigningImpl(transactionData);
+		TransactionType type = transactionData.getType();
 
-			case PAYMENT:
-				return PaymentTransactionTransformer.toBytesForSigningImpl(transactionData);
+		try {
+			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
+			if (transformerClass == null)
+				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion to bytes for signing");
 
-			case REGISTER_NAME:
-				return RegisterNameTransactionTransformer.toBytesForSigningImpl(transactionData);
+			// Check method is actually declared in transformer, otherwise we have to call superclass version
+			if (Arrays.asList(transformerClass.getDeclaredMethods()).stream().noneMatch(method -> method.getName().equals("toBytesForSigningImpl")))
+				transformerClass = transformerClass.getSuperclass();
 
-			case UPDATE_NAME:
-				return UpdateNameTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case SELL_NAME:
-				return SellNameTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case CANCEL_SELL_NAME:
-				return CancelSellNameTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case BUY_NAME:
-				return BuyNameTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case CREATE_POLL:
-				return CreatePollTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case VOTE_ON_POLL:
-				return VoteOnPollTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case ARBITRARY:
-				return ArbitraryTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case ISSUE_ASSET:
-				return IssueAssetTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case TRANSFER_ASSET:
-				return TransferAssetTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case CREATE_ASSET_ORDER:
-				return CreateOrderTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case CANCEL_ASSET_ORDER:
-				return CancelOrderTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case MULTIPAYMENT:
-				return MultiPaymentTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case MESSAGE:
-				return MessageTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case DEPLOY_AT:
-				return DeployATTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case CREATE_GROUP:
-				return CreateGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case UPDATE_GROUP:
-				return UpdateGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case ADD_GROUP_ADMIN:
-				return AddGroupAdminTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case REMOVE_GROUP_ADMIN:
-				return RemoveGroupAdminTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case GROUP_BAN:
-				return GroupBanTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case CANCEL_GROUP_BAN:
-				return CancelGroupBanTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case GROUP_KICK:
-				return GroupKickTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case GROUP_INVITE:
-				return GroupInviteTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case CANCEL_GROUP_INVITE:
-				return CancelGroupInviteTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case JOIN_GROUP:
-				return JoinGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			case LEAVE_GROUP:
-				return LeaveGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
-
-			default:
-				throw new TransformationException(
-						"Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes for signing");
+			Method method = transformerClass.getDeclaredMethod("toBytesForSigningImpl", TransactionData.class);
+			return (byte[]) method.invoke(null, transactionData);
+		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to bytes for signing");
 		}
 	}
 
@@ -439,93 +223,17 @@ public class TransactionTransformer extends Transformer {
 	}
 
 	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		switch (transactionData.getType()) {
-			case GENESIS:
-				return GenesisTransactionTransformer.toJSON(transactionData);
+		TransactionType type = transactionData.getType();
 
-			case PAYMENT:
-				return PaymentTransactionTransformer.toJSON(transactionData);
+		try {
+			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
+			if (transformerClass == null)
+				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion to JSON");
 
-			case REGISTER_NAME:
-				return RegisterNameTransactionTransformer.toJSON(transactionData);
-
-			case UPDATE_NAME:
-				return UpdateNameTransactionTransformer.toJSON(transactionData);
-
-			case SELL_NAME:
-				return SellNameTransactionTransformer.toJSON(transactionData);
-
-			case CANCEL_SELL_NAME:
-				return CancelSellNameTransactionTransformer.toJSON(transactionData);
-
-			case BUY_NAME:
-				return BuyNameTransactionTransformer.toJSON(transactionData);
-
-			case CREATE_POLL:
-				return CreatePollTransactionTransformer.toJSON(transactionData);
-
-			case VOTE_ON_POLL:
-				return VoteOnPollTransactionTransformer.toJSON(transactionData);
-
-			case ARBITRARY:
-				return ArbitraryTransactionTransformer.toJSON(transactionData);
-
-			case ISSUE_ASSET:
-				return IssueAssetTransactionTransformer.toJSON(transactionData);
-
-			case TRANSFER_ASSET:
-				return TransferAssetTransactionTransformer.toJSON(transactionData);
-
-			case CREATE_ASSET_ORDER:
-				return CreateOrderTransactionTransformer.toJSON(transactionData);
-
-			case CANCEL_ASSET_ORDER:
-				return CancelOrderTransactionTransformer.toJSON(transactionData);
-
-			case MULTIPAYMENT:
-				return MultiPaymentTransactionTransformer.toJSON(transactionData);
-
-			case MESSAGE:
-				return MessageTransactionTransformer.toJSON(transactionData);
-
-			case DEPLOY_AT:
-				return DeployATTransactionTransformer.toJSON(transactionData);
-
-			case CREATE_GROUP:
-				return CreateGroupTransactionTransformer.toJSON(transactionData);
-
-			case UPDATE_GROUP:
-				return UpdateGroupTransactionTransformer.toJSON(transactionData);
-
-			case ADD_GROUP_ADMIN:
-				return AddGroupAdminTransactionTransformer.toJSON(transactionData);
-
-			case REMOVE_GROUP_ADMIN:
-				return RemoveGroupAdminTransactionTransformer.toJSON(transactionData);
-
-			case GROUP_BAN:
-				return GroupBanTransactionTransformer.toJSON(transactionData);
-
-			case CANCEL_GROUP_BAN:
-				return CancelGroupBanTransactionTransformer.toJSON(transactionData);
-
-			case GROUP_KICK:
-				return GroupKickTransactionTransformer.toJSON(transactionData);
-
-			case GROUP_INVITE:
-				return GroupInviteTransactionTransformer.toJSON(transactionData);
-
-			case CANCEL_GROUP_INVITE:
-				return CancelGroupInviteTransactionTransformer.toJSON(transactionData);
-
-			case JOIN_GROUP:
-				return JoinGroupTransactionTransformer.toJSON(transactionData);
-
-			case LEAVE_GROUP:
-				return LeaveGroupTransactionTransformer.toJSON(transactionData);
-
-			default:
-				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to JSON");
+			Method method = transformerClass.getDeclaredMethod("toJSON", TransactionData.class);
+			return (JSONObject) method.invoke(null, transactionData);
+		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to JSON");
 		}
 	}
 

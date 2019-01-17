@@ -17,6 +17,7 @@ import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.ArbitraryTransactionData.DataType;
 import org.qora.transaction.ArbitraryTransaction;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.PaymentTransformer;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Base58;
@@ -36,6 +37,27 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 	private static final int TYPELESS_DATALESS_LENGTH_V1 = BASE_TYPELESS_LENGTH + SENDER_LENGTH + SERVICE_LENGTH + DATA_SIZE_LENGTH;
 	private static final int TYPELESS_DATALESS_LENGTH_V3 = BASE_TYPELESS_LENGTH + SENDER_LENGTH + PAYMENTS_COUNT_LENGTH + SERVICE_LENGTH + DATA_SIZE_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.ARBITRARY.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
+		layout.add("number of payments", TransformationType.INT);
+
+		layout.add("* recipient", TransformationType.ADDRESS);
+		layout.add("* asset ID of payment", TransformationType.LONG);
+		layout.add("* payment amount", TransformationType.AMOUNT);
+
+		layout.add("service ID", TransformationType.INT);
+		layout.add("data length", TransformationType.INT);
+		layout.add("data", TransformationType.DATA);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

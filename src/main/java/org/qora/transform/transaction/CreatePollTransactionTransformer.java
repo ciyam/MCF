@@ -36,6 +36,25 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH
 			+ OPTIONS_SIZE_LENGTH;
 
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.CREATE_POLL.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("poll creator's public key", TransformationType.PUBLIC_KEY);
+		layout.add("poll name length", TransformationType.INT);
+		layout.add("poll name", TransformationType.STRING);
+		layout.add("poll description length", TransformationType.INT);
+		layout.add("poll description", TransformationType.STRING);
+		layout.add("number of options", TransformationType.INT);
+		layout.add("* poll option length", TransformationType.INT);
+		layout.add("* poll option", TransformationType.STRING);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
+
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 

@@ -9,9 +9,10 @@ import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
-import org.qora.data.transaction.DeployATTransactionData;
+import org.qora.data.transaction.DeployAtTransactionData;
 import org.qora.data.transaction.TransactionData;
-import org.qora.transaction.DeployATTransaction;
+import org.qora.transaction.DeployAtTransaction;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -20,7 +21,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
-public class DeployATTransactionTransformer extends TransactionTransformer {
+public class DeployAtTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int CREATOR_LENGTH = PUBLIC_KEY_LENGTH;
@@ -36,26 +37,48 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 			+ TAGS_SIZE_LENGTH + CREATION_BYTES_SIZE_LENGTH + AMOUNT_LENGTH;
 	private static final int V4_TYPELESS_LENGTH = TYPELESS_LENGTH + ASSET_ID_LENGTH;
 
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.DEPLOY_AT.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("AT creator's public key", TransformationType.PUBLIC_KEY);
+		layout.add("AT name length", TransformationType.INT);
+		layout.add("AT name", TransformationType.STRING);
+		layout.add("AT description length", TransformationType.INT);
+		layout.add("AT description", TransformationType.STRING);
+		layout.add("AT tags length", TransformationType.INT);
+		layout.add("AT tags", TransformationType.STRING);
+		layout.add("creation bytes length", TransformationType.INT);
+		layout.add("creation bytes", TransformationType.DATA);
+		layout.add("AT initial balance", TransformationType.AMOUNT);
+		layout.add("asset ID used by AT", TransformationType.LONG);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
+
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
-		int version = DeployATTransaction.getVersionByTimestamp(timestamp);
+		int version = DeployAtTransaction.getVersionByTimestamp(timestamp);
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
 
 		byte[] creatorPublicKey = Serialization.deserializePublicKey(byteBuffer);
 
-		String name = Serialization.deserializeSizedString(byteBuffer, DeployATTransaction.MAX_NAME_SIZE);
+		String name = Serialization.deserializeSizedString(byteBuffer, DeployAtTransaction.MAX_NAME_SIZE);
 
-		String description = Serialization.deserializeSizedString(byteBuffer, DeployATTransaction.MAX_DESCRIPTION_SIZE);
+		String description = Serialization.deserializeSizedString(byteBuffer, DeployAtTransaction.MAX_DESCRIPTION_SIZE);
 
-		String ATType = Serialization.deserializeSizedString(byteBuffer, DeployATTransaction.MAX_AT_TYPE_SIZE);
+		String ATType = Serialization.deserializeSizedString(byteBuffer, DeployAtTransaction.MAX_AT_TYPE_SIZE);
 
-		String tags = Serialization.deserializeSizedString(byteBuffer, DeployATTransaction.MAX_TAGS_SIZE);
+		String tags = Serialization.deserializeSizedString(byteBuffer, DeployAtTransaction.MAX_TAGS_SIZE);
 
 		int creationBytesSize = byteBuffer.getInt();
-		if (creationBytesSize <= 0 || creationBytesSize > DeployATTransaction.MAX_CREATION_BYTES_SIZE)
+		if (creationBytesSize <= 0 || creationBytesSize > DeployAtTransaction.MAX_CREATION_BYTES_SIZE)
 			throw new TransformationException("Creation bytes size invalid in DeployAT transaction");
 
 		byte[] creationBytes = new byte[creationBytesSize];
@@ -72,16 +95,16 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new DeployATTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference,
+		return new DeployAtTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference,
 				signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		DeployATTransactionData deployATTransactionData = (DeployATTransactionData) transactionData;
+		DeployAtTransactionData deployATTransactionData = (DeployAtTransactionData) transactionData;
 
 		int dataLength = TYPE_LENGTH;
 
-		int version = DeployATTransaction.getVersionByTimestamp(transactionData.getTimestamp());
+		int version = DeployAtTransaction.getVersionByTimestamp(transactionData.getTimestamp());
 
 		if (version >= 4)
 			dataLength += V4_TYPELESS_LENGTH;
@@ -97,9 +120,9 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
 		try {
-			DeployATTransactionData deployATTransactionData = (DeployATTransactionData) transactionData;
+			DeployAtTransactionData deployATTransactionData = (DeployAtTransactionData) transactionData;
 
-			int version = DeployATTransaction.getVersionByTimestamp(transactionData.getTimestamp());
+			int version = DeployAtTransaction.getVersionByTimestamp(transactionData.getTimestamp());
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -152,7 +175,7 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 
 		// Easier to start from scratch
 		try {
-			DeployATTransactionData deployATTransactionData = (DeployATTransactionData) transactionData;
+			DeployAtTransactionData deployATTransactionData = (DeployAtTransactionData) transactionData;
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -189,7 +212,7 @@ public class DeployATTransactionTransformer extends TransactionTransformer {
 		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
 
 		try {
-			DeployATTransactionData deployATTransactionData = (DeployATTransactionData) transactionData;
+			DeployAtTransactionData deployATTransactionData = (DeployAtTransactionData) transactionData;
 
 			byte[] creatorPublicKey = deployATTransactionData.getCreatorPublicKey();
 
