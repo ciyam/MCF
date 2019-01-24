@@ -10,8 +10,9 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSeeAlso;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.eclipse.persistence.oxm.annotations.XmlClassExtractor;
-import org.qora.api.TransactionClassExtractor;
+// XXX are this still needed? see below
+// import org.eclipse.persistence.oxm.annotations.XmlClassExtractor;
+// import org.qora.api.TransactionClassExtractor;
 import org.qora.crypto.Crypto;
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -26,7 +27,8 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
  * then chances are that class is missing a no-argument constructor!
  */
 
-@XmlClassExtractor(TransactionClassExtractor.class)
+// XXX is this still in use?
+// @XmlClassExtractor(TransactionClassExtractor.class)
 @XmlSeeAlso({GenesisTransactionData.class, PaymentTransactionData.class, RegisterNameTransactionData.class, UpdateNameTransactionData.class,
 	SellNameTransactionData.class, CancelSellNameTransactionData.class, BuyNameTransactionData.class,
 	CreatePollTransactionData.class, VoteOnPollTransactionData.class, ArbitraryTransactionData.class,

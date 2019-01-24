@@ -305,15 +305,22 @@
 			<artifactId>log4j-api</artifactId>
 			<version>${log4j.version}</version>
 		</dependency>
-		<!-- Logging: slf4j used by Jetty -->
+		<!-- redirect slf4j to log4j2 -->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-slf4j-impl</artifactId>
+			<version>${log4j.version}</version>
+		</dependency>
+		<!-- redirect java.utils.logging to log4j2 -->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-jul</artifactId>
+			<version>${log4j.version}</version>
+		</dependency>
+		<!-- Logging: slf4j used by Jetty/Jersey -->
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
-			<version>${slf4j.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-simple</artifactId>
 			<version>${slf4j.version}</version>
 		</dependency>
 		<!-- Servlet related -->

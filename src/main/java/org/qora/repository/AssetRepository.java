@@ -18,7 +18,11 @@ public interface AssetRepository {
 
 	public boolean assetExists(String assetName) throws DataException;
 
-	public List<AssetData> getAllAssets() throws DataException;
+	public List<AssetData> getAllAssets(Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	public default List<AssetData> getAllAssets() throws DataException {
+		return getAllAssets(null, null, null);
+	}
 
 	// For a list of asset holders, see AccountRepository.getAssetBalances
 
@@ -30,9 +34,18 @@ public interface AssetRepository {
 
 	public OrderData fromOrderId(byte[] orderId) throws DataException;
 
-	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId) throws DataException;
+	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled) throws DataException;
+	public default List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId) throws DataException {
+		return getOpenOrders(haveAssetId, wantAssetId, null, null, null);
+	}
+
+	public List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled, Integer limit, Integer offset, Boolean reverse)
+			throws DataException;
+
+	public default List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled) throws DataException {
+		return getAccountsOrders(publicKey, includeClosed, includeFulfilled, null, null, null);
+	}
 
 	public void save(OrderData orderData) throws DataException;
 
@@ -40,10 +53,18 @@ public interface AssetRepository {
 
 	// Trades
 
-	public List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException;
+	public List<TradeData> getTrades(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	public default List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException {
+		return getTrades(haveAssetId, wantAssetId, null, null, null);
+	}
 
 	/** Returns TradeData for trades where orderId was involved, i.e. either initiating OR target order */
-	public List<TradeData> getOrdersTrades(byte[] orderId) throws DataException;
+	public List<TradeData> getOrdersTrades(byte[] orderId, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	public default List<TradeData> getOrdersTrades(byte[] orderId) throws DataException {
+		return getOrdersTrades(orderId, null, null, null);
+	}
 
 	public void save(TradeData tradeData) throws DataException;
 

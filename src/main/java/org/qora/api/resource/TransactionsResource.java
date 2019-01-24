@@ -28,8 +28,6 @@ import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.SimpleTransactionSignRequest;
-import org.qora.data.transaction.GenesisTransactionData;
-import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.globalization.Translator;
 import org.qora.repository.DataException;
@@ -45,8 +43,12 @@ import org.qora.utils.Base58;
 import com.google.common.primitives.Bytes;
 
 @Path("/transactions")
-@Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
-@Tag(name = "Transactions")
+@Produces({
+	MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN
+})
+@Tag(
+	name = "Transactions"
+)
 public class TransactionsResource {
 
 	@Context
@@ -68,7 +70,9 @@ public class TransactionsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
 	public TransactionData getTransaction(@PathParam("signature") String signature58) {
 		byte[] signature;
 		try {
@@ -100,12 +104,16 @@ public class TransactionsResource {
 				description = "raw transaction encoded in Base58",
 				content = @Content(
 					mediaType = MediaType.TEXT_PLAIN,
-					schema = @Schema(type = "string")
+					schema = @Schema(
+						type = "string"
+					)
 				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_NO_EXISTS, ApiError.REPOSITORY_ISSUE, ApiError.TRANSFORMATION_ERROR})
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.TRANSACTION_NO_EXISTS, ApiError.REPOSITORY_ISSUE, ApiError.TRANSFORMATION_ERROR
+	})
 	public String getRawTransaction(@PathParam("signature") String signature58) {
 		byte[] signature;
 		try {
@@ -138,21 +146,28 @@ public class TransactionsResource {
 		description = "Returns list of transactions",
 		responses = {
 			@ApiResponse(
-				description = "list of transactions",
+				description = "the block",
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
-							oneOf = {
-								GenesisTransactionData.class, PaymentTransactionData.class
-							}
+							implementation = TransactionData.class
 						)
 					)
 				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
-	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature58, @Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature58, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		// Decode signature
 		byte[] signature;
 		try {
 			signature = Base58.decode(signature58);
@@ -161,18 +176,10 @@ public class TransactionsResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<TransactionData> transactions = repository.getBlockRepository().getTransactionsFromSignature(signature);
-
-			// check if block exists
-			if (transactions == null)
+			if (repository.getBlockRepository().getHeightFromSignature(signature) == 0)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
 
-			// Pagination would take effect here (or as part of the repository access)
-			int fromIndex = Integer.min(offset, transactions.size());
-			int toIndex = limit == 0 ? transactions.size() : Integer.min(fromIndex + limit, transactions.size());
-			transactions = transactions.subList(fromIndex, toIndex);
-
-			return transactions;
+			return repository.getBlockRepository().getTransactionsFromSignature(signature, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -198,10 +205,18 @@ public class TransactionsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<TransactionData> getUnconfirmedTransactions() {
+	@ApiErrors({
+		ApiError.REPOSITORY_ISSUE
+	})
+	public List<TransactionData> getUnconfirmedTransactions(@Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getTransactionRepository().getAllUnconfirmedTransactions();
+			return repository.getTransactionRepository().getUnconfirmedTransactions(limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -209,23 +224,17 @@ public class TransactionsResource {
 		}
 	}
 
+	public enum ConfirmationStatus {
+		CONFIRMED,
+		UNCONFIRMED,
+		BOTH;
+	}
+
 	@GET
 	@Path("/search")
 	@Operation(
 		summary = "Find matching transactions",
-		description = "Returns transactions that match criteria. At least either txType or address must be provided.",
-		/*
-		 * parameters = {
-		 * 
-		 * @Parameter(in = ParameterIn.QUERY, name = "txType", description = "Transaction type", schema = @Schema(type = "integer")),
-		 * 
-		 * @Parameter(in = ParameterIn.QUERY, name = "address", description = "Account's address", schema = @Schema(type = "string")),
-		 * 
-		 * @Parameter(in = ParameterIn.QUERY, name = "startBlock", description = "Start block height", schema = @Schema(type = "integer")),
-		 * 
-		 * @Parameter(in = ParameterIn.QUERY, name = "blockLimit", description = "Maximum number of blocks to search", schema = @Schema(type = "integer"))
-		 * },
-		 */
+		description = "Returns transactions that match criteria. At least either txType or address or limit <= 20 must be provided. Block height ranges allowed when searching CONFIRMED transactions ONLY.",
 		responses = {
 			@ApiResponse(
 				description = "transactions",
@@ -239,30 +248,31 @@ public class TransactionsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
-	public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit, 
-			@QueryParam("txType") Integer txTypeNum, @QueryParam("address") String address, @Parameter(
+	@ApiErrors({
+		ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE
+	})
+	public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit,
+			@QueryParam("txType") TransactionType txType, @QueryParam("address") String address, @Parameter(
+				description = "whether to include confirmed, unconfirmed or both",
+				required = true
+			) @QueryParam("confirmationStatus") ConfirmationStatus confirmationStatus, @Parameter(
 				ref = "limit"
-			) @QueryParam("limit") int limit, @Parameter(
+			) @QueryParam("limit") Integer limit, @Parameter(
 				ref = "offset"
-			) @QueryParam("offset") int offset) {
-		if ((txTypeNum == null || txTypeNum == 0) && (address == null || address.isEmpty()))
+			) @QueryParam("offset") Integer offset, @Parameter(
+				ref = "reverse"
+			) @QueryParam("reverse") Boolean reverse) {
+		// Must have at least one of txType / address / limit <= 20
+		if (txType == null && (address == null || address.isEmpty()) && (limit == null || limit > 20))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-		TransactionType txType = null;
-		if (txTypeNum != null) {
-			txType = TransactionType.valueOf(txTypeNum);
-			if (txType == null)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-		}
+		// You can't ask for unconfirmed and impose a block height range
+		if (confirmationStatus != ConfirmationStatus.CONFIRMED && (startBlock != null || blockLimit != null))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<byte[]> signatures = repository.getTransactionRepository().getAllSignaturesMatchingCriteria(startBlock, blockLimit, txType, address);
-
-			// Pagination would take effect here (or as part of the repository access)
-			int fromIndex = Integer.min(offset, signatures.size());
-			int toIndex = limit == 0 ? signatures.size() : Integer.min(fromIndex + limit, signatures.size());
-			signatures = signatures.subList(fromIndex, toIndex);
+			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(startBlock, blockLimit, txType, address,
+					confirmationStatus, limit, offset, reverse);
 
 			// Expand signatures to transactions
 			List<TransactionData> transactions = new ArrayList<TransactionData>(signatures.size());
@@ -302,7 +312,9 @@ public class TransactionsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.TRANSFORMATION_ERROR})
+	@ApiErrors({
+		ApiError.INVALID_PRIVATE_KEY, ApiError.TRANSFORMATION_ERROR
+	})
 	public String signTransaction(SimpleTransactionSignRequest signRequest) {
 		if (signRequest.transactionBytes.length == 0)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.JSON);
@@ -356,7 +368,9 @@ public class TransactionsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.INVALID_DATA, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.INVALID_DATA, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE
+	})
 	public String processTransaction(String rawBytes58) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] rawBytes = Base58.decode(rawBytes58);
@@ -412,7 +426,9 @@ public class TransactionsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.INVALID_DATA, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.INVALID_DATA, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE
+	})
 	public TransactionData decodeTransaction(String rawBytes58, @QueryParam("ignoreValidityChecks") boolean ignoreValidityChecks) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] rawBytes = Base58.decode(rawBytes58);

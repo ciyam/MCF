@@ -83,11 +83,15 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<AssetData> getAllAssets() throws DataException {
+	public List<AssetData> getAllAssets(Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT owner, asset_id, description, quantity, is_divisible, reference, asset_name FROM Assets ORDER BY asset_name";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<AssetData> assets = new ArrayList<AssetData>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT owner, asset_id, description, quantity, is_divisible, reference, asset_name FROM Assets ORDER BY asset_id ASC")) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return assets;
 
@@ -170,13 +174,19 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId) throws DataException {
+	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT creator, asset_order_id, amount, fulfilled, price, ordered FROM AssetOrders "
+				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE ORDER BY price";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += ", ordered";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<OrderData> orders = new ArrayList<OrderData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT creator, asset_order_id, amount, fulfilled, price, ordered FROM AssetOrders "
-						+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE ORDER BY price ASC, ordered ASC",
-				haveAssetId, wantAssetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, haveAssetId, wantAssetId)) {
 			if (resultSet == null)
 				return orders;
 
@@ -202,16 +212,18 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled) throws DataException {
-		List<OrderData> orders = new ArrayList<OrderData>();
-
-		String sql = "SELECT asset_order_id, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled "
-				+ "FROM AssetOrders WHERE creator = ?";
+	public List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT asset_order_id, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE creator = ?";
 		if (!includeClosed)
 			sql += " AND is_closed = FALSE";
 		if (!includeFulfilled)
 			sql += " AND is_fulfilled = FALSE";
-		sql += " ORDER BY ordered ASC";
+		sql += " ORDER BY ordered";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<OrderData> orders = new ArrayList<OrderData>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey)) {
 			if (resultSet == null)
@@ -267,13 +279,16 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	// Trades
 
 	@Override
-	public List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException {
+	public List<TradeData> getTrades(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT initiating_order_id, target_order_id, AssetTrades.amount, AssetTrades.price, traded FROM AssetOrders JOIN AssetTrades ON initiating_order_id = asset_order_id "
+				+ "WHERE have_asset_id = ? AND want_asset_id = ? ORDER BY traded";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<TradeData> trades = new ArrayList<TradeData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT initiating_order_id, target_order_id, AssetTrades.amount, AssetTrades.price, traded FROM AssetOrders JOIN AssetTrades ON initiating_order_id = asset_order_id "
-						+ "WHERE have_asset_id = ? AND want_asset_id = ? ORDER BY traded ASC",
-				haveAssetId, wantAssetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, haveAssetId, wantAssetId)) {
 			if (resultSet == null)
 				return trades;
 
@@ -295,12 +310,15 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<TradeData> getOrdersTrades(byte[] orderId) throws DataException {
+	public List<TradeData> getOrdersTrades(byte[] orderId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT initiating_order_id, target_order_id, amount, price, traded FROM AssetTrades WHERE initiating_order_id = ? OR target_order_id = ? ORDER BY traded";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<TradeData> trades = new ArrayList<TradeData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT initiating_order_id, target_order_id, amount, price, traded FROM AssetTrades WHERE initiating_order_id = ? OR target_order_id = ?",
-				orderId, orderId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, orderId, orderId)) {
 			if (resultSet == null)
 				return trades;
 

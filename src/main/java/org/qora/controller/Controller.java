@@ -17,6 +17,11 @@ import org.qora.utils.Base58;
 
 public class Controller {
 
+	static {
+		// This must go before any calls to LogManager/Logger
+		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
+	}
+
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
 
 	public static final String connectionUrl = "jdbc:hsqldb:file:db/blockchain;create=true";

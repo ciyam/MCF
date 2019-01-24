@@ -13,6 +13,7 @@ import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
@@ -53,7 +54,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	private static Class<?> getClassByTxType(TransactionType txType) {
 		try {
-			return Class.forName(String.join("", HSQLDBTransactionRepository.class.getPackage().getName(), ".", "HSQLDB", txType.className, "TransactionRepository"));
+			return Class.forName(
+					String.join("", HSQLDBTransactionRepository.class.getPackage().getName(), ".", "HSQLDB", txType.className, "TransactionRepository"));
 		} catch (ClassNotFoundException e) {
 			return null;
 		}
@@ -204,7 +206,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<byte[]> getAllSignaturesInvolvingAddress(String address) throws DataException {
+	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException {
 		List<byte[]> signatures = new ArrayList<byte[]>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT signature FROM TransactionRecipients WHERE participant = ?", address)) {
@@ -250,7 +252,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<byte[]> getAllSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, TransactionType txType, String address) throws DataException {
+	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, TransactionType txType, String address,
+			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		List<byte[]> signatures = new ArrayList<byte[]>();
 
 		boolean hasAddress = address != null && !address.isEmpty();
@@ -258,33 +261,42 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		boolean hasHeightRange = startBlock != null || blockLimit != null;
 
 		if (hasHeightRange && startBlock == null)
-			startBlock = 1;
+			startBlock = (reverse == null || !reverse) ? 1 : this.repository.getBlockRepository().getBlockchainHeight() - blockLimit;
 
-		String signatureColumn = "NULL";
-		List<Object> bindParams = new ArrayList<Object>();
+		String signatureColumn = "Transactions.signature";
+		List<String> whereClauses = new ArrayList<String>();
 		String groupBy = "";
+		List<Object> bindParams = new ArrayList<Object>();
 
-		// Table JOINs first
-		List<String> tableJoins = new ArrayList<String>();
+		// Tables, starting with Transactions
+		String tables = "Transactions";
 
-		// Always JOIN BlockTransactions as we only ever want confirmed transactions
-		tableJoins.add("Blocks");
-		tableJoins.add("BlockTransactions ON BlockTransactions.block_signature = Blocks.signature");
-		signatureColumn = "BlockTransactions.transaction_signature";
+		// BlockTransactions if we want confirmed transactions
+		switch (confirmationStatus) {
+			case BOTH:
+				break;
 
-		// Always JOIN Transactions as we want to order by timestamp
-		tableJoins.add("Transactions ON Transactions.signature = BlockTransactions.transaction_signature");
-		signatureColumn = "Transactions.signature";
+			case CONFIRMED:
+				tables += " JOIN BlockTransactions ON BlockTransactions.transaction_signature = Transactions.signature";
+
+				if (hasHeightRange)
+					tables += " JOIN Blocks ON Blocks.signature = BlockTransactions.block_signature";
+
+				break;
+
+			case UNCONFIRMED:
+				tables += " LEFT OUTER JOIN BlockTransactions ON BlockTransactions.transaction_signature = Transactions.signature";
+				whereClauses.add("BlockTransactions.transaction_signature IS NULL");
+				break;
+		}
 
 		if (hasAddress) {
-			tableJoins.add("TransactionParticipants ON TransactionParticipants.signature = Transactions.signature");
-			signatureColumn = "TransactionParticipants.signature";
+			tables += " JOIN TransactionParticipants ON TransactionParticipants.signature = Transactions.signature";
 			groupBy = " GROUP BY TransactionParticipants.signature, Transactions.creation";
+			signatureColumn = "TransactionParticipants.signature";
 		}
 
 		// WHERE clauses next
-		List<String> whereClauses = new ArrayList<String>();
-
 		if (hasHeightRange) {
 			whereClauses.add("Blocks.height >= " + startBlock);
 
@@ -300,7 +312,19 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			bindParams.add(address);
 		}
 
-		String sql = "SELECT " + signatureColumn + " FROM " + String.join(" JOIN ", tableJoins) + " WHERE " + String.join(" AND ", whereClauses) + groupBy + " ORDER BY Transactions.creation ASC";
+		String sql = "SELECT " + signatureColumn + " FROM " + tables;
+
+		if (!whereClauses.isEmpty())
+			sql += " WHERE " + String.join(" AND ", whereClauses);
+
+		if (!groupBy.isEmpty())
+			sql += groupBy;
+
+		sql += " ORDER BY Transactions.creation";
+		sql += (reverse == null || !reverse) ? " ASC" : " DESC";
+
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		LOGGER.trace(sql);
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
@@ -320,11 +344,19 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<TransactionData> getAllUnconfirmedTransactions() throws DataException {
+	public List<TransactionData> getUnconfirmedTransactions(Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT signature FROM UnconfirmedTransactions ORDER BY creation";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += ", signature";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
 		// Find transactions with no corresponding row in BlockTransactions
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT signature FROM UnconfirmedTransactions ORDER BY creation ASC, signature ASC")) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return transactions;
 

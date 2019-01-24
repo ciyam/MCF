@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
@@ -25,8 +26,8 @@ import javax.ws.rs.core.MediaType;
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiExceptionFactory;
-import org.qora.api.model.GroupWithMemberInfo;
-import org.qora.api.model.GroupWithMemberInfo.MemberInfo;
+import org.qora.api.model.GroupMembers;
+import org.qora.api.model.GroupMembers.MemberInfo;
 import org.qora.crypto.Crypto;
 import org.qora.data.group.GroupAdminData;
 import org.qora.data.group.GroupBanData;
@@ -86,14 +87,15 @@ public class GroupsResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<GroupData> getAllGroups(@Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+	public List<GroupData> getAllGroups(@Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<GroupData> groups = repository.getGroupRepository().getAllGroups();
-
-			// Pagination would take effect here (or as part of the repository access)
-			int fromIndex = Integer.min(offset, groups.size());
-			int toIndex = limit == 0 ? groups.size() : Integer.min(fromIndex + limit, groups.size());
-			groups = groups.subList(fromIndex, toIndex);
+			List<GroupData> groups = repository.getGroupRepository().getAllGroups(limit, offset, reverse);
 
 			return groups;
 		} catch (DataException e) {
@@ -158,7 +160,7 @@ public class GroupsResource {
 	}
 
 	@GET
-	@Path("/{groupname}")
+	@Path("/{groupid}")
 	@Operation(
 		summary = "Info on group",
 		responses = {
@@ -166,45 +168,72 @@ public class GroupsResource {
 				description = "group info",
 				content = @Content(
 					mediaType = MediaType.APPLICATION_JSON,
-					schema = @Schema(implementation = GroupWithMemberInfo.class)
+					schema = @Schema(implementation = GroupData.class)
 				)
 			)
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public GroupWithMemberInfo getGroup(@PathParam("groupname") String groupName, @QueryParam("includeMembers") boolean includeMembers) {
+	public GroupData getGroupData(@PathParam("groupid") int groupId) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			GroupData groupData = repository.getGroupRepository().fromGroupName(groupName);
+			GroupData groupData = repository.getGroupRepository().fromGroupId(groupId);
 			if (groupData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.GROUP_UNKNOWN);
 
-			List<MemberInfo> members = null;
-			Integer memberCount = null;
-
-			if (includeMembers) {
-				List<GroupMemberData> groupMembers = repository.getGroupRepository().getGroupMembers(groupData.getGroupId());
-
-				// Convert to MemberInfo
-				members = groupMembers.stream().map(groupMemberData -> new MemberInfo(groupMemberData)).collect(Collectors.toList());
-
-				memberCount = members.size();
-			} else {
-				// Just count members instead
-				memberCount = repository.getGroupRepository().countGroupMembers(groupData.getGroupId());
-			}
-
-			// Always include admins
-			List<GroupAdminData> groupAdmins = repository.getGroupRepository().getGroupAdmins(groupData.getGroupId());
-
-			// We only need admin addresses
-			List<String> adminAddresses = groupAdmins.stream().map(groupAdminData -> groupAdminData.getAdmin()).collect(Collectors.toList());
-
-			return new GroupWithMemberInfo(groupData, adminAddresses, members, memberCount);
+			return groupData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
+	@GET
+	@Path("/members/{groupid}")
+	@Operation(
+		summary = "List group members",
+		responses = {
+			@ApiResponse(
+				description = "group info",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					schema = @Schema(implementation = GroupMembers.class)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public GroupMembers getGroup(@PathParam("groupid") int groupId, @QueryParam("onlyAdmins") Boolean onlyAdmins,
+			@Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			if (!repository.getGroupRepository().groupExists(groupId))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.GROUP_UNKNOWN);
+
+			int adminCount = repository.getGroupRepository().countGroupAdmins(groupId);
+			int memberCount = repository.getGroupRepository().countGroupMembers(groupId);
+
+			if (onlyAdmins != null && onlyAdmins) {
+				// Shortcut
+				List<GroupAdminData> admins = repository.getGroupRepository().getGroupAdmins(groupId, limit, offset, reverse);
+
+				// Convert form
+				List<MemberInfo> membersInfo = admins.stream().map(admin -> new MemberInfo(admin.getAdmin(), null, true)).collect(Collectors.toList());
+
+				return new GroupMembers(membersInfo, memberCount, adminCount);
+			}
+
+			final List<GroupAdminData> admins = repository.getGroupRepository().getGroupAdmins(groupId, limit, offset, reverse);
+
+			List<GroupMemberData> members = repository.getGroupRepository().getGroupMembers(groupId, limit, offset, reverse);
+
+			// Convert form
+			Predicate<GroupMemberData> memberIsAdmin = member -> admins.stream().anyMatch(admin -> admin.getAdmin().equals(member.getMember()));
+			List<MemberInfo> membersInfo = members.stream().map(member -> new MemberInfo(member.getMember(), member.getJoined(), memberIsAdmin.test(member))).collect(Collectors.toList());
+
+			return new GroupMembers(membersInfo, memberCount, adminCount);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
 
 	@POST
 	@Path("/create")

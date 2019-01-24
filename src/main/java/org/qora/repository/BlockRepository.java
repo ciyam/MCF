@@ -62,13 +62,26 @@ public interface BlockRepository {
 	/**
 	 * Returns block's transactions given block's signature.
 	 * <p>
+	 * This is typically used by API to fetch a block's transactions.
+	 * 
+	 * @param signature
+	 * @return list of transactions, or null if block not found in blockchain.
+	 * @throws DataException
+	 */
+	public List<TransactionData> getTransactionsFromSignature(byte[] signature, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/**
+	 * Returns block's transactions given block's signature.
+	 * <p>
 	 * This is typically used by Block.getTransactions() which uses lazy-loading of transactions.
 	 * 
 	 * @param signature
 	 * @return list of transactions, or null if block not found in blockchain.
 	 * @throws DataException
 	 */
-	public List<TransactionData> getTransactionsFromSignature(byte[] signature) throws DataException;
+	public default List<TransactionData> getTransactionsFromSignature(byte[] signature) throws DataException {
+		return getTransactionsFromSignature(signature, null, null, null);
+	}
 
 	/**
 	 * Saves block into repository.

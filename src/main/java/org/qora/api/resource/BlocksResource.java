@@ -2,6 +2,7 @@ package org.qora.api.resource;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -10,7 +11,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -26,7 +26,6 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
-import org.qora.api.model.BlockWithTransactions;
 import org.qora.block.Block;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
@@ -36,8 +35,12 @@ import org.qora.repository.RepositoryManager;
 import org.qora.utils.Base58;
 
 @Path("/blocks")
-@Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
-@Tag(name = "Blocks")
+@Produces({
+	MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN
+})
+@Tag(
+	name = "Blocks"
+)
 public class BlocksResource {
 
 	@Context
@@ -53,14 +56,16 @@ public class BlocksResource {
 				description = "the block",
 				content = @Content(
 					schema = @Schema(
-						implementation = BlockWithTransactions.class
+						implementation = BlockData.class
 					)
 				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
-	public BlockWithTransactions getBlock(@PathParam("signature") String signature58, @Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public BlockData getBlock(@PathParam("signature") String signature58) {
 		// Decode signature
 		byte[] signature;
 		try {
@@ -70,8 +75,55 @@ public class BlocksResource {
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().fromSignature(signature);
-			return packageBlockData(repository, blockData, includeTransactions);
+			return repository.getBlockRepository().fromSignature(signature);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/signature/{signature}/transactions")
+	@Operation(
+		summary = "Fetch block using base58 signature",
+		description = "Returns the block that matches the given signature",
+		responses = {
+			@ApiResponse(
+				description = "the block",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = TransactionData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature58, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		// Decode signature
+		byte[] signature;
+		try {
+			signature = Base58.decode(signature58);
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE, e);
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			if (repository.getBlockRepository().getHeightFromSignature(signature) == 0)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+
+			return repository.getBlockRepository().getTransactionsFromSignature(signature, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -89,17 +141,18 @@ public class BlocksResource {
 				description = "the block",
 				content = @Content(
 					schema = @Schema(
-						implementation = BlockWithTransactions.class
+						implementation = BlockData.class
 					)
 				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
-	public BlockWithTransactions getFirstBlock(@Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	@ApiErrors({
+		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public BlockData getFirstBlock() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().fromHeight(1);
-			return packageBlockData(repository, blockData, includeTransactions);
+			return repository.getBlockRepository().fromHeight(1);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -117,17 +170,18 @@ public class BlocksResource {
 				description = "the block",
 				content = @Content(
 					schema = @Schema(
-						implementation = BlockWithTransactions.class
+						implementation = BlockData.class
 					)
 				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
-	public BlockWithTransactions getLastBlock(@Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	@ApiErrors({
+		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public BlockData getLastBlock() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().getLastBlock();
-			return packageBlockData(repository, blockData, includeTransactions);
+			return repository.getBlockRepository().getLastBlock();
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -145,14 +199,16 @@ public class BlocksResource {
 				description = "the block",
 				content = @Content(
 					schema = @Schema(
-						implementation = BlockWithTransactions.class
+						implementation = BlockData.class
 					)
 				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
-	public BlockWithTransactions getChild(@PathParam("signature") String signature58, @Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public BlockData getChild(@PathParam("signature") String signature58) {
 		// Decode signature
 		byte[] signature;
 		try {
@@ -170,8 +226,11 @@ public class BlocksResource {
 
 			BlockData childBlockData = repository.getBlockRepository().fromReference(signature);
 
-			// Checking child exists is handled by packageBlockData()
-			return packageBlockData(repository, childBlockData, includeTransactions);
+			// Check child block exists
+			if (childBlockData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+
+			return childBlockData;
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -196,7 +255,9 @@ public class BlocksResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({
+		ApiError.REPOSITORY_ISSUE
+	})
 	public BigDecimal getGeneratingBalance() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().getLastBlock();
@@ -226,7 +287,9 @@ public class BlocksResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
 	public BigDecimal getGeneratingBalance(@PathParam("signature") String signature58) {
 		// Decode signature
 		byte[] signature;
@@ -269,7 +332,9 @@ public class BlocksResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({
+		ApiError.REPOSITORY_ISSUE
+	})
 	public long getTimePerBlock() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().getLastBlock();
@@ -319,7 +384,9 @@ public class BlocksResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({
+		ApiError.REPOSITORY_ISSUE
+	})
 	public int getHeight() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getBlockRepository().getBlockchainHeight();
@@ -347,7 +414,9 @@ public class BlocksResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({
+		ApiError.INVALID_SIGNATURE, ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
 	public int getHeight(@PathParam("signature") String signature58) {
 		// Decode signature
 		byte[] signature;
@@ -382,17 +451,22 @@ public class BlocksResource {
 				description = "the block",
 				content = @Content(
 					schema = @Schema(
-						implementation = BlockWithTransactions.class
+						implementation = BlockData.class
 					)
 				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
-	public BlockWithTransactions getByHeight(@PathParam("height") int height, @Parameter(ref = "includeTransactions") @QueryParam("includeTransactions") boolean includeTransactions) {
+	@ApiErrors({
+		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public BlockData getByHeight(@PathParam("height") int height) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
-			return packageBlockData(repository, blockData, includeTransactions);
+			if (blockData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+
+			return blockData;
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -409,19 +483,23 @@ public class BlocksResource {
 			@ApiResponse(
 				description = "blocks",
 				content = @Content(
-					schema = @Schema(
-						implementation = BlockWithTransactions.class
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = BlockData.class
+						)
 					)
 				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
-	public List<BlockWithTransactions> getBlockRange(@PathParam("height") int height, @Parameter(ref = "count") @QueryParam("count") int count) {
-		boolean includeTransactions = false;
-
+	@ApiErrors({
+		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public List<BlockData> getBlockRange(@PathParam("height") int height, @Parameter(
+		ref = "count"
+	) @QueryParam("count") int count) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<BlockWithTransactions> blocks = new ArrayList<BlockWithTransactions>();
+			List<BlockData> blocks = new ArrayList<>();
 
 			for (/* count already set */; count > 0; --count, ++height) {
 				BlockData blockData = repository.getBlockRepository().fromHeight(height);
@@ -429,7 +507,7 @@ public class BlocksResource {
 					// Run out of blocks!
 					break;
 
-				blocks.add(packageBlockData(repository, blockData, includeTransactions));
+				blocks.add(blockData);
 			}
 
 			return blocks;
@@ -438,31 +516,6 @@ public class BlocksResource {
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
-	}
-
-	/** 
-	 * Returns block, optionally including transactions.
-	 * <p>
-	 * Throws ApiException using ApiError.BLOCK_NO_EXISTS if blockData is null.
-	 * 
-	 * @param repository
-	 * @param blockData
-	 * @param includeTransactions
-	 * @return packaged block, with optional transactions
-	 * @throws DataException
-	 * @throws ApiException ApiError.BLOCK_NO_EXISTS
-	 */
-	private BlockWithTransactions packageBlockData(Repository repository, BlockData blockData, boolean includeTransactions) throws DataException {
-		if (blockData == null)
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
-
-		List<TransactionData> transactions = null;
-		if (includeTransactions) {
-			Block block = new Block(repository, blockData);
-			transactions = block.getTransactions().stream().map(transaction -> transaction.getTransactionData()).collect(Collectors.toList());
-		}
-
-		return new BlockWithTransactions(blockData, transactions);
 	}
 
 }
