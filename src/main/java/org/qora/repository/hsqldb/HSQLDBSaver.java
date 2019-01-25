@@ -5,8 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -77,8 +77,7 @@ public class HSQLDBSaver {
 	 * @return String
 	 */
 	private String formatInsertWithPlaceholders() {
-		String[] placeholders = new String[this.columns.size()];
-		Arrays.setAll(placeholders, (int i) -> "?");
+		List<String> placeholders = Collections.nCopies(this.columns.size(), "?");
 
 		StringBuilder output = new StringBuilder();
 		output.append("INSERT INTO ");

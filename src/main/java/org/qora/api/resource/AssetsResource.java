@@ -29,6 +29,7 @@ import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.TradeWithOrderInfo;
+import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
@@ -38,6 +39,7 @@ import org.qora.data.asset.TradeData;
 import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.CreateAssetOrderTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
+import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -475,6 +477,50 @@ public class AssetsResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
 
 			return repository.getAssetRepository().getAccountsOrders(publicKey, includeClosed, includeFulfilled, limit, offset, reverse);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/transactions/{assetid}")
+	@Operation(
+		summary = "Transactions related to asset",
+		responses = {
+			@ApiResponse(
+				description = "Asset transactions",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = TransactionData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_ADDRESS, ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
+	})
+	public List<TransactionData> getAssetTransactions(@Parameter(
+		ref = "assetid"
+	) @PathParam("assetid") int assetId, @Parameter(
+		description = "whether to include confirmed, unconfirmed or both",
+		required = true
+	) @QueryParam("confirmationStatus") ConfirmationStatus confirmationStatus, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			if (!repository.getAssetRepository().assetExists(assetId))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			return repository.getTransactionRepository().getAssetTransactions(assetId, confirmationStatus, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

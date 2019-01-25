@@ -14,7 +14,7 @@ import org.qora.utils.Serialization;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
-public class ATTransactionTransformer extends TransactionTransformer {
+public class AtTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int SENDER_LENGTH = ADDRESS_LENGTH;

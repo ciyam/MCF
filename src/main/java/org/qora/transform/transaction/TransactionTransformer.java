@@ -35,6 +35,7 @@ public abstract class TransactionTransformer extends Transformer {
 	protected static final int FEE_LENGTH = BIG_DECIMAL_LENGTH;
 	protected static final int BASE_TYPELESS_LENGTH = TIMESTAMP_LENGTH + REFERENCE_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
 
+	/** Description of one component of raw transaction layout */
 	public enum TransformationType {
 		TIMESTAMP("milliseconds (long)", TIMESTAMP_LENGTH),
 		SIGNATURE("transaction signature", SIGNATURE_LENGTH),
@@ -57,6 +58,7 @@ public abstract class TransactionTransformer extends Transformer {
 		}
 	}
 
+	/** Description of one component of raw transaction layout for API use */
 	@XmlAccessorType(XmlAccessType.NONE)
 	public static class Transformation {
 		@XmlElement
@@ -71,17 +73,22 @@ public abstract class TransactionTransformer extends Transformer {
 			this.transformation = format;
 		}
 
-		@XmlElement(name = "format")
+		@XmlElement(
+			name = "format"
+		)
 		public String getFormat() {
 			return this.transformation.description;
 		}
 
-		@XmlElement(name = "length")
+		@XmlElement(
+			name = "length"
+		)
 		public Integer getLength() {
 			return this.transformation.length;
 		}
 	}
 
+	/** Container for raw transaction layout */
 	public static class TransactionLayout {
 		private List<Transformation> layout = new ArrayList<>();
 
@@ -94,23 +101,87 @@ public abstract class TransactionTransformer extends Transformer {
 		}
 	}
 
-	private static Class<?> getClassByTxType(TransactionType txType) {
-		try {
-			return Class.forName(String.join("", TransactionTransformer.class.getPackage().getName(), ".", txType.className, "TransactionTransformer"));
-		} catch (ClassNotFoundException e) {
-			return null;
+	/** Container for cache of transformer subclass reflection info */
+	public static class TransformerSubclassInfo {
+		public Class<?> clazz;
+		public TransactionLayout transactionLayout;
+		public Method fromByteBufferMethod;
+		public Method getDataLengthMethod;
+		public Method toBytesMethod;
+		public Method toBytesForSigningImplMethod;
+		public Method toJSONMethod;
+	}
+
+	/** Cache of transformer subclass info, keyed by transaction type */
+	private static final TransformerSubclassInfo[] subclassInfos;
+	static {
+		subclassInfos = new TransformerSubclassInfo[TransactionType.values().length + 1];
+
+		for (TransactionType txType : TransactionType.values()) {
+			TransformerSubclassInfo subclassInfo = new TransformerSubclassInfo();
+
+			try {
+				subclassInfo.clazz = Class
+						.forName(String.join("", TransactionTransformer.class.getPackage().getName(), ".", txType.className, "TransactionTransformer"));
+			} catch (ClassNotFoundException e) {
+				LOGGER.debug(String.format("TransactionTransformer subclass not found for transaction type \"%s\"", txType.name()));
+				continue;
+			}
+
+			try {
+				Field layoutField = subclassInfo.clazz.getDeclaredField("layout");
+				subclassInfo.transactionLayout = ((TransactionLayout) layoutField.get(null));
+			} catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException e) {
+				LOGGER.debug(String.format("TransactionTransformer subclass's \"layout\" field not found for transaction type \"%s\"", txType.name()));
+			}
+
+			try {
+				subclassInfo.fromByteBufferMethod = subclassInfo.clazz.getDeclaredMethod("fromByteBuffer", ByteBuffer.class);
+			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
+				LOGGER.debug(String.format("TransactionTransformer subclass's \"fromByteBuffer\" method not found for transaction type \"%s\"", txType.name()));
+			}
+
+			try {
+				subclassInfo.getDataLengthMethod = subclassInfo.clazz.getDeclaredMethod("getDataLength", TransactionData.class);
+			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
+				LOGGER.debug(String.format("TransactionTransformer subclass's \"getDataLength\" method not found for transaction type \"%s\"", txType.name()));
+			}
+
+			try {
+				subclassInfo.toBytesMethod = subclassInfo.clazz.getDeclaredMethod("toBytes", TransactionData.class);
+			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
+				LOGGER.debug(String.format("TransactionTransformer subclass's \"toBytes\" method not found for transaction type \"%s\"", txType.name()));
+			}
+
+			try {
+				Class<?> transformerClass = subclassInfo.clazz;
+
+				// Check method is actually declared in transformer, otherwise we have to call superclass version
+				if (Arrays.asList(transformerClass.getDeclaredMethods()).stream().noneMatch(method -> method.getName().equals("toBytesForSigningImpl")))
+					transformerClass = transformerClass.getSuperclass();
+
+				subclassInfo.toBytesForSigningImplMethod = transformerClass.getDeclaredMethod("toBytesForSigningImpl", TransactionData.class);
+			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
+				LOGGER.debug(String.format("TransactionTransformer subclass's \"toBytesFromSigningImp\" method not found for transaction type \"%s\"",
+						txType.name()));
+			}
+
+			try {
+				subclassInfo.toJSONMethod = subclassInfo.clazz.getDeclaredMethod("toJSON", TransactionData.class);
+			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
+				LOGGER.debug(String.format("TransactionTransformer subclass's \"toJSON\" method not found for transaction type \"%s\"", txType.name()));
+			}
+
+			subclassInfos[txType.value] = subclassInfo;
 		}
+
+		LOGGER.trace("Static init reflection completed");
 	}
 
 	public static List<Transformation> getLayoutByTxType(TransactionType txType) {
 		try {
-			Class<?> transformerClass = TransactionTransformer.getClassByTxType(txType);
-			if (transformerClass == null)
-				return null;
-
-			Field layoutField = transformerClass.getDeclaredField("layout");
-			return ((TransactionLayout) layoutField.get(null)).getLayout();
-		} catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException e) {
+			return subclassInfos[txType.value].transactionLayout.getLayout();
+		} catch (ArrayIndexOutOfBoundsException | NullPointerException e) {
 			return null;
 		}
 	}
@@ -130,16 +201,15 @@ public abstract class TransactionTransformer extends Transformer {
 		if (type == null)
 			return null;
 
-		try {
-			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
-			if (transformerClass == null)
-				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
+		Method method = subclassInfos[type.value].fromByteBufferMethod;
+		if (method == null)
+			throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
 
-			Method method = transformerClass.getDeclaredMethod("fromByteBuffer", ByteBuffer.class);
+		try {
 			return (TransactionData) method.invoke(null, byteBuffer);
 		} catch (BufferUnderflowException e) {
 			throw new TransformationException("Byte data too short for transaction type [" + type.value + "]");
-		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion from bytes");
 		}
 	}
@@ -148,13 +218,9 @@ public abstract class TransactionTransformer extends Transformer {
 		TransactionType type = transactionData.getType();
 
 		try {
-			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
-			if (transformerClass == null)
-				throw new TransformationException("Unsupported transaction type [" + type.value + "] when requesting byte length");
-
-			Method method = transformerClass.getDeclaredMethod("getDataLength", TransactionData.class);
+			Method method = subclassInfos[type.value].getDataLengthMethod;
 			return (int) method.invoke(null, transactionData);
-		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] when requesting byte length");
 		}
 	}
@@ -163,13 +229,9 @@ public abstract class TransactionTransformer extends Transformer {
 		TransactionType type = transactionData.getType();
 
 		try {
-			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
-			if (transformerClass == null)
-				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion to bytes");
-
-			Method method = transformerClass.getDeclaredMethod("toBytes", TransactionData.class);
+			Method method = subclassInfos[type.value].toBytesMethod;
 			return (byte[]) method.invoke(null, transactionData);
-		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to bytes");
 		}
 	}
@@ -187,17 +249,9 @@ public abstract class TransactionTransformer extends Transformer {
 		TransactionType type = transactionData.getType();
 
 		try {
-			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
-			if (transformerClass == null)
-				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion to bytes for signing");
-
-			// Check method is actually declared in transformer, otherwise we have to call superclass version
-			if (Arrays.asList(transformerClass.getDeclaredMethods()).stream().noneMatch(method -> method.getName().equals("toBytesForSigningImpl")))
-				transformerClass = transformerClass.getSuperclass();
-
-			Method method = transformerClass.getDeclaredMethod("toBytesForSigningImpl", TransactionData.class);
+			Method method = subclassInfos[type.value].toBytesForSigningImplMethod;
 			return (byte[]) method.invoke(null, transactionData);
-		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to bytes for signing");
 		}
 	}
@@ -226,13 +280,9 @@ public abstract class TransactionTransformer extends Transformer {
 		TransactionType type = transactionData.getType();
 
 		try {
-			Class<?> transformerClass = TransactionTransformer.getClassByTxType(type);
-			if (transformerClass == null)
-				throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion to JSON");
-
-			Method method = transformerClass.getDeclaredMethod("toJSON", TransactionData.class);
+			Method method = subclassInfos[type.value].toJSONMethod;
 			return (JSONObject) method.invoke(null, transactionData);
-		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to JSON");
 		}
 	}

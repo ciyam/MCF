@@ -8,8 +8,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,43 +24,88 @@ import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
 import org.qora.transaction.Transaction.TransactionType;
 
+import static org.qora.transaction.Transaction.TransactionType.*;
+
 public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBTransactionRepository.class);
 
+	public static class RepositorySubclassInfo {
+		public Class<?> clazz;
+		public Constructor<?> constructor;
+		public Method fromBaseMethod;
+		public Method saveMethod;
+	}
+
+	private static final RepositorySubclassInfo[] subclassInfos;
+	static {
+		subclassInfos = new RepositorySubclassInfo[TransactionType.values().length + 1];
+
+		for (TransactionType txType : TransactionType.values()) {
+			RepositorySubclassInfo subclassInfo = new RepositorySubclassInfo();
+
+			try {
+				subclassInfo.clazz = Class.forName(
+						String.join("", HSQLDBTransactionRepository.class.getPackage().getName(), ".", "HSQLDB", txType.className, "TransactionRepository"));
+			} catch (ClassNotFoundException e) {
+				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass not found for transaction type \"%s\"", txType.name()));
+				continue;
+			}
+
+			try {
+				subclassInfo.constructor = subclassInfo.clazz.getConstructor(HSQLDBRepository.class);
+			} catch (NoSuchMethodException | IllegalArgumentException e) {
+				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass constructor not found for transaction type \"%s\"", txType.name()));
+				continue;
+			}
+
+			try {
+				subclassInfo.fromBaseMethod = subclassInfo.clazz.getDeclaredMethod("fromBase", byte[].class, byte[].class, byte[].class, long.class,
+						BigDecimal.class);
+			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
+				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass's \"fromBase\" method not found for transaction type \"%s\"", txType.name()));
+			}
+
+			try {
+				subclassInfo.saveMethod = subclassInfo.clazz.getDeclaredMethod("save", TransactionData.class);
+			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
+				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass's \"save\" method not found for transaction type \"%s\"", txType.name()));
+			}
+
+			subclassInfos[txType.value] = subclassInfo;
+		}
+
+		LOGGER.trace("Static init reflection completed");
+	}
+
 	private HSQLDBTransactionRepository[] repositoryByTxType;
+
 	protected HSQLDBRepository repository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
 
-		this.repositoryByTxType = new HSQLDBTransactionRepository[256];
+		this.repositoryByTxType = new HSQLDBTransactionRepository[TransactionType.values().length + 1];
 
 		for (TransactionType txType : TransactionType.values()) {
-			Class<?> repositoryClass = getClassByTxType(txType);
-			if (repositoryClass == null)
+			RepositorySubclassInfo subclassInfo = subclassInfos[txType.value];
+
+			if (subclassInfo == null)
+				continue;
+
+			if (subclassInfo.constructor == null)
 				continue;
 
 			try {
-				Constructor<?> constructor = repositoryClass.getConstructor(HSQLDBRepository.class);
-				HSQLDBTransactionRepository txRepository = (HSQLDBTransactionRepository) constructor.newInstance(repository);
-				this.repositoryByTxType[txType.value] = txRepository;
-			} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
+				this.repositoryByTxType[txType.value] = (HSQLDBTransactionRepository) subclassInfo.constructor.newInstance(repository);
+			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
 				continue;
 			}
 		}
 	}
 
+	// Never called
 	protected HSQLDBTransactionRepository() {
-	}
-
-	private static Class<?> getClassByTxType(TransactionType txType) {
-		try {
-			return Class.forName(
-					String.join("", HSQLDBTransactionRepository.class.getPackage().getName(), ".", "HSQLDB", txType.className, "TransactionRepository"));
-		} catch (ClassNotFoundException e) {
-			return null;
-		}
 	}
 
 	@Override
@@ -132,9 +179,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 
 		try {
-			Method method = txRepository.getClass().getDeclaredMethod("fromBase", byte[].class, byte[].class, byte[].class, long.class, BigDecimal.class);
-			return (TransactionData) method.invoke(txRepository, signature, reference, creatorPublicKey, timestamp, fee);
-		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			return (TransactionData) subclassInfos[type.value].fromBaseMethod.invoke(txRepository, signature, reference, creatorPublicKey, timestamp, fee);
+		} catch (IllegalArgumentException | InvocationTargetException | IllegalAccessException e) {
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 		}
 	}
@@ -344,6 +390,92 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public List<TransactionData> getAssetTransactions(int assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
+			throws DataException {
+		TransactionType[] transactionTypes = new TransactionType[] {
+			ISSUE_ASSET, TRANSFER_ASSET, CREATE_ASSET_ORDER, CANCEL_ASSET_ORDER
+		};
+		List<String> typeValueStrings = Arrays.asList(transactionTypes).stream().map(type -> String.valueOf(type.value)).collect(Collectors.toList());
+
+		String sql = "SELECT Transactions.signature FROM Transactions";
+
+		// BlockTransactions if we want confirmed transactions
+		switch (confirmationStatus) {
+			case BOTH:
+				break;
+
+			case CONFIRMED:
+				sql += " JOIN BlockTransactions ON BlockTransactions.transaction_signature = Transactions.signature";
+				break;
+
+			case UNCONFIRMED:
+				sql += " LEFT OUTER JOIN BlockTransactions ON BlockTransactions.transaction_signature = Transactions.signature";
+				break;
+		}
+
+		for (TransactionType type : transactionTypes)
+			sql += " LEFT OUTER JOIN " + type.className + "Transactions USING (signature)";
+
+		// assetID isn't in Cancel Asset Order so we need to join to the order
+		sql += " LEFT OUTER JOIN AssetOrders ON AssetOrders.asset_order_id = CancelAssetOrderTransactions.asset_order_id";
+
+		sql += " WHERE Transactions.type IN (" + String.join(", ", typeValueStrings) + ")";
+
+		// BlockTransactions if we want confirmed transactions
+		switch (confirmationStatus) {
+			case BOTH:
+				break;
+
+			case CONFIRMED:
+				break;
+
+			case UNCONFIRMED:
+				sql += " AND BlockTransactions.transaction_signature IS NULL";
+				break;
+		}
+
+		sql += " AND (";
+		sql += "IssueAssetTransactions.asset_id = " + assetId;
+		sql += " OR ";
+		sql += "TransferAssetTransactions.asset_id = " + assetId;
+		sql += " OR ";
+		sql += "CreateAssetOrderTransactions.have_asset_id = " + assetId;
+		sql += " OR ";
+		sql += "CreateAssetOrderTransactions.want_asset_id = " + assetId;
+		sql += " OR ";
+		sql += "AssetOrders.have_asset_id = " + assetId;
+		sql += " OR ";
+		sql += "AssetOrders.want_asset_id = " + assetId;
+		sql += ") GROUP BY Transactions.signature, Transactions.creation ORDER BY Transactions.creation";
+
+		sql += (reverse == null || !reverse) ? " ASC" : " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<TransactionData> transactions = new ArrayList<TransactionData>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return transactions;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				TransactionData transactionData = this.fromSignature(signature);
+
+				if (transactionData == null)
+					// Something inconsistent with the repository
+					throw new DataException("Unable to fetch asset-related transaction from repository?");
+
+				transactions.add(transactionData);
+			} while (resultSet.next());
+
+			return transactions;
+		} catch (SQLException | DataException e) {
+			throw new DataException("Unable to fetch asset-related transactions from repository", e);
+		}
+	}
+
+	@Override
 	public List<TransactionData> getUnconfirmedTransactions(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		String sql = "SELECT signature FROM UnconfirmedTransactions ORDER BY creation";
 		if (reverse != null && reverse)
@@ -417,9 +549,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during save into HSQLDB repository");
 
 		try {
-			Method method = txRepository.getClass().getDeclaredMethod("save", TransactionData.class);
-			method.invoke(txRepository, transactionData);
-		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			subclassInfos[type.value].saveMethod.invoke(txRepository, transactionData);
+		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during save into HSQLDB repository");
 		}
 	}

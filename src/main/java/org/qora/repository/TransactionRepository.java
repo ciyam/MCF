@@ -33,6 +33,18 @@ public interface TransactionRepository {
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
+	 * Returns list of transactions relating to specific asset ID.
+	 * 
+	 * @param assetId
+	 * @param limit
+	 * @param offset
+	 * @param reverse
+	 * @return list of transactions, or empty if none
+	 */
+	public List<TransactionData> getAssetTransactions(int assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
+			throws DataException;
+
+	/**
 	 * Returns list of unconfirmed transactions in timestamp-else-signature order.
 	 * <p>
 	 * This is typically called by the API.
