@@ -69,6 +69,12 @@ public class AnnotationPostProcessor implements ReaderListener {
 				LOGGER.trace("Found @ApiErrors annotation on " + clazz.getSimpleName() + "." + method.getName());
 				PathItem pathItem = getPathItemFromMethod(openAPI, classPathString, method);
 
+				if (pathItem == null) {
+					LOGGER.error(String.format("Couldn't get PathItem for %s", clazz.getSimpleName() + "." + method.getName()));
+					LOGGER.error(String.format("Known paths: %s", String.join(", ", openAPI.getPaths().keySet())));
+					continue;
+				}
+
 				for (Operation operation : pathItem.readOperations())
 					for (ApiError apiError : apiErrors.value())
 						addApiErrorResponse(operation, apiError);
@@ -82,6 +88,10 @@ public class AnnotationPostProcessor implements ReaderListener {
 			return openAPI.getPaths().get(classPathString);
 
 		String pathString = path.value();
+
+		if (pathString.equals("/"))
+			pathString = "";
+
 		return openAPI.getPaths().get(classPathString + pathString);
 	}
 
@@ -107,7 +117,7 @@ public class AnnotationPostProcessor implements ReaderListener {
 		// XXX: addExamples(..) is not working in Swagger 2.0.4. This bug is referenced in https://github.com/swagger-api/swagger-ui/issues/2651
 		// Replace the call to .setExample(..) by .addExamples(..) when the bug is fixed.
 		apiResponse.getContent().get(javax.ws.rs.core.MediaType.APPLICATION_JSON).setExample(example);
-		//apiResponse.getContent().get(javax.ws.rs.core.MediaType.APPLICATION_JSON).addExamples(Integer.toString(apiErrorCode), example);
+		// apiResponse.getContent().get(javax.ws.rs.core.MediaType.APPLICATION_JSON).addExamples(Integer.toString(apiErrorCode), example);
 	}
 
 }

@@ -17,6 +17,7 @@ import org.qora.repository.BlockRepository;
 import org.qora.repository.GroupRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.NameRepository;
+import org.qora.repository.NetworkRepository;
 import org.qora.repository.Repository;
 import org.qora.repository.TransactionRepository;
 import org.qora.repository.VotingRepository;
@@ -32,6 +33,7 @@ public class HSQLDBRepository implements Repository {
 	public static final TimeZone UTC = TimeZone.getTimeZone("UTC");
 
 	protected Connection connection;
+	protected boolean debugState = false;
 
 	// NB: no visibility modifier so only callable from within same package
 	HSQLDBRepository(Connection connection) {
@@ -66,6 +68,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public NameRepository getNameRepository() {
 		return new HSQLDBNameRepository(this);
+	}
+
+	@Override
+	public NetworkRepository getNetworkRepository() {
+		return new HSQLDBNetworkRepository(this);
 	}
 
 	@Override
@@ -131,6 +138,11 @@ public class HSQLDBRepository implements Repository {
 	public void rebuild() throws DataException {
 	}
 
+	@Override
+	public void setDebug(boolean debugState) {
+		this.debugState = debugState;
+	}
+
 	/**
 	 * Execute SQL and return ResultSet with but added checking.
 	 * <p>
@@ -143,6 +155,9 @@ public class HSQLDBRepository implements Repository {
 	 */
 	@SuppressWarnings("resource")
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
+		if (this.debugState)
+			LOGGER.debug(sql);
+
 		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
 
 		// Close the PreparedStatement when the ResultSet is closed otherwise there's a potential resource leak.
@@ -153,9 +168,9 @@ public class HSQLDBRepository implements Repository {
 
 		ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects);
 
-		long queryTime =  System.currentTimeMillis() - beforeQuery;
+		long queryTime = System.currentTimeMillis() - beforeQuery;
 		if (queryTime > MAX_QUERY_TIME)
-			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql)); 
+			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql));
 
 		return resultSet;
 	}
@@ -281,9 +296,9 @@ public class HSQLDBRepository implements Repository {
 	 * @param objects
 	 * @throws SQLException
 	 */
-	public void delete(String tableName, String whereClause, Object... objects) throws SQLException {
+	public int delete(String tableName, String whereClause, Object... objects) throws SQLException {
 		try (PreparedStatement preparedStatement = this.connection.prepareStatement("DELETE FROM " + tableName + " WHERE " + whereClause)) {
-			this.checkedExecuteUpdateCount(preparedStatement, objects);
+			return this.checkedExecuteUpdateCount(preparedStatement, objects);
 		}
 	}
 

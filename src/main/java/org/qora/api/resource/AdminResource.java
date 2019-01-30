@@ -73,7 +73,7 @@ public class AdminResource {
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
-				Controller.shutdown();
+				Controller.getInstance().shutdownAndExit();
 			}
 		}).start();
 

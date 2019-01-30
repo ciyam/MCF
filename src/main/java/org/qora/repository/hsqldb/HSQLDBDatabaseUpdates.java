@@ -500,6 +500,12 @@ public class HSQLDBDatabaseUpdates {
 									+ "ban_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
+				case 30:
+					// Networking
+					stmt.execute("CREATE TABLE Peers (hostname VARCHAR(255), port INTEGER, last_connected TIMESTAMP WITH TIME ZONE, last_attempted TIMESTAMP WITH TIME ZONE, "
+							+ "last_height INTEGER, PRIMARY KEY (hostname, port))");
+					break;
+
 				default:
 					// nothing to do
 					return false;

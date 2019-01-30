@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.Block.ValidationResult;
+import org.qora.controller.Controller;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.BlockRepository;
@@ -93,6 +94,9 @@ public class BlockGenerator extends Thread {
 							newBlock.process();
 							LOGGER.info("Generated new block: " + newBlock.getBlockData().getHeight());
 							repository.saveChanges();
+
+							// Notify controller
+							Controller.getInstance().onGeneratedBlock(newBlock.getBlockData());
 						} catch (DataException e) {
 							// Unable to process block - report and discard
 							LOGGER.error("Unable to process newly generated block?", e);

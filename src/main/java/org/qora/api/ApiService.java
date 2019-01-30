@@ -31,11 +31,11 @@ public class ApiService {
 		config.register(AnnotationPostProcessor.class);
 
 		// Create RPC server
-		this.server = new Server(Settings.getInstance().getRpcPort());
+		this.server = new Server(Settings.getInstance().getApiPort());
 
 		// IP address based access control
 		InetAccessHandler accessHandler = new InetAccessHandler();
-		for (String pattern : Settings.getInstance().getRpcAllowed()) {
+		for (String pattern : Settings.getInstance().getApiAllowed()) {
 			accessHandler.include(pattern);
 		}
 		this.server.setHandler(accessHandler);

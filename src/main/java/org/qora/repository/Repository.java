@@ -14,6 +14,8 @@ public interface Repository extends AutoCloseable {
 
 	public NameRepository getNameRepository();
 
+	public NetworkRepository getNetworkRepository();
+
 	public TransactionRepository getTransactionRepository();
 
 	public VotingRepository getVotingRepository();
@@ -26,5 +28,7 @@ public interface Repository extends AutoCloseable {
 	public void close() throws DataException;
 
 	public void rebuild() throws DataException;
+
+	public void setDebug(boolean debugState);
 
 }

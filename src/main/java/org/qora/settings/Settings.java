@@ -33,10 +33,17 @@ public class Settings {
 	/** Max milliseconds into future for accepting new, unconfirmed transactions */
 	private long maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
 
-	// RPC
-	private int rpcPort = 9085;
-	private List<String> rpcAllowed = new ArrayList<String>(Arrays.asList("127.0.0.1", "::1")); // ipv4, ipv6
-	private boolean rpcEnabled = true;
+	// API
+	private int apiPort = 9085;
+	private List<String> apiAllowed = new ArrayList<String>(Arrays.asList("127.0.0.1", "::1")); // ipv4, ipv6
+	private boolean apiEnabled = true;
+
+	// Peer-to-peer networking
+	public static final int DEFAULT_LISTEN_PORT = 9084;
+	private int listenPort = DEFAULT_LISTEN_PORT;
+	private String bindAddress = null; // listen on all local addresses
+	private int minPeers = 3;
+	private int maxPeers = 10;
 
 	// Constants
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -60,6 +67,7 @@ public class Settings {
 					break;
 				}
 
+				LOGGER.info("Using settings file: " + path + filename);
 				List<String> lines = Files.readLines(file, Charsets.UTF_8);
 
 				// Concatenate lines for JSON parsing
@@ -115,25 +123,39 @@ public class Settings {
 	}
 
 	private void process(JSONObject json) {
-		// RPC
-		if (json.containsKey("rpcport"))
-			this.rpcPort = ((Long) json.get("rpcport")).intValue();
+		// API
+		if (json.containsKey("apiPort"))
+			this.apiPort = ((Long) json.get("apiPort")).intValue();
 
-		if (json.containsKey("rpcallowed")) {
-			JSONArray allowedArray = (JSONArray) json.get("rpcallowed");
+		if (json.containsKey("apiAllowed")) {
+			JSONArray allowedArray = (JSONArray) json.get("apiAllowed");
 
-			this.rpcAllowed = new ArrayList<String>();
+			this.apiAllowed = new ArrayList<String>();
 
 			for (Object entry : allowedArray) {
 				if (!(entry instanceof String))
-					throw new RuntimeException("Entry inside 'rpcallowed' is not string");
+					throw new RuntimeException("Entry inside 'apiAllowed' is not string");
 
-				this.rpcAllowed.add((String) entry);
+				this.apiAllowed.add((String) entry);
 			}
 		}
 
-		if (json.containsKey("rpcenabled"))
-			this.rpcEnabled = ((Boolean) json.get("rpcenabled")).booleanValue();
+		if (json.containsKey("apiEnabled"))
+			this.apiEnabled = ((Boolean) json.get("apiEnabled")).booleanValue();
+
+		// Peer-to-peer networking
+
+		if (json.containsKey("listenPort"))
+			this.listenPort = ((Long) getTypedJson(json, "listenPort", Long.class)).intValue();
+
+		if (json.containsKey("bindAddress"))
+			this.bindAddress = (String) getTypedJson(json, "bindAddress", String.class);
+
+		if (json.containsKey("minPeers"))
+			this.minPeers = ((Long) getTypedJson(json, "minPeers", Long.class)).intValue();
+
+		if (json.containsKey("maxPeers"))
+			this.maxPeers = ((Long) getTypedJson(json, "maxPeers", Long.class)).intValue();
 
 		// Node-specific behaviour
 
@@ -174,16 +196,36 @@ public class Settings {
 		return this.userpath;
 	}
 
-	public int getRpcPort() {
-		return this.rpcPort;
+	public int getApiPort() {
+		return this.apiPort;
 	}
 
-	public List<String> getRpcAllowed() {
-		return this.rpcAllowed;
+	public List<String> getApiAllowed() {
+		return this.apiAllowed;
 	}
 
-	public boolean isRpcEnabled() {
-		return this.rpcEnabled;
+	public boolean isApiEnabled() {
+		return this.apiEnabled;
+	}
+
+	public int getListenPort() {
+		return this.listenPort;
+	}
+
+	public int getDefaultListenPort() {
+		return DEFAULT_LISTEN_PORT;
+	}
+
+	public String getBindAddress() {
+		return this.bindAddress;
+	}
+
+	public int getMinPeers() {
+		return this.minPeers;
+	}
+
+	public int getMaxPeers() {
+		return this.maxPeers;
 	}
 
 	public boolean useBitcoinTestNet() {
