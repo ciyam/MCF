@@ -39,7 +39,8 @@ public abstract class Message {
 		PING(9),
 		VERSION(10),
 		PEER_ID(11),
-		PROOF(12);
+		PROOF(12),
+		PEERS_V2(13);
 
 		public final int value;
 		public final Method fromByteBuffer;

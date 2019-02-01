@@ -476,6 +476,15 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public boolean isConfirmed(byte[] signature) throws DataException {
+		try {
+			return this.repository.exists("BlockTransactions", "transaction_signature = ?", signature);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check whether transaction is confirmed in repository", e);
+		}
+	}
+
+	@Override
 	public List<TransactionData> getUnconfirmedTransactions(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		String sql = "SELECT signature FROM UnconfirmedTransactions ORDER BY creation";
 		if (reverse != null && reverse)

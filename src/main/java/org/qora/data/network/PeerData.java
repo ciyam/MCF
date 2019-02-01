@@ -14,6 +14,7 @@ public class PeerData {
 	private Long lastAttempted;
 	private Long lastConnected;
 	private Integer lastHeight;
+	private Long lastMisbehaved;
 
 	// Constructors
 
@@ -21,15 +22,16 @@ public class PeerData {
 	protected PeerData() {
 	}
 
-	public PeerData(InetSocketAddress socketAddress, Long lastAttempted, Long lastConnected, Integer lastHeight) {
+	public PeerData(InetSocketAddress socketAddress, Long lastAttempted, Long lastConnected, Integer lastHeight, Long lastMisbehaved) {
 		this.socketAddress = socketAddress;
 		this.lastAttempted = lastAttempted;
 		this.lastConnected = lastConnected;
 		this.lastHeight = lastHeight;
+		this.lastMisbehaved = lastMisbehaved;
 	}
 
 	public PeerData(InetSocketAddress socketAddress) {
-		this(socketAddress, null, null, null);
+		this(socketAddress, null, null, null, null);
 	}
 
 	// Getters / setters
@@ -60,6 +62,14 @@ public class PeerData {
 
 	public void setLastHeight(Integer lastHeight) {
 		this.lastHeight = lastHeight;
+	}
+
+	public Long getLastMisbehaved() {
+		return this.lastMisbehaved;
+	}
+
+	public void setLastMisbehaved(Long lastMisbehaved) {
+		this.lastMisbehaved = lastMisbehaved;
 	}
 
 }

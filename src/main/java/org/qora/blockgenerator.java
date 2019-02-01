@@ -58,14 +58,12 @@ public class blockgenerator {
 				try {
 					blockGenerator.join();
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 
 				try {
 					RepositoryManager.closeRepositoryFactory();
 				} catch (DataException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			}

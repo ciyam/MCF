@@ -24,7 +24,6 @@ public final class NTP {
 			lastUpdate = System.currentTimeMillis();
 
 			// Log new value of offset
-			// TODO: LOGGER.info(Lang.getInstance().translate("Adjusting time with %offset% milliseconds.").replace("%offset%", String.valueOf(offset)));
 			LOGGER.info("Adjusting time with %offset% milliseconds.".replace("%offset%", String.valueOf(offset)));
 		}
 

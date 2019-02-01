@@ -5,7 +5,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.TimeZone;
 
 import org.apache.logging.log4j.LogManager;
@@ -33,11 +36,13 @@ public class HSQLDBRepository implements Repository {
 	public static final TimeZone UTC = TimeZone.getTimeZone("UTC");
 
 	protected Connection connection;
+	protected List<Savepoint> savepoints;
 	protected boolean debugState = false;
 
 	// NB: no visibility modifier so only callable from within same package
 	HSQLDBRepository(Connection connection) {
 		this.connection = connection;
+		this.savepoints = new ArrayList<>();
 	}
 
 	@Override
@@ -91,6 +96,8 @@ public class HSQLDBRepository implements Repository {
 			this.connection.commit();
 		} catch (SQLException e) {
 			throw new DataException("commit error", e);
+		} finally {
+			this.savepoints.clear();
 		}
 	}
 
@@ -100,6 +107,33 @@ public class HSQLDBRepository implements Repository {
 			this.connection.rollback();
 		} catch (SQLException e) {
 			throw new DataException("rollback error", e);
+		} finally {
+			this.savepoints.clear();
+		}
+	}
+
+	@Override
+	public void setSavepoint() throws DataException {
+		try {
+			Savepoint savepoint = this.connection.setSavepoint();
+			this.savepoints.add(savepoint);
+		} catch (SQLException e) {
+			throw new DataException("savepoint error", e);
+		}
+	}
+
+	@Override
+	public void rollbackToSavepoint() throws DataException {
+		if (this.savepoints.isEmpty())
+			throw new DataException("no savepoint to rollback");
+
+		Savepoint savepoint = this.savepoints.get(0);
+		this.savepoints.remove(0);
+
+		try {
+			this.connection.rollback(savepoint);
+		} catch (SQLException e) {
+			throw new DataException("savepoint rollback error", e);
 		}
 	}
 

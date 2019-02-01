@@ -45,6 +45,14 @@ public interface TransactionRepository {
 			throws DataException;
 
 	/**
+	 * Returns whether transaction is confirmed or not.
+	 * 
+	 * @param signature
+	 * @return true if confirmed, false if not.
+	 */
+	public boolean isConfirmed(byte[] signature) throws DataException;
+
+	/**
 	 * Returns list of unconfirmed transactions in timestamp-else-signature order.
 	 * <p>
 	 * This is typically called by the API.
@@ -75,7 +83,13 @@ public interface TransactionRepository {
 	 */
 	public void confirmTransaction(byte[] signature) throws DataException;
 
-	void unconfirmTransaction(TransactionData transactionData) throws DataException;
+	/**
+	 * Add transaction to unconfirmed transactions pile.
+	 * 
+	 * @param transactionData
+	 * @throws DataException
+	 */
+	public void unconfirmTransaction(TransactionData transactionData) throws DataException;
 
 	public void save(TransactionData transactionData) throws DataException;
 

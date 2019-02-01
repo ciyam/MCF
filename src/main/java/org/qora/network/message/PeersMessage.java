@@ -4,12 +4,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.qora.network.Peer;
 
 import com.google.common.primitives.Ints;
 
@@ -20,15 +19,15 @@ public class PeersMessage extends Message {
 
 	private List<InetAddress> peerAddresses;
 
-	public PeersMessage(List<Peer> peers) {
-		super(-1, MessageType.PEERS);
+	public PeersMessage(List<InetSocketAddress> peerSocketAddresses) {
+		super(MessageType.PEERS);
 
 		// We have to forcibly resolve into IP addresses as we can't send hostnames
 		this.peerAddresses = new ArrayList<>();
 
-		for (Peer peer : peers) {
+		for (InetSocketAddress peerSocketAddress : peerSocketAddresses) {
 			try {
-				InetAddress resolvedAddress = InetAddress.getByName(peer.getRemoteSocketAddress().getHostString());
+				InetAddress resolvedAddress = InetAddress.getByName(peerSocketAddress.getHostString());
 
 				// Filter out unsupported address types
 				if (resolvedAddress.getAddress().length != ADDRESS_LENGTH)

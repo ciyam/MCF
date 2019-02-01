@@ -24,7 +24,8 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 	public List<PeerData> getAllPeers() throws DataException {
 		List<PeerData> peers = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT hostname, port, last_connected, last_attempted, last_height FROM Peers")) {
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT hostname, port, last_connected, last_attempted, last_height, last_misbehaved FROM Peers")) {
 			if (resultSet == null)
 				return peers;
 
@@ -44,7 +45,10 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 				if (resultSet.wasNull())
 					lastHeight = null;
 
-				peers.add(new PeerData(socketAddress, lastConnected, lastAttempted, lastHeight));
+				Timestamp lastMisbehavedTimestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC));
+				Long lastMisbehaved = resultSet.wasNull() ? null : lastMisbehavedTimestamp.getTime();
+
+				peers.add(new PeerData(socketAddress, lastConnected, lastAttempted, lastHeight, lastMisbehaved));
 			} while (resultSet.next());
 
 			return peers;
@@ -59,9 +63,11 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 
 		Timestamp lastConnected = peerData.getLastConnected() == null ? null : new Timestamp(peerData.getLastConnected());
 		Timestamp lastAttempted = peerData.getLastAttempted() == null ? null : new Timestamp(peerData.getLastAttempted());
+		Timestamp lastMisbehaved = peerData.getLastMisbehaved() == null ? null : new Timestamp(peerData.getLastMisbehaved());
 
 		saveHelper.bind("hostname", peerData.getSocketAddress().getHostString()).bind("port", peerData.getSocketAddress().getPort())
-				.bind("last_connected", lastConnected).bind("last_attempted", lastAttempted).bind("last_height", peerData.getLastHeight());
+				.bind("last_connected", lastConnected).bind("last_attempted", lastAttempted).bind("last_height", peerData.getLastHeight())
+				.bind("last_misbehaved", lastMisbehaved);
 
 		try {
 			saveHelper.execute(this.repository);

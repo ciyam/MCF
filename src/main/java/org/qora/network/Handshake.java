@@ -5,7 +5,6 @@ import java.util.Arrays;
 import org.qora.controller.Controller;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
-import org.qora.utils.NTP;
 import org.qora.network.message.PeerIdMessage;
 import org.qora.network.message.ProofMessage;
 import org.qora.network.message.VersionMessage;
@@ -77,7 +76,7 @@ public enum Handshake {
 			if (peer.isOutbound())
 				return COMPLETED;
 
-			// Check salt hasn't been seen before - this stops multiple peers reusing salt nonce in a Sybil-like attack
+			// Check salt hasn't been seen before - this stops multiple peers reusing same nonce in a Sybil-like attack
 			if (Proof.seenSalt(proofMessage.getSalt()))
 				return null;
 
@@ -103,9 +102,6 @@ public enum Handshake {
 		@Override
 		public void action(Peer peer) {
 			// Note: this is only called when we've made outbound connection
-
-			// Make a note that we've successfully completed handshake (and when)
-			peer.getPeerData().setLastConnected(NTP.getTime());
 		}
 	};
 

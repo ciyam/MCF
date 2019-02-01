@@ -503,7 +503,7 @@ public class HSQLDBDatabaseUpdates {
 				case 30:
 					// Networking
 					stmt.execute("CREATE TABLE Peers (hostname VARCHAR(255), port INTEGER, last_connected TIMESTAMP WITH TIME ZONE, last_attempted TIMESTAMP WITH TIME ZONE, "
-							+ "last_height INTEGER, PRIMARY KEY (hostname, port))");
+							+ "last_height INTEGER, last_misbehaved TIMESTAMP WITH TIME ZONE, PRIMARY KEY (hostname, port))");
 					break;
 
 				default:

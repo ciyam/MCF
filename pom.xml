@@ -385,6 +385,12 @@
 			<groupId>org.glassfish.jersey.inject</groupId>
 			<artifactId>jersey-hk2</artifactId>
 			<version>${jersey.version}</version>
+			<exclusions>
+				<exclusion><!-- exclude javax.inject-1.jar because other jersey modules include javax.inject v2+ -->
+					<groupId>javax.inject</groupId>
+					<artifactId>javax.inject</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.glassfish.jersey.media</groupId>
@@ -406,6 +412,12 @@
 			<groupId>io.swagger.core.v3</groupId>
 			<artifactId>swagger-jaxrs2-servlet-initializer</artifactId>
 			<version>${swagger-api.version}</version>
+			<exclusions>
+				<exclusion><!-- excluded because included in swagger-jaxrs2-servlet-initializer -->
+					<groupId>io.swagger.core.v3</groupId>
+					<artifactId>swagger-integration</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.webjars</groupId>

@@ -2,6 +2,7 @@ package org.qora.block;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.locks.Lock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -78,40 +79,47 @@ public class BlockGenerator extends Thread {
 				if (newBlock == null)
 					newBlock = new Block(repository, previousBlock.getBlockData(), generator);
 
-				// Is new block valid yet? (Before adding unconfirmed transactions)
-				if (newBlock.isValid() == ValidationResult.OK) {
-					// Add unconfirmed transactions
-					addUnconfirmedTransactions(repository, newBlock);
+				// Make sure we're the only thread modifying the blockchain
+				Lock blockchainLock = Controller.getInstance().getBlockchainLock();
+				if (blockchainLock.tryLock())
+					try {
+						// Is new block valid yet? (Before adding unconfirmed transactions)
+						if (newBlock.isValid() == ValidationResult.OK) {
+							// Add unconfirmed transactions
+							addUnconfirmedTransactions(repository, newBlock);
 
-					// Sign to create block's signature
-					newBlock.sign();
+							// Sign to create block's signature
+							newBlock.sign();
 
-					// If newBlock is still valid then we can use it
-					ValidationResult validationResult = newBlock.isValid();
-					if (validationResult == ValidationResult.OK) {
-						// Add to blockchain - something else will notice and broadcast new block to network
-						try {
-							newBlock.process();
-							LOGGER.info("Generated new block: " + newBlock.getBlockData().getHeight());
-							repository.saveChanges();
+							// If newBlock is still valid then we can use it
+							ValidationResult validationResult = newBlock.isValid();
+							if (validationResult == ValidationResult.OK) {
+								// Add to blockchain - something else will notice and broadcast new block to network
+								try {
+									newBlock.process();
+									LOGGER.info("Generated new block: " + newBlock.getBlockData().getHeight());
+									repository.saveChanges();
 
-							// Notify controller
-							Controller.getInstance().onGeneratedBlock(newBlock.getBlockData());
-						} catch (DataException e) {
-							// Unable to process block - report and discard
-							LOGGER.error("Unable to process newly generated block?", e);
-							newBlock = null;
+									// Notify controller
+									Controller.getInstance().onGeneratedBlock(newBlock.getBlockData());
+								} catch (DataException e) {
+									// Unable to process block - report and discard
+									LOGGER.error("Unable to process newly generated block?", e);
+									newBlock = null;
+								}
+							} else {
+								// No longer valid? Report and discard
+								LOGGER.error("Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
+								newBlock = null;
+							}
 						}
-					} else {
-						// No longer valid? Report and discard
-						LOGGER.error("Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
-						newBlock = null;
+					} finally {
+						blockchainLock.unlock();
 					}
-				}
 
 				// Sleep for a while
 				try {
-					repository.discardChanges(); // Free transactional locks, if any
+					repository.discardChanges(); // Free repository locks, if any
 					Thread.sleep(1000); // No point sleeping less than this as block timestamp millisecond values must be the same
 				} catch (InterruptedException e) {
 					// We've been interrupted - time to exit

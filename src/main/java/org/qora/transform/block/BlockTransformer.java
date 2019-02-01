@@ -44,10 +44,10 @@ public class BlockTransformer extends Transformer {
 	private static final int GENERATOR_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int TRANSACTION_COUNT_LENGTH = INT_LENGTH;
 
-	private static final int BASE_LENGTH = VERSION_LENGTH + BLOCK_REFERENCE_LENGTH + TIMESTAMP_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH
+	private static final int BASE_LENGTH = VERSION_LENGTH + TIMESTAMP_LENGTH + BLOCK_REFERENCE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH
 			+ TRANSACTIONS_SIGNATURE_LENGTH + GENERATOR_SIGNATURE_LENGTH + TRANSACTION_COUNT_LENGTH;
 
-	protected static final int BLOCK_SIGNATURE_LENGTH = GENERATOR_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
+	public static final int BLOCK_SIGNATURE_LENGTH = GENERATOR_SIGNATURE_LENGTH + TRANSACTIONS_SIGNATURE_LENGTH;
 	protected static final int TRANSACTION_SIZE_LENGTH = INT_LENGTH; // per transaction
 	protected static final int AT_BYTES_LENGTH = INT_LENGTH;
 	protected static final int AT_FEES_LENGTH = LONG_LENGTH;
@@ -72,9 +72,20 @@ public class BlockTransformer extends Transformer {
 
 		ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
 
+		return fromByteBuffer(byteBuffer);
+	}
+
+	/**
+	 * Extract block data and transaction data from serialized bytes.
+	 * 
+	 * @param bytes
+	 * @return BlockData and a List of transactions.
+	 * @throws TransformationException
+	 */
+	public static Triple<BlockData, List<TransactionData>, List<ATStateData>> fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		int version = byteBuffer.getInt();
 
-		if (version >= 2 && bytes.length < BASE_LENGTH + AT_LENGTH)
+		if (version >= 2 && byteBuffer.remaining() < BASE_LENGTH + AT_BYTES_LENGTH - VERSION_LENGTH)
 			throw new TransformationException("Byte data too short for V2+ Block");
 
 		long timestamp = byteBuffer.getLong();

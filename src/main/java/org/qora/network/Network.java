@@ -9,6 +9,7 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,6 +24,7 @@ import org.qora.data.network.PeerData;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.Message;
 import org.qora.network.message.PeersMessage;
+import org.qora.network.message.PeersV2Message;
 import org.qora.network.message.PingMessage;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -34,10 +36,15 @@ import org.qora.utils.NTP;
 public class Network extends Thread {
 
 	private static final Logger LOGGER = LogManager.getLogger(Network.class);
-	private static final int LISTEN_BACKLOG = 10;
-	private static final int CONNECT_FAILURE_BACKOFF = 60 * 1000; // ms
-	private static final int BROADCAST_INTERVAL = 60 * 1000; // ms
 	private static Network instance;
+
+	private static final int LISTEN_BACKLOG = 10;
+	/** How long before retrying after a connection failure, in milliseconds. */
+	private static final int CONNECT_FAILURE_BACKOFF = 60 * 1000; // ms
+	/** How long between informational broadcasts to all connected peers, in milliseconds. */
+	private static final int BROADCAST_INTERVAL = 60 * 1000; // ms
+	/** Maximum time since last successful connection for peer info to be propagated, in milliseconds. */
+	private static final long RECENT_CONNECTION_THRESHOLD = 24 * 60 * 60 * 1000; // ms
 
 	public static final int PEER_ID_LENGTH = 128;
 
@@ -113,7 +120,7 @@ public class Network extends Thread {
 	}
 
 	public void noteToSelf(Peer peer) {
-		LOGGER.info(String.format("No longer considering peer address %s as it connects to self", peer.getRemoteSocketAddress()));
+		LOGGER.info(String.format("No longer considering peer address %s as it connects to self", peer));
 
 		synchronized (this.selfPeers) {
 			this.selfPeers.add(peer.getPeerData());
@@ -129,7 +136,7 @@ public class Network extends Thread {
 		// Maintain long-term connections to various peers' API applications
 		try {
 			while (true) {
-				acceptConnection();
+				acceptConnections();
 
 				createConnection();
 
@@ -160,38 +167,40 @@ public class Network extends Thread {
 	}
 
 	@SuppressWarnings("resource")
-	private void acceptConnection() throws InterruptedException {
+	private void acceptConnections() throws InterruptedException {
 		Socket socket;
 
-		try {
-			socket = this.listenSocket.accept();
-		} catch (SocketTimeoutException e) {
-			// No connections to accept
-			return;
-		} catch (IOException e) {
-			// Something went wrong or listen socket was closed due to shutdown
-			return;
-		}
-
-		synchronized (this.connectedPeers) {
-			if (connectedPeers.size() >= maxPeers) {
-				// We have enough peers
-				LOGGER.trace(String.format("Connection discarded from peer %s", socket.getRemoteSocketAddress()));
-
-				try {
-					socket.close();
-				} catch (IOException e) {
-					// Not important
-				}
-
+		do {
+			try {
+				socket = this.listenSocket.accept();
+			} catch (SocketTimeoutException e) {
+				// No connections to accept
+				return;
+			} catch (IOException e) {
+				// Something went wrong or listen socket was closed due to shutdown
 				return;
 			}
 
-			LOGGER.debug(String.format("Connection accepted from peer %s", socket.getRemoteSocketAddress()));
-			Peer newPeer = new Peer(socket);
-			this.connectedPeers.add(newPeer);
-			peerExecutor.execute(newPeer);
-		}
+			synchronized (this.connectedPeers) {
+				if (connectedPeers.size() >= maxPeers) {
+					// We have enough peers
+					LOGGER.trace(String.format("Connection discarded from peer %s", socket.getRemoteSocketAddress()));
+
+					try {
+						socket.close();
+					} catch (IOException e) {
+						// Not important
+					}
+
+					return;
+				}
+
+				LOGGER.debug(String.format("Connection accepted from peer %s", socket.getRemoteSocketAddress()));
+				Peer newPeer = new Peer(socket);
+				this.connectedPeers.add(newPeer);
+				peerExecutor.execute(newPeer);
+			}
+		} while (true);
 	}
 
 	private void createConnection() throws InterruptedException, DataException {
@@ -220,7 +229,7 @@ public class Network extends Thread {
 
 			// Don't consider already connected peers
 			Predicate<PeerData> isConnectedPeer = peerData -> this.connectedPeers.stream()
-					.anyMatch(peer -> peer.getPeerData() != null && peer.getPeerData().getSocketAddress().equals(peerData.getSocketAddress()));
+					.anyMatch(peer -> peer.getPeerData().getSocketAddress().equals(peerData.getSocketAddress()));
 
 			synchronized (this.connectedPeers) {
 				peers.removeIf(isConnectedPeer);
@@ -269,7 +278,7 @@ public class Network extends Thread {
 	/** Called when a new message arrives for a peer. message can be null if called after connection */
 	public void onMessage(Peer peer, Message message) {
 		if (message != null)
-			LOGGER.trace(String.format("Received %s message from %s", message.getType().name(), peer.getRemoteSocketAddress()));
+			LOGGER.trace(String.format("Received %s message from %s", message.getType().name(), peer));
 
 		Handshake handshakeStatus = peer.getHandshakeStatus();
 		if (handshakeStatus != Handshake.COMPLETED) {
@@ -277,8 +286,7 @@ public class Network extends Thread {
 
 			// Check message type is as expected
 			if (handshakeStatus.expectedMessageType != null && message.getType() != handshakeStatus.expectedMessageType) {
-				LOGGER.debug(String.format("Unexpected %s message from %s, expected %s", message.getType().name(), peer.getRemoteSocketAddress(),
-						handshakeStatus.expectedMessageType));
+				LOGGER.debug(String.format("Unexpected %s message from %s, expected %s", message.getType().name(), peer, handshakeStatus.expectedMessageType));
 				peer.disconnect();
 				return;
 			}
@@ -287,7 +295,7 @@ public class Network extends Thread {
 
 			if (newHandshakeStatus == null) {
 				// Handshake failure
-				LOGGER.debug(String.format("Handshake failure with peer %s message %s", peer.getRemoteSocketAddress(), message.getType().name()));
+				LOGGER.debug(String.format("Handshake failure with peer %s message %s", peer, message.getType().name()));
 				peer.disconnect();
 				return;
 			}
@@ -296,7 +304,7 @@ public class Network extends Thread {
 				// If we made outbound connection then we need to act first
 				newHandshakeStatus.action(peer);
 			else
-				// We have inbound connection so we need to respond inline with what we just received
+				// We have inbound connection so we need to respond in kind with what we just received
 				handshakeStatus.action(peer);
 
 			peer.setHandshakeStatus(newHandshakeStatus);
@@ -313,7 +321,7 @@ public class Network extends Thread {
 			case VERSION:
 			case PEER_ID:
 			case PROOF:
-				LOGGER.debug(String.format("Unexpected handshaking message %s from peer %s", message.getType().name(), peer.getRemoteSocketAddress()));
+				LOGGER.debug(String.format("Unexpected handshaking message %s from peer %s", message.getType().name(), peer));
 				peer.disconnect();
 				return;
 
@@ -334,16 +342,28 @@ public class Network extends Thread {
 
 				List<InetSocketAddress> peerAddresses = new ArrayList<>();
 
+				// v1 PEERS message doesn't support port numbers so we have to add default port
 				for (InetAddress peerAddress : peersMessage.getPeerAddresses())
 					peerAddresses.add(new InetSocketAddress(peerAddress, Settings.DEFAULT_LISTEN_PORT));
 
-				try {
-					mergePeers(peerAddresses);
-				} catch (DataException e) {
-					// Not good
-					peer.disconnect();
-					return;
-				}
+				// Also add peer's details
+				peerAddresses.add(new InetSocketAddress(peer.getRemoteSocketAddress().getHostString(), Settings.DEFAULT_LISTEN_PORT));
+
+				mergePeers(peerAddresses);
+				break;
+
+			case PEERS_V2:
+				PeersV2Message peersV2Message = (PeersV2Message) message;
+
+				List<InetSocketAddress> peerV2Addresses = peersV2Message.getPeerAddresses();
+
+				// First entry contains remote peer's listen port but empty address.
+				// Overwrite address with one obtained from socket.
+				int peerPort = peerV2Addresses.get(0).getPort();
+				peerV2Addresses.remove(0);
+				peerV2Addresses.add(0, InetSocketAddress.createUnresolved(peer.getRemoteSocketAddress().getHostString(), peerPort));
+
+				mergePeers(peerV2Addresses);
 				break;
 
 			default:
@@ -354,6 +374,9 @@ public class Network extends Thread {
 	}
 
 	private void onHandshakeCompleted(Peer peer) {
+		// Make a note that we've successfully completed handshake (and when)
+		peer.getPeerData().setLastConnected(NTP.getTime());
+
 		peer.startPings();
 
 		Message heightMessage = new HeightMessage(Controller.getInstance().getChainHeight());
@@ -363,36 +386,61 @@ public class Network extends Thread {
 			return;
 		}
 
-		Message peersMessage = this.buildPeersMessage();
+		Message peersMessage = this.buildPeersMessage(peer);
 		if (!peer.sendMessage(peersMessage))
 			peer.disconnect();
 	}
 
-	public Message buildPeersMessage() {
-		List<Peer> peers = new ArrayList<>();
+	/** Returns PEERS message made from peers we've connected to recently, and this node's details */
+	public Message buildPeersMessage(Peer peer) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
-		synchronized (this.connectedPeers) {
-			// Only outbound peer connections that have completed handshake
-			peers = this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED)
-					.collect(Collectors.toList());
+			// Filter out peers that we've not connected to ever or within X milliseconds
+			long connectionThreshold = NTP.getTime() - RECENT_CONNECTION_THRESHOLD;
+			knownPeers.removeIf(peerData -> peerData.getLastConnected() == null || peerData.getLastConnected() < connectionThreshold);
+
+			// Map to socket addresses
+			List<InetSocketAddress> peerSocketAddresses = knownPeers.stream().map(peerData -> peerData.getSocketAddress()).collect(Collectors.toList());
+
+			if (peer.getVersion() >= 2)
+				// New format PEERS_V2 message that supports hostnames, IPv6 and ports
+				return new PeersV2Message(peerSocketAddresses);
+			else
+				// Legacy PEERS message that only sends IPv4 addresses
+				return new PeersMessage(peerSocketAddresses);
+		} catch (DataException e) {
+			LOGGER.error("Repository issue while building PEERS message", e);
+			return new PeersMessage(Collections.emptyList());
 		}
-
-		return new PeersMessage(peers);
 	}
 
 	// Network-wide calls
 
-	private List<Peer> getCompletedPeers() {
-		List<Peer> completedPeers = new ArrayList<>();
+	/** Returns list of connected peers that have completed handshaking. */
+	public List<Peer> getHandshakeCompletedPeers() {
+		List<Peer> peers = new ArrayList<>();
 
 		synchronized (this.connectedPeers) {
-			completedPeers = this.connectedPeers.stream().filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED).collect(Collectors.toList());
+			peers = this.connectedPeers.stream().filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED).collect(Collectors.toList());
 		}
 
-		return completedPeers;
+		return peers;
 	}
 
-	private void mergePeers(List<InetSocketAddress> peerAddresses) throws DataException {
+	/** Returns list of peers we connected to that have completed handshaking. */
+	public List<Peer> getOutboundHandshakeCompletedPeers() {
+		List<Peer> peers = new ArrayList<>();
+
+		synchronized (this.connectedPeers) {
+			peers = this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED)
+					.collect(Collectors.toList());
+		}
+
+		return peers;
+	}
+
+	private void mergePeers(List<InetSocketAddress> peerAddresses) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
@@ -412,28 +460,30 @@ public class Network extends Thread {
 			}
 
 			repository.saveChanges();
+		} catch (DataException e) {
+			LOGGER.error("Repository issue while merging peers list from remote node", e);
 		}
 	}
 
-	public void broadcast(Message message) {
+	public void broadcast(Function<Peer, Message> peerMessage) {
 		class Broadcaster implements Runnable {
 			private List<Peer> targetPeers;
-			private Message message;
+			private Function<Peer, Message> peerMessage;
 
-			public Broadcaster(List<Peer> targetPeers, Message message) {
+			public Broadcaster(List<Peer> targetPeers, Function<Peer, Message> peerMessage) {
 				this.targetPeers = targetPeers;
-				this.message = message;
+				this.peerMessage = peerMessage;
 			}
 
 			@Override
 			public void run() {
 				for (Peer peer : targetPeers)
-					if (!peer.sendMessage(message))
+					if (!peer.sendMessage(peerMessage.apply(peer)))
 						peer.disconnect();
 			}
 		}
 
-		peerExecutor.execute(new Broadcaster(this.getCompletedPeers(), message));
+		peerExecutor.execute(new Broadcaster(this.getHandshakeCompletedPeers(), peerMessage));
 	}
 
 	public void shutdown() {

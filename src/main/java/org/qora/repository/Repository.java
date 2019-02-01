@@ -24,6 +24,10 @@ public interface Repository extends AutoCloseable {
 
 	public void discardChanges() throws DataException;
 
+	void setSavepoint() throws DataException;
+
+	void rollbackToSavepoint() throws DataException;
+
 	@Override
 	public void close() throws DataException;
 

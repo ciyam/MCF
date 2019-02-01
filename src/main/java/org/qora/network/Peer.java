@@ -62,6 +62,7 @@ public class Peer implements Runnable {
 		this.isOutbound = false;
 		this.socket = socket;
 		this.remoteSocketAddress = (InetSocketAddress) this.socket.getRemoteSocketAddress();
+		this.peerData = new PeerData(this.remoteSocketAddress);
 	}
 
 	// Getters / setters
@@ -121,6 +122,15 @@ public class Peer implements Runnable {
 		this.lastPing = lastPing;
 	}
 
+	// Easier, and nicer output, than peer.getRemoteSocketAddress()
+
+	@Override
+	public String toString() {
+		InetSocketAddress socketAddress = this.getRemoteSocketAddress();
+
+		return socketAddress.getHostString() + ":" + socketAddress.getPort();
+	}
+
 	// Processing
 
 	private void setup() throws IOException {
@@ -131,22 +141,22 @@ public class Peer implements Runnable {
 	}
 
 	public boolean connect() {
-		LOGGER.trace(String.format("Connecting to peer %s", this.remoteSocketAddress));
+		LOGGER.trace(String.format("Connecting to peer %s", this));
 		this.socket = new Socket();
 
 		try {
 			InetSocketAddress resolvedSocketAddress = new InetSocketAddress(this.remoteSocketAddress.getHostString(), this.remoteSocketAddress.getPort());
 
 			this.socket.connect(resolvedSocketAddress, CONNECT_TIMEOUT);
-			LOGGER.debug(String.format("Connected to peer %s", this.remoteSocketAddress));
+			LOGGER.debug(String.format("Connected to peer %s", this));
 		} catch (SocketTimeoutException e) {
-			LOGGER.trace(String.format("Connection timed out to peer %s", this.remoteSocketAddress));
+			LOGGER.trace(String.format("Connection timed out to peer %s", this));
 			return false;
 		} catch (UnknownHostException e) {
-			LOGGER.trace(String.format("Connection failed to unresolved peer %s", this.remoteSocketAddress));
+			LOGGER.trace(String.format("Connection failed to unresolved peer %s", this));
 			return false;
 		} catch (IOException e) {
-			LOGGER.trace(String.format("Connection failed to peer %s", this.remoteSocketAddress));
+			LOGGER.trace(String.format("Connection failed to peer %s", this));
 			return false;
 		}
 
@@ -157,7 +167,7 @@ public class Peer implements Runnable {
 
 	@Override
 	public void run() {
-		Thread.currentThread().setName("Peer " + this.socket.getRemoteSocketAddress());
+		Thread.currentThread().setName("Peer " + this);
 
 		try (DataInputStream in = new DataInputStream(socket.getInputStream())) {
 			setup();
@@ -199,7 +209,7 @@ public class Peer implements Runnable {
 
 		try {
 			// Send message
-			LOGGER.trace(String.format("Sending %s message to peer %s", message.getType().name(), this.getRemoteSocketAddress()));
+			LOGGER.trace(String.format("Sending %s message to peer %s", message.getType().name(), this));
 
 			synchronized (this.out) {
 				this.out.write(message.toBytes());
@@ -288,7 +298,7 @@ public class Peer implements Runnable {
 
 		// Close socket
 		if (!this.socket.isClosed()) {
-			LOGGER.debug(String.format("Disconnected peer %s", this.getRemoteSocketAddress()));
+			LOGGER.debug(String.format("Disconnected peer %s", this));
 
 			try {
 				this.socket.close();

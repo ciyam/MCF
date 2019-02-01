@@ -102,12 +102,12 @@ public enum BlockchainAPI {
 	BTC(1) {
 		@Override
 		public void putTransactionFromRecipientAfterTimestampInA(String recipient, Timestamp timestamp, MachineState state) {
-			// TODO
+			// TODO BTC transaction support for ATv2
 		}
 
 		@Override
 		public long getAmountFromTransactionInA(Timestamp timestamp, MachineState state) {
-			// TODO
+			// TODO BTC transaction support for ATv2
 			return 0;
 		}
 	};
