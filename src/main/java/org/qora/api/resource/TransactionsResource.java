@@ -28,6 +28,7 @@ import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.SimpleTransactionSignRequest;
+import org.qora.controller.Controller;
 import org.qora.data.transaction.TransactionData;
 import org.qora.globalization.Translator;
 import org.qora.repository.DataException;
@@ -387,6 +388,9 @@ public class TransactionsResource {
 			repository.getTransactionRepository().save(transactionData);
 			repository.getTransactionRepository().unconfirmTransaction(transactionData);
 			repository.saveChanges();
+
+			// Notify controller of new transaction
+			Controller.getInstance().onNewTransaction(transactionData);
 
 			return "true";
 		} catch (NumberFormatException e) {

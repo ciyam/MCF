@@ -55,7 +55,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
 
-	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
+	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];

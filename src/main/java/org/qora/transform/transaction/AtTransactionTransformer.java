@@ -26,7 +26,7 @@ public class AtTransactionTransformer extends TransactionTransformer {
 	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH
 			+ DATA_SIZE_LENGTH;
 
-	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
+	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		throw new TransformationException("Serialized AT Transactions should not exist!");
 	}
 

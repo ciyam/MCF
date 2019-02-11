@@ -180,6 +180,8 @@ public class Peer implements Runnable {
 				if (message == null)
 					return;
 
+				LOGGER.trace(String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
+
 				// Find potential blocking queue for this id (expect null if id is -1)
 				BlockingQueue<Message> queue = this.messages.get(message.getId());
 				if (queue != null) {
@@ -209,7 +211,7 @@ public class Peer implements Runnable {
 
 		try {
 			// Send message
-			LOGGER.trace(String.format("Sending %s message to peer %s", message.getType().name(), this));
+			LOGGER.trace(String.format("Sending %s message with ID %d to peer %s", message.getType().name(), message.getId(), this));
 
 			synchronized (this.out) {
 				this.out.write(message.toBytes());
@@ -307,6 +309,14 @@ public class Peer implements Runnable {
 		}
 
 		Network.getInstance().onDisconnect(this);
+	}
+
+	/** Returns true if ports and addresses (or hostnames) match */
+	public static boolean addressEquals(InetSocketAddress knownAddress, InetSocketAddress peerAddress) {
+		if (knownAddress.getPort() != peerAddress.getPort())
+			return false;
+
+		return knownAddress.getHostString().equalsIgnoreCase(peerAddress.getHostString());
 	}
 
 }

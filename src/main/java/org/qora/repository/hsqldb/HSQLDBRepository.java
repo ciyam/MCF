@@ -357,4 +357,33 @@ public class HSQLDBRepository implements Repository {
 		return sql;
 	}
 
+	/** Logs other HSQLDB sessions then re-throws passed exception */
+	public SQLException examineException(SQLException e) throws SQLException {
+		LOGGER.error("SQL error: " + e.getMessage());
+
+		// Serialization failure / potential deadlock - so list other sessions
+		try (ResultSet resultSet = this.checkedExecute(
+				"SELECT session_id, transaction, transaction_size, waiting_for_this, this_waiting_for, current_statement FROM Information_schema.system_sessions")) {
+			if (resultSet == null)
+				return e;
+
+			do {
+				long sessionId = resultSet.getLong(1);
+				boolean inTransaction = resultSet.getBoolean(2);
+				long transactionSize = resultSet.getLong(3);
+				String waitingForThis = resultSet.getString(4);
+				String thisWaitingFor = resultSet.getString(5);
+				String currentStatement = resultSet.getString(6);
+
+				LOGGER.error(String.format("Session %d, %s transaction (size %d), waiting for this '%s', this waiting for '%s', current statement: %s",
+						sessionId, (inTransaction ? "in" : "not in"), transactionSize, waitingForThis, thisWaitingFor, currentStatement));
+			} while (resultSet.next());
+		} catch (SQLException de) {
+			// Throw original exception instead
+			return e;
+		}
+
+		return e;
+	}
+
 }

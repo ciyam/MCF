@@ -105,7 +105,7 @@ public enum Handshake {
 		}
 	};
 
-	private static final long MAX_TIMESTAMP_DELTA = 1000; // ms
+	private static final long MAX_TIMESTAMP_DELTA = 2000; // ms
 
 	public final MessageType expectedMessageType;
 

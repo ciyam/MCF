@@ -12,16 +12,6 @@ import com.google.common.primitives.Longs;
 public class Proof extends Thread {
 
 	private static final int MIN_PROOF_ZEROS = 2;
-	private static final MessageDigest sha256;
-	static {
-		try {
-			sha256 = MessageDigest.getInstance("SHA256");
-		} catch (NoSuchAlgorithmException e) {
-			// Can't progress
-			throw new RuntimeException("Message digest SHA256 not available");
-		}
-	}
-
 	private static final HashSet<Long> seenSalts = new HashSet<>();
 
 	private Peer peer;
@@ -63,6 +53,14 @@ public class Proof extends Thread {
 		byte[] timestampBytes = Longs.toByteArray(timestamp);
 		System.arraycopy(timestampBytes, 0, message, 8 + 8, timestampBytes.length);
 
+		MessageDigest sha256;
+		try {
+			sha256 = MessageDigest.getInstance("SHA256");
+		} catch (NoSuchAlgorithmException e) {
+			// Can't progress
+			throw new RuntimeException("Message digest SHA256 not available");
+		}
+
 		long nonce;
 		for (nonce = 0; nonce < Long.MAX_VALUE; ++nonce) {
 			// Check whether we're shutting down every so often
@@ -77,6 +75,8 @@ public class Proof extends Thread {
 
 			if (check(digest))
 				break;
+
+			sha256.reset();
 		}
 
 		ProofMessage proofMessage = new ProofMessage(timestamp, salt, nonce);
@@ -103,6 +103,14 @@ public class Proof extends Thread {
 
 		byte[] nonceBytes = Longs.toByteArray(nonce);
 		System.arraycopy(nonceBytes, 0, message, 0, nonceBytes.length);
+
+		MessageDigest sha256;
+		try {
+			sha256 = MessageDigest.getInstance("SHA256");
+		} catch (NoSuchAlgorithmException e) {
+			// Can't progress
+			throw new RuntimeException("Message digest SHA256 not available");
+		}
 
 		byte[] digest = sha256.digest(message);
 

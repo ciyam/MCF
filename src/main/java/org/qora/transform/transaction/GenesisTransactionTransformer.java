@@ -41,7 +41,7 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
 
-	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
+	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
 		String recipient = Serialization.deserializeAddress(byteBuffer);

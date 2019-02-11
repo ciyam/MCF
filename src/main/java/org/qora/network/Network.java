@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -21,11 +23,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.controller.Controller;
 import org.qora.data.network.PeerData;
+import org.qora.data.transaction.TransactionData;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.Message;
 import org.qora.network.message.PeersMessage;
 import org.qora.network.message.PeersV2Message;
 import org.qora.network.message.PingMessage;
+import org.qora.network.message.TransactionMessage;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -56,6 +60,7 @@ public class Network extends Thread {
 	private int maxPeers;
 	private ExecutorService peerExecutor;
 	private long nextBroadcast;
+	private Lock mergePeersLock;
 
 	// Constructors
 
@@ -92,6 +97,8 @@ public class Network extends Thread {
 
 		peerExecutor = Executors.newCachedThreadPool();
 		nextBroadcast = System.currentTimeMillis();
+
+		mergePeersLock = new ReentrantLock();
 	}
 
 	// Getters / setters
@@ -377,18 +384,35 @@ public class Network extends Thread {
 		// Make a note that we've successfully completed handshake (and when)
 		peer.getPeerData().setLastConnected(NTP.getTime());
 
+		// Start regular pings
 		peer.startPings();
 
+		// Send our height
 		Message heightMessage = new HeightMessage(Controller.getInstance().getChainHeight());
-
 		if (!peer.sendMessage(heightMessage)) {
 			peer.disconnect();
 			return;
 		}
 
+		// Send our peers list
 		Message peersMessage = this.buildPeersMessage(peer);
 		if (!peer.sendMessage(peersMessage))
 			peer.disconnect();
+
+		// Send our unconfirmed transactions
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+
+			for (TransactionData transactionData : transactions) {
+				Message transactionMessage = new TransactionMessage(transactionData);
+				if (!peer.sendMessage(transactionMessage)) {
+					peer.disconnect();
+					return;
+				}
+			}
+		} catch (DataException e) {
+			LOGGER.error("Repository issue while sending unconfirmed transactions", e);
+		}
 	}
 
 	/** Returns PEERS message made from peers we've connected to recently, and this node's details */
@@ -441,27 +465,42 @@ public class Network extends Thread {
 	}
 
 	private void mergePeers(List<InetSocketAddress> peerAddresses) {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
+		mergePeersLock.lock();
 
-			// Resolve known peer hostnames
-			Function<PeerData, InetSocketAddress> peerDataToSocketAddress = peerData -> new InetSocketAddress(peerData.getSocketAddress().getHostString(),
-					peerData.getSocketAddress().getPort());
-			List<InetSocketAddress> knownPeerAddresses = knownPeers.stream().map(peerDataToSocketAddress).collect(Collectors.toList());
+		try {
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
-			// Filter out duplicates
-			Predicate<InetSocketAddress> addressKnown = peerAddress -> knownPeerAddresses.stream().anyMatch(knownAddress -> knownAddress.equals(peerAddress));
-			peerAddresses.removeIf(addressKnown);
+				for (PeerData peerData : knownPeers)
+					LOGGER.trace(String.format("Known peer %s", peerData.getSocketAddress()));
 
-			// Save the rest into database
-			for (InetSocketAddress peerAddress : peerAddresses) {
-				PeerData peerData = new PeerData(peerAddress);
-				repository.getNetworkRepository().save(peerData);
+				// Resolve known peer hostnames
+				Function<PeerData, InetSocketAddress> peerDataToSocketAddress = peerData -> new InetSocketAddress(peerData.getSocketAddress().getHostString(),
+						peerData.getSocketAddress().getPort());
+				List<InetSocketAddress> knownPeerAddresses = knownPeers.stream().map(peerDataToSocketAddress).collect(Collectors.toList());
+
+				for (InetSocketAddress address : knownPeerAddresses)
+					LOGGER.trace(String.format("Resolved known peer %s", address));
+
+				// Filter out duplicates
+				// We have to use our own Peer.addressEquals as InetSocketAddress.equals isn't quite right for us
+				Predicate<InetSocketAddress> addressKnown = peerAddress -> knownPeerAddresses.stream()
+						.anyMatch(knownAddress -> Peer.addressEquals(knownAddress, peerAddress));
+				peerAddresses.removeIf(addressKnown);
+
+				// Save the rest into database
+				for (InetSocketAddress peerAddress : peerAddresses) {
+					PeerData peerData = new PeerData(peerAddress);
+					LOGGER.trace(String.format("Adding new peer %s to repository", peerAddress));
+					repository.getNetworkRepository().save(peerData);
+				}
+
+				repository.saveChanges();
+			} catch (DataException e) {
+				LOGGER.error("Repository issue while merging peers list from remote node", e);
 			}
-
-			repository.saveChanges();
-		} catch (DataException e) {
-			LOGGER.error("Repository issue while merging peers list from remote node", e);
+		} finally {
+			mergePeersLock.unlock();
 		}
 	}
 

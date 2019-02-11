@@ -252,6 +252,15 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public boolean exists(byte[] signature) throws DataException {
+		try {
+			return this.repository.exists("Transactions", "signature = ?", signature);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for transaction in repository", e);
+		}
+	}
+
+	@Override
 	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException {
 		List<byte[]> signatures = new ArrayList<byte[]>();
 

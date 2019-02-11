@@ -19,6 +19,8 @@ public interface TransactionRepository {
 	/** Returns block height containing transaction or 0 if not in a block or transaction doesn't exist */
 	public int getHeightFromSignature(byte[] signature) throws DataException;
 
+	public boolean exists(byte[] signature) throws DataException;
+
 	// Transaction participants
 
 	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException;

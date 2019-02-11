@@ -23,6 +23,7 @@ import org.qora.block.BlockChain;
 import org.qora.block.BlockGenerator;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.PeerData;
+import org.qora.data.transaction.TransactionData;
 import org.qora.network.Network;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
@@ -31,12 +32,15 @@ import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.Message;
 import org.qora.network.message.SignaturesMessage;
+import org.qora.network.message.TransactionMessage;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryFactory;
 import org.qora.repository.RepositoryManager;
 import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qora.settings.Settings;
+import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 
@@ -216,26 +220,39 @@ public class Controller extends Thread {
 
 		// If we have enough peers, potentially synchronize
 		List<Peer> peers = Network.getInstance().getHandshakeCompletedPeers();
-		if (peers.size() >= Settings.getInstance().getMinPeers()) {
-			peers.removeIf(peer -> peer.getPeerData().getLastHeight() <= ourHeight);
+		if (peers.size() < Settings.getInstance().getMinPeers())
+			return;
 
-			if (!peers.isEmpty()) {
-				// Pick random peer to sync with
-				int index = new SecureRandom().nextInt(peers.size());
-				Peer peer = peers.get(index);
+		for(Peer peer : peers)
+			LOGGER.trace(String.format("Peer %s is at height %d", peer, peer.getPeerData().getLastHeight()));
 
-				if (!Synchronizer.getInstance().synchronize(peer)) {
-					// Failure so don't use this peer again for a while
-					try (final Repository repository = RepositoryManager.getRepository()) {
-						PeerData peerData = peer.getPeerData();
-						peerData.setLastMisbehaved(NTP.getTime());
-						repository.getNetworkRepository().save(peerData);
-						repository.saveChanges();
-					} catch (DataException e) {
-						LOGGER.warn("Repository issue while updating peer synchronization info", e);
-					}
+		peers.removeIf(peer -> peer.getPeerData().getLastHeight() <= ourHeight);
+
+		if (!peers.isEmpty()) {
+			// Pick random peer to sync with
+			int index = new SecureRandom().nextInt(peers.size());
+			Peer peer = peers.get(index);
+
+			if (!Synchronizer.getInstance().synchronize(peer)) {
+				LOGGER.debug(String.format("Failed to synchronize with peer %s", peer));
+
+				// Failure so don't use this peer again for a while
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					PeerData peerData = peer.getPeerData();
+					peerData.setLastMisbehaved(NTP.getTime());
+					repository.getNetworkRepository().save(peerData);
+					repository.saveChanges();
+				} catch (DataException e) {
+					LOGGER.warn("Repository issue while updating peer synchronization info", e);
 				}
+
+				return;
 			}
+
+			LOGGER.debug(String.format("Synchronized with peer %s", peer));
+
+			// Broadcast our new height
+			Network.getInstance().broadcast(recipientPeer -> new HeightMessage(getChainHeight()));
 		}
 	}
 
@@ -366,9 +383,42 @@ public class Controller extends Thread {
 				}
 				break;
 
+			case TRANSACTION:
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					TransactionMessage transactionMessage = (TransactionMessage) message;
+
+					TransactionData transactionData = transactionMessage.getTransactionData();
+					Transaction transaction = Transaction.fromData(repository, transactionData);
+
+					// Check signature
+					if (!transaction.isSignatureValid())
+						break;
+
+					// Do we have it already?
+					if (repository.getTransactionRepository().exists(transactionData.getSignature()))
+						break;
+
+					// Is it valid?
+					if (transaction.isValidUnconfirmed() != ValidationResult.OK)
+						break;
+
+					// Seems ok - add to unconfirmed pile
+					repository.getTransactionRepository().save(transactionData);
+					repository.getTransactionRepository().unconfirmTransaction(transactionData);
+					repository.saveChanges();
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while responding to %s from peer %s", message.getType().name(), peer), e);
+				}
+				break;
+
 			default:
 				break;
 		}
+	}
+
+	public void onNewTransaction(TransactionData transactionData) {
+		// Send round to all peers
+		Network.getInstance().broadcast(peer -> new TransactionMessage(transactionData));
 	}
 
 }

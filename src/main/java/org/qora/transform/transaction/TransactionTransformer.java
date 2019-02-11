@@ -190,12 +190,16 @@ public abstract class TransactionTransformer extends Transformer {
 		if (bytes == null)
 			return null;
 
-		if (bytes.length < TYPE_LENGTH)
-			throw new TransformationException("Byte data too short to determine transaction type");
-
 		LOGGER.trace("tx hex: " + HashCode.fromBytes(bytes).toString());
 
 		ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+
+		return fromByteBuffer(byteBuffer);
+	}
+
+	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
+		if (byteBuffer.remaining() < TYPE_LENGTH)
+			throw new TransformationException("Byte data too short to determine transaction type");
 
 		TransactionType type = TransactionType.valueOf(byteBuffer.getInt());
 		if (type == null)

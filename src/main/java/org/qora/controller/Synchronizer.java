@@ -109,14 +109,12 @@ public class Synchronizer {
 							signatures.remove(0);
 							++this.ourHeight;
 
-							BlockData newBlockData = this.fetchBlockData(peer, signature);
+							Block newBlock = this.fetchBlock(repository, peer, signature);
 
-							if (newBlockData == null) {
+							if (newBlock == null) {
 								LOGGER.info(String.format("Peer %s failed to respond with block for height %d", peer, this.ourHeight));
 								return false;
 							}
-
-							Block newBlock = new Block(repository, newBlockData);
 
 							if (!newBlock.isSignatureValid()) {
 								LOGGER.info(String.format("Peer %s sent block with invalid signature for height %d", peer, this.ourHeight));
@@ -227,8 +225,8 @@ public class Synchronizer {
 		return blockSignatures;
 	}
 
-	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int countRequested) {
-		// TODO countRequested is v2+ feature
+	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) {
+		// TODO numberRequested is v2+ feature
 		Message getSignaturesMessage = new GetSignaturesMessage(parentSignature);
 
 		Message message = peer.getResponse(getSignaturesMessage);
@@ -240,7 +238,7 @@ public class Synchronizer {
 		return signaturesMessage.getSignatures();
 	}
 
-	private BlockData fetchBlockData(Peer peer, byte[] signature) {
+	private Block fetchBlock(Repository repository, Peer peer, byte[] signature) {
 		Message getBlockMessage = new GetBlockMessage(signature);
 
 		Message message = peer.getResponse(getBlockMessage);
@@ -249,7 +247,12 @@ public class Synchronizer {
 
 		BlockMessage blockMessage = (BlockMessage) message;
 
-		return blockMessage.getBlockData();
+		try {
+			return new Block(repository, blockMessage.getBlockData(), blockMessage.getTransactions(), blockMessage.getAtStates());
+		} catch (DataException e) {
+			LOGGER.debug("Failed to create block", e);
+			return null;
+		}
 	}
 
 }
