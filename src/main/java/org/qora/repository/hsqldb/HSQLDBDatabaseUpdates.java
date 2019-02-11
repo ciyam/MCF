@@ -507,6 +507,10 @@ public class HSQLDBDatabaseUpdates {
 							+ "last_height INTEGER, last_misbehaved TIMESTAMP WITH TIME ZONE, PRIMARY KEY (hostname, port))");
 					break;
 
+				case 31:
+					stmt.execute("SET DATABASE TRANSACTION CONTROL MVCC"); // Use MVCC over default two-phase locking, a-k-a "LOCKS"
+					break;
+
 				default:
 					// nothing to do
 					return false;
