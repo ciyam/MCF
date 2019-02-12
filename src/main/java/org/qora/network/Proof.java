@@ -35,7 +35,7 @@ public class Proof extends Thread {
 
 	@Override
 	public void run() {
-		setName("Proof for peer " + this.peer.getRemoteSocketAddress());
+		setName("Proof for peer " + this.peer);
 
 		// Do proof-of-work calculation to gain acceptance with remote end
 

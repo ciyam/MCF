@@ -3,6 +3,7 @@ package org.qora.network;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -23,9 +24,13 @@ import org.qora.controller.Controller;
 import org.qora.data.network.PeerData;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
+import org.qora.settings.Settings;
 import org.qora.network.message.PingMessage;
 import org.qora.network.message.VersionMessage;
 import org.qora.utils.NTP;
+
+import com.google.common.net.HostAndPort;
+import com.google.common.net.InetAddresses;
 
 // For managing one peer
 public class Peer implements Runnable {
@@ -40,7 +45,6 @@ public class Peer implements Runnable {
 	private final boolean isOutbound;
 	private Socket socket = null;
 	private PeerData peerData = null;
-	private InetSocketAddress remoteSocketAddress = null;
 	private Long connectionTimestamp = null;
 	private OutputStream out;
 	private Handshake handshakeStatus = Handshake.STARTED;
@@ -49,20 +53,24 @@ public class Peer implements Runnable {
 	private Integer version;
 	private ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 	private Long lastPing = null;
+	private boolean isLocal;
+	private byte[] peerId;
 
 	/** Construct unconnected outbound Peer using socket address in peer data */
 	public Peer(PeerData peerData) {
 		this.isOutbound = true;
 		this.peerData = peerData;
-		this.remoteSocketAddress = peerData.getSocketAddress();
 	}
 
 	/** Construct Peer using existing, connected socket */
 	public Peer(Socket socket) {
 		this.isOutbound = false;
 		this.socket = socket;
-		this.remoteSocketAddress = (InetSocketAddress) this.socket.getRemoteSocketAddress();
-		this.peerData = new PeerData(this.remoteSocketAddress);
+
+		this.isLocal = isAddressLocal(((InetSocketAddress) socket.getRemoteSocketAddress()).getAddress());
+
+		PeerAddress peerAddress = PeerAddress.fromSocket(socket);
+		this.peerData = new PeerData(peerAddress);
 	}
 
 	// Getters / setters
@@ -81,10 +89,6 @@ public class Peer implements Runnable {
 
 	public void setHandshakeStatus(Handshake handshakeStatus) {
 		this.handshakeStatus = handshakeStatus;
-	}
-
-	public InetSocketAddress getRemoteSocketAddress() {
-		return this.remoteSocketAddress;
 	}
 
 	public VersionMessage getVersionMessage() {
@@ -122,13 +126,23 @@ public class Peer implements Runnable {
 		this.lastPing = lastPing;
 	}
 
+	public boolean getIsLocal() {
+		return this.isLocal;
+	}
+
+	public byte[] getPeerId() {
+		return this.peerId;
+	}
+
+	public void setPeerId(byte[] peerId) {
+		this.peerId = peerId;
+	}
+
 	// Easier, and nicer output, than peer.getRemoteSocketAddress()
 
 	@Override
 	public String toString() {
-		InetSocketAddress socketAddress = this.getRemoteSocketAddress();
-
-		return socketAddress.getHostString() + ":" + socketAddress.getPort();
+		return this.peerData.getAddress().toString();
 	}
 
 	// Processing
@@ -145,7 +159,9 @@ public class Peer implements Runnable {
 		this.socket = new Socket();
 
 		try {
-			InetSocketAddress resolvedSocketAddress = new InetSocketAddress(this.remoteSocketAddress.getHostString(), this.remoteSocketAddress.getPort());
+			InetSocketAddress resolvedSocketAddress = this.peerData.getAddress().toSocketAddress();
+
+			this.isLocal = isAddressLocal(resolvedSocketAddress.getAddress());
 
 			this.socket.connect(resolvedSocketAddress, CONNECT_TIMEOUT);
 			LOGGER.debug(String.format("Connected to peer %s", this));
@@ -196,6 +212,7 @@ public class Peer implements Runnable {
 			// Fall-through
 		} finally {
 			this.disconnect();
+			Thread.currentThread().setName("disconnected peer");
 		}
 	}
 
@@ -311,12 +328,27 @@ public class Peer implements Runnable {
 		Network.getInstance().onDisconnect(this);
 	}
 
+	// Utility methods
+
 	/** Returns true if ports and addresses (or hostnames) match */
 	public static boolean addressEquals(InetSocketAddress knownAddress, InetSocketAddress peerAddress) {
 		if (knownAddress.getPort() != peerAddress.getPort())
 			return false;
 
 		return knownAddress.getHostString().equalsIgnoreCase(peerAddress.getHostString());
+	}
+
+	public static InetSocketAddress parsePeerAddress(String peerAddress) throws IllegalArgumentException {
+		HostAndPort hostAndPort = HostAndPort.fromString(peerAddress).requireBracketsForIPv6();
+
+		// HostAndPort doesn't try to validate host so we do extra checking here
+		InetAddress address = InetAddresses.forString(hostAndPort.getHost());
+
+		return new InetSocketAddress(address, hostAndPort.getPortOrDefault(Settings.DEFAULT_LISTEN_PORT));
+	}
+
+	public static boolean isAddressLocal(InetAddress address) {
+		return address.isLoopbackAddress() || address.isLinkLocalAddress() || address.isSiteLocalAddress();
 	}
 
 }

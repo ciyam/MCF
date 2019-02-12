@@ -8,8 +8,7 @@ import org.qora.network.Peer;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class ConnectedPeer {
 
-	public String hostname;
-	public int port;
+	public String address;
 	public Long lastPing;
 	public Integer lastHeight;
 
@@ -24,8 +23,7 @@ public class ConnectedPeer {
 	}
 
 	public ConnectedPeer(Peer peer) {
-		this.hostname = peer.getRemoteSocketAddress().getHostString();
-		this.port = peer.getRemoteSocketAddress().getPort();
+		this.address = peer.getPeerData().getAddress().toString();
 		this.lastPing = peer.getLastPing();
 		this.direction = peer.isOutbound() ? Direction.OUTBOUND : Direction.INBOUND;
 		this.lastHeight = peer.getPeerData() == null ? null : peer.getPeerData().getLastHeight();

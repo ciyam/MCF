@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,10 +28,10 @@ import org.qora.api.Security;
 import org.qora.api.model.ConnectedPeer;
 import org.qora.data.network.PeerData;
 import org.qora.network.Network;
+import org.qora.network.PeerAddress;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
-import org.qora.settings.Settings;
 
 @Path("/peers")
 @Produces({
@@ -104,26 +103,31 @@ public class PeersResource {
 					mediaType = MediaType.APPLICATION_JSON,
 					array = @ArraySchema(
 						schema = @Schema(
-							implementation = PeerData.class
+							implementation = PeerAddress.class
 						)
 					)
 				)
 			)
 		}
 	)
-	public List<PeerData> getSelfPeers() {
+	public List<PeerAddress> getSelfPeers() {
 		return Network.getInstance().getSelfPeers();
 	}
 
 	@POST
 	@Operation(
 		summary = "Add new peer address",
+		description = "Specify a new peer using hostname, IPv4 address, IPv6 address and optional port number preceeded with colon (e.g. :9084)<br>"
+				+ "Note that IPv6 literal addresses must be surrounded with brackets.<br>" + "Examples:<br><ul>" + "<li>some-peer.example.com</li>"
+				+ "<li>some-peer.example.com:9084</li>" + "<li>10.1.2.3</li>" + "<li>10.1.2.3:9084</li>" + "<li>[2001:d8b::1]</li>"
+				+ "<li>[2001:d8b::1]:9084</li>" + "</ul>",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
-					type = "string"
+					type = "string",
+					example = "some-peer.example.com"
 				)
 			)
 		),
@@ -141,22 +145,13 @@ public class PeersResource {
 	@ApiErrors({
 		ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE
 	})
-	public String addPeer(String peerAddress) {
+	public String addPeer(String address) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			String[] peerParts = peerAddress.split(":");
+			PeerAddress peerAddress = PeerAddress.fromString(address);
 
-			// Expecting one or two parts
-			if (peerParts.length < 1 || peerParts.length > 2)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-
-			String hostname = peerParts[0];
-			int port = peerParts.length == 2 ? Integer.parseInt(peerParts[1]) : Settings.DEFAULT_LISTEN_PORT;
-
-			InetSocketAddress socketAddress = new InetSocketAddress(hostname, port);
-
-			PeerData peerData = new PeerData(socketAddress);
+			PeerData peerData = new PeerData(peerAddress);
 			repository.getNetworkRepository().save(peerData);
 			repository.saveChanges();
 
@@ -173,12 +168,17 @@ public class PeersResource {
 	@DELETE
 	@Operation(
 		summary = "Remove peer address from database",
+		description = "Specify peer to be removed using hostname, IPv4 address, IPv6 address and optional port number preceeded with colon (e.g. :9084)<br>"
+				+ "Note that IPv6 literal addresses must be surrounded with brackets.<br>" + "Examples:<br><ul>" + "<li>some-peer.example.com</li>"
+				+ "<li>some-peer.example.com:9084</li>" + "<li>10.1.2.3</li>" + "<li>10.1.2.3:9084</li>" + "<li>[2001:d8b::1]</li>"
+				+ "<li>[2001:d8b::1]:9084</li>" + "</ul>",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
-					type = "string"
+					type = "string",
+					example = "some-peer.example.com"
 				)
 			)
 		),
@@ -196,22 +196,13 @@ public class PeersResource {
 	@ApiErrors({
 		ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE
 	})
-	public String removePeer(String peerAddress) {
+	public String removePeer(String address) {
 		Security.checkApiCallAllowed(request);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			String[] peerParts = peerAddress.split(":");
+			PeerAddress peerAddress = PeerAddress.fromString(address);
 
-			// Expecting one or two parts
-			if (peerParts.length < 1 || peerParts.length > 2)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
-
-			String hostname = peerParts[0];
-			int port = peerParts.length == 2 ? Integer.parseInt(peerParts[1]) : Settings.DEFAULT_LISTEN_PORT;
-
-			InetSocketAddress socketAddress = new InetSocketAddress(hostname, port);
-
-			PeerData peerData = new PeerData(socketAddress);
+			PeerData peerData = new PeerData(peerAddress);
 
 			int numDeleted = repository.getNetworkRepository().delete(peerData);
 			repository.saveChanges();

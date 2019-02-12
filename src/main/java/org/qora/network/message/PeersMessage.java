@@ -3,8 +3,8 @@ package org.qora.network.message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.Inet6Address;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -19,26 +19,13 @@ public class PeersMessage extends Message {
 
 	private List<InetAddress> peerAddresses;
 
-	public PeersMessage(List<InetSocketAddress> peerSocketAddresses) {
+	public PeersMessage(List<InetAddress> peerAddresses) {
 		super(MessageType.PEERS);
 
-		// We have to forcibly resolve into IP addresses as we can't send hostnames
-		this.peerAddresses = new ArrayList<>();
+		this.peerAddresses = new ArrayList<>(peerAddresses);
 
-		for (InetSocketAddress peerSocketAddress : peerSocketAddresses) {
-			try {
-				InetAddress resolvedAddress = InetAddress.getByName(peerSocketAddress.getHostString());
-
-				// Filter out unsupported address types
-				if (resolvedAddress.getAddress().length != ADDRESS_LENGTH)
-					continue;
-
-				this.peerAddresses.add(resolvedAddress);
-			} catch (UnknownHostException e) {
-				// Couldn't resolve
-				continue;
-			}
-		}
+		// Legacy PEERS message doesn't support IPv6
+		this.peerAddresses.removeIf(address -> address instanceof Inet6Address);
 	}
 
 	private PeersMessage(int id, List<InetAddress> peerAddresses) {
