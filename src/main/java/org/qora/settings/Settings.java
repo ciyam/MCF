@@ -26,7 +26,7 @@ public class Settings {
 	private static Settings instance;
 	private String userpath = "";
 	private boolean useBitcoinTestNet = false;
-	private boolean wipeUnconfirmedOnStart = true;
+	private boolean wipeUnconfirmedOnStart = false;
 	private String blockchainConfigPath = "blockchain.json";
 	/** Maximum number of unconfirmed transactions allowed per account */
 	private int maxUnconfirmedPerAccount = 100;

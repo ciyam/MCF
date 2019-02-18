@@ -19,7 +19,7 @@ import org.qora.transform.transaction.AtTransactionTransformer;
 
 import com.google.common.primitives.Bytes;
 
-public class ATTransaction extends Transaction {
+public class AtTransaction extends Transaction {
 
 	// Properties
 	private ATTransactionData atTransactionData;
@@ -29,7 +29,7 @@ public class ATTransaction extends Transaction {
 
 	// Constructors
 
-	public ATTransaction(Repository repository, TransactionData transactionData) {
+	public AtTransaction(Repository repository, TransactionData transactionData) {
 		super(repository, transactionData);
 
 		this.atTransactionData = (ATTransactionData) this.transactionData;

@@ -18,16 +18,14 @@ public class HSQLDBMultiPaymentTransactionRepository extends HSQLDBTransactionRe
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT sender from MultiPaymentTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT TRUE from MultiPaymentTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
-			byte[] senderPublicKey = resultSet.getBytes(1);
-
 			List<PaymentData> payments = this.getPaymentsFromSignature(signature);
 
-			return new MultiPaymentTransactionData(senderPublicKey, payments, fee, timestamp, reference, signature);
+			return new MultiPaymentTransactionData(timestamp, txGroupId, reference, creatorPublicKey, payments, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch multi-payment transaction from repository", e);
 		}

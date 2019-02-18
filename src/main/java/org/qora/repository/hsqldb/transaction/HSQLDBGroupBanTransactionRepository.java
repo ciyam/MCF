@@ -16,7 +16,7 @@ public class HSQLDBGroupBanTransactionRepository extends HSQLDBTransactionReposi
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
 				"SELECT group_id, address, reason, time_to_live, member_reference, admin_reference, join_invite_reference FROM GroupBanTransactions WHERE signature = ?",
 				signature)) {
@@ -31,8 +31,8 @@ public class HSQLDBGroupBanTransactionRepository extends HSQLDBTransactionReposi
 			byte[] adminReference = resultSet.getBytes(6);
 			byte[] joinInviteReference = resultSet.getBytes(7);
 
-			return new GroupBanTransactionData(creatorPublicKey, groupId, offender, reason, timeToLive, memberReference, adminReference, joinInviteReference,
-					fee, timestamp, reference, signature);
+			return new GroupBanTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, offender, reason, timeToLive,
+					memberReference, adminReference, joinInviteReference, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group ban transaction from repository", e);
 		}

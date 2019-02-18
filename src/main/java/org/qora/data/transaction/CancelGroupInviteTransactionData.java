@@ -11,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class CancelGroupInviteTransactionData extends TransactionData {
@@ -31,7 +31,7 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected CancelGroupInviteTransactionData() {
 		super(TransactionType.CANCEL_GROUP_INVITE);
 	}
@@ -40,8 +40,8 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public CancelGroupInviteTransactionData(byte[] adminPublicKey, int groupId, String invitee, byte[] inviteReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.CANCEL_GROUP_INVITE, fee, adminPublicKey, timestamp, reference, signature);
+	public CancelGroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, byte[] inviteReference, BigDecimal fee, byte[] signature) {
+		super(TransactionType.CANCEL_GROUP_INVITE, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
 
 		this.adminPublicKey = adminPublicKey;
 		this.groupId = groupId;
@@ -50,8 +50,8 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 	}
 
 	/** Constructor typically used after deserialization */
-	public CancelGroupInviteTransactionData(byte[] adminPublicKey, int groupId, String invitee, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(adminPublicKey, groupId, invitee, null, fee, timestamp, reference, signature);
+	public CancelGroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, null, fee, signature);
 	}
 
 	// Getters / setters

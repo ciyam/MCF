@@ -16,14 +16,14 @@ public class HSQLDBCancelSellNameTransactionRepository extends HSQLDBTransaction
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] ownerPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT name FROM CancelSellNameTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
 			String name = resultSet.getString(1);
 
-			return new CancelSellNameTransactionData(ownerPublicKey, name, fee, timestamp, reference, signature);
+			return new CancelSellNameTransactionData(timestamp, txGroupId, reference, creatorPublicKey, name, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch cancel sell name transaction from repository", e);
 		}

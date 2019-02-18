@@ -16,7 +16,7 @@ public class HSQLDBCancelGroupInviteTransactionRepository extends HSQLDBTransact
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT group_id, invitee, invite_reference FROM CancelGroupInviteTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -26,7 +26,7 @@ public class HSQLDBCancelGroupInviteTransactionRepository extends HSQLDBTransact
 			String invitee = resultSet.getString(2);
 			byte[] inviteReference = resultSet.getBytes(3);
 
-			return new CancelGroupInviteTransactionData(creatorPublicKey, groupId, invitee, inviteReference, fee, timestamp, reference, signature);
+			return new CancelGroupInviteTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, invitee, inviteReference, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch cancel group invite transaction from repository", e);
 		}

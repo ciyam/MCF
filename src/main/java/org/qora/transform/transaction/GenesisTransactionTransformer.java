@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.json.simple.JSONObject;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
 import org.qora.data.transaction.GenesisTransactionData;
@@ -19,14 +18,12 @@ import com.google.common.primitives.Longs;
 
 public class GenesisTransactionTransformer extends TransactionTransformer {
 
+	// Note that Genesis transactions don't require reference, fee or signature
+
 	// Property lengths
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
 	private static final int AMOUNT_LENGTH = LONG_LENGTH;
 	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
-
-	// Note that Genesis transactions don't require reference, fee or signature:
-	private static final int TYPELESS_LENGTH_V1 = TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
-	private static final int TYPELESS_LENGTH_V4 = TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -37,7 +34,6 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 		layout.add("recipient", TransformationType.ADDRESS);
 		layout.add("amount", TransformationType.AMOUNT);
 		layout.add("asset ID", TransformationType.LONG);
-		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
 
@@ -52,14 +48,15 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
 			assetId = byteBuffer.getLong();
 
-		return new GenesisTransactionData(recipient, amount, assetId, timestamp);
+		return new GenesisTransactionData(timestamp, recipient, amount, assetId);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		if (transactionData.getTimestamp() < BlockChain.getInstance().getQoraV2Timestamp())
-			return TYPE_LENGTH + TYPELESS_LENGTH_V1;
-		else
-			return TYPE_LENGTH + TYPELESS_LENGTH_V4;
+			return TYPE_LENGTH + TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
+
+		// Qora V2+
+		return TYPE_LENGTH + TIMESTAMP_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + ASSET_ID_LENGTH;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -69,9 +66,11 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
 			bytes.write(Ints.toByteArray(genesisTransactionData.getType().value));
+
 			bytes.write(Longs.toByteArray(genesisTransactionData.getTimestamp()));
 
 			Serialization.serializeAddress(bytes, genesisTransactionData.getRecipient());
+
 			Serialization.serializeBigDecimal(bytes, genesisTransactionData.getAmount());
 
 			if (genesisTransactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
@@ -81,23 +80,6 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			GenesisTransactionData genesisTransactionData = (GenesisTransactionData) transactionData;
-
-			json.put("recipient", genesisTransactionData.getRecipient());
-			json.put("amount", genesisTransactionData.getAmount().toPlainString());
-			json.put("assetId", genesisTransactionData.getAssetId());
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

@@ -10,9 +10,6 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSeeAlso;
 import javax.xml.bind.annotation.XmlTransient;
 
-// XXX are this still needed? see below
-// import org.eclipse.persistence.oxm.annotations.XmlClassExtractor;
-// import org.qora.api.TransactionClassExtractor;
 import org.qora.crypto.Crypto;
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -27,8 +24,6 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
  * then chances are that class is missing a no-argument constructor!
  */
 
-// XXX is this still in use?
-// @XmlClassExtractor(TransactionClassExtractor.class)
 @XmlSeeAlso({GenesisTransactionData.class, PaymentTransactionData.class, RegisterNameTransactionData.class, UpdateNameTransactionData.class,
 	SellNameTransactionData.class, CancelSellNameTransactionData.class, BuyNameTransactionData.class,
 	CreatePollTransactionData.class, VoteOnPollTransactionData.class, ArbitraryTransactionData.class,
@@ -39,9 +34,10 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 	AddGroupAdminTransactionData.class, RemoveGroupAdminTransactionData.class,
 	GroupBanTransactionData.class, CancelGroupBanTransactionData.class,
 	GroupKickTransactionData.class, GroupInviteTransactionData.class,
-	JoinGroupTransactionData.class, LeaveGroupTransactionData.class
+	JoinGroupTransactionData.class, LeaveGroupTransactionData.class,
+	GroupApprovalTransactionData.class, SetGroupTransactionData.class
 })
-//All properties to be converted to JSON via JAX-RS
+//All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 public abstract class TransactionData {
 
@@ -59,6 +55,8 @@ public abstract class TransactionData {
 	protected BigDecimal fee;
 	@Schema(accessMode = AccessMode.READ_ONLY, description = "signature for transaction's raw bytes, using sender's private key", example = "real_transaction_signature_in_base58")
 	protected byte[] signature;
+	@Schema(description = "groupID for this transaction")
+	protected int txGroupId;
 
 	// For JAX-RS use
 	@Schema(accessMode = AccessMode.READ_ONLY, hidden = true, description = "height of block containing transaction")
@@ -66,26 +64,27 @@ public abstract class TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected TransactionData() {
 	}
 
-	// For JAX-RS
+	// For JAXB
 	protected TransactionData(TransactionType type) {
 		this.type = type;
 	}
 
-	public TransactionData(TransactionType type, BigDecimal fee, byte[] creatorPublicKey, long timestamp, byte[] reference, byte[] signature) {
-		this.fee = fee;
+	public TransactionData(TransactionType type, long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) {
 		this.type = type;
-		this.creatorPublicKey = creatorPublicKey;
 		this.timestamp = timestamp;
+		this.txGroupId = txGroupId;
 		this.reference = reference;
+		this.creatorPublicKey = creatorPublicKey;
+		this.fee = fee;
 		this.signature = signature;
 	}
 
-	public TransactionData(TransactionType type, BigDecimal fee, byte[] creatorPublicKey, long timestamp, byte[] reference) {
-		this(type, fee, creatorPublicKey, timestamp, reference, null);
+	public TransactionData(TransactionType type, long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee) {
+		this(type, timestamp, txGroupId, reference, creatorPublicKey, fee, null);
 	}
 
 	// Getters/setters
@@ -94,16 +93,25 @@ public abstract class TransactionData {
 		return this.type;
 	}
 
-	public byte[] getCreatorPublicKey() {
-		return this.creatorPublicKey;
-	}
-
 	public long getTimestamp() {
 		return this.timestamp;
 	}
 
+	public int getTxGroupId() {
+		return this.txGroupId;
+	}
+
 	public byte[] getReference() {
 		return this.reference;
+	}
+
+	public byte[] getCreatorPublicKey() {
+		return this.creatorPublicKey;
+	}
+
+	@XmlTransient
+	public void setCreatorPublicKey(byte[] creatorPublicKey) {
+		this.creatorPublicKey = creatorPublicKey;
 	}
 
 	public BigDecimal getFee() {
@@ -123,11 +131,6 @@ public abstract class TransactionData {
 	@XmlElement(name = "creatorAddress")
 	protected String getCreatorAddress() {
 		return Crypto.toAddress(this.creatorPublicKey);
-	}
-
-	@XmlTransient
-	public void setCreatorPublicKey(byte[] creatorPublicKey) {
-		this.creatorPublicKey = creatorPublicKey;
 	}
 
 	@XmlTransient

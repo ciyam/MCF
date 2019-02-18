@@ -16,7 +16,7 @@ public class HSQLDBGroupKickTransactionRepository extends HSQLDBTransactionRepos
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
 				"SELECT group_id, address, reason, member_reference, admin_reference, join_reference FROM GroupKickTransactions WHERE signature = ?",
 				signature)) {
@@ -30,8 +30,8 @@ public class HSQLDBGroupKickTransactionRepository extends HSQLDBTransactionRepos
 			byte[] adminReference = resultSet.getBytes(5);
 			byte[] joinReference = resultSet.getBytes(6);
 
-			return new GroupKickTransactionData(creatorPublicKey, groupId, member, reason, memberReference, adminReference, joinReference, fee, timestamp,
-					reference, signature);
+			return new GroupKickTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, member, reason, memberReference, adminReference,
+					joinReference, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group kick transaction from repository", e);
 		}

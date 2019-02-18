@@ -38,6 +38,7 @@ import org.qora.data.group.GroupMemberData;
 import org.qora.data.transaction.AddGroupAdminTransactionData;
 import org.qora.data.transaction.CancelGroupInviteTransactionData;
 import org.qora.data.transaction.CreateGroupTransactionData;
+import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.GroupBanTransactionData;
 import org.qora.data.transaction.GroupInviteTransactionData;
 import org.qora.data.transaction.GroupKickTransactionData;
@@ -45,6 +46,7 @@ import org.qora.data.transaction.CancelGroupBanTransactionData;
 import org.qora.data.transaction.JoinGroupTransactionData;
 import org.qora.data.transaction.LeaveGroupTransactionData;
 import org.qora.data.transaction.RemoveGroupAdminTransactionData;
+import org.qora.data.transaction.SetGroupTransactionData;
 import org.qora.data.transaction.UpdateGroupTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -55,6 +57,7 @@ import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.AddGroupAdminTransactionTransformer;
 import org.qora.transform.transaction.CancelGroupInviteTransactionTransformer;
 import org.qora.transform.transaction.CreateGroupTransactionTransformer;
+import org.qora.transform.transaction.GroupApprovalTransactionTransformer;
 import org.qora.transform.transaction.GroupBanTransactionTransformer;
 import org.qora.transform.transaction.GroupInviteTransactionTransformer;
 import org.qora.transform.transaction.GroupKickTransactionTransformer;
@@ -62,6 +65,7 @@ import org.qora.transform.transaction.CancelGroupBanTransactionTransformer;
 import org.qora.transform.transaction.JoinGroupTransactionTransformer;
 import org.qora.transform.transaction.LeaveGroupTransactionTransformer;
 import org.qora.transform.transaction.RemoveGroupAdminTransactionTransformer;
+import org.qora.transform.transaction.SetGroupTransactionTransformer;
 import org.qora.transform.transaction.UpdateGroupTransactionTransformer;
 import org.qora.utils.Base58;
 
@@ -795,6 +799,92 @@ public class GroupsResource {
 	public List<GroupBanData> getBans(@PathParam("groupid") int groupId) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getGroupRepository().getGroupBans(groupId);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/approval")
+	@Operation(
+		summary = "Build raw, unsigned, GROUP_APPROVAL transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = GroupApprovalTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, GROUP_APPROVAL transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String groupApproval(GroupApprovalTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = GroupApprovalTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/setdefault")
+	@Operation(
+		summary = "Build raw, unsigned, SET_GROUP transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = SetGroupTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, SET_GROUP transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String setGroup(SetGroupTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = SetGroupTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

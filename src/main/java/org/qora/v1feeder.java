@@ -38,6 +38,7 @@ import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.ATTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryFactory;
@@ -495,13 +496,13 @@ public class v1feeder extends Thread {
 
 					BigDecimal fee = BigDecimal.ZERO.setScale(8);
 
-					TransactionData transactionData = new ATTransactionData(sender, recipient, amount, Asset.QORA, message, fee, timestamp, reference);
+					TransactionData transactionData = new ATTransactionData(timestamp, Group.DEFAULT_GROUP, reference, sender, recipient, amount, Asset.QORA, message, fee);
 					byte[] digest;
 					try {
 						digest = Crypto.digest(AtTransactionTransformer.toBytes(transactionData));
 						byte[] signature = Bytes.concat(digest, digest);
 
-						transactionData = new ATTransactionData(sender, recipient, amount, Asset.QORA, message, fee, timestamp, reference, signature);
+						transactionData = new ATTransactionData(timestamp, Group.DEFAULT_GROUP, reference, sender, recipient, amount, Asset.QORA, message, fee, signature);
 					} catch (TransformationException e) {
 						throw new RuntimeException("Couldn't transform AT Transaction into bytes", e);
 					}

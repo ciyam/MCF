@@ -3,6 +3,7 @@ package org.qora.repository;
 import java.util.List;
 
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -45,6 +46,20 @@ public interface TransactionRepository {
 	 */
 	public List<TransactionData> getAssetTransactions(int assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
 			throws DataException;
+
+	/** Returns number of approvals for transaction with given signature. */
+	public int countTransactionApprovals(int txGroupId, byte[] signature) throws DataException;
+
+	/**
+	 * Returns list of latest approval decisions per admin for given pending transaction signature.
+	 * 
+	 * @param signature
+	 * @param adminPublicKey
+	 *            restrict results to decision by this admin, pass null for all admins' results
+	 * @return
+	 * @throws DataException
+	 */
+	public List<GroupApprovalTransactionData> getLatestApprovals(byte[] pendingSignature, byte[] adminPublicKey) throws DataException;
 
 	/**
 	 * Returns whether transaction is confirmed or not.

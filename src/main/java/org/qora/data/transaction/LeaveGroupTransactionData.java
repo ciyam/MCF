@@ -11,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class LeaveGroupTransactionData extends TransactionData {
@@ -34,7 +34,7 @@ public class LeaveGroupTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected LeaveGroupTransactionData() {
 		super(TransactionType.LEAVE_GROUP);
 	}
@@ -43,8 +43,8 @@ public class LeaveGroupTransactionData extends TransactionData {
 		this.creatorPublicKey = this.leaverPublicKey;
 	}
 
-	public LeaveGroupTransactionData(byte[] leaverPublicKey, int groupId, byte[] memberReference, byte[] adminReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.LEAVE_GROUP, fee, leaverPublicKey, timestamp, reference, signature);
+	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, byte[] memberReference, byte[] adminReference, BigDecimal fee, byte[] signature) {
+		super(TransactionType.LEAVE_GROUP, timestamp, txGroupId, reference, leaverPublicKey, fee, signature);
 
 		this.leaverPublicKey = leaverPublicKey;
 		this.groupId = groupId;
@@ -53,8 +53,8 @@ public class LeaveGroupTransactionData extends TransactionData {
 	}
 
 	/** Constructor typically used after deserialization */
-	public LeaveGroupTransactionData(byte[] leaverPublicKey, int groupId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(leaverPublicKey, groupId, null, null, fee, timestamp, reference, signature);
+	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, leaverPublicKey, groupId, null, null, fee, signature);
 	}
 
 	// Getters / setters

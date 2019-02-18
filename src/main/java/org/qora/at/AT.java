@@ -13,7 +13,7 @@ import org.qora.data.transaction.DeployAtTransactionData;
 import org.qora.repository.ATRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
-import org.qora.transaction.ATTransaction;
+import org.qora.transaction.AtTransaction;
 
 public class AT {
 
@@ -38,7 +38,7 @@ public class AT {
 	public AT(Repository repository, DeployAtTransactionData deployATTransactionData) throws DataException {
 		this.repository = repository;
 
-		String atAddress = deployATTransactionData.getATAddress();
+		String atAddress = deployATTransactionData.getAtAddress();
 		int height = this.repository.getBlockRepository().getBlockchainHeight() + 1;
 		byte[] creatorPublicKey = deployATTransactionData.getCreatorPublicKey();
 		long creation = deployATTransactionData.getTimestamp();
@@ -126,7 +126,7 @@ public class AT {
 		this.repository.getATRepository().delete(this.atData.getATAddress());
 	}
 
-	public List<ATTransaction> run(long blockTimestamp) throws DataException {
+	public List<AtTransaction> run(long blockTimestamp) throws DataException {
 		String atAddress = this.atData.getATAddress();
 
 		QoraATAPI api = new QoraATAPI(repository, this.atData, blockTimestamp);

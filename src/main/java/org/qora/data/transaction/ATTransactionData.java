@@ -2,6 +2,7 @@ package org.qora.data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
@@ -10,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class ATTransactionData extends TransactionData {
@@ -24,13 +25,18 @@ public class ATTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected ATTransactionData() {
+		super(TransactionType.AT);
 	}
 
-	public ATTransactionData(String atAddress, String recipient, BigDecimal amount, Long assetId, byte[] message, BigDecimal fee, long timestamp,
-			byte[] reference, byte[] signature) {
-		super(TransactionType.AT, fee, GenesisAccount.PUBLIC_KEY, timestamp, reference, signature);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = GenesisAccount.PUBLIC_KEY;
+	}
+
+	public ATTransactionData(long timestamp, int txGroupId, byte[] reference, String atAddress, String recipient, BigDecimal amount, Long assetId,
+			byte[] message, BigDecimal fee, byte[] signature) {
+		super(TransactionType.AT, timestamp, txGroupId, reference, GenesisAccount.PUBLIC_KEY, fee, signature);
 
 		this.atAddress = atAddress;
 		this.recipient = recipient;
@@ -39,9 +45,9 @@ public class ATTransactionData extends TransactionData {
 		this.message = message;
 	}
 
-	public ATTransactionData(String atAddress, String recipient, BigDecimal amount, Long assetId, byte[] message, BigDecimal fee, long timestamp,
-			byte[] reference) {
-		this(atAddress, recipient, amount, assetId, message, fee, timestamp, reference, null);
+	public ATTransactionData(long timestamp, int txGroupId, byte[] reference, String atAddress, String recipient, BigDecimal amount, Long assetId,
+			byte[] message, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, atAddress, recipient, amount, assetId, message, fee, null);
 	}
 
 	// Getters/Setters

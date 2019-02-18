@@ -2,6 +2,7 @@ package org.qora.data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
@@ -9,7 +10,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class TransferAssetTransactionData extends TransactionData {
@@ -22,13 +23,18 @@ public class TransferAssetTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected TransferAssetTransactionData() {
+		super(TransactionType.TRANSFER_ASSET);
 	}
 
-	public TransferAssetTransactionData(byte[] senderPublicKey, String recipient, BigDecimal amount, long assetId, BigDecimal fee, long timestamp,
-			byte[] reference, byte[] signature) {
-		super(TransactionType.TRANSFER_ASSET, fee, senderPublicKey, timestamp, reference, signature);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = this.senderPublicKey;
+	}
+
+	public TransferAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
+			long assetId, BigDecimal fee, byte[] signature) {
+		super(TransactionType.TRANSFER_ASSET, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
 
 		this.senderPublicKey = senderPublicKey;
 		this.recipient = recipient;
@@ -36,9 +42,9 @@ public class TransferAssetTransactionData extends TransactionData {
 		this.assetId = assetId;
 	}
 
-	public TransferAssetTransactionData(byte[] senderPublicKey, String recipient, BigDecimal amount, long assetId, BigDecimal fee, long timestamp,
-			byte[] reference) {
-		this(senderPublicKey, recipient, amount, assetId, fee, timestamp, reference, null);
+	public TransferAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
+			long assetId, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, assetId, fee, null);
 	}
 
 	// Getters/setters

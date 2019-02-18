@@ -6,6 +6,7 @@ import java.sql.SQLException;
 
 import org.qora.data.transaction.CreateGroupTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.group.Group.ApprovalThreshold;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
@@ -16,9 +17,9 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT owner, group_name, description, is_open, group_id FROM CreateGroupTransactions WHERE signature = ?", signature)) {
+				.checkedExecute("SELECT owner, group_name, description, is_open, approval_threshold, group_id FROM CreateGroupTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
@@ -27,11 +28,14 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 			String description = resultSet.getString(3);
 			boolean isOpen = resultSet.getBoolean(4);
 
-			Integer groupId = resultSet.getInt(5);
+			ApprovalThreshold approvalThreshold = ApprovalThreshold.valueOf(resultSet.getInt(5));
+
+			Integer groupId = resultSet.getInt(6);
 			if (resultSet.wasNull())
 				groupId = null;
 
-			return new CreateGroupTransactionData(creatorPublicKey, owner, groupName, description, isOpen, groupId, fee, timestamp, reference, signature);
+			return new CreateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description, isOpen, approvalThreshold,
+					groupId, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create group transaction from repository", e);
 		}
@@ -46,6 +50,7 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 		saveHelper.bind("signature", createGroupTransactionData.getSignature()).bind("creator", createGroupTransactionData.getCreatorPublicKey())
 				.bind("owner", createGroupTransactionData.getOwner()).bind("group_name", createGroupTransactionData.getGroupName())
 				.bind("description", createGroupTransactionData.getDescription()).bind("is_open", createGroupTransactionData.getIsOpen())
+				.bind("approval_threshold", createGroupTransactionData.getApprovalThreshold().value)
 				.bind("group_id", createGroupTransactionData.getGroupId());
 
 		try {

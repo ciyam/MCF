@@ -225,6 +225,58 @@ public class TransactionsResource {
 		}
 	}
 
+	@GET
+	@Path("/pending")
+	@Operation(
+		summary = "List transactions pending group approval",
+		description = "Returns transactions that are pending group-admin approval",
+		responses = {
+			@ApiResponse(
+				description = "transactions",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = TransactionData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.REPOSITORY_ISSUE
+	})
+	public List<TransactionData> getPendingTransactions(@QueryParam("groupId") Integer groupId, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions(null, null, reverse);
+
+			transactions.removeIf(transactionData -> {
+				if (groupId != null && groupId != transactionData.getTxGroupId())
+					return true;
+
+				try {
+					return !Transaction.fromData(repository, transactionData).needsGroupApproval();
+				} catch (DataException e) {
+					return true;
+				}
+			});
+
+			// Results slicing
+
+			return transactions;
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 	public enum ConfirmationStatus {
 		CONFIRMED,
 		UNCONFIRMED,

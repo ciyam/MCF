@@ -2,6 +2,7 @@ package org.qora.data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
@@ -9,7 +10,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class RegisterNameTransactionData extends TransactionData {
@@ -26,14 +27,18 @@ public class RegisterNameTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected RegisterNameTransactionData() {
 		super(TransactionType.REGISTER_NAME);
 	}
 
-	public RegisterNameTransactionData(byte[] registrantPublicKey, String owner, String name, String data, BigDecimal fee, long timestamp, byte[] reference,
-			byte[] signature) {
-		super(TransactionType.REGISTER_NAME, fee, registrantPublicKey, timestamp, reference, signature);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = this.registrantPublicKey;
+	}
+
+	public RegisterNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] registrantPublicKey, String owner, String name, String data,
+			BigDecimal fee, byte[] signature) {
+		super(TransactionType.REGISTER_NAME, timestamp, txGroupId, reference, registrantPublicKey, fee, signature);
 
 		this.registrantPublicKey = registrantPublicKey;
 		this.owner = owner;
@@ -41,8 +46,8 @@ public class RegisterNameTransactionData extends TransactionData {
 		this.data = data;
 	}
 
-	public RegisterNameTransactionData(byte[] registrantPublicKey, String owner, String name, String data, BigDecimal fee, long timestamp, byte[] reference) {
-		this(registrantPublicKey, owner, name, data, fee, timestamp, reference, null);
+	public RegisterNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] registrantPublicKey, String owner, String name, String data, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, registrantPublicKey, owner, name, data, fee, null);
 	}
 
 	// Getters / setters

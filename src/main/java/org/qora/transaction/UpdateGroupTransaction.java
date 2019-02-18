@@ -80,6 +80,10 @@ public class UpdateGroupTransaction extends Transaction {
 		if (!Crypto.isValidAddress(updateGroupTransactionData.getNewOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
+		// Check new approval threshold is valid
+		if (updateGroupTransactionData.getNewApprovalThreshold() == null)
+			return ValidationResult.INVALID_GROUP_APPROVAL_THRESHOLD;
+
 		// Check new description size bounds
 		int newDescriptionLength = Utf8.encodedLength(updateGroupTransactionData.getNewDescription());
 		if (newDescriptionLength < 1 || newDescriptionLength > Group.MAX_DESCRIPTION_SIZE)
@@ -90,6 +94,10 @@ public class UpdateGroupTransaction extends Transaction {
 		// Check group exists
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
+
+		// Check transaction's groupID matches group's ID
+		if (groupData.getGroupId() != updateGroupTransactionData.getTxGroupId())
+			return ValidationResult.GROUP_ID_MISMATCH;
 
 		Account owner = getOwner();
 

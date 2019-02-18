@@ -16,28 +16,27 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT version, sender, recipient, is_text, is_encrypted, amount, asset_id, data FROM MessageTransactions WHERE signature = ?", signature)) {
+				"SELECT version, recipient, is_text, is_encrypted, amount, asset_id, data FROM MessageTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
 			int version = resultSet.getInt(1);
-			byte[] senderPublicKey = resultSet.getBytes(2);
-			String recipient = resultSet.getString(3);
-			boolean isText = resultSet.getBoolean(4);
-			boolean isEncrypted = resultSet.getBoolean(5);
-			BigDecimal amount = resultSet.getBigDecimal(6);
+			String recipient = resultSet.getString(2);
+			boolean isText = resultSet.getBoolean(3);
+			boolean isEncrypted = resultSet.getBoolean(4);
+			BigDecimal amount = resultSet.getBigDecimal(5);
 
 			// Special null-checking for asset ID
-			Long assetId = resultSet.getLong(7);
+			Long assetId = resultSet.getLong(6);
 			if (resultSet.wasNull())
 				assetId = null;
 
-			byte[] data = resultSet.getBytes(8);
+			byte[] data = resultSet.getBytes(7);
 
-			return new MessageTransactionData(version, senderPublicKey, recipient, assetId, amount, data, isText, isEncrypted, fee, timestamp, reference,
-					signature);
+			return new MessageTransactionData(timestamp, txGroupId, reference, creatorPublicKey, version, recipient, assetId, amount, data, isText, isEncrypted,
+					fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch message transaction from repository", e);
 		}

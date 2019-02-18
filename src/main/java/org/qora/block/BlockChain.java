@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 import org.json.simple.JSONObject;
 import org.qora.data.asset.AssetData;
 import org.qora.data.block.BlockData;
+import org.qora.group.Group;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -48,6 +49,10 @@ public class BlockChain {
 	private long maxBlockTime;
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
 	private long blockTimestampMargin;
+	/** Whether transactions with txGroupId of NO_GROUP are allowed */
+	private boolean grouplessAllowed;
+	/** Default groupID when txGroupID and account's default groupID are both zero */
+	private int defaultGroupId = Group.NO_GROUP;
 	/** Map of which blockchain features are enabled when (height/timestamp) */
 	private Map<String, Map<FeatureValueType, Long>> featureTriggers;
 
@@ -99,6 +104,14 @@ public class BlockChain {
 
 	public long getBlockTimestampMargin() {
 		return this.blockTimestampMargin;
+	}
+
+	public boolean getGrouplessAllowed() {
+		return this.grouplessAllowed;
+	}
+
+	public int getDefaultGroupId() {
+		return this.defaultGroupId;
 	}
 
 	public static boolean getUseBrokenMD160ForAddresses() {
@@ -166,6 +179,22 @@ public class BlockChain {
 		GenesisBlock.fromJSON((JSONObject) genesisJson);
 
 		// Simple blockchain properties
+
+		boolean grouplessAllowed = true;
+		if (json.containsKey("grouplessAllowed"))
+			grouplessAllowed = (Boolean) Settings.getTypedJson(json, "grouplessAllowed", Boolean.class);
+
+		Integer defaultGroupId = null;
+		if (json.containsKey("defaultGroupId"))
+			defaultGroupId = ((Long) Settings.getTypedJson(json, "defaultGroupId", Long.class)).intValue();
+
+		// If groupless is not allowed the defaultGroupId needs to be set
+		// XXX we could also check groupID exists, or at least created in genesis block, or in blockchain config
+		if (!grouplessAllowed && (defaultGroupId == null || defaultGroupId == Group.DEFAULT_GROUP || defaultGroupId == Group.NO_GROUP)) {
+			LOGGER.error("defaultGroupId must be set to valid groupID in blockchain config if groupless transactions are not allowed");
+			throw new RuntimeException("defaultGroupId must be set to valid groupID in blockchain config if groupless transactions are not allowed");
+		}
+
 		BigDecimal unitFee = Settings.getJsonBigDecimal(json, "unitFee");
 		long maxBytesPerUnitFee = (Long) Settings.getTypedJson(json, "maxBytesPerUnitFee", Long.class);
 		BigDecimal maxBalance = Settings.getJsonBigDecimal(json, "coinSupply");
@@ -208,6 +237,9 @@ public class BlockChain {
 		instance.minBlockTime = minBlockTime;
 		instance.maxBlockTime = maxBlockTime;
 		instance.blockTimestampMargin = blockTimestampMargin;
+		instance.grouplessAllowed = grouplessAllowed;
+		if (defaultGroupId != null)
+			instance.defaultGroupId = defaultGroupId;
 		instance.featureTriggers = featureTriggers;
 	}
 

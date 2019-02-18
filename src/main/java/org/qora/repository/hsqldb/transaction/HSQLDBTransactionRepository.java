@@ -17,6 +17,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.PaymentData;
+import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.TransactionRepository;
@@ -60,8 +61,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			}
 
 			try {
-				subclassInfo.fromBaseMethod = subclassInfo.clazz.getDeclaredMethod("fromBase", byte[].class, byte[].class, byte[].class, long.class,
-						BigDecimal.class);
+				// params: long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature
+				subclassInfo.fromBaseMethod = subclassInfo.clazz.getDeclaredMethod("fromBase", long.class, int.class, byte[].class, byte[].class, BigDecimal.class, byte[].class);
 			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
 				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass's \"fromBase\" method not found for transaction type \"%s\"", txType.name()));
 			}
@@ -110,7 +111,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromSignature(byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT type, reference, creator, creation, fee FROM Transactions WHERE signature = ?",
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT type, reference, creator, creation, fee, tx_group_id FROM Transactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
 				return null;
@@ -120,8 +121,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			byte[] creatorPublicKey = resultSet.getBytes(3);
 			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
+			int txGroupId = resultSet.getInt(6);
 
-			TransactionData transactionData = this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
+			TransactionData transactionData = this.fromBase(type, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 			return maybeIncludeBlockHeight(transactionData);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
@@ -130,7 +132,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromReference(byte[] reference) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT type, signature, creator, creation, fee FROM Transactions WHERE reference = ?",
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT type, signature, creator, creation, fee, tx_group_id FROM Transactions WHERE reference = ?",
 				reference)) {
 			if (resultSet == null)
 				return null;
@@ -140,8 +142,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			byte[] creatorPublicKey = resultSet.getBytes(3);
 			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
+			int txGroupId = resultSet.getInt(6);
 
-			TransactionData transactionData = this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
+			TransactionData transactionData = this.fromBase(type, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 			return maybeIncludeBlockHeight(transactionData);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
@@ -172,14 +175,15 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
-	private TransactionData fromBase(TransactionType type, byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee)
+	private TransactionData fromBase(TransactionType type, long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature)
 			throws DataException {
 		HSQLDBTransactionRepository txRepository = repositoryByTxType[type.value];
 		if (txRepository == null)
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 
 		try {
-			return (TransactionData) subclassInfos[type.value].fromBaseMethod.invoke(txRepository, signature, reference, creatorPublicKey, timestamp, fee);
+			// params: long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature
+			return (TransactionData) subclassInfos[type.value].fromBaseMethod.invoke(txRepository, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 		} catch (IllegalArgumentException | InvocationTargetException | IllegalAccessException e) {
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 		}
@@ -485,6 +489,77 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public int countTransactionApprovals(int txGroupId, byte[] signature) throws DataException {
+		// Fetch total number of approvals for signature
+		// NOT simply number of GROUP_APPROVAL transactions as some may be rejecting transaction, or changed opinions
+		// Also make sure that GROUP_APPROVAL transaction's admin is still an admin of group
+
+		// Sub-query SQL to find latest GroupApprovalTransaction relating to passed signature
+		String latestApprovalSql = "SELECT admin AS creator, MAX(creation) AS creation FROM GroupApprovalTransactions NATURAL JOIN Transactions WHERE pending_signature = ? GROUP BY admin";
+
+		String sql = "SELECT COUNT(*) FROM "
+				+ "(" + latestApprovalSql + ") "
+				+ "NATURAL JOIN Transactions "
+				+ "NATURAL JOIN GroupApprovalTransactions "
+				+ "LEFT OUTER JOIN BlockTransactions ON BlockTransactions.transaction_signature = Transactions.signature "
+				+ "LEFT OUTER JOIN Accounts ON Accounts.public_key = GroupApprovalTransactions.admin "
+				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.admin = Accounts.account "
+				+ "WHERE approval = TRUE AND GroupAdmins.group_id = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature, txGroupId)) {
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to count transaction group-admin approvals from repository", e);
+		}
+	}
+
+	@Override
+	public List<GroupApprovalTransactionData> getLatestApprovals(byte[] pendingSignature, byte[] adminPublicKey) throws DataException {
+		// Fetch latest approvals for signature
+		// NOT simply number of GROUP_APPROVAL transactions as some may be rejecting transaction, or changed opinions
+		// Also make sure that GROUP_APPROVAL transaction's admin is still an admin of group
+
+		Object[] bindArgs;
+
+		// Sub-query SQL to find latest GroupApprovalTransaction relating to passed signature
+		String latestApprovalSql = "SELECT admin AS creator, MAX(creation) AS creation FROM GroupApprovalTransactions NATURAL JOIN Transactions WHERE pending_signature = ? ";
+		if (adminPublicKey != null)
+			latestApprovalSql += "AND admin = ? ";
+		latestApprovalSql += "GROUP BY admin";
+
+		String sql = "SELECT signature FROM "
+				+ "(" + latestApprovalSql + ") "
+				+ "NATURAL JOIN Transactions "
+				+ "NATURAL JOIN GroupApprovalTransactions "
+				+ "LEFT OUTER JOIN BlockTransactions ON BlockTransactions.transaction_signature = Transactions.signature "
+				+ "LEFT OUTER JOIN Accounts ON Accounts.public_key = GroupApprovalTransactions.admin "
+				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.admin = Accounts.account "
+				+ "WHERE approval = TRUE AND GroupAdmins.group_id = Transactions.tx_group_id";
+
+		if (adminPublicKey != null)
+			bindArgs = new Object[] { pendingSignature, adminPublicKey };
+		else
+			bindArgs = new Object[] { pendingSignature };
+
+		List<GroupApprovalTransactionData> approvals = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindArgs)) {
+			if (resultSet == null)
+				return approvals;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				approvals.add((GroupApprovalTransactionData) this.fromSignature(signature));
+			} while (resultSet.next());
+
+			return approvals;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch latest transaction group-admin approvals from repository", e);
+		}
+	}
+
+	@Override
 	public boolean isConfirmed(byte[] signature) throws DataException {
 		try {
 			return this.repository.exists("BlockTransactions", "transaction_signature = ?", signature);
@@ -553,7 +628,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		HSQLDBSaver saver = new HSQLDBSaver("Transactions");
 		saver.bind("signature", transactionData.getSignature()).bind("reference", transactionData.getReference()).bind("type", transactionData.getType().value)
 				.bind("creator", transactionData.getCreatorPublicKey()).bind("creation", new Timestamp(transactionData.getTimestamp()))
-				.bind("fee", transactionData.getFee()).bind("milestone_block", null);
+				.bind("fee", transactionData.getFee()).bind("milestone_block", null).bind("tx_group_id", transactionData.getTxGroupId());
 		try {
 			saver.execute(this.repository);
 		} catch (SQLException e) {

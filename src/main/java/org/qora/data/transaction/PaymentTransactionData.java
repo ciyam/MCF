@@ -2,6 +2,7 @@ package org.qora.data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
@@ -10,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema( allOf = { TransactionData.class } )
 public class PaymentTransactionData extends TransactionData {
@@ -29,22 +30,26 @@ public class PaymentTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected PaymentTransactionData() {
 		super(TransactionType.PAYMENT);
 	}
 
-	public PaymentTransactionData(byte[] senderPublicKey, String recipient, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference,
-			byte[] signature) {
-		super(TransactionType.PAYMENT, fee, senderPublicKey, timestamp, reference, signature);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = this.senderPublicKey;
+	}
+
+	public PaymentTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
+			BigDecimal fee, byte[] signature) {
+		super(TransactionType.PAYMENT, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
 
 		this.senderPublicKey = senderPublicKey;
 		this.recipient = recipient;
 		this.amount = amount;
 	}
 
-	public PaymentTransactionData(byte[] senderPublicKey, String recipient, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference) {
-		this(senderPublicKey, recipient, amount, fee, timestamp, reference, null);
+	public PaymentTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, fee, null);
 	}
 
 	// Getters/Setters

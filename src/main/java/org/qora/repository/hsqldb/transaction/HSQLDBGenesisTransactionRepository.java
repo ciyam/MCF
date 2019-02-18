@@ -16,7 +16,7 @@ public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionReposit
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT recipient, amount, asset_id FROM GenesisTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
@@ -26,7 +26,7 @@ public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionReposit
 			BigDecimal amount = resultSet.getBigDecimal(2).setScale(8);
 			long assetId = resultSet.getLong(3);
 
-			return new GenesisTransactionData(recipient, amount, assetId, timestamp, signature);
+			return new GenesisTransactionData(timestamp, recipient, amount, assetId, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch genesis transaction from repository", e);
 		}

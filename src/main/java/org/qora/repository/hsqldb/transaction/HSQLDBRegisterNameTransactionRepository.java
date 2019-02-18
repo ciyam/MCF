@@ -16,7 +16,7 @@ public class HSQLDBRegisterNameTransactionRepository extends HSQLDBTransactionRe
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] registrantPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT owner, name, data FROM RegisterNameTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
@@ -25,7 +25,7 @@ public class HSQLDBRegisterNameTransactionRepository extends HSQLDBTransactionRe
 			String name = resultSet.getString(2);
 			String data = resultSet.getString(3);
 
-			return new RegisterNameTransactionData(registrantPublicKey, owner, name, data, fee, timestamp, reference, signature);
+			return new RegisterNameTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, name, data, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch register name transaction from repository", e);
 		}

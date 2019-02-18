@@ -2,6 +2,7 @@ package org.qora.data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
@@ -10,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class SellNameTransactionData extends TransactionData {
@@ -29,21 +30,25 @@ public class SellNameTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected SellNameTransactionData() {
 		super(TransactionType.SELL_NAME);
 	}
 
-	public SellNameTransactionData(byte[] ownerPublicKey, String name, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.SELL_NAME, fee, ownerPublicKey, timestamp, reference, signature);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = this.ownerPublicKey;
+	}
+
+	public SellNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String name, BigDecimal amount, BigDecimal fee, byte[] signature) {
+		super(TransactionType.SELL_NAME, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
 		this.name = name;
 		this.amount = amount;
 	}
 
-	public SellNameTransactionData(byte[] ownerPublicKey, String name, BigDecimal amount, BigDecimal fee, long timestamp, byte[] reference) {
-		this(ownerPublicKey, name, amount, fee, timestamp, reference, null);
+	public SellNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String name, BigDecimal amount, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, name, amount, fee, null);
 	}
 
 	// Getters / setters

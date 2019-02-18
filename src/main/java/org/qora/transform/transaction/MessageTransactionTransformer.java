@@ -4,11 +4,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
 
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
+import org.qora.block.BlockChain;
 import org.qora.data.transaction.MessageTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.MessageTransaction;
@@ -16,14 +14,12 @@ import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
-import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
 public class MessageTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int SENDER_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
 	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
 	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
@@ -31,10 +27,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 	private static final int IS_TEXT_LENGTH = BOOLEAN_LENGTH;
 	private static final int IS_ENCRYPTED_LENGTH = BOOLEAN_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH_V1 = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH + DATA_SIZE_LENGTH
-			+ IS_TEXT_LENGTH + IS_ENCRYPTED_LENGTH;
-	private static final int TYPELESS_DATALESS_LENGTH_V3 = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + ASSET_ID_LENGTH + AMOUNT_LENGTH
-			+ DATA_SIZE_LENGTH + IS_TEXT_LENGTH + IS_ENCRYPTED_LENGTH;
+	private static final int EXTRAS_LENGTH = RECIPIENT_LENGTH + AMOUNT_LENGTH + DATA_SIZE_LENGTH + IS_TEXT_LENGTH + IS_ENCRYPTED_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -42,6 +35,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.MESSAGE.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
 		layout.add("recipient", TransformationType.ADDRESS);
@@ -59,6 +53,10 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		long timestamp = byteBuffer.getLong();
 
 		int version = MessageTransaction.getVersionByTimestamp(timestamp);
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -92,17 +90,20 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new MessageTransactionData(version, senderPublicKey, recipient, assetId, amount, data, isText, isEncrypted, fee, timestamp, reference,
+		return new MessageTransactionData(timestamp, txGroupId, reference, senderPublicKey, version, recipient, assetId, amount, data, isText, isEncrypted, fee,
 				signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		MessageTransactionData messageTransactionData = (MessageTransactionData) transactionData;
 
-		if (messageTransactionData.getVersion() == 1)
-			return TYPE_LENGTH + TYPELESS_DATALESS_LENGTH_V1 + messageTransactionData.getData().length;
-		else
-			return TYPE_LENGTH + TYPELESS_DATALESS_LENGTH_V3 + messageTransactionData.getData().length;
+		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH;
+
+		// V3+ has assetID for amount
+		if (messageTransactionData.getVersion() != 1)
+			dataLength += ASSET_ID_LENGTH;
+
+		return dataLength;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -111,20 +112,21 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(messageTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(messageTransactionData.getTimestamp()));
-			bytes.write(messageTransactionData.getReference());
+			transformCommonBytes(transactionData, bytes);
 
-			bytes.write(messageTransactionData.getSenderPublicKey());
 			Serialization.serializeAddress(bytes, messageTransactionData.getRecipient());
 
 			if (messageTransactionData.getVersion() != 1)
 				bytes.write(Longs.toByteArray(messageTransactionData.getAssetId()));
 
 			Serialization.serializeBigDecimal(bytes, messageTransactionData.getAmount());
+
 			bytes.write(Ints.toByteArray(messageTransactionData.getData().length));
+
 			bytes.write(messageTransactionData.getData());
+
 			bytes.write((byte) (messageTransactionData.getIsEncrypted() ? 1 : 0));
+
 			bytes.write((byte) (messageTransactionData.getIsText() ? 1 : 0));
 
 			Serialization.serializeBigDecimal(bytes, messageTransactionData.getFee());
@@ -136,36 +138,6 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			MessageTransactionData messageTransactionData = (MessageTransactionData) transactionData;
-
-			byte[] senderPublicKey = messageTransactionData.getSenderPublicKey();
-
-			json.put("version", messageTransactionData.getVersion());
-			json.put("sender", PublicKeyAccount.getAddress(senderPublicKey));
-			json.put("senderPublicKey", HashCode.fromBytes(senderPublicKey).toString());
-			json.put("recipient", messageTransactionData.getRecipient());
-			json.put("amount", messageTransactionData.getAmount().toPlainString());
-			json.put("assetId", messageTransactionData.getAssetId());
-			json.put("isText", messageTransactionData.getIsText());
-			json.put("isEncrypted", messageTransactionData.getIsEncrypted());
-
-			// We can only show plain text as unencoded
-			if (messageTransactionData.getIsText() && !messageTransactionData.getIsEncrypted())
-				json.put("data", new String(messageTransactionData.getData(), Charset.forName("UTF-8")));
-			else
-				json.put("data", HashCode.fromBytes(messageTransactionData.getData()).toString());
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

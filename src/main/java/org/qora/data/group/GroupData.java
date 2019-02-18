@@ -4,6 +4,8 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.group.Group.ApprovalThreshold;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAX-RS
@@ -18,6 +20,7 @@ public class GroupData {
 	private long created;
 	private Long updated;
 	private boolean isOpen;
+	private ApprovalThreshold approvalThreshold;
 	/** Reference to CREATE_GROUP or UPDATE_GROUP transaction, used to rebuild group during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
@@ -31,7 +34,7 @@ public class GroupData {
 	}
 
 	/** Constructs new GroupData with nullable groupId and nullable updated [timestamp] */
-	public GroupData(Integer groupId, String owner, String name, String description, long created, Long updated, boolean isOpen, byte[] reference) {
+	public GroupData(Integer groupId, String owner, String name, String description, long created, Long updated, boolean isOpen, ApprovalThreshold approvalThreshold, byte[] reference) {
 		this.groupId = groupId;
 		this.owner = owner;
 		this.groupName = name;
@@ -39,12 +42,13 @@ public class GroupData {
 		this.created = created;
 		this.updated = updated;
 		this.isOpen = isOpen;
+		this.approvalThreshold = approvalThreshold;
 		this.reference = reference;
 	}
 
 	/** Constructs new GroupData with unassigned groupId */
-	public GroupData(String owner, String name, String description, long created, boolean isOpen, byte[] reference) {
-		this(null, owner, name, description, created, null, isOpen, reference);
+	public GroupData(String owner, String name, String description, long created, boolean isOpen, ApprovalThreshold approvalThreshold, byte[] reference) {
+		this(null, owner, name, description, created, null, isOpen, approvalThreshold, reference);
 	}
 
 	// Getters / setters
@@ -103,6 +107,14 @@ public class GroupData {
 
 	public void setIsOpen(boolean isOpen) {
 		this.isOpen = isOpen;
+	}
+
+	public ApprovalThreshold getApprovalThreshold() {
+		return this.approvalThreshold;
+	}
+
+	public void setApprovalThreshold(ApprovalThreshold approvalThreshold) {
+		this.approvalThreshold = approvalThreshold;
 	}
 
 }

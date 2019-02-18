@@ -6,8 +6,6 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
 import org.qora.block.BlockChain;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -17,14 +15,11 @@ import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
 import com.google.common.base.Utf8;
-import com.google.common.hash.HashCode;
-import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
 public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int ISSUER_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int OWNER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
@@ -32,8 +27,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	private static final int IS_DIVISIBLE_LENGTH = BOOLEAN_LENGTH;
 	private static final int ASSET_REFERENCE_LENGTH = REFERENCE_LENGTH;
 
-	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + ISSUER_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH
-			+ QUANTITY_LENGTH + IS_DIVISIBLE_LENGTH;
+	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + QUANTITY_LENGTH + IS_DIVISIBLE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -41,6 +35,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.ISSUE_ASSET.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("asset issuer's public key", TransformationType.PUBLIC_KEY);
 		layout.add("asset owner", TransformationType.ADDRESS);
@@ -56,6 +51,10 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -82,13 +81,14 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new IssueAssetTransactionData(issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference, signature);
+		return new IssueAssetTransactionData(timestamp, txGroupId, reference, issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee,
+				signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_LENGTH + Utf8.encodedLength(issueAssetTransactionData.getAssetName())
+		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH + Utf8.encodedLength(issueAssetTransactionData.getAssetName())
 				+ Utf8.encodedLength(issueAssetTransactionData.getDescription());
 
 		// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes reference.
@@ -104,15 +104,12 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(issueAssetTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(issueAssetTransactionData.getTimestamp()));
-			bytes.write(issueAssetTransactionData.getReference());
-
-			bytes.write(issueAssetTransactionData.getIssuerPublicKey());
+			transformCommonBytes(transactionData, bytes);
 
 			Serialization.serializeAddress(bytes, issueAssetTransactionData.getOwner());
 
 			Serialization.serializeSizedString(bytes, issueAssetTransactionData.getAssetName());
+
 			Serialization.serializeSizedString(bytes, issueAssetTransactionData.getDescription());
 
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getQuantity()));
@@ -159,29 +156,6 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		Arrays.fill(bytes, start, end, (byte) 0);
 
 		return bytes;
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
-
-			byte[] issuerPublicKey = issueAssetTransactionData.getIssuerPublicKey();
-
-			json.put("issuer", PublicKeyAccount.getAddress(issuerPublicKey));
-			json.put("issuerPublicKey", HashCode.fromBytes(issuerPublicKey).toString());
-			json.put("owner", issueAssetTransactionData.getOwner());
-			json.put("assetName", issueAssetTransactionData.getAssetName());
-			json.put("description", issueAssetTransactionData.getDescription());
-			json.put("quantity", issueAssetTransactionData.getQuantity());
-			json.put("isDivisible", issueAssetTransactionData.getIsDivisible());
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

@@ -2,6 +2,7 @@ package org.qora.data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
@@ -11,7 +12,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class BuyNameTransactionData extends TransactionData {
@@ -36,14 +37,18 @@ public class BuyNameTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected BuyNameTransactionData() {
 		super(TransactionType.BUY_NAME);
 	}
 
-	public BuyNameTransactionData(byte[] buyerPublicKey, String name, BigDecimal amount, String seller, byte[] nameReference, BigDecimal fee, long timestamp,
-			byte[] reference, byte[] signature) {
-		super(TransactionType.BUY_NAME, fee, buyerPublicKey, timestamp, reference, signature);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = this.buyerPublicKey;
+	}
+
+	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller,
+			byte[] nameReference, BigDecimal fee, byte[] signature) {
+		super(TransactionType.BUY_NAME, timestamp, txGroupId, reference, buyerPublicKey, fee, signature);
 
 		this.buyerPublicKey = buyerPublicKey;
 		this.name = name;
@@ -52,18 +57,18 @@ public class BuyNameTransactionData extends TransactionData {
 		this.nameReference = nameReference;
 	}
 
-	public BuyNameTransactionData(byte[] buyerPublicKey, String name, BigDecimal amount, String seller, BigDecimal fee, long timestamp, byte[] reference,
-			byte[] signature) {
-		this(buyerPublicKey, name, amount, seller, null, fee, timestamp, reference, signature);
+	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller,
+			BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, null, fee, signature);
 	}
 
-	public BuyNameTransactionData(byte[] buyerPublicKey, String name, BigDecimal amount, String seller, byte[] nameReference, BigDecimal fee, long timestamp,
-			byte[] reference) {
-		this(buyerPublicKey, name, amount, seller, nameReference, fee, timestamp, reference, null);
+	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller,
+			byte[] nameReference, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, nameReference, fee, null);
 	}
 
-	public BuyNameTransactionData(byte[] buyerPublicKey, String name, BigDecimal amount, String seller, BigDecimal fee, long timestamp, byte[] reference) {
-		this(buyerPublicKey, name, amount, seller, null, fee, timestamp, reference, null);
+	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, null, fee, null);
 	}
 
 	// Getters / setters

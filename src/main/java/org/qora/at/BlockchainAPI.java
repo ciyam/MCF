@@ -28,10 +28,11 @@ public enum BlockchainAPI {
 			int sequence = timestamp.transactionSequence + 1;
 
 			QoraATAPI api = (QoraATAPI) state.getAPI();
-			Account recipientAccount = new Account(api.repository, recipient);
 			BlockRepository blockRepository = api.repository.getBlockRepository();
 
 			try {
+				Account recipientAccount = new Account(api.repository, recipient);
+
 				while (height <= blockRepository.getBlockchainHeight()) {
 					BlockData blockData = blockRepository.fromHeight(height);
 

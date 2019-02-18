@@ -5,26 +5,19 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
+import org.qora.block.BlockChain;
 import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
-import org.qora.utils.Base58;
 import org.qora.utils.Serialization;
-
-import com.google.common.hash.HashCode;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 
 public class CancelAssetOrderTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int CREATOR_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int ORDER_ID_LENGTH = SIGNATURE_LENGTH;
 
-	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + ORDER_ID_LENGTH;
+	private static final int EXTRAS_LENGTH = ORDER_ID_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -32,6 +25,7 @@ public class CancelAssetOrderTransactionTransformer extends TransactionTransform
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.CANCEL_ASSET_ORDER.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("order creator's public key", TransformationType.PUBLIC_KEY);
 		layout.add("order ID to cancel", TransformationType.SIGNATURE);
@@ -41,6 +35,10 @@ public class CancelAssetOrderTransactionTransformer extends TransactionTransform
 
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -55,11 +53,11 @@ public class CancelAssetOrderTransactionTransformer extends TransactionTransform
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new CancelAssetOrderTransactionData(creatorPublicKey, orderId, fee, timestamp, reference, signature);
+		return new CancelAssetOrderTransactionData(timestamp, txGroupId, reference, creatorPublicKey, orderId, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		return TYPE_LENGTH + TYPELESS_LENGTH;
+		return getBaseLength(transactionData) + EXTRAS_LENGTH;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -68,11 +66,8 @@ public class CancelAssetOrderTransactionTransformer extends TransactionTransform
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(cancelOrderTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(cancelOrderTransactionData.getTimestamp()));
-			bytes.write(cancelOrderTransactionData.getReference());
+			transformCommonBytes(transactionData, bytes);
 
-			bytes.write(cancelOrderTransactionData.getCreatorPublicKey());
 			bytes.write(cancelOrderTransactionData.getOrderId());
 
 			Serialization.serializeBigDecimal(bytes, cancelOrderTransactionData.getFee());
@@ -84,26 +79,6 @@ public class CancelAssetOrderTransactionTransformer extends TransactionTransform
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			CancelAssetOrderTransactionData cancelOrderTransactionData = (CancelAssetOrderTransactionData) transactionData;
-
-			byte[] creatorPublicKey = cancelOrderTransactionData.getCreatorPublicKey();
-
-			json.put("creator", PublicKeyAccount.getAddress(creatorPublicKey));
-			json.put("creatorPublicKey", HashCode.fromBytes(creatorPublicKey).toString());
-
-			json.put("order", Base58.encode(cancelOrderTransactionData.getOrderId()));
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

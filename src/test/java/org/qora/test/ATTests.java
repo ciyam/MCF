@@ -6,6 +6,7 @@ import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockTransactionData;
 import org.qora.data.transaction.DeployAtTransactionData;
+import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -46,8 +47,8 @@ public class ATTests extends Common {
 		byte[] reference = Base58.decode("2D3jX1pEgu6irsQ7QzJb85QP1D9M45dNyP5M9a3WFHndU5ZywF4F5pnUurcbzMnGMcTwpAY6H7DuLw8cUBU66ao1");
 		byte[] signature = Base58.decode("2dZ4megUyNoYYY7qWmuSd4xw1yUKgPPF97yBbeddh8aKuC8PLpz7Xvf3r6Zjv1zwGrR8fEAHuaztCPD4KQp76KdL");
 
-		DeployAtTransactionData transactionData = new DeployAtTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount,
-				Asset.QORA, fee, timestamp, reference, signature);
+		DeployAtTransactionData transactionData = new DeployAtTransactionData(timestamp, Group.DEFAULT_GROUP, reference, creatorPublicKey, name, description, ATType,
+				tags, creationBytes, amount, Asset.QORA, fee, signature);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.getTransactionRepository().save(transactionData);

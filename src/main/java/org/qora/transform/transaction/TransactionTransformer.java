@@ -1,5 +1,7 @@
 package org.qora.transform.transaction;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -15,25 +17,26 @@ import javax.xml.bind.annotation.XmlElement;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.json.simple.JSONObject;
 import org.qora.account.PrivateKeyAccount;
+import org.qora.block.BlockChain;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.transform.Transformer;
-import org.qora.utils.Base58;
 
 import com.google.common.hash.HashCode;
+import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 
 public abstract class TransactionTransformer extends Transformer {
 
 	private static final Logger LOGGER = LogManager.getLogger(TransactionTransformer.class);
 
 	protected static final int TYPE_LENGTH = INT_LENGTH;
+	protected static final int GROUPID_LENGTH = INT_LENGTH;
 	protected static final int REFERENCE_LENGTH = SIGNATURE_LENGTH;
 	protected static final int FEE_LENGTH = BIG_DECIMAL_LENGTH;
-	protected static final int BASE_TYPELESS_LENGTH = TIMESTAMP_LENGTH + REFERENCE_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
 
 	/** Description of one component of raw transaction layout */
 	public enum TransformationType {
@@ -47,7 +50,8 @@ public abstract class TransactionTransformer extends Transformer {
 		LONG("long", LONG_LENGTH),
 		STRING("UTF-8 string of variable length", null),
 		DATA("opaque data of variable length", null),
-		BOOLEAN("0 for false, anything else for true", 1);
+		BOOLEAN("0 for false, anything else for true", 1),
+		BYTE("byte", 1);
 
 		public final String description;
 		public final Integer length;
@@ -109,7 +113,6 @@ public abstract class TransactionTransformer extends Transformer {
 		public Method getDataLengthMethod;
 		public Method toBytesMethod;
 		public Method toBytesForSigningImplMethod;
-		public Method toJSONMethod;
 	}
 
 	/** Cache of transformer subclass info, keyed by transaction type */
@@ -166,12 +169,6 @@ public abstract class TransactionTransformer extends Transformer {
 						txType.name()));
 			}
 
-			try {
-				subclassInfo.toJSONMethod = subclassInfo.clazz.getDeclaredMethod("toJSON", TransactionData.class);
-			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
-				LOGGER.debug(String.format("TransactionTransformer subclass's \"toJSON\" method not found for transaction type \"%s\"", txType.name()));
-			}
-
 			subclassInfos[txType.value] = subclassInfo;
 		}
 
@@ -216,6 +213,16 @@ public abstract class TransactionTransformer extends Transformer {
 		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion from bytes");
 		}
+	}
+
+	protected static int getBaseLength(TransactionData transactionData) {
+		// All transactions have at least txType, timestamp, maybe txGroupId, tx creator's public key and finally signature (on the end)
+		int baseLength = TYPE_LENGTH + TIMESTAMP_LENGTH + PUBLIC_KEY_LENGTH + SIGNATURE_LENGTH;
+
+		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
+			baseLength += GROUPID_LENGTH;
+
+		return baseLength;
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -280,34 +287,24 @@ public abstract class TransactionTransformer extends Transformer {
 		}
 	}
 
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		TransactionType type = transactionData.getType();
+	protected static void transformCommonBytes(TransactionData transactionData, ByteArrayOutputStream bytes) throws IOException {
+		boolean v2 = transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp();
 
-		try {
-			Method method = subclassInfos[type.value].toJSONMethod;
-			return (JSONObject) method.invoke(null, transactionData);
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to JSON");
-		}
-	}
+		// Transaction type
+		bytes.write(Ints.toByteArray(transactionData.getType().value));
 
-	@SuppressWarnings("unchecked")
-	static JSONObject getBaseJSON(TransactionData transaction) {
-		JSONObject json = new JSONObject();
+		// Timestamp
+		bytes.write(Longs.toByteArray(transactionData.getTimestamp()));
 
-		json.put("type", transaction.getType().value);
-		json.put("fee", transaction.getFee().toPlainString());
-		json.put("timestamp", transaction.getTimestamp());
-		json.put("signature", Base58.encode(transaction.getSignature()));
+		if (v2)
+			// Transaction's groupID
+			bytes.write(Ints.toByteArray(transactionData.getTxGroupId()));
 
-		byte[] reference = transaction.getReference();
-		if (reference != null)
-			json.put("reference", Base58.encode(reference));
+		// Reference
+		bytes.write(transactionData.getReference());
 
-		// XXX Can't do this as it requires database access:
-		// json.put("confirmations", RepositoryManager.getTransactionRepository.getConfirmations(transaction));
-
-		return json;
+		// Creator public key
+		bytes.write(transactionData.getCreatorPublicKey());
 	}
 
 }

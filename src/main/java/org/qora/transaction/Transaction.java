@@ -17,12 +17,13 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.block.BlockChain;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.group.Group;
 import org.qora.repository.DataException;
+import org.qora.repository.GroupRepository;
 import org.qora.repository.Repository;
 import org.qora.settings.Settings;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
-import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 
 import static java.util.Arrays.stream;
@@ -36,40 +37,43 @@ public abstract class Transaction {
 	// Transaction types
 	public enum TransactionType {
 		// NOTE: must be contiguous or reflection fails
-		GENESIS(1),
-		PAYMENT(2),
-		REGISTER_NAME(3),
-		UPDATE_NAME(4),
-		SELL_NAME(5),
-		CANCEL_SELL_NAME(6),
-		BUY_NAME(7),
-		CREATE_POLL(8),
-		VOTE_ON_POLL(9),
-		ARBITRARY(10),
-		ISSUE_ASSET(11),
-		TRANSFER_ASSET(12),
-		CREATE_ASSET_ORDER(13),
-		CANCEL_ASSET_ORDER(14),
-		MULTI_PAYMENT(15),
-		DEPLOY_AT(16),
-		MESSAGE(17),
-		DELEGATION(18),
-		SUPERNODE(19),
-		AIRDROP(20),
-		AT(21),
-		CREATE_GROUP(22),
-		UPDATE_GROUP(23),
-		ADD_GROUP_ADMIN(24),
-		REMOVE_GROUP_ADMIN(25),
-		GROUP_BAN(26),
-		CANCEL_GROUP_BAN(27),
-		GROUP_KICK(28),
-		GROUP_INVITE(29),
-		CANCEL_GROUP_INVITE(30),
-		JOIN_GROUP(31),
-		LEAVE_GROUP(32);
+		GENESIS(1, true),
+		PAYMENT(2, false),
+		REGISTER_NAME(3, false),
+		UPDATE_NAME(4, false),
+		SELL_NAME(5, false),
+		CANCEL_SELL_NAME(6, false),
+		BUY_NAME(7, false),
+		CREATE_POLL(8, false),
+		VOTE_ON_POLL(9, false),
+		ARBITRARY(10, false),
+		ISSUE_ASSET(11, false),
+		TRANSFER_ASSET(12, false),
+		CREATE_ASSET_ORDER(13, false),
+		CANCEL_ASSET_ORDER(14, false),
+		MULTI_PAYMENT(15, false),
+		DEPLOY_AT(16, false),
+		MESSAGE(17, false),
+		DELEGATION(18, false),
+		SUPERNODE(19, false),
+		AIRDROP(20, true),
+		AT(21, true),
+		CREATE_GROUP(22, false),
+		UPDATE_GROUP(23, true),
+		ADD_GROUP_ADMIN(24, true),
+		REMOVE_GROUP_ADMIN(25, true),
+		GROUP_BAN(26, true),
+		CANCEL_GROUP_BAN(27, true),
+		GROUP_KICK(28, true),
+		GROUP_INVITE(29, true),
+		CANCEL_GROUP_INVITE(30, true),
+		JOIN_GROUP(31, true),
+		LEAVE_GROUP(32, true),
+		GROUP_APPROVAL(33, true),
+		SET_GROUP(34, true);
 
 		public final int value;
+		public final boolean skipsApproval;
 		public final String valueString;
 		public final String className;
 		public final Class<?> clazz;
@@ -77,8 +81,9 @@ public abstract class Transaction {
 
 		private final static Map<Integer, TransactionType> map = stream(TransactionType.values()).collect(toMap(type -> type.value, type -> type));
 
-		TransactionType(int value) {
+		TransactionType(int value, boolean skipsApproval) {
 			this.value = value;
+			this.skipsApproval = skipsApproval;
 			this.valueString = String.valueOf(value);
 
 			String[] classNameParts = this.name().toLowerCase().split("_");
@@ -173,6 +178,11 @@ public abstract class Transaction {
 		BAN_UNKNOWN(59),
 		BANNED_FROM_GROUP(60),
 		JOIN_REQUEST_EXISTS(61),
+		INVALID_GROUP_APPROVAL_THRESHOLD(62),
+		GROUP_ID_MISMATCH(63),
+		INVALID_GROUP_ID(64),
+		TRANSACTION_UNKNOWN(65),
+		TRANSACTION_ALREADY_CONFIRMED(66),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -443,8 +453,7 @@ public abstract class Transaction {
 	 * Returns whether transaction can be added to unconfirmed transactions.
 	 * <p>
 	 * NOTE: temporarily updates creator's lastReference to that from
-	 * unconfirmed transactions, and hence calls <tt>repository.discardChanges()</tt>
-	 * before exit.
+	 * unconfirmed transactions, and hence uses a repository savepoint.
 	 * <p>
 	 * This is not done normally because we don't want unconfirmed transactions affecting validity of transactions already included in a block.
 	 * 
@@ -462,10 +471,15 @@ public abstract class Transaction {
 		if (this.transactionData.getTimestamp() > maxTimestamp)
 			return ValidationResult.TIMESTAMP_TOO_NEW;
 
+		repository.setSavepoint();
 		try {
 			PublicKeyAccount creator = this.getCreator();
 			if (creator == null)
 				return ValidationResult.MISSING_CREATOR;
+
+			// Check transaction's txGroupId
+			if (!this.isValidTxGroupId())
+				return ValidationResult.INVALID_GROUP_ID;
 
 			creator.setLastReference(creator.getUnconfirmedLastReference());
 			ValidationResult result = this.isValid();
@@ -476,8 +490,33 @@ public abstract class Transaction {
 
 			return result;
 		} finally {
-			repository.discardChanges();
+			repository.rollbackToSavepoint();
 		}
+	}
+
+	private boolean isValidTxGroupId() throws DataException {
+		// Does this transaction type bypass approval?
+		if (this.transactionData.getType().skipsApproval)
+			return true;
+
+		int txGroupId = this.getEffectiveGroupId();
+		if (txGroupId == Group.NO_GROUP)
+			return true;
+
+		Group group = new Group(repository, txGroupId);
+		if (group.getGroupData() == null) {
+			// Group no longer exists? Possibly due to blockchain orphaning undoing group creation?
+			return false;
+		}
+
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+
+		// Is transaction's creator is group member?
+		PublicKeyAccount creator = this.getCreator();
+		if (groupRepository.memberExists(txGroupId, creator.getAddress()))
+			return true;
+
+		return false;
 	}
 
 	private int countUnconfirmedByCreator(PublicKeyAccount creator) throws DataException {
@@ -499,8 +538,7 @@ public abstract class Transaction {
 	 * Returns sorted, unconfirmed transactions, deleting invalid.
 	 * <p>
 	 * NOTE: temporarily updates accounts' lastReference to that from
-	 * unconfirmed transactions, and hence calls <tt>repository.discardChanges()</tt>
-	 * before exit.
+	 * unconfirmed transactions, hence uses a repository savepoint.
 	 * 
 	 * @return sorted unconfirmed transactions
 	 * @throws DataException
@@ -509,41 +547,63 @@ public abstract class Transaction {
 		BlockData latestBlockData = repository.getBlockRepository().getLastBlock();
 
 		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+
+		unconfirmedTransactions.sort(getDataComparator());
+
+		repository.setSavepoint();
+		try {
+			for (int i = 0; i < unconfirmedTransactions.size(); ++i) {
+				TransactionData transactionData = unconfirmedTransactions.get(i);
+
+				if (!isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp())) {
+					unconfirmedTransactions.remove(i);
+					--i;
+					continue;
+				}
+			}
+		} finally {
+			// Throw away temporary updates to account lastReference
+			repository.rollbackToSavepoint();
+		}
+
+		return unconfirmedTransactions;
+	}
+
+	public static List<TransactionData> getInvalidTransactions(Repository repository) throws DataException {
+		BlockData latestBlockData = repository.getBlockRepository().getLastBlock();
+
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 		List<TransactionData> invalidTransactions = new ArrayList<>();
 
 		unconfirmedTransactions.sort(getDataComparator());
 
-		for (int i = 0; i < unconfirmedTransactions.size(); ++i) {
-			TransactionData transactionData = unconfirmedTransactions.get(i);
+		repository.setSavepoint();
+		try {
+			for (int i = 0; i < unconfirmedTransactions.size(); ++i) {
+				TransactionData transactionData = unconfirmedTransactions.get(i);
 
-			if (!isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp())) {
-				invalidTransactions.add(transactionData);
+				if (!isStillValidUnconfirmed(repository, transactionData, latestBlockData.getTimestamp())) {
+					invalidTransactions.add(transactionData);
 
-				unconfirmedTransactions.remove(i);
-				--i;
-				continue;
+					unconfirmedTransactions.remove(i);
+					--i;
+					continue;
+				}
 			}
+		} finally {
+			// Throw away temporary updates to account lastReference
+			repository.rollbackToSavepoint();
 		}
 
-		// Throw away temporary updates to account lastReference
-		repository.discardChanges();
-
-		// Actually delete invalid transactions from database
-		for (TransactionData invalidTransactionData : invalidTransactions) {
-			LOGGER.trace(String.format("Deleting invalid, unconfirmed transaction %s", Base58.encode(invalidTransactionData.getSignature())));
-			repository.getTransactionRepository().delete(invalidTransactionData);
-		}
-		repository.saveChanges();
-
-		return unconfirmedTransactions;
+		return invalidTransactions;
 	}
 
 	/**
 	 * Returns whether transaction is still a valid unconfirmed transaction.
 	 * <p>
 	 * NOTE: temporarily updates creator's lastReference to that from
-	 * unconfirmed transactions, and hence caller should invoke
-	 * <tt>repository.discardChanges()</tt>.
+	 * unconfirmed transactions, and hence caller should use a repository
+	 * savepoint or invoke <tt>repository.discardChanges()</tt>.
 	 * 
 	 * @return true if transaction can be added to unconfirmed transactions, false otherwise
 	 * @throws DataException
@@ -565,6 +625,75 @@ public abstract class Transaction {
 		PublicKeyAccount creator = new PublicKeyAccount(repository, transactionData.getCreatorPublicKey());
 		creator.setLastReference(transactionData.getSignature());
 		return true;
+	}
+
+	/**
+	 * Returns transaction's effective groupID, using default values where necessary.
+	 */
+	public int getEffectiveGroupId() throws DataException {
+		int txGroupId = this.transactionData.getTxGroupId();
+
+		// If transaction's groupID is NO_GROUP then group-ness doesn't apply
+		if (txGroupId == Group.NO_GROUP) {
+			if (BlockChain.getInstance().getGrouplessAllowed())
+				return txGroupId;
+			else
+				txGroupId = Group.DEFAULT_GROUP;
+		}
+
+		// If transaction's groupID is not DEFAULT_GROUP then no further processing required
+		if (txGroupId != Group.DEFAULT_GROUP)
+			return txGroupId;
+
+		// Try using account's default groupID
+		PublicKeyAccount creator = this.getCreator();
+		txGroupId = creator.getDefaultGroupId();
+
+		// If transaction's groupID is NO_GROUP then group-ness doesn't apply
+		if (txGroupId == Group.NO_GROUP) {
+			if (BlockChain.getInstance().getGrouplessAllowed())
+				return txGroupId;
+			else
+				txGroupId = Group.DEFAULT_GROUP;
+		}
+
+		// If txGroupId now not DEFAULT_GROUP then no further processing required
+		if (txGroupId != Group.DEFAULT_GROUP)
+			return txGroupId;
+
+		// Still zero? Use blockchain default
+		return BlockChain.getInstance().getDefaultGroupId();
+	}
+
+	/**
+	 * Returns whether transaction still requires group-admin approval.
+	 * 
+	 * @throws DataException
+	 */
+	public boolean needsGroupApproval() throws DataException {
+		// Does this transaction type bypass approval?
+		if (this.transactionData.getType().skipsApproval)
+			return false;
+
+		int txGroupId = this.getEffectiveGroupId();
+
+		if (txGroupId == Group.NO_GROUP)
+			return false;
+
+		Group group = new Group(repository, txGroupId);
+		if (group.getGroupData() == null) {
+			// Group no longer exists? Possibly due to blockchain orphaning undoing group creation?
+			return true;
+		}
+
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+
+		// If transaction's creator is group admin then auto-approve
+		PublicKeyAccount creator = this.getCreator();
+		if (groupRepository.adminExists(txGroupId, creator.getAddress()))
+			return false;
+
+		return group.getGroupData().getApprovalThreshold().needsApproval(repository, txGroupId, this.transactionData.getSignature());
 	}
 
 	/**

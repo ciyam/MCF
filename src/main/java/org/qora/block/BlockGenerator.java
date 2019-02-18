@@ -85,6 +85,9 @@ public class BlockGenerator extends Thread {
 					try {
 						// Is new block valid yet? (Before adding unconfirmed transactions)
 						if (newBlock.isValid() == ValidationResult.OK) {
+							// Delete invalid transactions
+							deleteInvalidTransactions(repository);
+
 							// Add unconfirmed transactions
 							addUnconfirmedTransactions(repository, newBlock);
 
@@ -131,6 +134,17 @@ public class BlockGenerator extends Thread {
 		}
 	}
 
+	private void deleteInvalidTransactions(Repository repository) throws DataException {
+		List<TransactionData> invalidTransactions = Transaction.getInvalidTransactions(repository);
+
+		// Actually delete invalid transactions from database
+		for (TransactionData invalidTransactionData : invalidTransactions) {
+			LOGGER.trace(String.format("Deleting invalid, unconfirmed transaction %s", Base58.encode(invalidTransactionData.getSignature())));
+			repository.getTransactionRepository().delete(invalidTransactionData);
+		}
+		repository.saveChanges();
+	}
+
 	private void addUnconfirmedTransactions(Repository repository, Block newBlock) throws DataException {
 		// Grab all valid unconfirmed transactions (already sorted)
 		List<TransactionData> unconfirmedTransactions = Transaction.getUnconfirmedTransactions(repository);
@@ -153,10 +167,17 @@ public class BlockGenerator extends Thread {
 				--i;
 				continue;
 			}
+
+			// Ignore transactions that have not met group-admin approval threshold
+			if (transaction.needsGroupApproval()) {
+				unconfirmedTransactions.remove(i);
+				--i;
+				continue;
+			}
 		}
 
-		// Discard last-reference changes used to aid transaction validity checks
-		repository.discardChanges();
+		// Discard any repository changes used to aid transaction validity checks
+		// repository.discardChanges(); // XXX possibly not needed any more thanks to savepoints?
 
 		// Attempt to add transactions until block is full, or we run out
 		// If a transaction makes the block invalid then skip it and it'll either expire or be in next block.

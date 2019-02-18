@@ -11,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(
 	allOf = {
@@ -27,29 +27,30 @@ public class GenesisTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected GenesisTransactionData() {
+		super(TransactionType.GENESIS);
 	}
 
-	public GenesisTransactionData(String recipient, BigDecimal amount, long assetId, long timestamp, byte[] signature) {
-		// Zero fee
-		super(TransactionType.GENESIS, BigDecimal.ZERO, GenesisAccount.PUBLIC_KEY, timestamp, null, signature);
+	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount, long assetId, byte[] signature) {
+		// no groupID, Zero fee
+		super(TransactionType.GENESIS, timestamp, 0, null, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, signature);
 
 		this.recipient = recipient;
 		this.amount = amount;
 		this.assetId = assetId;
 	}
 
-	public GenesisTransactionData(String recipient, BigDecimal amount, long timestamp, byte[] signature) {
-		this(recipient, amount, Asset.QORA, timestamp, signature);
+	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount, byte[] signature) {
+		this(timestamp, recipient, amount, Asset.QORA, signature);
 	}
 
-	public GenesisTransactionData(String recipient, BigDecimal amount, long assetId, long timestamp) {
-		this(recipient, amount, assetId, timestamp, null);
+	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount, long assetId) {
+		this(timestamp, recipient, amount, assetId, null);
 	}
 
-	public GenesisTransactionData(String recipient, BigDecimal amount, long timestamp) {
-		this(recipient, amount, Asset.QORA, timestamp, null);
+	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount) {
+		this(timestamp, recipient, amount, Asset.QORA, null);
 	}
 
 	// Getters/Setters

@@ -5,8 +5,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
+import org.qora.block.BlockChain;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.VoteOnPollTransactionData;
 import org.qora.transaction.Transaction.TransactionType;
@@ -15,9 +14,7 @@ import org.qora.utils.Serialization;
 import org.qora.voting.Poll;
 
 import com.google.common.base.Utf8;
-import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 
 public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 
@@ -25,7 +22,7 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 	private static final int VOTER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + VOTER_LENGTH + NAME_SIZE_LENGTH;
+	private static final int EXTRAS_LENGTH = VOTER_LENGTH + NAME_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -33,6 +30,7 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.VOTE_ON_POLL.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("voter's public key", TransformationType.PUBLIC_KEY);
 		layout.add("poll name length", TransformationType.INT);
@@ -44,6 +42,10 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -61,15 +63,13 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new VoteOnPollTransactionData(voterPublicKey, pollName, optionIndex, fee, timestamp, reference, signature);
+		return new VoteOnPollTransactionData(timestamp, txGroupId, reference, voterPublicKey, pollName, optionIndex, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		VoteOnPollTransactionData voteOnPollTransactionData = (VoteOnPollTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(voteOnPollTransactionData.getPollName());
-
-		return dataLength;
+		return getBaseLength(transactionData) + EXTRAS_LENGTH + Utf8.encodedLength(voteOnPollTransactionData.getPollName());
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -78,12 +78,12 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(voteOnPollTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(voteOnPollTransactionData.getTimestamp()));
-			bytes.write(voteOnPollTransactionData.getReference());
+			transformCommonBytes(transactionData, bytes);
 
 			bytes.write(voteOnPollTransactionData.getVoterPublicKey());
+
 			Serialization.serializeSizedString(bytes, voteOnPollTransactionData.getPollName());
+
 			bytes.write(Ints.toByteArray(voteOnPollTransactionData.getOptionIndex()));
 
 			Serialization.serializeBigDecimal(bytes, voteOnPollTransactionData.getFee());
@@ -95,27 +95,6 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			VoteOnPollTransactionData voteOnPollTransactionData = (VoteOnPollTransactionData) transactionData;
-
-			byte[] voterPublicKey = voteOnPollTransactionData.getVoterPublicKey();
-
-			json.put("voter", PublicKeyAccount.getAddress(voterPublicKey));
-			json.put("voterPublicKey", HashCode.fromBytes(voterPublicKey).toString());
-
-			json.put("name", voteOnPollTransactionData.getPollName());
-			json.put("optionIndex", voteOnPollTransactionData.getOptionIndex());
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

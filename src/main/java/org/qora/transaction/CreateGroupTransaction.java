@@ -74,6 +74,10 @@ public class CreateGroupTransaction extends Transaction {
 		if (!Crypto.isValidAddress(createGroupTransactionData.getOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
+		// Check approval threshold is valid
+		if (createGroupTransactionData.getApprovalThreshold() == null)
+			return ValidationResult.INVALID_GROUP_APPROVAL_THRESHOLD;
+
 		// Check group name size bounds
 		int groupNameLength = Utf8.encodedLength(createGroupTransactionData.getGroupName());
 		if (groupNameLength < 1 || groupNameLength > Group.MAX_NAME_SIZE)

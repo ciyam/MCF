@@ -24,7 +24,7 @@ public class Account {
 	public static final int ADDRESS_LENGTH = 25;
 
 	protected Repository repository;
-	protected AccountData accountData;
+	protected String address;
 
 	protected Account() {
 	}
@@ -32,11 +32,24 @@ public class Account {
 	/** Construct Account business object using account's address */
 	public Account(Repository repository, String address) {
 		this.repository = repository;
-		this.accountData = new AccountData(address);
+		this.address = address;
 	}
 
+	// Simple getters / setters
+
 	public String getAddress() {
-		return this.accountData.getAddress();
+		return this.address;
+	}
+
+	/**
+	 * Build AccountData object using available account information.
+	 * <p>
+	 * For example, PublicKeyAccount might override and add public key info.
+	 * 
+	 * @return
+	 */
+	protected AccountData buildAccountData() {
+		return new AccountData(this.address);
 	}
 
 	// More information
@@ -109,7 +122,7 @@ public class Account {
 	}
 
 	public BigDecimal getConfirmedBalance(long assetId) throws DataException {
-		AccountBalanceData accountBalanceData = this.repository.getAccountRepository().getBalance(this.accountData.getAddress(), assetId);
+		AccountBalanceData accountBalanceData = this.repository.getAccountRepository().getBalance(this.address, assetId);
 		if (accountBalanceData == null)
 			return BigDecimal.ZERO.setScale(8);
 
@@ -118,16 +131,16 @@ public class Account {
 
 	public void setConfirmedBalance(long assetId, BigDecimal balance) throws DataException {
 		// Can't have a balance without an account - make sure it exists!
-		this.repository.getAccountRepository().create(this.accountData);
+		this.repository.getAccountRepository().ensureAccount(this.buildAccountData());
 
-		AccountBalanceData accountBalanceData = new AccountBalanceData(this.accountData.getAddress(), assetId, balance);
+		AccountBalanceData accountBalanceData = new AccountBalanceData(this.address, assetId, balance);
 		this.repository.getAccountRepository().save(accountBalanceData);
 
-		LOGGER.trace(this.accountData.getAddress() + " balance now: " + balance.toPlainString() + " [assetId " + assetId + "]");
+		LOGGER.trace(this.address + " balance now: " + balance.toPlainString() + " [assetId " + assetId + "]");
 	}
 
 	public void deleteBalance(long assetId) throws DataException {
-		this.repository.getAccountRepository().delete(this.accountData.getAddress(), assetId);
+		this.repository.getAccountRepository().delete(this.address, assetId);
 	}
 
 	// Reference manipulations
@@ -139,17 +152,13 @@ public class Account {
 	 * @throws DataException
 	 */
 	public byte[] getLastReference() throws DataException {
-		AccountData accountData = this.repository.getAccountRepository().getAccount(this.accountData.getAddress());
-		if (accountData == null)
-			return null;
-
-		return accountData.getReference();
+		return this.repository.getAccountRepository().getLastReference(this.address);
 	}
 
 	/**
 	 * Fetch last reference for account, considering unconfirmed transactions.
 	 * <p>
-	 * NOTE: <tt>repository.discardChanges()</tt> may be called during execution.
+	 * NOTE: a repository savepoint may be used during execution.
 	 * 
 	 * @return byte[] reference, or null if no reference or account not found.
 	 * @throws DataException
@@ -163,7 +172,7 @@ public class Account {
 		for (TransactionData transactionData : unconfirmedTransactions) {
 			String address = PublicKeyAccount.getAddress(transactionData.getCreatorPublicKey());
 
-			if (address.equals(this.accountData.getAddress()))
+			if (address.equals(this.address))
 				reference = transactionData.getSignature();
 		}
 
@@ -182,9 +191,30 @@ public class Account {
 	 * @throws DataException
 	 */
 	public void setLastReference(byte[] reference) throws DataException {
+		AccountData accountData = this.buildAccountData();
 		accountData.setReference(reference);
+		this.repository.getAccountRepository().setLastReference(accountData);
+	}
 
-		this.repository.getAccountRepository().save(accountData);
+	// Default groupID manipulations
+
+	/** Returns account's default groupID or null if account doesn't exist. */
+	public Integer getDefaultGroupId() throws DataException {
+		return this.repository.getAccountRepository().getDefaultGroupId(this.address);
+	}
+
+	/**
+	 * Sets account's default groupID and saves into repository.
+	 * <p>
+	 * Caller will need to call <tt>repository.saveChanges()</tt>.
+	 * 
+	 * @param defaultGroupId
+	 * @throws DataException
+	 */
+	public void setDefaultGroupId(int defaultGroupId) throws DataException {
+		AccountData accountData = this.buildAccountData();
+		accountData.setDefaultGroupId(defaultGroupId);
+		this.repository.getAccountRepository().setDefaultGroupId(accountData);
 	}
 
 }

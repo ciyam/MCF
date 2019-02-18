@@ -84,6 +84,10 @@ public class GroupBanTransaction extends Transaction {
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
+		// Check transaction's groupID matches group's ID
+		if (groupData.getGroupId() != groupBanTransactionData.getTxGroupId())
+			return ValidationResult.GROUP_ID_MISMATCH;
+
 		Account admin = getAdmin();
 
 		// Can't ban if not an admin

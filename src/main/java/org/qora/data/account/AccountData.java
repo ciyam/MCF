@@ -1,22 +1,35 @@
 package org.qora.data.account;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+import org.qora.group.Group;
+
+// All properties to be converted to JSON via JAXB
+@XmlAccessorType(XmlAccessType.FIELD)
 public class AccountData {
 
 	// Properties
 	protected String address;
 	protected byte[] reference;
 	protected byte[] publicKey;
+	protected int defaultGroupId;
 
 	// Constructors
 
-	public AccountData(String address, byte[] reference, byte[] publicKey) {
+	// For JAXB
+	protected AccountData() {
+	}
+
+	public AccountData(String address, byte[] reference, byte[] publicKey, int defaultGroupId) {
 		this.address = address;
 		this.reference = reference;
 		this.publicKey = publicKey;
+		this.defaultGroupId = defaultGroupId;
 	}
 
 	public AccountData(String address) {
-		this(address, null, null);
+		this(address, null, null, Group.DEFAULT_GROUP);
 	}
 
 	// Getters/Setters
@@ -39,6 +52,14 @@ public class AccountData {
 
 	public void setPublicKey(byte[] publicKey) {
 		this.publicKey = publicKey;
+	}
+
+	public int getDefaultGroupId() {
+		return this.defaultGroupId;
+	}
+
+	public void setDefaultGroupId(int defaultGroupId) {
+		this.defaultGroupId = defaultGroupId;
 	}
 
 	// Comparison

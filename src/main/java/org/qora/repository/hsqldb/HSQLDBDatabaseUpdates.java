@@ -5,7 +5,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 public class HSQLDBDatabaseUpdates {
+
+	private static final Logger LOGGER = LogManager.getLogger(HSQLDBDatabaseUpdates.class);
 
 	/**
 	 * Apply any incremental changes to database schema.
@@ -526,6 +531,33 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE PeersTEMP RENAME TO Peers");
 					break;
 
+				case 33:
+					// Add groupID to all transactions - groupID 0 is default, which means groupless/no-group
+					stmt.execute("ALTER TABLE Transactions ADD COLUMN tx_group_id GroupID NOT NULL DEFAULT 0");
+					stmt.execute("CREATE INDEX TransactionGroupIndex ON Transactions (tx_group_id)");
+
+					// Adding approval to group-based transactions
+					// Default approval threshold is 100% for existing groups but probably of no effect in production
+					stmt.execute("ALTER TABLE Groups ADD COLUMN approval_threshold TINYINT NOT NULL DEFAULT 100 BEFORE reference");
+					stmt.execute("ALTER TABLE CreateGroupTransactions ADD COLUMN approval_threshold TINYINT NOT NULL DEFAULT 100 BEFORE group_id");
+					stmt.execute("ALTER TABLE UpdateGroupTransactions ADD COLUMN new_approval_threshold TINYINT NOT NULL DEFAULT 100 BEFORE group_reference");
+
+					// Approval transactions themselves
+					// "pending_signature" contains signature of pending transaction requiring approval
+					// "prior_reference" contains signature of previous approval transaction for orphaning purposes
+					stmt.execute("CREATE TABLE GroupApprovalTransactions (signature Signature, admin QoraPublicKey NOT NULL, pending_signature Signature NOT NULL, approval BOOLEAN NOT NULL, "
+							+ "prior_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+
+					// Accounts have a default groupID to be used if transaction's txGroupId is 0
+					stmt.execute("ALTER TABLE Accounts add default_group_id GroupID NOT NULL DEFAULT 0");
+					break;
+
+				case 34:
+					// SET_GROUP transaction support
+					stmt.execute("CREATE TABLE SetGroupTransactions (signature Signature, default_group_id GroupID NOT NULL, previous_default_group_id GroupID, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
@@ -533,6 +565,7 @@ public class HSQLDBDatabaseUpdates {
 		}
 
 		// database was updated
+		LOGGER.info(String.format("HSQLDB repository updated to version %d", databaseVersion + 1));
 		return true;
 	}
 

@@ -39,6 +39,31 @@ public class AddressesResource {
 	HttpServletRequest request;
 	
 	@GET
+	@Path("/{address}")
+	@Operation(
+		summary = "Return general account information for the given address",
+		responses = {
+			@ApiResponse(
+				description = "general account information",
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = AccountData.class))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public AccountData getAccountInfo(@PathParam("address") String address) {
+		if (!Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getAccountRepository().getAccount(address);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
 	@Path("/lastreference/{address}")
 	@Operation(
 		summary = "Fetch reference for next transaction to be created by address, considering unconfirmed transactions",

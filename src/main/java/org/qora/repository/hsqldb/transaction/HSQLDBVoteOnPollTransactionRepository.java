@@ -16,7 +16,7 @@ public class HSQLDBVoteOnPollTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT poll_name, option_index, previous_option_index FROM VoteOnPollTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -30,7 +30,7 @@ public class HSQLDBVoteOnPollTransactionRepository extends HSQLDBTransactionRepo
 			if (resultSet.wasNull())
 				previousOptionIndex = null;
 
-			return new VoteOnPollTransactionData(creatorPublicKey, pollName, optionIndex, previousOptionIndex, fee, timestamp, reference, signature);
+			return new VoteOnPollTransactionData(timestamp, txGroupId, reference, creatorPublicKey, pollName, optionIndex, previousOptionIndex, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch vote on poll transaction from repository", e);
 		}

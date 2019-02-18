@@ -16,7 +16,7 @@ public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT group_id, member_reference, admin_reference FROM LeaveGroupTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -26,7 +26,7 @@ public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepo
 			byte[] memberReference = resultSet.getBytes(2);
 			byte[] adminReference = resultSet.getBytes(3);
 
-			return new LeaveGroupTransactionData(creatorPublicKey, groupId, memberReference, adminReference, fee, timestamp, reference, signature);
+			return new LeaveGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, memberReference, adminReference, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch leave group transaction from repository", e);
 		}
