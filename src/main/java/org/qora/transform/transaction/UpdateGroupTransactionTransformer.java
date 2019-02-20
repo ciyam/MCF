@@ -70,13 +70,17 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 
 		ApprovalThreshold newApprovalThreshold = ApprovalThreshold.valueOf(byteBuffer.get());
 
+		int newMinBlockDelay = byteBuffer.getInt();
+
+		int newMaxBlockDelay = byteBuffer.getInt();
+
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
 		return new UpdateGroupTransactionData(timestamp, txGroupId, reference, ownerPublicKey, groupId, newOwner, newDescription, newIsOpen,
-				newApprovalThreshold, fee, signature);
+				newApprovalThreshold, newMinBlockDelay, newMaxBlockDelay, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -102,6 +106,10 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 			bytes.write((byte) (updateGroupTransactionData.getNewIsOpen() ? 1 : 0));
 
 			bytes.write((byte) updateGroupTransactionData.getNewApprovalThreshold().value);
+
+			bytes.write(Ints.toByteArray(updateGroupTransactionData.getNewMinimumBlockDelay()));
+
+			bytes.write(Ints.toByteArray(updateGroupTransactionData.getNewMaximumBlockDelay()));
 
 			Serialization.serializeBigDecimal(bytes, updateGroupTransactionData.getFee());
 

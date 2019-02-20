@@ -496,13 +496,13 @@ public class v1feeder extends Thread {
 
 					BigDecimal fee = BigDecimal.ZERO.setScale(8);
 
-					TransactionData transactionData = new ATTransactionData(timestamp, Group.DEFAULT_GROUP, reference, sender, recipient, amount, Asset.QORA, message, fee);
+					TransactionData transactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference, sender, recipient, amount, Asset.QORA, message, fee);
 					byte[] digest;
 					try {
 						digest = Crypto.digest(AtTransactionTransformer.toBytes(transactionData));
 						byte[] signature = Bytes.concat(digest, digest);
 
-						transactionData = new ATTransactionData(timestamp, Group.DEFAULT_GROUP, reference, sender, recipient, amount, Asset.QORA, message, fee, signature);
+						transactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference, sender, recipient, amount, Asset.QORA, message, fee, signature);
 					} catch (TransformationException e) {
 						throw new RuntimeException("Couldn't transform AT Transaction into bytes", e);
 					}

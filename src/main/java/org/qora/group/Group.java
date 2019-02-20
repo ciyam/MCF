@@ -46,7 +46,8 @@ public class Group {
 		public final int value;
 		public final boolean isPercentage;
 
-		private final static Map<Integer, ApprovalThreshold> map = stream(ApprovalThreshold.values()).collect(toMap(threshold -> threshold.value, threshold -> threshold));
+		private final static Map<Integer, ApprovalThreshold> map = stream(ApprovalThreshold.values())
+				.collect(toMap(threshold -> threshold.value, threshold -> threshold));
 
 		ApprovalThreshold(int value, boolean isPercentage) {
 			this.value = value;
@@ -65,23 +66,25 @@ public class Group {
 		}
 
 		/**
-		 * Returns whether transaction need approval.
+		 * Returns whether transaction meets approval threshold.
 		 * 
 		 * @param repository
-		 * @param txGroupId transaction's groupID
-		 * @param signature transaction's signature
+		 * @param txGroupId
+		 *            transaction's groupID
+		 * @param signature
+		 *            transaction's signature
 		 * @return true if approval still needed, false if transaction can be included in block
 		 * @throws DataException
 		 */
-		public boolean needsApproval(Repository repository, int txGroupId, byte[] signature) throws DataException {
+		public boolean meetsApprovalThreshold(Repository repository, int txGroupId, byte[] signature) throws DataException {
 			// Fetch total number of admins in group
 			final int totalAdmins = repository.getGroupRepository().countGroupAdmins(txGroupId);
-			
+
 			// Fetch total number of approvals for signature
 			// NOT simply number of GROUP_APPROVE transactions as some may be rejecting transaction, or changed opinions
 			final int currentApprovals = repository.getTransactionRepository().countTransactionApprovals(txGroupId, signature);
 
-			return !meetsTheshold(currentApprovals, totalAdmins);
+			return meetsTheshold(currentApprovals, totalAdmins);
 		}
 	}
 
@@ -91,8 +94,7 @@ public class Group {
 	private GroupData groupData;
 
 	// Useful constants
-	public static final int NO_GROUP = -1;
-	public static final int DEFAULT_GROUP = 0;
+	public static final int NO_GROUP = 0;
 
 	public static final int MAX_NAME_SIZE = 32;
 	public static final int MAX_DESCRIPTION_SIZE = 128;
@@ -113,7 +115,8 @@ public class Group {
 
 		this.groupData = new GroupData(createGroupTransactionData.getOwner(), createGroupTransactionData.getGroupName(),
 				createGroupTransactionData.getDescription(), createGroupTransactionData.getTimestamp(), createGroupTransactionData.getIsOpen(),
-				createGroupTransactionData.getApprovalThreshold(), createGroupTransactionData.getSignature());
+				createGroupTransactionData.getApprovalThreshold(), createGroupTransactionData.getMinimumBlockDelay(),
+				createGroupTransactionData.getMaximumBlockDelay(), createGroupTransactionData.getSignature());
 	}
 
 	/**

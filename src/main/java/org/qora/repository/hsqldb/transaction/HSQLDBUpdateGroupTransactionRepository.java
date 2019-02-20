@@ -19,7 +19,7 @@ public class HSQLDBUpdateGroupTransactionRepository extends HSQLDBTransactionRep
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT group_id, new_owner, new_description, new_is_open, new_approval_threshold, group_reference FROM UpdateGroupTransactions WHERE signature = ?",
+				"SELECT group_id, new_owner, new_description, new_is_open, new_approval_threshold, new_min_block_delay, new_max_block_delay, group_reference FROM UpdateGroupTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
 				return null;
@@ -30,9 +30,11 @@ public class HSQLDBUpdateGroupTransactionRepository extends HSQLDBTransactionRep
 			boolean newIsOpen = resultSet.getBoolean(4);
 			ApprovalThreshold newApprovalThreshold = ApprovalThreshold.valueOf(resultSet.getInt(5));
 			byte[] groupReference = resultSet.getBytes(6);
+			int newMinBlockDelay = resultSet.getInt(7);
+			int newMaxBlockDelay = resultSet.getInt(8);
 
 			return new UpdateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, newOwner, newDescription, newIsOpen,
-					newApprovalThreshold, groupReference, fee, signature);
+					newApprovalThreshold, newMinBlockDelay, newMaxBlockDelay, groupReference, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch update group transaction from repository", e);
 		}
@@ -48,6 +50,8 @@ public class HSQLDBUpdateGroupTransactionRepository extends HSQLDBTransactionRep
 				.bind("group_id", updateGroupTransactionData.getGroupId()).bind("new_owner", updateGroupTransactionData.getNewOwner())
 				.bind("new_description", updateGroupTransactionData.getNewDescription()).bind("new_is_open", updateGroupTransactionData.getNewIsOpen())
 				.bind("new_approval_threshold", updateGroupTransactionData.getNewApprovalThreshold().value)
+				.bind("new_min_block_delay", updateGroupTransactionData.getNewMinimumBlockDelay())
+				.bind("new_max_block_delay", updateGroupTransactionData.getNewMaximumBlockDelay())
 				.bind("group_reference", updateGroupTransactionData.getGroupReference());
 
 		try {

@@ -558,6 +558,16 @@ public class HSQLDBDatabaseUpdates {
 							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
+				case 35:
+					// Group-based transaction approval min/max block delay
+					stmt.execute("ALTER TABLE Groups ADD COLUMN min_block_delay INT NOT NULL DEFAULT 0 BEFORE reference");
+					stmt.execute("ALTER TABLE Groups ADD COLUMN max_block_delay INT NOT NULL DEFAULT 1440 BEFORE reference");
+					stmt.execute("ALTER TABLE CreateGroupTransactions ADD COLUMN min_block_delay INT NOT NULL DEFAULT 0 BEFORE group_id");
+					stmt.execute("ALTER TABLE CreateGroupTransactions ADD COLUMN max_block_delay INT NOT NULL DEFAULT 1440 BEFORE group_id");
+					stmt.execute("ALTER TABLE UpdateGroupTransactions ADD COLUMN new_min_block_delay INT NOT NULL DEFAULT 0 BEFORE group_reference");
+					stmt.execute("ALTER TABLE UpdateGroupTransactions ADD COLUMN new_max_block_delay INT NOT NULL DEFAULT 1440 BEFORE group_reference");
+					break;
+
 				default:
 					// nothing to do
 					return false;

@@ -52,6 +52,10 @@ public class CreateGroupTransactionData extends TransactionData {
 		description = "how many group admins are required to approve group member transactions"
 	)
 	private ApprovalThreshold approvalThreshold;
+	@Schema(description = "minimum block delay before approval takes effect")
+	private int minimumBlockDelay;
+	@Schema(description = "maximum block delay before which transaction approval must be reached")
+	private int maximumBlockDelay;
 
 	// Constructors
 
@@ -61,7 +65,7 @@ public class CreateGroupTransactionData extends TransactionData {
 	}
 
 	public CreateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner, String groupName, String description,
-			boolean isOpen, ApprovalThreshold approvalThreshold, Integer groupId, BigDecimal fee, byte[] signature) {
+			boolean isOpen, ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay, Integer groupId, BigDecimal fee, byte[] signature) {
 		super(TransactionType.CREATE_GROUP, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 
 		this.creatorPublicKey = creatorPublicKey;
@@ -70,6 +74,8 @@ public class CreateGroupTransactionData extends TransactionData {
 		this.description = description;
 		this.isOpen = isOpen;
 		this.approvalThreshold = approvalThreshold;
+		this.minimumBlockDelay = minimumBlockDelay;
+		this.maximumBlockDelay = maximumBlockDelay;
 		this.groupId = groupId;
 	}
 
@@ -93,6 +99,14 @@ public class CreateGroupTransactionData extends TransactionData {
 
 	public ApprovalThreshold getApprovalThreshold() {
 		return this.approvalThreshold;
+	}
+
+	public int getMinimumBlockDelay() {
+		return this.minimumBlockDelay;
+	}
+
+	public int getMaximumBlockDelay() {
+		return this.maximumBlockDelay;
 	}
 
 	public Integer getGroupId() {

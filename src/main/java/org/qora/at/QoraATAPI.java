@@ -268,7 +268,7 @@ public class QoraATAPI extends API {
 		byte[] reference = this.getLastReference();
 		BigDecimal amount = BigDecimal.valueOf(unscaledAmount, 8);
 
-		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.DEFAULT_GROUP, reference, this.atData.getATAddress(),
+		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference, this.atData.getATAddress(),
 				recipient.getAddress(), amount, this.atData.getAssetId(), new byte[0], BigDecimal.ZERO.setScale(8));
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
@@ -286,7 +286,7 @@ public class QoraATAPI extends API {
 		long timestamp = this.getNextTransactionTimestamp();
 		byte[] reference = this.getLastReference();
 
-		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.DEFAULT_GROUP, reference,
+		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference,
 				this.atData.getATAddress(), recipient.getAddress(), BigDecimal.ZERO, this.atData.getAssetId(), message, BigDecimal.ZERO.setScale(8));
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
@@ -312,7 +312,7 @@ public class QoraATAPI extends API {
 		byte[] reference = this.getLastReference();
 		BigDecimal amount = BigDecimal.valueOf(finalBalance, 8);
 
-		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.DEFAULT_GROUP, reference, this.atData.getATAddress(),
+		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference, this.atData.getATAddress(),
 				creator.getAddress(), amount, this.atData.getAssetId(), new byte[0], BigDecimal.ZERO.setScale(8));
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 

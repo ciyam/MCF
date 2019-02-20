@@ -16,6 +16,7 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.block.BlockChain;
 import org.qora.data.block.BlockData;
+import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
@@ -37,43 +38,43 @@ public abstract class Transaction {
 	// Transaction types
 	public enum TransactionType {
 		// NOTE: must be contiguous or reflection fails
-		GENESIS(1, true),
+		GENESIS(1, false),
 		PAYMENT(2, false),
-		REGISTER_NAME(3, false),
-		UPDATE_NAME(4, false),
+		REGISTER_NAME(3, true),
+		UPDATE_NAME(4, true),
 		SELL_NAME(5, false),
 		CANCEL_SELL_NAME(6, false),
 		BUY_NAME(7, false),
-		CREATE_POLL(8, false),
+		CREATE_POLL(8, true),
 		VOTE_ON_POLL(9, false),
-		ARBITRARY(10, false),
-		ISSUE_ASSET(11, false),
+		ARBITRARY(10, true),
+		ISSUE_ASSET(11, true),
 		TRANSFER_ASSET(12, false),
 		CREATE_ASSET_ORDER(13, false),
 		CANCEL_ASSET_ORDER(14, false),
 		MULTI_PAYMENT(15, false),
-		DEPLOY_AT(16, false),
-		MESSAGE(17, false),
+		DEPLOY_AT(16, true),
+		MESSAGE(17, true),
 		DELEGATION(18, false),
 		SUPERNODE(19, false),
-		AIRDROP(20, true),
-		AT(21, true),
-		CREATE_GROUP(22, false),
+		AIRDROP(20, false),
+		AT(21, false),
+		CREATE_GROUP(22, true),
 		UPDATE_GROUP(23, true),
-		ADD_GROUP_ADMIN(24, true),
-		REMOVE_GROUP_ADMIN(25, true),
-		GROUP_BAN(26, true),
-		CANCEL_GROUP_BAN(27, true),
-		GROUP_KICK(28, true),
-		GROUP_INVITE(29, true),
-		CANCEL_GROUP_INVITE(30, true),
-		JOIN_GROUP(31, true),
-		LEAVE_GROUP(32, true),
-		GROUP_APPROVAL(33, true),
-		SET_GROUP(34, true);
+		ADD_GROUP_ADMIN(24, false),
+		REMOVE_GROUP_ADMIN(25, false),
+		GROUP_BAN(26, false),
+		CANCEL_GROUP_BAN(27, false),
+		GROUP_KICK(28, false),
+		GROUP_INVITE(29, false),
+		CANCEL_GROUP_INVITE(30, false),
+		JOIN_GROUP(31, false),
+		LEAVE_GROUP(32, false),
+		GROUP_APPROVAL(33, false),
+		SET_GROUP(34, false);
 
 		public final int value;
-		public final boolean skipsApproval;
+		public final boolean needsApproval;
 		public final String valueString;
 		public final String className;
 		public final Class<?> clazz;
@@ -81,9 +82,9 @@ public abstract class Transaction {
 
 		private final static Map<Integer, TransactionType> map = stream(TransactionType.values()).collect(toMap(type -> type.value, type -> type));
 
-		TransactionType(int value, boolean skipsApproval) {
+		TransactionType(int value, boolean needsApproval) {
 			this.value = value;
-			this.skipsApproval = skipsApproval;
+			this.needsApproval = needsApproval;
 			this.valueString = String.valueOf(value);
 
 			String[] classNameParts = this.name().toLowerCase().split("_");
@@ -495,19 +496,20 @@ public abstract class Transaction {
 	}
 
 	private boolean isValidTxGroupId() throws DataException {
-		// Does this transaction type bypass approval?
-		if (this.transactionData.getType().skipsApproval)
-			return true;
+		int txGroupId = this.transactionData.getTxGroupId();
 
-		int txGroupId = this.getEffectiveGroupId();
+		// Handling NO_GROUP
 		if (txGroupId == Group.NO_GROUP)
-			return true;
+			// true if NO_GROUP allowed, false otherwise
+			return BlockChain.getInstance().getGrouplessAllowed();
 
-		Group group = new Group(repository, txGroupId);
-		if (group.getGroupData() == null) {
-			// Group no longer exists? Possibly due to blockchain orphaning undoing group creation?
+		// Group even exist?
+		if (!this.repository.getGroupRepository().groupExists(txGroupId))
 			return false;
-		}
+
+		// Does this transaction type bypass approval?
+		if (!this.transactionData.getType().needsApproval)
+			return true;
 
 		GroupRepository groupRepository = this.repository.getGroupRepository();
 
@@ -615,6 +617,17 @@ public abstract class Transaction {
 		if (transaction.getDeadline() <= blockTimestamp || transaction.getDeadline() < NTP.getTime())
 			return false;
 
+		// Is transaction is past max approval period?
+		if (transaction.needsGroupApproval()) {
+			int txGroupId = transactionData.getTxGroupId();
+			GroupData groupData = repository.getGroupRepository().fromGroupId(txGroupId);
+
+			int creationBlockHeight = repository.getBlockRepository().getHeightFromTimestamp(transactionData.getTimestamp());
+			int currentBlockHeight = repository.getBlockRepository().getBlockchainHeight();
+			if (currentBlockHeight > creationBlockHeight + groupData.getMaximumBlockDelay())
+				return false;
+		}
+
 		// Check transaction is currently valid
 		if (transaction.isValid() != Transaction.ValidationResult.OK)
 			return false;
@@ -628,72 +641,47 @@ public abstract class Transaction {
 	}
 
 	/**
-	 * Returns transaction's effective groupID, using default values where necessary.
-	 */
-	public int getEffectiveGroupId() throws DataException {
-		int txGroupId = this.transactionData.getTxGroupId();
-
-		// If transaction's groupID is NO_GROUP then group-ness doesn't apply
-		if (txGroupId == Group.NO_GROUP) {
-			if (BlockChain.getInstance().getGrouplessAllowed())
-				return txGroupId;
-			else
-				txGroupId = Group.DEFAULT_GROUP;
-		}
-
-		// If transaction's groupID is not DEFAULT_GROUP then no further processing required
-		if (txGroupId != Group.DEFAULT_GROUP)
-			return txGroupId;
-
-		// Try using account's default groupID
-		PublicKeyAccount creator = this.getCreator();
-		txGroupId = creator.getDefaultGroupId();
-
-		// If transaction's groupID is NO_GROUP then group-ness doesn't apply
-		if (txGroupId == Group.NO_GROUP) {
-			if (BlockChain.getInstance().getGrouplessAllowed())
-				return txGroupId;
-			else
-				txGroupId = Group.DEFAULT_GROUP;
-		}
-
-		// If txGroupId now not DEFAULT_GROUP then no further processing required
-		if (txGroupId != Group.DEFAULT_GROUP)
-			return txGroupId;
-
-		// Still zero? Use blockchain default
-		return BlockChain.getInstance().getDefaultGroupId();
-	}
-
-	/**
-	 * Returns whether transaction still requires group-admin approval.
+	 * Returns whether transaction needs to go through group-admin approval.
 	 * 
 	 * @throws DataException
 	 */
 	public boolean needsGroupApproval() throws DataException {
 		// Does this transaction type bypass approval?
-		if (this.transactionData.getType().skipsApproval)
+		if (!this.transactionData.getType().needsApproval)
 			return false;
 
-		int txGroupId = this.getEffectiveGroupId();
+		int txGroupId = this.transactionData.getTxGroupId();
 
 		if (txGroupId == Group.NO_GROUP)
 			return false;
 
-		Group group = new Group(repository, txGroupId);
-		if (group.getGroupData() == null) {
+		GroupRepository groupRepository = this.repository.getGroupRepository();
+
+		if (!groupRepository.groupExists(txGroupId))
 			// Group no longer exists? Possibly due to blockchain orphaning undoing group creation?
 			return true;
-		}
-
-		GroupRepository groupRepository = this.repository.getGroupRepository();
 
 		// If transaction's creator is group admin then auto-approve
 		PublicKeyAccount creator = this.getCreator();
 		if (groupRepository.adminExists(txGroupId, creator.getAddress()))
 			return false;
 
-		return group.getGroupData().getApprovalThreshold().needsApproval(repository, txGroupId, this.transactionData.getSignature());
+		return true;
+	}
+
+	public boolean meetsGroupApprovalThreshold() throws DataException {
+		int txGroupId = this.transactionData.getTxGroupId();
+
+		Group group = new Group(repository, txGroupId);
+		GroupData groupData = group.getGroupData();
+
+		// Is transaction is outside of min/max approval period?
+		int creationBlockHeight = this.repository.getBlockRepository().getHeightFromTimestamp(this.transactionData.getTimestamp());
+		int currentBlockHeight = this.repository.getBlockRepository().getBlockchainHeight();
+		if (currentBlockHeight < creationBlockHeight + groupData.getMinimumBlockDelay() || currentBlockHeight > creationBlockHeight + groupData.getMaximumBlockDelay())
+			return false;
+
+		return group.getGroupData().getApprovalThreshold().meetsApprovalThreshold(repository, txGroupId, this.transactionData.getSignature());
 	}
 
 	/**

@@ -47,6 +47,20 @@ public interface TransactionRepository {
 	public List<TransactionData> getAssetTransactions(int assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
 			throws DataException;
 
+	/**
+	 * Returns list of transactions pending approval, with optional txGgroupId filtering.
+	 * <p>
+	 * This is typically called by the API.
+	 * 
+	 * @param txGroupId
+	 * @param limit
+	 * @param offset
+	 * @param reverse
+	 * @return list of transactions, or empty if none.
+	 * @throws DataException
+	 */
+	public List<TransactionData> getPendingTransactions(Integer txGroupId, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
 	/** Returns number of approvals for transaction with given signature. */
 	public int countTransactionApprovals(int txGroupId, byte[] signature) throws DataException;
 

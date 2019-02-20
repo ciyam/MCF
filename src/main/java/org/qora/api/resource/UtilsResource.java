@@ -29,6 +29,7 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.crypto.Crypto;
+import org.qora.settings.Settings;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.transform.transaction.TransactionTransformer.Transformation;
@@ -76,8 +77,11 @@ public class UtilsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_DATA})
+	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String fromBase64(String base64) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		try {
 			return HashCode.fromBytes(Base64.getDecoder().decode(base64.trim())).toString();
 		} catch (IllegalArgumentException e) {
@@ -109,8 +113,11 @@ public class UtilsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_DATA})
+	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String base64from58(String base58) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		try {
 			return HashCode.fromBytes(Base58.decode(base58.trim())).toString();
 		} catch (NumberFormatException e) {
@@ -133,7 +140,11 @@ public class UtilsResource {
 			)
 		}
 	)
+	@ApiErrors({ApiError.NON_PRODUCTION})
 	public String toBase64(@PathParam("hex") String hex) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		return Base64.getEncoder().encodeToString(HashCode.fromString(hex).asBytes());
 	}
 
@@ -152,7 +163,11 @@ public class UtilsResource {
 			)
 		}
 	)
+	@ApiErrors({ApiError.NON_PRODUCTION})
 	public String toBase58(@PathParam("hex") String hex) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		return Base58.encode(HashCode.fromString(hex).asBytes());
 	}
 
@@ -173,7 +188,11 @@ public class UtilsResource {
 			)
 		}
 	)
+	@ApiErrors({ApiError.NON_PRODUCTION})
 	public String random(@QueryParam("length") Integer length) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		if (length == null)
 			length = 32;
 
@@ -200,8 +219,11 @@ public class UtilsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_DATA})
+	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String getMnemonic(@QueryParam("entropy") String suppliedEntropy) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		/*
 		 * BIP39 word lists have 2048 entries so can be represented by 11 bits.
 		 * UUID (128bits) and another 4 bits gives 132 bits.
@@ -266,7 +288,11 @@ public class UtilsResource {
 			)
 		}
 	)
+	@ApiErrors({ApiError.NON_PRODUCTION})
 	public String fromMnemonic(String mnemonic) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		if (mnemonic.isEmpty())
 			return "false";
 
@@ -308,8 +334,11 @@ public class UtilsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_DATA})
+	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String privateKey(@PathParam("entropy") String entropy58) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		byte[] entropy;
 		try {
 			entropy = Base58.decode(entropy58);
@@ -341,8 +370,11 @@ public class UtilsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_DATA})
+	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String publicKey(@PathParam("privateKey") String privateKey58) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		byte[] privateKey;
 		try {
 			privateKey = Base58.decode(privateKey58);

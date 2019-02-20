@@ -8,7 +8,6 @@ import java.util.List;
 import org.qora.account.Account;
 import org.qora.asset.Asset;
 import org.qora.data.transaction.SetGroupTransactionData;
-import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
@@ -61,10 +60,8 @@ public class SetGroupTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		GroupData groupData = this.repository.getGroupRepository().fromGroupId(setGroupTransactionData.getDefaultGroupId());
-
 		// Check group exists
-		if (groupData == null)
+		if (!this.repository.getGroupRepository().groupExists(setGroupTransactionData.getDefaultGroupId()))
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		Account creator = getCreator();
@@ -94,7 +91,7 @@ public class SetGroupTransaction extends Transaction {
 
 		Integer previousDefaultGroupId = this.repository.getAccountRepository().getDefaultGroupId(creator.getAddress());
 		if (previousDefaultGroupId == null)
-			previousDefaultGroupId = Group.DEFAULT_GROUP;
+			previousDefaultGroupId = Group.NO_GROUP;
 
 		setGroupTransactionData.setPreviousDefaultGroupId(previousDefaultGroupId);
 
@@ -118,7 +115,7 @@ public class SetGroupTransaction extends Transaction {
 
 		Integer previousDefaultGroupId = setGroupTransactionData.getPreviousDefaultGroupId();
 		if (previousDefaultGroupId == null)
-			previousDefaultGroupId = Group.DEFAULT_GROUP;
+			previousDefaultGroupId = Group.NO_GROUP;
 
 		creator.setDefaultGroupId(previousDefaultGroupId);
 

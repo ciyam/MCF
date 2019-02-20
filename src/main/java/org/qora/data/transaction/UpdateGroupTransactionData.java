@@ -51,6 +51,10 @@ public class UpdateGroupTransactionData extends TransactionData {
 		description = "new group member transaction approval threshold"
 	)
 	private ApprovalThreshold newApprovalThreshold;
+	@Schema(description = "new minimum block delay before approval takes effect")
+	private int newMinimumBlockDelay;
+	@Schema(description = "new maximum block delay before which transaction approval must be reached")
+	private int newMaximumBlockDelay;
 	/** Reference to CREATE_GROUP or UPDATE_GROUP transaction, used to rebuild group during orphaning. */
 	// For internal use when orphaning
 	@XmlTransient
@@ -71,7 +75,7 @@ public class UpdateGroupTransactionData extends TransactionData {
 	}
 
 	public UpdateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId,
-			String newOwner, String newDescription, boolean newIsOpen, ApprovalThreshold newApprovalThreshold, byte[] groupReference, BigDecimal fee, byte[] signature) {
+			String newOwner, String newDescription, boolean newIsOpen, ApprovalThreshold newApprovalThreshold, int newMinimumBlockDelay, int newMaximumBlockDelay, byte[] groupReference, BigDecimal fee, byte[] signature) {
 		super(TransactionType.UPDATE_GROUP, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
@@ -80,13 +84,15 @@ public class UpdateGroupTransactionData extends TransactionData {
 		this.newDescription = newDescription;
 		this.newIsOpen = newIsOpen;
 		this.newApprovalThreshold = newApprovalThreshold;
+		this.newMinimumBlockDelay = newMinimumBlockDelay;
+		this.newMaximumBlockDelay = newMaximumBlockDelay;
 		this.groupReference = groupReference;
 	}
 
 	/** Constructor typically used after deserialization */
 	public UpdateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId,
-			String newOwner, String newDescription, boolean newIsOpen, ApprovalThreshold newApprovalThreshold, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, newOwner, newDescription, newIsOpen, newApprovalThreshold, null, fee, signature);
+			String newOwner, String newDescription, boolean newIsOpen, ApprovalThreshold newApprovalThreshold, int newMinimumBlockDelay, int newMaximumBlockDelay, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, newOwner, newDescription, newIsOpen, newApprovalThreshold, newMinimumBlockDelay, newMaximumBlockDelay, null, fee, signature);
 	}
 
 	// Getters / setters
@@ -113,6 +119,14 @@ public class UpdateGroupTransactionData extends TransactionData {
 
 	public ApprovalThreshold getNewApprovalThreshold() {
 		return this.newApprovalThreshold;
+	}
+
+	public int getNewMinimumBlockDelay() {
+		return this.newMinimumBlockDelay;
+	}
+
+	public int getNewMaximumBlockDelay() {
+		return this.newMaximumBlockDelay;
 	}
 
 	public byte[] getGroupReference() {

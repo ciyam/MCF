@@ -23,7 +23,7 @@ public class SaveTests extends Common {
 			byte[] signature = Base58.decode(signature58);
 			PublicKeyAccount sender = new PublicKeyAccount(repository, "Qsender".getBytes());
 
-			PaymentTransactionData paymentTransactionData = new PaymentTransactionData(Instant.now().getEpochSecond(), Group.DEFAULT_GROUP, reference,
+			PaymentTransactionData paymentTransactionData = new PaymentTransactionData(Instant.now().getEpochSecond(), Group.NO_GROUP, reference,
 					sender.getPublicKey(), "Qrecipient", BigDecimal.valueOf(12345L), BigDecimal.ONE, signature);
 
 			repository.getTransactionRepository().save(paymentTransactionData);

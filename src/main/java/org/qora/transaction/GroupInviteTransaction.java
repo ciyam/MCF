@@ -10,7 +10,6 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
 import org.qora.data.transaction.GroupInviteTransactionData;
-import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
@@ -74,6 +73,12 @@ public class GroupInviteTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		int groupId = groupInviteTransactionData.getGroupId();
+
+		// Check transaction's groupID matches group's ID
+		if (groupInviteTransactionData.getTxGroupId() != groupId)
+			return ValidationResult.GROUP_ID_MISMATCH;
+
 		// Check time to live zero (infinite) or positive
 		if (groupInviteTransactionData.getTimeToLive() < 0)
 			return ValidationResult.INVALID_LIFETIME;
@@ -82,31 +87,24 @@ public class GroupInviteTransaction extends Transaction {
 		if (!Crypto.isValidAddress(groupInviteTransactionData.getInvitee()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		GroupData groupData = this.repository.getGroupRepository().fromGroupId(groupInviteTransactionData.getGroupId());
-
 		// Check group exists
-		if (groupData == null)
+		if (!this.repository.getGroupRepository().groupExists(groupId))
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
-
-		// Check transaction's groupID matches group's ID
-		int effectiveTxGroupId = this.getEffectiveGroupId();
-		if (effectiveTxGroupId != groupInviteTransactionData.getTxGroupId())
-			return ValidationResult.GROUP_ID_MISMATCH;
 
 		Account admin = getAdmin();
 
 		// Can't invite if not an admin
-		if (!this.repository.getGroupRepository().adminExists(groupInviteTransactionData.getGroupId(), admin.getAddress()))
+		if (!this.repository.getGroupRepository().adminExists(groupId, admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
 		Account invitee = getInvitee();
 
 		// Check invitee not already in group
-		if (this.repository.getGroupRepository().memberExists(groupInviteTransactionData.getGroupId(), invitee.getAddress()))
+		if (this.repository.getGroupRepository().memberExists(groupId, invitee.getAddress()))
 			return ValidationResult.ALREADY_GROUP_MEMBER;
 
 		// Check invitee is not banned
-		if (this.repository.getGroupRepository().banExists(groupInviteTransactionData.getGroupId(), invitee.getAddress()))
+		if (this.repository.getGroupRepository().banExists(groupId, invitee.getAddress()))
 			return ValidationResult.BANNED_FROM_GROUP;
 
 		// Check fee is positive

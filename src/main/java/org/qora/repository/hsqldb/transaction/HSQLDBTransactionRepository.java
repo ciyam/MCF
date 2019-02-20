@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import static java.util.Arrays.stream;
 import java.util.Calendar;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,10 +20,12 @@ import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.TransactionRepository;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 
 import static org.qora.transaction.Transaction.TransactionType.*;
@@ -384,7 +387,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		LOGGER.trace(sql);
+		LOGGER.trace(String.format("Transaction search SQL: %s", sql));
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
 			if (resultSet == null)
@@ -485,6 +488,59 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return transactions;
 		} catch (SQLException | DataException e) {
 			throw new DataException("Unable to fetch asset-related transactions from repository", e);
+		}
+	}
+
+	@Override
+	public List<TransactionData> getPendingTransactions(Integer txGroupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String[] txTypesNeedingApproval = stream(Transaction.TransactionType.values())
+		.filter(txType -> txType.needsApproval)
+		.map(txType -> String.valueOf(txType.value))
+		.toArray(String[]::new);
+
+		String txTypes = String.join(", ", txTypesNeedingApproval);
+
+		/*
+		 *  We only want transactions matching certain types needing approval,
+		 *  with txGroupId not set to NO_GROUP and where auto-approval won't
+		 *  happen due to the transaction creator being an admin of that group.
+		 */
+		String sql = "SELECT signature FROM UnconfirmedTransactions "
+				+ "NATURAL JOIN Transactions "
+				+ "LEFT OUTER JOIN Accounts ON Accounts.public_key = Transactions.creator "
+				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.admin = Accounts.account "
+				+ "WHERE Transactions.tx_group_id != ? AND GroupAdmins.admin IS NULL "
+				+ "AND Transactions.type IN (" + txTypes + ") "
+				+ "ORDER BY creation";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += ", signature";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<TransactionData> transactions = new ArrayList<TransactionData>();
+
+		// Find transactions with no corresponding row in BlockTransactions
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, Group.NO_GROUP)) {
+			if (resultSet == null)
+				return transactions;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				TransactionData transactionData = this.fromSignature(signature);
+
+				if (transactionData == null)
+					// Something inconsistent with the repository
+					throw new DataException("Unable to fetch unconfirmed transaction from repository?");
+
+				transactions.add(transactionData);
+			} while (resultSet.next());
+
+			return transactions;
+		} catch (SQLException | DataException e) {
+			throw new DataException("Unable to fetch unconfirmed transactions from repository", e);
 		}
 	}
 

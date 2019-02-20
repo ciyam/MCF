@@ -169,15 +169,12 @@ public class BlockGenerator extends Thread {
 			}
 
 			// Ignore transactions that have not met group-admin approval threshold
-			if (transaction.needsGroupApproval()) {
+			if (transaction.needsGroupApproval() && !transaction.meetsGroupApprovalThreshold()) {
 				unconfirmedTransactions.remove(i);
 				--i;
 				continue;
 			}
 		}
-
-		// Discard any repository changes used to aid transaction validity checks
-		// repository.discardChanges(); // XXX possibly not needed any more thanks to savepoints?
 
 		// Attempt to add transactions until block is full, or we run out
 		// If a transaction makes the block invalid then skip it and it'll either expire or be in next block.

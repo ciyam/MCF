@@ -21,6 +21,8 @@ public class GroupData {
 	private Long updated;
 	private boolean isOpen;
 	private ApprovalThreshold approvalThreshold;
+	private int minimumBlockDelay;
+	private int maximumBlockDelay;
 	/** Reference to CREATE_GROUP or UPDATE_GROUP transaction, used to rebuild group during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
@@ -34,7 +36,7 @@ public class GroupData {
 	}
 
 	/** Constructs new GroupData with nullable groupId and nullable updated [timestamp] */
-	public GroupData(Integer groupId, String owner, String name, String description, long created, Long updated, boolean isOpen, ApprovalThreshold approvalThreshold, byte[] reference) {
+	public GroupData(Integer groupId, String owner, String name, String description, long created, Long updated, boolean isOpen, ApprovalThreshold approvalThreshold, int minBlockDelay, int maxBlockDelay, byte[] reference) {
 		this.groupId = groupId;
 		this.owner = owner;
 		this.groupName = name;
@@ -44,11 +46,13 @@ public class GroupData {
 		this.isOpen = isOpen;
 		this.approvalThreshold = approvalThreshold;
 		this.reference = reference;
+		this.minimumBlockDelay = minBlockDelay;
+		this.maximumBlockDelay = maxBlockDelay;
 	}
 
 	/** Constructs new GroupData with unassigned groupId */
-	public GroupData(String owner, String name, String description, long created, boolean isOpen, ApprovalThreshold approvalThreshold, byte[] reference) {
-		this(null, owner, name, description, created, null, isOpen, approvalThreshold, reference);
+	public GroupData(String owner, String name, String description, long created, boolean isOpen, ApprovalThreshold approvalThreshold, int minBlockDelay, int maxBlockDelay, byte[] reference) {
+		this(null, owner, name, description, created, null, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference);
 	}
 
 	// Getters / setters
@@ -115,6 +119,14 @@ public class GroupData {
 
 	public void setApprovalThreshold(ApprovalThreshold approvalThreshold) {
 		this.approvalThreshold = approvalThreshold;
+	}
+
+	public int getMinimumBlockDelay() {
+		return this.minimumBlockDelay;
+	}
+
+	public int getMaximumBlockDelay() {
+		return this.maximumBlockDelay;
 	}
 
 }

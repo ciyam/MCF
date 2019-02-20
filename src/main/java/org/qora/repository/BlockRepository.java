@@ -45,6 +45,15 @@ public interface BlockRepository {
 	public int getHeightFromSignature(byte[] signature) throws DataException;
 
 	/**
+	 * Return height of block with timestamp just before passed timestamp.
+	 * 
+	 * @param timestamp
+	 * @return height, or 0 if not found in blockchain.
+	 * @throws DataException
+	 */
+	public int getHeightFromTimestamp(long timestamp) throws DataException;
+
+	/**
 	 * Return highest block height from repository.
 	 * 
 	 * @return height, or 0 if there are no blocks in DB (not very likely).

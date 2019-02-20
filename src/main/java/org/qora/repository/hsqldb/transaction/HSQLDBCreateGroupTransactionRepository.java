@@ -18,8 +18,9 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 	}
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT owner, group_name, description, is_open, approval_threshold, group_id FROM CreateGroupTransactions WHERE signature = ?", signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(
+				"SELECT owner, group_name, description, is_open, approval_threshold, min_block_delay, max_block_delay, group_id FROM CreateGroupTransactions WHERE signature = ?",
+				signature)) {
 			if (resultSet == null)
 				return null;
 
@@ -30,12 +31,15 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 
 			ApprovalThreshold approvalThreshold = ApprovalThreshold.valueOf(resultSet.getInt(5));
 
-			Integer groupId = resultSet.getInt(6);
+			int minBlockDelay = resultSet.getInt(6);
+			int maxBlockDelay = resultSet.getInt(7);
+
+			Integer groupId = resultSet.getInt(8);
 			if (resultSet.wasNull())
 				groupId = null;
 
 			return new CreateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description, isOpen, approvalThreshold,
-					groupId, fee, signature);
+					minBlockDelay, maxBlockDelay, groupId, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create group transaction from repository", e);
 		}
@@ -51,7 +55,8 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 				.bind("owner", createGroupTransactionData.getOwner()).bind("group_name", createGroupTransactionData.getGroupName())
 				.bind("description", createGroupTransactionData.getDescription()).bind("is_open", createGroupTransactionData.getIsOpen())
 				.bind("approval_threshold", createGroupTransactionData.getApprovalThreshold().value)
-				.bind("group_id", createGroupTransactionData.getGroupId());
+				.bind("min_block_delay", createGroupTransactionData.getMinimumBlockDelay())
+				.bind("max_block_delay", createGroupTransactionData.getMaximumBlockDelay()).bind("group_id", createGroupTransactionData.getGroupId());
 
 		try {
 			saveHelper.execute(this.repository);

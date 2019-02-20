@@ -27,6 +27,7 @@ public class Settings {
 	private String userpath = "";
 	private boolean useBitcoinTestNet = false;
 	private boolean wipeUnconfirmedOnStart = false;
+	private Boolean restrictedApi;
 	private String blockchainConfigPath = "blockchain.json";
 	/** Maximum number of unconfirmed transactions allowed per account */
 	private int maxUnconfirmedPerAccount = 100;
@@ -143,6 +144,9 @@ public class Settings {
 		if (json.containsKey("apiEnabled"))
 			this.apiEnabled = ((Boolean) json.get("apiEnabled")).booleanValue();
 
+		if (json.containsKey("restrictedApi"))
+			this.restrictedApi = ((Boolean) json.get("restrictedApi")).booleanValue();
+
 		// Peer-to-peer networking
 
 		if (json.containsKey("listenPort"))
@@ -206,6 +210,14 @@ public class Settings {
 
 	public boolean isApiEnabled() {
 		return this.apiEnabled;
+	}
+
+	public boolean isRestrictedApi() {
+		if (this.restrictedApi != null)
+			return this.restrictedApi;
+
+		// Not set in config file, so restrict if not testnet
+		return !BlockChain.getInstance().getIsTestNet();
 	}
 
 	public int getListenPort() {

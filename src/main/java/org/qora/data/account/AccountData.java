@@ -29,7 +29,7 @@ public class AccountData {
 	}
 
 	public AccountData(String address) {
-		this(address, null, null, Group.DEFAULT_GROUP);
+		this(address, null, null, Group.NO_GROUP);
 	}
 
 	// Getters/Setters

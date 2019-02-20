@@ -9,7 +9,6 @@ import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.data.transaction.JoinGroupTransactionData;
-import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
@@ -66,23 +65,28 @@ public class JoinGroupTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		GroupData groupData = this.repository.getGroupRepository().fromGroupId(joinGroupTransactionData.getGroupId());
+		int groupId = joinGroupTransactionData.getGroupId();
+
+		// Check txGroupId
+		int txGroupId = joinGroupTransactionData.getTxGroupId();
+		if (txGroupId != Group.NO_GROUP && txGroupId != groupId)
+			return ValidationResult.GROUP_ID_MISMATCH;
 
 		// Check group exists
-		if (groupData == null)
+		if (!this.repository.getGroupRepository().groupExists(groupId))
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
 		Account joiner = getJoiner();
 
-		if (this.repository.getGroupRepository().memberExists(joinGroupTransactionData.getGroupId(), joiner.getAddress()))
+		if (this.repository.getGroupRepository().memberExists(groupId, joiner.getAddress()))
 			return ValidationResult.ALREADY_GROUP_MEMBER;
 
 		// Check member is not banned
-		if (this.repository.getGroupRepository().banExists(joinGroupTransactionData.getGroupId(), joiner.getAddress()))
+		if (this.repository.getGroupRepository().banExists(groupId, joiner.getAddress()))
 			return ValidationResult.BANNED_FROM_GROUP;
 
 		// Check join request doesn't already exist
-		if (this.repository.getGroupRepository().joinRequestExists(joinGroupTransactionData.getGroupId(), joiner.getAddress()))
+		if (this.repository.getGroupRepository().joinRequestExists(groupId, joiner.getAddress()))
 			return ValidationResult.JOIN_REQUEST_EXISTS;
 
 		// Check fee is positive

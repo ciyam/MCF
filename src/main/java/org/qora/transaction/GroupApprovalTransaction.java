@@ -69,14 +69,13 @@ public class GroupApprovalTransaction extends Transaction {
 		if (pendingTransactionData == null)
 			return ValidationResult.TRANSACTION_UNKNOWN;
 
+		// Check pending transaction's groupID matches our transaction's groupID
+		if (groupApprovalTransactionData.getTxGroupId() != pendingTransactionData.getTxGroupId())
+			return ValidationResult.GROUP_ID_MISMATCH;
+
 		// Check pending transaction is not already in a block
 		if (this.repository.getTransactionRepository().getHeightFromSignature(groupApprovalTransactionData.getPendingSignature()) != 0)
 			return ValidationResult.TRANSACTION_ALREADY_CONFIRMED;
-
-		// Check pending transaction's groupID matches our transaction's groupID
-		int effectiveTxGroupId = this.getEffectiveGroupId();
-		if (effectiveTxGroupId != pendingTransactionData.getTxGroupId())
-			return ValidationResult.GROUP_ID_MISMATCH;
 
 		Account admin = getAdmin();
 

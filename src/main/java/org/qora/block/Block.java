@@ -83,6 +83,7 @@ public class Block {
 		TRANSACTION_INVALID(52),
 		TRANSACTION_PROCESSING_FAILED(53),
 		TRANSACTION_ALREADY_PROCESSED(54),
+		TRANSACTION_NEEDS_APPROVAL(55),
 		AT_STATES_MISMATCH(61);
 
 		public final int value;
@@ -833,6 +834,10 @@ public class Block {
 				// Check transaction isn't already included in a block
 				if (this.repository.getTransactionRepository().isConfirmed(transaction.getTransactionData().getSignature()))
 					return ValidationResult.TRANSACTION_ALREADY_PROCESSED;
+
+				// Check transaction doesn't still need approval
+				if (transaction.needsGroupApproval() && !transaction.meetsGroupApprovalThreshold())
+					return ValidationResult.TRANSACTION_NEEDS_APPROVAL;
 
 				// Check transaction is even valid
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid

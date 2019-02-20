@@ -15,6 +15,7 @@ import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
 import com.google.common.base.Utf8;
+import com.google.common.primitives.Ints;
 
 public class CreateGroupTransactionTransformer extends TransactionTransformer {
 
@@ -42,6 +43,8 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 		layout.add("group's description", TransformationType.STRING);
 		layout.add("is group \"open\"?", TransformationType.BOOLEAN);
 		layout.add("group transaction approval threshold", TransformationType.BYTE);
+		layout.add("minimum block delay for transaction approvals", TransformationType.INT);
+		layout.add("maximum block delay for transaction approvals", TransformationType.INT);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
@@ -68,13 +71,17 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 
 		ApprovalThreshold approvalThreshold = ApprovalThreshold.valueOf(byteBuffer.get());
 
+		int minBlockDelay = byteBuffer.getInt();
+
+		int maxBlockDelay = byteBuffer.getInt();
+
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new CreateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description, isOpen, approvalThreshold, null,
-				fee, signature);
+		return new CreateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description, isOpen, approvalThreshold,
+				minBlockDelay, maxBlockDelay, null, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
@@ -101,6 +108,10 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 			bytes.write((byte) (createGroupTransactionData.getIsOpen() ? 1 : 0));
 
 			bytes.write((byte) createGroupTransactionData.getApprovalThreshold().value);
+
+			bytes.write(Ints.toByteArray(createGroupTransactionData.getMinimumBlockDelay()));
+
+			bytes.write(Ints.toByteArray(createGroupTransactionData.getMaximumBlockDelay()));
 
 			Serialization.serializeBigDecimal(bytes, createGroupTransactionData.getFee());
 
