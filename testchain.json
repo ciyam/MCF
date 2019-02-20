@@ -1,4 +1,5 @@
 {
+	"isTestNet": true,
 	"coinSupply": "10000000000",
 	"blockDifficultyInterval": 10,
 	"minBlockTime": 30,
@@ -6,6 +7,8 @@
 	"blockTimestampMargin": 500,
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "1.0",
+	"grouplessAllowed": false,
+	"defaultGroupId": 2,
 	"genesis": {
 		"assets": [
 			{ "name": "MCF", "description": "MCF native coin", "quantity": 10000000000, "isDivisible": true, "reference": "3Verk6ZKBJc3WTTVfxFC9icSjKdM8b92eeJEpJP8qNizG4ZszNFq8wdDYdSjJXq2iogDFR1njyhsBdVpbvDfjzU7" }
