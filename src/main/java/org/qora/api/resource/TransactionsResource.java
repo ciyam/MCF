@@ -355,7 +355,7 @@ public class TransactionsResource {
 		ApiError.NON_PRODUCTION, ApiError.INVALID_PRIVATE_KEY, ApiError.TRANSFORMATION_ERROR
 	})
 	public String signTransaction(SimpleTransactionSignRequest signRequest) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		if (signRequest.transactionBytes.length == 0)

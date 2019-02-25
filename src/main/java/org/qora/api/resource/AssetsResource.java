@@ -558,7 +558,7 @@ public class AssetsResource {
 		ApiError.NON_PRODUCTION, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID
 	})
 	public String cancelOrder(CancelAssetOrderTransactionData transactionData) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -606,7 +606,7 @@ public class AssetsResource {
 		ApiError.NON_PRODUCTION, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID
 	})
 	public String issueAsset(IssueAssetTransactionData transactionData) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -654,7 +654,7 @@ public class AssetsResource {
 		ApiError.NON_PRODUCTION, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID
 	})
 	public String createOrder(CreateAssetOrderTransactionData transactionData) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {

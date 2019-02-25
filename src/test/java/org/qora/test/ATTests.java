@@ -1,6 +1,6 @@
 package org.qora.test;
 
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import org.qora.asset.Asset;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
@@ -14,7 +14,7 @@ import org.qora.transaction.DeployAtTransaction;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Base58;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.util.Arrays;

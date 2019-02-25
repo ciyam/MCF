@@ -10,6 +10,7 @@ import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlSeeAlso;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorNode;
 import org.qora.crypto.Crypto;
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -39,6 +40,8 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 })
 //All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
+// EclipseLink JAXB (MOXy) specific: use "type" field to determine subclass
+@XmlDiscriminatorNode("type")
 public abstract class TransactionData {
 
 	// Properties shared with all transaction types
@@ -97,12 +100,20 @@ public abstract class TransactionData {
 		return this.timestamp;
 	}
 
+	public void setTimestamp(long timestamp) {
+		this.timestamp = timestamp;
+	}
+
 	public int getTxGroupId() {
 		return this.txGroupId;
 	}
 
 	public byte[] getReference() {
 		return this.reference;
+	}
+
+	public void setReference(byte[] reference) {
+		this.reference = reference;
 	}
 
 	public byte[] getCreatorPublicKey() {
@@ -116,6 +127,10 @@ public abstract class TransactionData {
 
 	public BigDecimal getFee() {
 		return this.fee;
+	}
+
+	public void setFee(BigDecimal fee) {
+		this.fee = fee;
 	}
 
 	public byte[] getSignature() {

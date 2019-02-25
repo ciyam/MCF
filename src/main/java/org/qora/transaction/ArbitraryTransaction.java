@@ -149,7 +149,7 @@ public class ArbitraryTransaction extends Transaction {
 			Account sender = this.getSender();
 			int blockHeight = this.repository.getBlockRepository().getBlockchainHeight();
 
-			String senderPathname = Settings.getInstance().getUserpath() + "arbitrary" + File.separator + sender.getAddress();
+			String senderPathname = Settings.getInstance().getUserPath() + "arbitrary" + File.separator + sender.getAddress();
 			String blockPathname = senderPathname + File.separator + blockHeight;
 			String dataPathname = blockPathname + File.separator + Base58.encode(arbitraryTransactionData.getSignature()) + "-"
 					+ arbitraryTransactionData.getService() + ".raw";
@@ -187,7 +187,7 @@ public class ArbitraryTransaction extends Transaction {
 		Account sender = this.getSender();
 		int blockHeight = this.repository.getBlockRepository().getBlockchainHeight();
 
-		String senderPathname = Settings.getInstance().getUserpath() + "arbitrary" + File.separator + sender.getAddress();
+		String senderPathname = Settings.getInstance().getUserPath() + "arbitrary" + File.separator + sender.getAddress();
 		String blockPathname = senderPathname + File.separator + blockHeight;
 		String dataPathname = blockPathname + File.separator + Base58.encode(arbitraryTransactionData.getSignature()) + "-"
 				+ arbitraryTransactionData.getService() + ".raw";

@@ -1,6 +1,7 @@
 package org.qora.test;
 
-import org.junit.jupiter.api.Test;
+import org.junit.After;
+import org.junit.Test;
 import org.qora.account.Account;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
@@ -37,10 +38,7 @@ import org.qora.repository.AccountRepository;
 import org.qora.repository.AssetRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
-import org.qora.repository.RepositoryFactory;
 import org.qora.repository.RepositoryManager;
-import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
-import org.qora.settings.Settings;
 import org.qora.transaction.BuyNameTransaction;
 import org.qora.transaction.CancelAssetOrderTransaction;
 import org.qora.transaction.CancelSellNameTransaction;
@@ -58,8 +56,7 @@ import org.qora.transaction.UpdateNameTransaction;
 import org.qora.transaction.VoteOnPollTransaction;
 import org.qora.transaction.Transaction.ValidationResult;
 
-import static org.junit.jupiter.api.Assertions.*;
-import org.junit.jupiter.api.AfterEach;
+import static org.junit.Assert.*;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -68,14 +65,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.json.simple.JSONObject;
-
 import com.google.common.hash.HashCode;
 
-// Don't extend Common as we want to use an in-memory database
-public class TransactionTests {
-
-	private static final String connectionUrl = "jdbc:hsqldb:mem:db/blockchain;create=true";
+public class TransactionTests extends Common {
 
 	private static final byte[] generatorSeed = HashCode.fromString("0123456789abcdeffedcba98765432100123456789abcdeffedcba9876543210").asBytes();
 	private static final byte[] senderSeed = HashCode.fromString("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef").asBytes();
@@ -92,21 +84,10 @@ public class TransactionTests {
 	private PrivateKeyAccount generator;
 	private byte[] reference;
 
-	@SuppressWarnings("unchecked")
 	public void createTestAccounts(Long genesisTimestamp) throws DataException {
-		RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
-		RepositoryManager.setRepositoryFactory(repositoryFactory);
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			assertEquals(0, repository.getBlockRepository().getBlockchainHeight(), "Blockchain should be empty for this test");
+			assertEquals("Blockchain should be empty for this test", 0, repository.getBlockRepository().getBlockchainHeight());
 		}
-
-		// [Un]set genesis timestamp as required by test
-		JSONObject settingsJSON = new JSONObject();
-		if (genesisTimestamp != null)
-			settingsJSON.put("testnetstamp", genesisTimestamp);
-
-		Settings.test(settingsJSON);
 
 		// This needs to be called outside of acquiring our own repository or it will deadlock
 		BlockChain.validate();
@@ -137,9 +118,9 @@ public class TransactionTests {
 		repository.saveChanges();
 	}
 
-	@AfterEach
-	public void closeRepository() throws DataException {
-		RepositoryManager.closeRepositoryFactory();
+	@After
+	public void afterTest() throws DataException {
+		repository.close();
 	}
 
 	private Transaction createPayment(PrivateKeyAccount sender, String recipient) throws DataException {
@@ -147,7 +128,8 @@ public class TransactionTests {
 		BigDecimal amount = genericPaymentAmount;
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), recipient, amount, fee);
+		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), recipient,
+				amount, fee);
 
 		Transaction paymentTransaction = new PaymentTransaction(repository, paymentTransactionData);
 		paymentTransaction.sign(sender);
@@ -164,8 +146,8 @@ public class TransactionTests {
 		BigDecimal amount = BigDecimal.valueOf(1_000L);
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), recipient.getAddress(),
-				amount, fee);
+		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
+				recipient.getAddress(), amount, fee);
 
 		Transaction paymentTransaction = new PaymentTransaction(repository, paymentTransactionData);
 		paymentTransaction.sign(sender);
@@ -177,8 +159,8 @@ public class TransactionTests {
 		block.addTransaction(paymentTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -186,21 +168,21 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(amount).subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Amount should be in recipient's balance
 		expectedBalance = amount;
 		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Recipient's new balance incorrect");
+		assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check recipient's reference
 		byte[] recipientsReference = recipient.getLastReference();
-		assertTrue(Arrays.equals(paymentTransaction.getTransactionData().getSignature(), recipientsReference), "Recipient's new reference incorrect");
+		assertTrue("Recipient's new reference incorrect", Arrays.equals(paymentTransaction.getTransactionData().getSignature(), recipientsReference));
 
 		// Orphan block
 		block.orphan();
@@ -208,11 +190,11 @@ public class TransactionTests {
 
 		// Check sender's balance
 		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(initialSenderBalance.compareTo(actualBalance) == 0, "Sender's reverted balance incorrect");
+		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
 
 		// Check generator's balance
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(initialGeneratorBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
+		assertTrue("Generator's new balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
 	}
 
 	@Test
@@ -225,8 +207,8 @@ public class TransactionTests {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		RegisterNameTransactionData registerNameTransactionData = new RegisterNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), sender.getAddress(),
-				name, data, fee);
+		RegisterNameTransactionData registerNameTransactionData = new RegisterNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
+				sender.getAddress(), name, data, fee);
 
 		Transaction registerNameTransaction = new RegisterNameTransaction(repository, registerNameTransactionData);
 		registerNameTransaction.sign(sender);
@@ -238,8 +220,8 @@ public class TransactionTests {
 		block.addTransaction(registerNameTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -247,19 +229,19 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check name was registered
 		NameData actualNameData = this.repository.getNameRepository().fromName(name);
 		assertNotNull(actualNameData);
 
 		// Check sender's reference
-		assertTrue(Arrays.equals(registerNameTransactionData.getSignature(), sender.getLastReference()), "Sender's new reference incorrect");
+		assertTrue("Sender's new reference incorrect", Arrays.equals(registerNameTransactionData.getSignature(), sender.getLastReference()));
 
 		// Update variables for use by other tests
 		reference = sender.getLastReference();
@@ -294,8 +276,8 @@ public class TransactionTests {
 		block.addTransaction(updateNameTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -327,7 +309,8 @@ public class TransactionTests {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		SellNameTransactionData sellNameTransactionData = new SellNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), name, amount, fee);
+		SellNameTransactionData sellNameTransactionData = new SellNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), name, amount,
+				fee);
 
 		Transaction sellNameTransaction = new SellNameTransaction(repository, sellNameTransactionData);
 		sellNameTransaction.sign(sender);
@@ -339,8 +322,8 @@ public class TransactionTests {
 		block.addTransaction(sellNameTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -378,7 +361,8 @@ public class TransactionTests {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		CancelSellNameTransactionData cancelSellNameTransactionData = new CancelSellNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), name, fee);
+		CancelSellNameTransactionData cancelSellNameTransactionData = new CancelSellNameTransactionData(timestamp, Group.NO_GROUP, reference,
+				sender.getPublicKey(), name, fee);
 
 		Transaction cancelSellNameTransaction = new CancelSellNameTransaction(repository, cancelSellNameTransactionData);
 		cancelSellNameTransaction.sign(sender);
@@ -390,8 +374,8 @@ public class TransactionTests {
 		block.addTransaction(cancelSellNameTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -443,8 +427,8 @@ public class TransactionTests {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		BuyNameTransactionData buyNameTransactionData = new BuyNameTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(),
-				name, originalNameData.getSalePrice(), seller, nameReference, fee);
+		BuyNameTransactionData buyNameTransactionData = new BuyNameTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(), name,
+				originalNameData.getSalePrice(), seller, nameReference, fee);
 
 		Transaction buyNameTransaction = new BuyNameTransaction(repository, buyNameTransactionData);
 		buyNameTransaction.sign(buyer);
@@ -456,8 +440,8 @@ public class TransactionTests {
 		block.addTransaction(buyNameTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -496,8 +480,8 @@ public class TransactionTests {
 		Account recipient = new PublicKeyAccount(repository, recipientSeed);
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		CreatePollTransactionData createPollTransactionData = new CreatePollTransactionData(timestamp, Group.NO_GROUP, reference,
-				sender.getPublicKey(), recipient.getAddress(), pollName, description, pollOptions, fee);
+		CreatePollTransactionData createPollTransactionData = new CreatePollTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
+				recipient.getAddress(), pollName, description, pollOptions, fee);
 
 		Transaction createPollTransaction = new CreatePollTransaction(repository, createPollTransactionData);
 		createPollTransaction.sign(sender);
@@ -509,8 +493,8 @@ public class TransactionTests {
 		block.addTransaction(createPollTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -518,19 +502,19 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check poll was created
 		PollData actualPollData = this.repository.getVotingRepository().fromPollName(pollName);
 		assertNotNull(actualPollData);
 
 		// Check sender's reference
-		assertTrue(Arrays.equals(createPollTransactionData.getSignature(), sender.getLastReference()), "Sender's new reference incorrect");
+		assertTrue("Sender's new reference incorrect", Arrays.equals(createPollTransactionData.getSignature(), sender.getLastReference()));
 
 		// Update variables for use by other tests
 		reference = sender.getLastReference();
@@ -550,8 +534,8 @@ public class TransactionTests {
 
 		for (int optionIndex = 0; optionIndex <= pollOptionsSize; ++optionIndex) {
 			// Make a vote-on-poll transaction
-			VoteOnPollTransactionData voteOnPollTransactionData = new VoteOnPollTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), pollName,
-					optionIndex, fee);
+			VoteOnPollTransactionData voteOnPollTransactionData = new VoteOnPollTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
+					pollName, optionIndex, fee);
 
 			Transaction voteOnPollTransaction = new VoteOnPollTransaction(repository, voteOnPollTransactionData);
 			voteOnPollTransaction.sign(sender);
@@ -568,8 +552,8 @@ public class TransactionTests {
 			block.addTransaction(voteOnPollTransactionData);
 			block.sign();
 
-			assertTrue(block.isSignatureValid(), "Block signatures invalid");
-			assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+			assertTrue("Block signatures invalid", block.isSignatureValid());
+			assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 			block.process();
 			repository.saveChanges();
@@ -589,10 +573,10 @@ public class TransactionTests {
 		List<VoteOnPollData> votes = repository.getVotingRepository().getVotes(pollName);
 		assertNotNull(votes);
 
-		assertEquals(1, votes.size(), "Only one vote expected");
+		assertEquals("Only one vote expected", 1, votes.size());
 
-		assertEquals(pollOptionsSize - 1, votes.get(0).getOptionIndex(), "Wrong vote option index");
-		assertTrue(Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()), "Wrong voter public key");
+		assertEquals("Wrong vote option index", pollOptionsSize - 1, votes.get(0).getOptionIndex());
+		assertTrue("Wrong voter public key", Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()));
 
 		// Orphan last block
 		BlockData lastBlockData = repository.getBlockRepository().getLastBlock();
@@ -604,10 +588,10 @@ public class TransactionTests {
 		votes = repository.getVotingRepository().getVotes(pollName);
 		assertNotNull(votes);
 
-		assertEquals(1, votes.size(), "Only one vote expected");
+		assertEquals("Only one vote expected", 1, votes.size());
 
-		assertEquals(pollOptionsSize - 1 - 1, votes.get(0).getOptionIndex(), "Wrong vote option index");
-		assertTrue(Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()), "Wrong voter public key");
+		assertEquals("Wrong vote option index", pollOptionsSize - 1 - 1, votes.get(0).getOptionIndex());
+		assertTrue("Wrong voter public key", Arrays.equals(sender.getPublicKey(), votes.get(0).getVoterPublicKey()));
 	}
 
 	@Test
@@ -635,8 +619,8 @@ public class TransactionTests {
 		block.addTransaction(issueAssetTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -644,12 +628,12 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check we now have an assetId
 		Long assetId = issueAssetTransactionData.getAssetId();
@@ -673,11 +657,11 @@ public class TransactionTests {
 
 		// Check sender's balance
 		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(initialSenderBalance.compareTo(actualBalance) == 0, "Sender's reverted balance incorrect");
+		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
 
 		// Check generator's balance
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(initialGeneratorBalance.compareTo(actualBalance) == 0, "Generator's reverted balance incorrect");
+		assertTrue("Generator's reverted balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
 
 		// Check asset no longer exists
 		assertFalse(assetRepo.assetExists(assetId));
@@ -725,8 +709,8 @@ public class TransactionTests {
 		block.addTransaction(transferAssetTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -734,12 +718,12 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = originalSenderBalance.subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = originalGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check asset balances
 		BigDecimal actualSenderAssetBalance = sender.getConfirmedBalance(assetId);
@@ -757,11 +741,11 @@ public class TransactionTests {
 
 		// Check sender's balance
 		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(originalSenderBalance.compareTo(actualBalance) == 0, "Sender's reverted balance incorrect");
+		assertTrue("Sender's reverted balance incorrect", originalSenderBalance.compareTo(actualBalance) == 0);
 
 		// Check generator's balance
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(originalGeneratorBalance.compareTo(actualBalance) == 0, "Generator's reverted balance incorrect");
+		assertTrue("Generator's reverted balance incorrect", originalGeneratorBalance.compareTo(actualBalance) == 0);
 
 		// Check asset balances
 		actualSenderAssetBalance = sender.getConfirmedBalance(assetId);
@@ -817,8 +801,8 @@ public class TransactionTests {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 
-		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(), haveAssetId,
-				wantAssetId, amount, price, fee);
+		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(timestamp, Group.NO_GROUP, buyersReference,
+				buyer.getPublicKey(), haveAssetId, wantAssetId, amount, price, fee);
 		Transaction createOrderTransaction = new CreateAssetOrderTransaction(this.repository, createOrderTransactionData);
 		createOrderTransaction.sign(buyer);
 		assertTrue(createOrderTransaction.isSignatureValid());
@@ -829,8 +813,8 @@ public class TransactionTests {
 		block.addTransaction(createOrderTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -898,7 +882,8 @@ public class TransactionTests {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		byte[] buyersReference = buyer.getLastReference();
-		CancelAssetOrderTransactionData cancelOrderTransactionData = new CancelAssetOrderTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(), orderId, fee);
+		CancelAssetOrderTransactionData cancelOrderTransactionData = new CancelAssetOrderTransactionData(timestamp, Group.NO_GROUP, buyersReference,
+				buyer.getPublicKey(), orderId, fee);
 
 		Transaction cancelOrderTransaction = new CancelAssetOrderTransaction(this.repository, cancelOrderTransactionData);
 		cancelOrderTransaction.sign(buyer);
@@ -910,8 +895,8 @@ public class TransactionTests {
 		block.addTransaction(cancelOrderTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -973,8 +958,8 @@ public class TransactionTests {
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		BigDecimal senderPreTradeWantBalance = sender.getConfirmedBalance(wantAssetId);
 
-		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), haveAssetId,
-				wantAssetId, amount, price, fee);
+		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(timestamp, Group.NO_GROUP, reference,
+				sender.getPublicKey(), haveAssetId, wantAssetId, amount, price, fee);
 		Transaction createOrderTransaction = new CreateAssetOrderTransaction(this.repository, createOrderTransactionData);
 		createOrderTransaction.sign(sender);
 		assertTrue(createOrderTransaction.isSignatureValid());
@@ -985,8 +970,8 @@ public class TransactionTests {
 		block.addTransaction(createOrderTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -999,7 +984,7 @@ public class TransactionTests {
 		// Check order has trades
 		List<TradeData> trades = assetRepo.getOrdersTrades(orderId);
 		assertNotNull(trades);
-		assertEquals(1, trades.size(), "Trade didn't happen");
+		assertEquals("Trade didn't happen", 1, trades.size());
 		TradeData tradeData = trades.get(0);
 
 		// Check trade has correct values
@@ -1082,7 +1067,8 @@ public class TransactionTests {
 			payments.add(paymentData);
 		}
 
-		MultiPaymentTransactionData multiPaymentTransactionData = new MultiPaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), payments, fee);
+		MultiPaymentTransactionData multiPaymentTransactionData = new MultiPaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
+				payments, fee);
 
 		Transaction multiPaymentTransaction = new MultiPaymentTransaction(repository, multiPaymentTransactionData);
 		multiPaymentTransaction.sign(sender);
@@ -1094,20 +1080,20 @@ public class TransactionTests {
 		block.addTransaction(multiPaymentTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
 
 		// Check sender's balance
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedSenderBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
+		assertTrue("Sender's new balance incorrect", expectedSenderBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		BigDecimal expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Check recipients
 		for (int i = 0; i < payments.size(); ++i) {
@@ -1115,12 +1101,12 @@ public class TransactionTests {
 			Account recipient = new Account(this.repository, paymentData.getRecipient());
 
 			byte[] recipientsReference = recipient.getLastReference();
-			assertTrue(Arrays.equals(multiPaymentTransaction.getTransactionData().getSignature(), recipientsReference), "Recipient's new reference incorrect");
+			assertTrue("Recipient's new reference incorrect", Arrays.equals(multiPaymentTransaction.getTransactionData().getSignature(), recipientsReference));
 
 			// Amount should be in recipient's balance
 			expectedBalance = paymentData.getAmount();
 			actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
-			assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Recipient's new balance incorrect");
+			assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		}
 
@@ -1130,11 +1116,11 @@ public class TransactionTests {
 
 		// Check sender's balance
 		actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(initialSenderBalance.compareTo(actualBalance) == 0, "Sender's reverted balance incorrect");
+		assertTrue("Sender's reverted balance incorrect", initialSenderBalance.compareTo(actualBalance) == 0);
 
 		// Check generator's balance
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(initialGeneratorBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
+		assertTrue("Generator's new balance incorrect", initialGeneratorBalance.compareTo(actualBalance) == 0);
 	}
 
 	@Test
@@ -1164,8 +1150,8 @@ public class TransactionTests {
 		block.addTransaction(messageTransactionData);
 		block.sign();
 
-		assertTrue(block.isSignatureValid(), "Block signatures invalid");
-		assertEquals(Block.ValidationResult.OK, block.isValid(), "Block is invalid");
+		assertTrue("Block signatures invalid", block.isSignatureValid());
+		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
 
 		block.process();
 		repository.saveChanges();
@@ -1173,17 +1159,17 @@ public class TransactionTests {
 		// Check sender's balance
 		BigDecimal expectedBalance = initialSenderBalance.subtract(amount).subtract(fee);
 		BigDecimal actualBalance = accountRepository.getBalance(sender.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Sender's new balance incorrect");
+		assertTrue("Sender's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Fee should be in generator's balance
 		expectedBalance = initialGeneratorBalance.add(fee);
 		actualBalance = accountRepository.getBalance(generator.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Generator's new balance incorrect");
+		assertTrue("Generator's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 
 		// Amount should be in recipient's balance
 		expectedBalance = amount;
 		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
-		assertTrue(expectedBalance.compareTo(actualBalance) == 0, "Recipient's new balance incorrect");
+		assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
 	}
 
 }

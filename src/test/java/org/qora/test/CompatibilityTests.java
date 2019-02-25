@@ -1,6 +1,6 @@
 package org.qora.test;
 
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.CreateAssetOrderTransaction;
 import org.qora.transaction.CreatePollTransaction;
@@ -8,7 +8,7 @@ import org.qora.transaction.IssueAssetTransaction;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.Assert.*;
 
 import com.google.common.hash.HashCode;
 

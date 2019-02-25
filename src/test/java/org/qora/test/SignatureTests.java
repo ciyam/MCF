@@ -1,6 +1,6 @@
 package org.qora.test;
 
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.Block;
 import org.qora.block.GenesisBlock;
@@ -11,7 +11,7 @@ import org.qora.repository.RepositoryManager;
 import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 

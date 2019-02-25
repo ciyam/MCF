@@ -161,7 +161,7 @@ public class NamesResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
 	public String registerName(RegisterNameTransactionData transactionData) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -207,7 +207,7 @@ public class NamesResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
 	public String updateName(UpdateNameTransactionData transactionData) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -253,7 +253,7 @@ public class NamesResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
 	public String sellName(SellNameTransactionData transactionData) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -299,7 +299,7 @@ public class NamesResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
 	public String cancelSellName(CancelSellNameTransactionData transactionData) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -345,7 +345,7 @@ public class NamesResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
 	public String buyName(BuyNameTransactionData transactionData) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {

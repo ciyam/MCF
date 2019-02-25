@@ -3,26 +3,30 @@ package org.qora.block;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bitcoinj.core.Base58;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
+import org.qora.account.Account;
 import org.qora.account.GenesisAccount;
+import org.qora.account.PublicKeyAccount;
 import org.qora.crypto.Crypto;
 import org.qora.data.asset.AssetData;
 import org.qora.data.block.BlockData;
-import org.qora.data.transaction.GenesisTransactionData;
+import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
-import org.qora.settings.Settings;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.TransactionType;
+import org.qora.transform.TransformationException;
+import org.qora.transform.transaction.TransactionTransformer;
 
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
@@ -34,7 +38,18 @@ public class GenesisBlock extends Block {
 	private static final byte[] GENESIS_REFERENCE = new byte[] {
 		1, 1, 1, 1, 1, 1, 1, 1
 	}; // NOTE: Neither 64 nor 128 bytes!
-	private static final byte[] GENESIS_GENERATOR_PUBLIC_KEY = GenesisAccount.PUBLIC_KEY; // NOTE: 8 bytes not 32 bytes!
+
+	@XmlAccessorType(XmlAccessType.FIELD)
+	public static class GenesisInfo {
+		public int version = 1;
+		public long timestamp;
+		public BigDecimal generatingBalance;
+
+		public TransactionData[] transactions;
+
+		public GenesisInfo() {
+		}
+	}
 
 	// Properties
 	private static BlockData blockData;
@@ -53,95 +68,74 @@ public class GenesisBlock extends Block {
 
 	// Construction from JSON
 
-	public static void fromJSON(JSONObject json) {
-		// All parsing first, then if successful we can proceed to construction
+	/** Construct block data from blockchain config */
+	public static void newInstance(GenesisInfo info) {
+		// Should be safe to make this call as BlockChain's instance is set
+		// so we won't be blocked trying to re-enter synchronzied Settings.getInstance()
+		BlockChain blockchain = BlockChain.getInstance();
 
-		// Version
-		int version = 1; // but could be bumped later
-
-		// Timestamp
-		String timestampStr = (String) Settings.getTypedJson(json, "timestamp", String.class);
-		long timestamp;
-
-		if (timestampStr.equals("now"))
-			timestamp = System.currentTimeMillis();
-		else
-			try {
-				timestamp = Long.parseUnsignedLong(timestampStr);
-			} catch (NumberFormatException e) {
-				LOGGER.error("Unable to parse genesis timestamp: " + timestampStr);
-				throw new RuntimeException("Unable to parse genesis timestamp");
+		// Timestamp of zero means "now" but only valid for test nets!
+		if (info.timestamp == 0) {
+			if (!blockchain.isTestNet()) {
+				LOGGER.error("Genesis timestamp of zero (i.e. now) not valid for non-testnet blockchain configs");
+				throw new RuntimeException("Genesis timestamp of zero (i.e. now) not valid for non-testnet blockchain configs");
 			}
 
-		// Generating balance
-		BigDecimal generatingBalance = Settings.getJsonBigDecimal(json, "generatingBalance");
-
-		// Transactions
-		JSONArray transactionsJson = (JSONArray) Settings.getTypedJson(json, "transactions", JSONArray.class);
-		List<TransactionData> transactions = new ArrayList<>();
-
-		for (Object transactionObj : transactionsJson) {
-			if (!(transactionObj instanceof JSONObject)) {
-				LOGGER.error("Genesis transaction malformed in blockchain config file");
-				throw new RuntimeException("Genesis transaction malformed in blockchain config file");
-			}
-
-			JSONObject transactionJson = (JSONObject) transactionObj;
-
-			String recipient = (String) Settings.getTypedJson(transactionJson, "recipient", String.class);
-			BigDecimal amount = Settings.getJsonBigDecimal(transactionJson, "amount");
-
-			// assetId is optional
-			if (transactionJson.containsKey("assetId")) {
-				long assetId = (Long) Settings.getTypedJson(transactionJson, "assetId", Long.class);
-
-				// We're into version 4 genesis block territory now
-				version = 4;
-
-				transactions.add(new GenesisTransactionData(timestamp, recipient, amount, assetId));
-			} else {
-				transactions.add(new GenesisTransactionData(timestamp, recipient, amount));
-			}
+			// This will only take effect if there is no current genesis block in blockchain
+			info.timestamp = System.currentTimeMillis();
 		}
 
-		// Assets
-		JSONArray assetsJson = (JSONArray) Settings.getTypedJson(json, "assets", JSONArray.class);
-		String genesisAddress = Crypto.toAddress(GenesisAccount.PUBLIC_KEY);
-		List<AssetData> assets = new ArrayList<>();
+		transactionsData = Arrays.asList(info.transactions);
 
-		for (Object assetObj : assetsJson) {
-			if (!(assetObj instanceof JSONObject)) {
-				LOGGER.error("Genesis asset malformed in blockchain config file");
-				throw new RuntimeException("Genesis asset malformed in blockchain config file");
+		// Add default values to transactions
+		transactionsData.stream().forEach(transactionData -> {
+			if (transactionData.getFee() == null)
+				transactionData.setFee(BigDecimal.ZERO.setScale(8));
+
+			if (transactionData.getCreatorPublicKey() == null)
+				transactionData.setCreatorPublicKey(GenesisAccount.PUBLIC_KEY);
+
+			if (transactionData.getTimestamp() == 0)
+				transactionData.setTimestamp(info.timestamp);
+		});
+
+		// For version 1, extract any ISSUE_ASSET transactions into initialAssets and only allow GENESIS transactions
+		if (info.version == 1) {
+			List<TransactionData> issueAssetTransactions = transactionsData.stream()
+					.filter(transactionData -> transactionData.getType() == TransactionType.ISSUE_ASSET).collect(Collectors.toList());
+			transactionsData.removeAll(issueAssetTransactions);
+
+			// There should be only GENESIS transactions left;
+			if (transactionsData.stream().anyMatch(transactionData -> transactionData.getType() != TransactionType.GENESIS)) {
+				LOGGER.error("Version 1 genesis block only allowed to contain GENESIS transctions (after issue-asset processing)");
+				throw new RuntimeException("Version 1 genesis block only allowed to contain GENESIS transctions (after issue-asset processing)");
 			}
 
-			JSONObject assetJson = (JSONObject) assetObj;
+			// Convert ISSUE_ASSET transactions into initial assets
+			issueAssetTransactions.stream().map(transactionData -> {
+				IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
 
-			String name = (String) Settings.getTypedJson(assetJson, "name", String.class);
-			String description = (String) Settings.getTypedJson(assetJson, "description", String.class);
-			String reference58 = (String) Settings.getTypedJson(assetJson, "reference", String.class);
-			byte[] reference = Base58.decode(reference58);
-			long quantity = (Long) Settings.getTypedJson(assetJson, "quantity", Long.class);
-			boolean isDivisible = (Boolean) Settings.getTypedJson(assetJson, "isDivisible", Boolean.class);
-
-			assets.add(new AssetData(genesisAddress, name, description, quantity, isDivisible, reference));
+				return new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(), issueAssetTransactionData.getDescription(),
+						issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(), issueAssetTransactionData.getReference());
+			}).collect(Collectors.toList());
 		}
+
+		// Minor fix-up
+		info.generatingBalance.setScale(8);
 
 		byte[] reference = GENESIS_REFERENCE;
-		int transactionCount = transactions.size();
+		int transactionCount = transactionsData.size();
 		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
-		byte[] generatorPublicKey = GENESIS_GENERATOR_PUBLIC_KEY;
-		byte[] bytesForSignature = getBytesForSignature(version, reference, generatingBalance, generatorPublicKey);
+		byte[] generatorPublicKey = GenesisAccount.PUBLIC_KEY;
+		byte[] bytesForSignature = getBytesForSignature(info.version, reference, info.generatingBalance, generatorPublicKey);
 		byte[] generatorSignature = calcSignature(bytesForSignature);
 		byte[] transactionsSignature = generatorSignature;
 		int height = 1;
 		int atCount = 0;
 		BigDecimal atFees = BigDecimal.ZERO.setScale(8);
 
-		blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+		blockData = new BlockData(info.version, reference, transactionCount, totalFees, transactionsSignature, height, info.timestamp, info.generatingBalance,
 				generatorPublicKey, generatorSignature, atCount, atFees);
-		transactionsData = transactions;
-		initialAssets = assets;
 	}
 
 	// More information
@@ -281,6 +275,47 @@ public class GenesisBlock extends Block {
 				return ValidationResult.TRANSACTION_INVALID;
 
 		return ValidationResult.OK;
+	}
+
+	@Override
+	public void process() throws DataException {
+		LOGGER.info(String.format("Using genesis block timestamp of %d", blockData.getTimestamp()));
+
+		// If we're a version 1 genesis block, create assets now
+		if (blockData.getVersion() == 1)
+			for (AssetData assetData : initialAssets)
+				repository.getAssetRepository().save(assetData);
+
+		/*
+		 * Some transactions will be missing references and signatures,
+		 * so we generate them by trial-processing transactions and using
+		 * account's last-reference to fill in the gaps for reference,
+		 * and a duplicated SHA256 digest for signature
+		 */
+		this.repository.setSavepoint();
+		try {
+			for (Transaction transaction : this.getTransactions()) {
+				TransactionData transactionData = transaction.getTransactionData();
+				Account creator = new PublicKeyAccount(this.repository, transactionData.getCreatorPublicKey());
+
+				if (transactionData.getReference() == null)
+					transactionData.setReference(creator.getLastReference());
+				if (transactionData.getSignature() == null) {
+					byte[] digest = Crypto.digest(TransactionTransformer.toBytesForSigning(transactionData));
+					byte[] signature = Bytes.concat(digest, digest);
+
+					transactionData.setSignature(signature);
+				}
+
+				transaction.process();
+			}
+		} catch (TransformationException e) {
+			throw new RuntimeException("Can't process genesis block transaction", e);
+		} finally {
+			this.repository.rollbackToSavepoint();
+		}
+
+		super.process();
 	}
 
 }

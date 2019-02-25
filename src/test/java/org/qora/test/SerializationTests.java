@@ -1,6 +1,6 @@
 package org.qora.test;
 
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import org.qora.block.Block;
 import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
@@ -15,7 +15,7 @@ import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.Assert.*;
 
 import java.util.Arrays;
 import java.util.List;
@@ -60,15 +60,15 @@ public class SerializationTests extends Common {
 
 		TransactionData parsedTransactionData = TransactionTransformer.fromBytes(bytes);
 
-		assertTrue(Arrays.equals(transactionData.getSignature(), parsedTransactionData.getSignature()), "Transaction signature mismatch");
+		assertTrue("Transaction signature mismatch", Arrays.equals(transactionData.getSignature(), parsedTransactionData.getSignature()));
 
-		assertEquals(bytes.length, TransactionTransformer.getDataLength(transactionData), "Data length mismatch");
+		assertEquals("Data length mismatch", bytes.length, TransactionTransformer.getDataLength(transactionData));
 	}
 
 	private void testSpecificBlockTransactions(int height, TransactionType type) throws DataException, TransformationException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().fromHeight(height);
-			assertNotNull(blockData, "Block " + height + " is required for this test");
+			assertNotNull("Block " + height + " is required for this test", blockData);
 
 			Block block = new Block(repository, blockData);
 

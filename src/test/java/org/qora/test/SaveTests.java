@@ -3,7 +3,7 @@ package org.qora.test;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.group.Group;

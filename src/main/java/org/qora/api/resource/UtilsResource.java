@@ -79,7 +79,7 @@ public class UtilsResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String fromBase64(String base64) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try {
@@ -115,7 +115,7 @@ public class UtilsResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String base64from58(String base58) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		try {
@@ -142,7 +142,7 @@ public class UtilsResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION})
 	public String toBase64(@PathParam("hex") String hex) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		return Base64.getEncoder().encodeToString(HashCode.fromString(hex).asBytes());
@@ -165,7 +165,7 @@ public class UtilsResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION})
 	public String toBase58(@PathParam("hex") String hex) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		return Base58.encode(HashCode.fromString(hex).asBytes());
@@ -190,7 +190,7 @@ public class UtilsResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION})
 	public String random(@QueryParam("length") Integer length) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		if (length == null)
@@ -221,7 +221,7 @@ public class UtilsResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String getMnemonic(@QueryParam("entropy") String suppliedEntropy) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		/*
@@ -290,7 +290,7 @@ public class UtilsResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION})
 	public String fromMnemonic(String mnemonic) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		if (mnemonic.isEmpty())
@@ -336,7 +336,7 @@ public class UtilsResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String privateKey(@PathParam("entropy") String entropy58) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		byte[] entropy;
@@ -372,7 +372,7 @@ public class UtilsResource {
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
 	public String publicKey(@PathParam("privateKey") String privateKey58) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		byte[] privateKey;

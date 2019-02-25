@@ -731,18 +731,21 @@ public class Block {
 		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp())
 			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
 
-		// Check timestamp is not in the future (within configurable ~500ms margin)
-		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
-			return ValidationResult.TIMESTAMP_IN_FUTURE;
+		// These checks are disabled for testnet
+		if (!BlockChain.getInstance().isTestNet()) {
+			// Check timestamp is not in the future (within configurable ~500ms margin)
+			if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
+				return ValidationResult.TIMESTAMP_IN_FUTURE;
 
-		// Legacy gen1 test: check timestamp milliseconds is the same as parent timestamp milliseconds?
-		if (this.blockData.getTimestamp() % 1000 != parentBlockData.getTimestamp() % 1000)
-			return ValidationResult.TIMESTAMP_MS_INCORRECT;
+			// Legacy gen1 test: check timestamp milliseconds is the same as parent timestamp milliseconds?
+			if (this.blockData.getTimestamp() % 1000 != parentBlockData.getTimestamp() % 1000)
+				return ValidationResult.TIMESTAMP_MS_INCORRECT;
 
-		// Too early to forge block?
-		// XXX DISABLED as it doesn't work - but why?
-		// if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
-		// 	return ValidationResult.TIMESTAMP_TOO_SOON;
+			// Too early to forge block?
+			// XXX DISABLED as it doesn't work - but why?
+			// if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
+			// 	return ValidationResult.TIMESTAMP_TOO_SOON;
+		}
 
 		// Check block version
 		if (this.blockData.getVersion() != parentBlock.getNextBlockVersion())

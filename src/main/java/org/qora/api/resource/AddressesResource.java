@@ -64,8 +64,8 @@ public class AddressesResource {
 			if (accountData == null)
 				accountData = new AccountData(address, null, null, BlockChain.getInstance().getDefaultGroupId());
 
-			// If Blockchain config doesn't allow NO_GROUP then change this to blockchain's default groupID
-			if (accountData.getDefaultGroupId() == Group.NO_GROUP && !BlockChain.getInstance().getGrouplessAllowed())
+			// If Blockchain config doesn't allow NO_GROUP for approval-needing tx type then change this to blockchain's default groupID
+			if (accountData.getDefaultGroupId() == Group.NO_GROUP && BlockChain.getInstance().getRequireGroupForApproval())
 				accountData.setDefaultGroupId(BlockChain.getInstance().getDefaultGroupId());
 
 			return accountData;
@@ -242,7 +242,7 @@ public class AddressesResource {
 	)
 	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.NON_PRODUCTION, ApiError.REPOSITORY_ISSUE})
 	public String fromPublicKey(@PathParam("publickey") String publicKey58) {
-		if (Settings.getInstance().isRestrictedApi())
+		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
 		// Decode public key

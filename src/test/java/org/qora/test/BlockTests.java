@@ -3,7 +3,7 @@ package org.qora.test;
 import java.math.BigDecimal;
 import java.util.List;
 
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import org.qora.block.Block;
 import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
@@ -15,7 +15,7 @@ import org.qora.transaction.Transaction;
 import org.qora.transform.TransformationException;
 import org.qora.transform.block.BlockTransformer;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.Assert.*;
 
 public class BlockTests extends Common {
 
@@ -66,7 +66,7 @@ public class BlockTests extends Common {
 			// Block 949 has lots of varied transactions
 			// Blocks 390 & 754 have only payment transactions
 			BlockData blockData = repository.getBlockRepository().fromHeight(754);
-			assertNotNull(blockData, "Block 754 is required for this test");
+			assertNotNull("Block 754 is required for this test", blockData);
 
 			Block block = new Block(repository, blockData);
 			assertTrue(block.isSignatureValid());
@@ -107,7 +107,7 @@ public class BlockTests extends Common {
 			// Block 949 has lots of varied transactions
 			// Blocks 390 & 754 have only payment transactions
 			BlockData blockData = repository.getBlockRepository().fromHeight(754);
-			assertNotNull(blockData, "Block 754 is required for this test");
+			assertNotNull("Block 754 is required for this test", blockData);
 
 			Block block = new Block(repository, blockData);
 			assertTrue(block.isSignatureValid());

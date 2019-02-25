@@ -184,6 +184,7 @@ public abstract class Transaction {
 		INVALID_GROUP_ID(64),
 		TRANSACTION_UNKNOWN(65),
 		TRANSACTION_ALREADY_CONFIRMED(66),
+		INVALID_TX_GROUP_ID(67),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -480,7 +481,7 @@ public abstract class Transaction {
 
 			// Check transaction's txGroupId
 			if (!this.isValidTxGroupId())
-				return ValidationResult.INVALID_GROUP_ID;
+				return ValidationResult.INVALID_TX_GROUP_ID;
 
 			creator.setLastReference(creator.getUnconfirmedLastReference());
 			ValidationResult result = this.isValid();
@@ -498,18 +499,18 @@ public abstract class Transaction {
 	private boolean isValidTxGroupId() throws DataException {
 		int txGroupId = this.transactionData.getTxGroupId();
 
+		// If transaction type doesn't need approval then we insist on NO_GROUP
+		if (!this.transactionData.getType().needsApproval && txGroupId != Group.NO_GROUP)
+			return false;
+
 		// Handling NO_GROUP
 		if (txGroupId == Group.NO_GROUP)
-			// true if NO_GROUP allowed, false otherwise
-			return BlockChain.getInstance().getGrouplessAllowed();
+			// true if NO_GROUP txGroupId is allowed for approval-needing tx types
+			return !BlockChain.getInstance().getRequireGroupForApproval();
 
 		// Group even exist?
 		if (!this.repository.getGroupRepository().groupExists(txGroupId))
 			return false;
-
-		// Does this transaction type bypass approval?
-		if (!this.transactionData.getType().needsApproval)
-			return true;
 
 		GroupRepository groupRepository = this.repository.getGroupRepository();
 
@@ -642,6 +643,9 @@ public abstract class Transaction {
 
 	/**
 	 * Returns whether transaction needs to go through group-admin approval.
+	 * <p>
+	 * This test is more than simply "does this transaction type need approval?"
+	 * because group admins bypass approval for transactions attached to their group.
 	 * 
 	 * @throws DataException
 	 */
@@ -659,7 +663,7 @@ public abstract class Transaction {
 
 		if (!groupRepository.groupExists(txGroupId))
 			// Group no longer exists? Possibly due to blockchain orphaning undoing group creation?
-			return true;
+			return true; // stops tx being included in block but it will eventually expire
 
 		// If transaction's creator is group admin then auto-approve
 		PublicKeyAccount creator = this.getCreator();
@@ -678,7 +682,8 @@ public abstract class Transaction {
 		// Is transaction is outside of min/max approval period?
 		int creationBlockHeight = this.repository.getBlockRepository().getHeightFromTimestamp(this.transactionData.getTimestamp());
 		int currentBlockHeight = this.repository.getBlockRepository().getBlockchainHeight();
-		if (currentBlockHeight < creationBlockHeight + groupData.getMinimumBlockDelay() || currentBlockHeight > creationBlockHeight + groupData.getMaximumBlockDelay())
+		if (currentBlockHeight < creationBlockHeight + groupData.getMinimumBlockDelay()
+				|| currentBlockHeight > creationBlockHeight + groupData.getMaximumBlockDelay())
 			return false;
 
 		return group.getGroupData().getApprovalThreshold().meetsApprovalThreshold(repository, txGroupId, this.transactionData.getSignature());
