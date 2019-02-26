@@ -81,6 +81,11 @@ public class BlockGenerator extends Thread {
 				Lock blockchainLock = Controller.getInstance().getBlockchainLock();
 				if (blockchainLock.tryLock())
 					generation: try {
+						// Is new block's timestamp valid yet?
+						// We do a separate check as some timestamp checks are skipped for testnet
+						if (newBlock.isTimestampValid() != ValidationResult.OK)
+							break generation;
+
 						// Is new block valid yet? (Before adding unconfirmed transactions)
 						if (newBlock.isValid() != ValidationResult.OK)
 							break generation;

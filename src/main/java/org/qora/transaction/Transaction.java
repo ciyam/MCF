@@ -500,8 +500,8 @@ public abstract class Transaction {
 		int txGroupId = this.transactionData.getTxGroupId();
 
 		// If transaction type doesn't need approval then we insist on NO_GROUP
-		if (!this.transactionData.getType().needsApproval && txGroupId != Group.NO_GROUP)
-			return false;
+		if (!this.transactionData.getType().needsApproval)
+			return txGroupId == Group.NO_GROUP;
 
 		// Handling NO_GROUP
 		if (txGroupId == Group.NO_GROUP)

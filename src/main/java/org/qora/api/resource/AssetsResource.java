@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
@@ -28,6 +29,7 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
+import org.qora.api.model.AggregatedOrder;
 import org.qora.api.model.TradeWithOrderInfo;
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.crypto.Crypto;
@@ -175,9 +177,9 @@ public class AssetsResource {
 	}
 
 	@GET
-	@Path("/orderbook/{assetid}/{otherassetid}")
+	@Path("/openorders/{assetid}/{otherassetid}")
 	@Operation(
-		summary = "Asset order book",
+		summary = "Detailed asset open order book",
 		description = "Returns open orders, offering {assetid} for {otherassetid} in return.",
 		responses = {
 			@ApiResponse(
@@ -195,7 +197,7 @@ public class AssetsResource {
 	@ApiErrors({
 		ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
 	})
-	public List<OrderData> getAssetOrders(@Parameter(
+	public List<OrderData> getOpenOrders(@Parameter(
 		ref = "assetid"
 	) @PathParam("assetid") int assetId, @Parameter(
 		ref = "otherassetid"
@@ -214,6 +216,54 @@ public class AssetsResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
 			return repository.getAssetRepository().getOpenOrders(assetId, otherAssetId, limit, offset, reverse);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/orderbook/{assetid}/{otherassetid}")
+	@Operation(
+		summary = "Aggregated asset open order book",
+		description = "Returns open orders, offering {assetid} for {otherassetid} in return.",
+		responses = {
+			@ApiResponse(
+				description = "asset orders",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = AggregatedOrder.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
+	})
+	public List<AggregatedOrder> getAggregatedOpenOrders(@Parameter(
+		ref = "assetid"
+	) @PathParam("assetid") int assetId, @Parameter(
+		ref = "otherassetid"
+	) @PathParam("otherassetid") int otherAssetId, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			if (!repository.getAssetRepository().assetExists(assetId))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			if (!repository.getAssetRepository().assetExists(otherAssetId))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			List<OrderData> orders = repository.getAssetRepository().getAggregatedOpenOrders(assetId, otherAssetId, limit, offset, reverse);
+
+			// Map to aggregated form
+			return orders.stream().map(orderData -> new AggregatedOrder(orderData)).collect(Collectors.toList());
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -382,7 +432,7 @@ public class AssetsResource {
 	@ApiErrors({
 		ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE
 	})
-	public List<AccountBalanceData> getAssets(@PathParam("address") String address, @Parameter(
+	public List<AccountBalanceData> getOwnedAssets(@PathParam("address") String address, @Parameter(
 		ref = "limit"
 	) @QueryParam("limit") Integer limit, @Parameter(
 		ref = "offset"
@@ -456,7 +506,7 @@ public class AssetsResource {
 	@ApiErrors({
 		ApiError.INVALID_ADDRESS, ApiError.ADDRESS_NO_EXISTS, ApiError.REPOSITORY_ISSUE
 	})
-	public List<OrderData> getAssetOrders(@PathParam("address") String address, @QueryParam("includeClosed") boolean includeClosed,
+	public List<OrderData> getAccountOrders(@PathParam("address") String address, @QueryParam("includeClosed") boolean includeClosed,
 			@QueryParam("includeFulfilled") boolean includeFulfilled, @Parameter(
 				ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
@@ -478,6 +528,61 @@ public class AssetsResource {
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
 
 			return repository.getAssetRepository().getAccountsOrders(publicKey, includeClosed, includeFulfilled, limit, offset, reverse);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/orders/{address}/{assetid}/{otherassetid}")
+	@Operation(
+		summary = "Asset orders created by this address, limited to one specific asset pair",
+		responses = {
+			@ApiResponse(
+				description = "Asset orders",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = OrderData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_ADDRESS, ApiError.ADDRESS_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public List<OrderData> getAccountAssetPairOrders(@PathParam("address") String address, @PathParam("assetid") int assetId, @PathParam("otherassetid") int otherAssetId, @QueryParam("includeClosed") boolean includeClosed,
+			@QueryParam("includeFulfilled") boolean includeFulfilled, @Parameter(
+				ref = "limit"
+			) @QueryParam("limit") Integer limit, @Parameter(
+				ref = "offset"
+			) @QueryParam("offset") Integer offset, @Parameter(
+				ref = "reverse"
+			) @QueryParam("reverse") Boolean reverse) {
+		if (!Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			AccountData accountData = repository.getAccountRepository().getAccount(address);
+
+			if (accountData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+
+			byte[] publicKey = accountData.getPublicKey();
+			if (publicKey == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+
+			if (!repository.getAssetRepository().assetExists(assetId))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			if (!repository.getAssetRepository().assetExists(otherAssetId))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			return repository.getAssetRepository().getAccountsOrders(publicKey, assetId, otherAssetId, includeClosed, includeFulfilled, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
