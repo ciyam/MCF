@@ -11,6 +11,7 @@ import java.util.Map;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
+import javax.xml.bind.UnmarshalException;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -19,6 +20,7 @@ import javax.xml.transform.stream.StreamSource;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qora.data.block.BlockData;
@@ -132,6 +134,16 @@ public class BlockChain {
 
 			// Attempt to unmarshal JSON stream to BlockChain config
 			blockchain = unmarshaller.unmarshal(json, BlockChain.class).getValue();
+		} catch (UnmarshalException e) {
+			Throwable linkedException = e.getLinkedException();
+			if (linkedException instanceof XMLMarshalException) {
+				String message = ((XMLMarshalException) linkedException).getInternalException().getLocalizedMessage();
+				LOGGER.error(message);
+				throw new RuntimeException(message);
+			}
+
+			LOGGER.error("Unable to process blockchain config file", e);
+			throw new RuntimeException("Unable to process blockchain config file", e);
 		} catch (FileNotFoundException e) {
 			LOGGER.error("Blockchain config file not found: " + filename);
 			throw new RuntimeException("Blockchain config file not found: " + filename);
