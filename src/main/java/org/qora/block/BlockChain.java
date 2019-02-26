@@ -258,12 +258,12 @@ public class BlockChain {
 				throw new RuntimeException("Missing feature trigger in blockchain config");
 			}
 
-		// If groupless approval-needing transactions are not allowed the defaultGroupId needs to be set
+		// If approval-needing transactions require a group the defaultGroupId needs to be set
 		// XXX we could also check groupID exists, or at least created in genesis block, or in blockchain config
-		if (!this.requireGroupForApproval && this.defaultGroupId == Group.NO_GROUP) {
-			LOGGER.error("defaultGroupId must be set to valid groupID in blockchain config if groupless approval-needing transactions are not allowed");
+		if (this.requireGroupForApproval && this.defaultGroupId == Group.NO_GROUP) {
+			LOGGER.error("defaultGroupId must be set to valid groupID in blockchain config if approval-needing transactions require a group");
 			throw new RuntimeException(
-					"defaultGroupId must be set to valid groupID in blockchain config if groupless approval-needing transactions are not allowed");
+					"defaultGroupId must be set to valid groupID in blockchain config if approval-needing transactions require a group");
 		}
 	}
 
