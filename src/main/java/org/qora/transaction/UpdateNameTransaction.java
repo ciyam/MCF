@@ -29,10 +29,6 @@ public class UpdateNameTransaction extends Transaction {
 		super(repository, transactionData);
 
 		this.updateNameTransactionData = (UpdateNameTransactionData) this.transactionData;
-
-		// XXX This is horrible - thanks to JAXB unmarshalling not calling constructor
-		if (this.transactionData.getCreatorPublicKey() == null)
-			this.transactionData.setCreatorPublicKey(this.updateNameTransactionData.getOwnerPublicKey());
 	}
 
 	// More information
@@ -103,6 +99,10 @@ public class UpdateNameTransaction extends Transaction {
 		// Check name exists
 		if (nameData == null)
 			return ValidationResult.NAME_DOES_NOT_EXIST;
+
+		// As this transaction type could require approval, check txGroupId matches groupID at creation
+		if (nameData.getCreationGroupId() != updateNameTransactionData.getTxGroupId())
+			return ValidationResult.TX_GROUP_ID_MISMATCH;
 
 		// Check name isn't currently for sale
 		if (nameData.getIsForSale())

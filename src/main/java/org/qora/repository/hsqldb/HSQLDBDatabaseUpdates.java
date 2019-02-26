@@ -568,6 +568,21 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE UpdateGroupTransactions ADD COLUMN new_max_block_delay INT NOT NULL DEFAULT 1440 BEFORE group_reference");
 					break;
 
+				case 36:
+					// Adding group-ness to record types that could require approval for their related transactions
+					// e.g. REGISTER_NAME might require approval and so Names table requires groupID
+					// Registered Names
+					stmt.execute("ALTER TABLE Names ADD COLUMN creation_group_id GroupID NOT NULL DEFAULT 0");
+					// Assets aren't ever updated so don't need group-ness
+					// for future use: stmt.execute("ALTER TABLE Assets ADD COLUMN creation_group_id GroupID NOT NULL DEFAULT 0");
+					// Polls aren't ever updated, only voted upon using option index so don't need group-ness
+					// for future use: stmt.execute("ALTER TABLE Polls ADD COLUMN creation_group_id GroupID NOT NULL DEFAULT 0");
+					// CIYAM ATs
+					stmt.execute("ALTER TABLE ATs ADD COLUMN creation_group_id GroupID NOT NULL DEFAULT 0");
+					// Groups can be updated but updates require approval from original groupID
+					stmt.execute("ALTER TABLE Groups ADD COLUMN creation_group_id GroupID NOT NULL DEFAULT 0");
+					break;
+
 				default:
 					// nothing to do
 					return false;
