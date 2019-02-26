@@ -6,9 +6,10 @@
 	"blockTimestampMargin": 500,
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "1.0",
+	"useBrokenMD160ForAddresses": true,
 	"genesis": {
 		"assets": [
-			{ "name": "QORA", "description": "QORA coin" }
+			{ "name": "QORA", "description": "QORA coin", "quantity": 10000000000, "isDivisible": true, "reference": "28u54WRcMfGujtQMZ9dNKFXVqucY7XfPihXAqPFsnx853NPUwfDJy1sMH5boCkahFgjUNYqc5fkduxdBhQTKgUsC" }
 		]
 		"timestamp": "1400247274336",
 		"generatingBalance": "10000000",
