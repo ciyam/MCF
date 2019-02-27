@@ -9,6 +9,7 @@
 	"unitFee": "0.1",
 	"requireGroupForApproval": false,
 	"defaultGroupId": 2,
+	"oneNamePerAccount": true,
 	"genesisInfo": {
 		"version": 4,
 		"timestamp": 0,
