@@ -690,6 +690,14 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE AssetTrades ADD initiator_saving QoraAmount NOT NULL DEFAULT 0");
 					break;
 
+				case 44:
+					// Account flags
+					stmt.execute("ALTER TABLE Accounts ADD COLUMN flags INT NOT NULL DEFAULT 0");
+					// Corresponding transaction to set/clear flags
+					stmt.execute("CREATE TABLE AccountFlagsTransactions (signature Signature, creator QoraPublicKey NOT NULL, target QoraAddress NOT NULL, and_mask INT NOT NULL, or_mask INT NOT NULL, xor_mask INT NOT NULL, "
+							+ "previous_flags INT, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					break;
+
 				default:
 					// nothing to do
 					return false;

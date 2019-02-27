@@ -26,15 +26,16 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference, public_key, default_group_id FROM Accounts WHERE account = ?", address)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference, public_key, default_group_id, flags FROM Accounts WHERE account = ?", address)) {
 			if (resultSet == null)
 				return null;
 
 			byte[] reference = resultSet.getBytes(1);
 			byte[] publicKey = resultSet.getBytes(2);
 			int defaultGroupId = resultSet.getInt(3);
+			int flags = resultSet.getInt(4);
 
-			return new AccountData(address, reference, publicKey, defaultGroupId);
+			return new AccountData(address, reference, publicKey, defaultGroupId, flags);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}
@@ -62,6 +63,19 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account's default groupID from repository", e);
+		}
+	}
+
+	@Override
+	public Integer getFlags(String address) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT flags FROM Accounts WHERE account = ?", address)) {
+			if (resultSet == null)
+				return null;
+
+			// Column is NOT NULL so this should never implicitly convert to 0
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's flags from repository", e);
 		}
 	}
 
@@ -113,6 +127,23 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's default group ID into repository", e);
+		}
+	}
+
+	@Override
+	public void setFlags(AccountData accountData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
+		saveHelper.bind("account", accountData.getAddress()).bind("flags", accountData.getFlags());
+
+		byte[] publicKey = accountData.getPublicKey();
+		if (publicKey != null)
+			saveHelper.bind("public_key", publicKey);
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save account's flags into repository", e);
 		}
 	}
 

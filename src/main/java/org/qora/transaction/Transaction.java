@@ -72,7 +72,8 @@ public abstract class Transaction {
 		LEAVE_GROUP(32, false),
 		GROUP_APPROVAL(33, false),
 		SET_GROUP(34, false),
-		UPDATE_ASSET(35, true);
+		UPDATE_ASSET(35, true),
+		ACCOUNT_FLAGS(36, false);
 
 		public final int value;
 		public final boolean needsApproval;
@@ -190,6 +191,7 @@ public abstract class Transaction {
 		MULTIPLE_NAMES_FORBIDDEN(69),
 		INVALID_ASSET_OWNER(70),
 		AT_IS_FINISHED(71),
+		NO_FLAG_PERMISSION(72),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;

@@ -18,6 +18,9 @@ public interface AccountRepository {
 	/** Returns account's default groupID or null if account not found. */
 	public Integer getDefaultGroupId(String address) throws DataException;
 
+	/** Returns account's flags or null if account not found. */
+	public Integer getFlags(String address) throws DataException;
+
 	/**
 	 * Ensures at least minimal account info in repository.
 	 * <p>
@@ -38,6 +41,13 @@ public interface AccountRepository {
 	 * Note: ignores other fields like last reference.
 	 */
 	public void setDefaultGroupId(AccountData accountData) throws DataException;
+
+	/**
+	 * Saves account's flags, and public key if present, in repository.
+	 * <p>
+	 * Note: ignores other fields like last reference, default groupID.
+	 */
+	public void setFlags(AccountData accountData) throws DataException;
 
 	public void delete(String address) throws DataException;
 
