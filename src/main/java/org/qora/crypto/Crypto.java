@@ -50,7 +50,7 @@ public class Crypto {
 		byte[] inputHash = digest(input);
 
 		// Use RIPEMD160 to create shorter address
-		if (BlockChain.getUseBrokenMD160ForAddresses()) {
+		if (BlockChain.getInstance().getUseBrokenMD160ForAddresses()) {
 			// Legacy BROKEN MD160
 			BrokenMD160 brokenMD160 = new BrokenMD160();
 			inputHash = brokenMD160.digest(inputHash);

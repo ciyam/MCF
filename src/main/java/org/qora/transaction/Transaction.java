@@ -186,6 +186,7 @@ public abstract class Transaction {
 		TRANSACTION_ALREADY_CONFIRMED(66),
 		INVALID_TX_GROUP_ID(67),
 		TX_GROUP_ID_MISMATCH(68),
+		MULTIPLE_NAMES_FORBIDDEN(69),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
