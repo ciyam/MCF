@@ -46,6 +46,11 @@ public class IssueAssetTransactionData extends TransactionData {
 	}
 
 	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		/*
+		 *  If we're being constructed as part of the genesis block info inside blockchain config
+		 *  and no specific issuer's public key is supplied
+		 *  then use genesis account's public key.
+		 */
 		if (parent instanceof GenesisBlock.GenesisInfo && this.issuerPublicKey == null)
 			this.issuerPublicKey = GenesisAccount.PUBLIC_KEY;
 

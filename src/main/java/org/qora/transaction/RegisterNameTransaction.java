@@ -8,6 +8,7 @@ import java.util.List;
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
+import org.qora.block.BlockChain;
 import org.qora.crypto.Crypto;
 import org.qora.data.transaction.RegisterNameTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -28,10 +29,6 @@ public class RegisterNameTransaction extends Transaction {
 		super(repository, transactionData);
 
 		this.registerNameTransactionData = (RegisterNameTransactionData) this.transactionData;
-
-		// XXX This is horrible - thanks to JAXB unmarshalling not calling constructor
-		if (this.transactionData.getCreatorPublicKey() == null)
-			this.transactionData.setCreatorPublicKey(this.registerNameTransactionData.getRegistrantPublicKey());
 	}
 
 	// More information
@@ -79,6 +76,12 @@ public class RegisterNameTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
+		Account registrant = getRegistrant();
+
+		// If accounts are only allowed one registered name then check for this
+		if (BlockChain.getInstance().oneNamePerAccount() && !this.repository.getNameRepository().getNamesByOwner(registrant.getAddress()).isEmpty())
+			return ValidationResult.MULTIPLE_NAMES_FORBIDDEN;
+
 		// Check owner address is valid
 		if (!Crypto.isValidAddress(registerNameTransactionData.getOwner()))
 			return ValidationResult.INVALID_ADDRESS;
@@ -106,8 +109,6 @@ public class RegisterNameTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_FEE;
 
 		// Check reference is correct
-		Account registrant = getRegistrant();
-
 		if (!Arrays.equals(registrant.getLastReference(), registerNameTransactionData.getReference()))
 			return ValidationResult.INVALID_REFERENCE;
 

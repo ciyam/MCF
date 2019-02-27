@@ -69,10 +69,6 @@ public class GroupApprovalTransaction extends Transaction {
 		if (pendingTransactionData == null)
 			return ValidationResult.TRANSACTION_UNKNOWN;
 
-		// Check pending transaction's groupID matches our transaction's groupID
-		if (groupApprovalTransactionData.getTxGroupId() != pendingTransactionData.getTxGroupId())
-			return ValidationResult.GROUP_ID_MISMATCH;
-
 		// Check pending transaction is not already in a block
 		if (this.repository.getTransactionRepository().getHeightFromSignature(groupApprovalTransactionData.getPendingSignature()) != 0)
 			return ValidationResult.TRANSACTION_ALREADY_CONFIRMED;
@@ -80,7 +76,7 @@ public class GroupApprovalTransaction extends Transaction {
 		Account admin = getAdmin();
 
 		// Can't cast approval decision if not an admin
-		if (!this.repository.getGroupRepository().adminExists(groupApprovalTransactionData.getTxGroupId(), admin.getAddress()))
+		if (!this.repository.getGroupRepository().adminExists(pendingTransactionData.getTxGroupId(), admin.getAddress()))
 			return ValidationResult.NOT_GROUP_ADMIN;
 
 		// Check fee is positive

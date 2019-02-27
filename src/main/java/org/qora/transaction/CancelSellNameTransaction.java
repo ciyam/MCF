@@ -28,10 +28,6 @@ public class CancelSellNameTransaction extends Transaction {
 		super(repository, transactionData);
 
 		this.cancelSellNameTransactionData = (CancelSellNameTransactionData) this.transactionData;
-
-		// XXX This is horrible - thanks to JAXB unmarshalling not calling constructor
-		if (this.transactionData.getCreatorPublicKey() == null)
-			this.transactionData.setCreatorPublicKey(this.cancelSellNameTransactionData.getOwnerPublicKey());
 	}
 
 	// More information

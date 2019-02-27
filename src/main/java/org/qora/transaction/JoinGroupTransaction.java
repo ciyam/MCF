@@ -67,11 +67,6 @@ public class JoinGroupTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		int groupId = joinGroupTransactionData.getGroupId();
 
-		// Check txGroupId
-		int txGroupId = joinGroupTransactionData.getTxGroupId();
-		if (txGroupId != Group.NO_GROUP && txGroupId != groupId)
-			return ValidationResult.GROUP_ID_MISMATCH;
-
 		// Check group exists
 		if (!this.repository.getGroupRepository().groupExists(groupId))
 			return ValidationResult.GROUP_DOES_NOT_EXIST;

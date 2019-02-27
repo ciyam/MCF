@@ -20,10 +20,18 @@ public class NameData {
 	private Long updated;
 	// No need to expose this via API
 	@XmlTransient
-	@Schema(hidden = true)
+	@Schema(
+		hidden = true
+	)
 	private byte[] reference;
 	private boolean isForSale;
 	private BigDecimal salePrice;
+	// For internal use
+	@XmlTransient
+	@Schema(
+		hidden = true
+	)
+	private int creationGroupId;
 
 	// Constructors
 
@@ -31,8 +39,8 @@ public class NameData {
 	protected NameData() {
 	}
 
-	public NameData(String owner, String name, String data, long registered, Long updated, byte[] reference, boolean isForSale,
-			BigDecimal salePrice) {
+	public NameData(String owner, String name, String data, long registered, Long updated, byte[] reference, boolean isForSale, BigDecimal salePrice,
+			int creationGroupId) {
 		this.owner = owner;
 		this.name = name;
 		this.data = data;
@@ -41,10 +49,11 @@ public class NameData {
 		this.reference = reference;
 		this.isForSale = isForSale;
 		this.salePrice = salePrice;
+		this.creationGroupId = creationGroupId;
 	}
 
-	public NameData(String owner, String name, String data, long registered, byte[] reference) {
-		this(owner, name, data, registered, null, reference, false, null);
+	public NameData(String owner, String name, String data, long registered, byte[] reference, int creationGroupId) {
+		this(owner, name, data, registered, null, reference, false, null, creationGroupId);
 	}
 
 	// Getters / setters
@@ -103,6 +112,10 @@ public class NameData {
 
 	public void setSalePrice(BigDecimal salePrice) {
 		this.salePrice = salePrice;
+	}
+
+	public int getCreationGroupId() {
+		return this.creationGroupId;
 	}
 
 }

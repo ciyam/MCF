@@ -29,9 +29,9 @@ public class HSQLDBUpdateGroupTransactionRepository extends HSQLDBTransactionRep
 			String newDescription = resultSet.getString(3);
 			boolean newIsOpen = resultSet.getBoolean(4);
 			ApprovalThreshold newApprovalThreshold = ApprovalThreshold.valueOf(resultSet.getInt(5));
-			byte[] groupReference = resultSet.getBytes(6);
-			int newMinBlockDelay = resultSet.getInt(7);
-			int newMaxBlockDelay = resultSet.getInt(8);
+			int newMinBlockDelay = resultSet.getInt(6);
+			int newMaxBlockDelay = resultSet.getInt(7);
+			byte[] groupReference = resultSet.getBytes(8);
 
 			return new UpdateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, newOwner, newDescription, newIsOpen,
 					newApprovalThreshold, newMinBlockDelay, newMaxBlockDelay, groupReference, fee, signature);

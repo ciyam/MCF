@@ -185,6 +185,8 @@ public abstract class Transaction {
 		TRANSACTION_UNKNOWN(65),
 		TRANSACTION_ALREADY_CONFIRMED(66),
 		INVALID_TX_GROUP_ID(67),
+		TX_GROUP_ID_MISMATCH(68),
+		MULTIPLE_NAMES_FORBIDDEN(69),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -665,7 +667,7 @@ public abstract class Transaction {
 			// Group no longer exists? Possibly due to blockchain orphaning undoing group creation?
 			return true; // stops tx being included in block but it will eventually expire
 
-		// If transaction's creator is group admin then auto-approve
+		// If transaction's creator is group admin (of group with ID txGroupId) then auto-approve
 		PublicKeyAccount creator = this.getCreator();
 		if (groupRepository.adminExists(txGroupId, creator.getAddress()))
 			return false;

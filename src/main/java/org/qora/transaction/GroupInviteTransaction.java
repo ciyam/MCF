@@ -75,10 +75,6 @@ public class GroupInviteTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		int groupId = groupInviteTransactionData.getGroupId();
 
-		// Check transaction's groupID matches group's ID
-		if (groupInviteTransactionData.getTxGroupId() != groupId)
-			return ValidationResult.GROUP_ID_MISMATCH;
-
 		// Check time to live zero (infinite) or positive
 		if (groupInviteTransactionData.getTimeToLive() < 0)
 			return ValidationResult.INVALID_LIFETIME;
