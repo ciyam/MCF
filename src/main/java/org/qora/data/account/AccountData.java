@@ -15,6 +15,7 @@ public class AccountData {
 	protected byte[] publicKey;
 	protected int defaultGroupId;
 	protected int flags;
+	protected String forgingEnabler;
 
 	// Constructors
 
@@ -22,16 +23,17 @@ public class AccountData {
 	protected AccountData() {
 	}
 
-	public AccountData(String address, byte[] reference, byte[] publicKey, int defaultGroupId, int flags) {
+	public AccountData(String address, byte[] reference, byte[] publicKey, int defaultGroupId, int flags, String forgingEnabler) {
 		this.address = address;
 		this.reference = reference;
 		this.publicKey = publicKey;
 		this.defaultGroupId = defaultGroupId;
 		this.flags = flags;
+		this.forgingEnabler = forgingEnabler;
 	}
 
 	public AccountData(String address) {
-		this(address, null, null, Group.NO_GROUP, 0);
+		this(address, null, null, Group.NO_GROUP, 0, null);
 	}
 
 	// Getters/Setters
@@ -70,6 +72,14 @@ public class AccountData {
 
 	public void setFlags(int flags) {
 		this.flags = flags;
+	}
+
+	public String getForgingEnabler() {
+		return this.forgingEnabler;
+	}
+
+	public void setForgingEnabler(String forgingEnabler) {
+		this.forgingEnabler = forgingEnabler;
 	}
 
 	// Comparison

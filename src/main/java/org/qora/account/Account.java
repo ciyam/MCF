@@ -21,6 +21,11 @@ public class Account {
 
 	private static final Logger LOGGER = LogManager.getLogger(Account.class);
 
+	public static final int TIER1_FORGING_MASK = 0x1;
+	public static final int TIER2_FORGING_MASK = 0x2;
+	public static final int TIER3_FORGING_MASK = 0x4;
+	public static final int FORGING_MASK = TIER1_FORGING_MASK | TIER2_FORGING_MASK | TIER3_FORGING_MASK;
+
 	public static final int ADDRESS_LENGTH = 25;
 
 	protected Repository repository;
@@ -236,6 +241,14 @@ public class Account {
 		AccountData accountData = this.buildAccountData();
 		accountData.setFlags(flags);
 		this.repository.getAccountRepository().setFlags(accountData);
+	}
+
+	// Forging Enabler
+
+	public void setForgingEnabler(String address) throws DataException {
+		AccountData accountData = this.buildAccountData();
+		accountData.setForgingEnabler(address);
+		this.repository.getAccountRepository().setForgingEnabler(accountData);
 	}
 
 }

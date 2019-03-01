@@ -698,6 +698,27 @@ public class HSQLDBDatabaseUpdates {
 							+ "previous_flags INT, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
+				case 38:
+					// Enabling other accounts to forge
+					// Transaction to allow one account to enable other account to forge
+					stmt.execute("CREATE TABLE EnableForgingTransactions (signature Signature, creator QoraPublicKey NOT NULL, target QoraAddress NOT NULL, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// Modification to accounts to record who enabled them to forge (useful for counting accounts and potentially orphaning)
+					stmt.execute("ALTER TABLE Accounts ADD COLUMN forging_enabler QoraAddress");
+					break;
+
+				case 39:
+					// Proxy forging
+					// Transaction emitted by forger announcing they are forging on behalf of recipient
+					stmt.execute("CREATE TABLE ProxyForgingTransactions (signature Signature, forger QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, proxy_public_key QoraPublicKey NOT NULL, share DECIMAL(5,2) NOT NULL, "
+							+ "previous_share DECIMAL(5,2), PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// Table of current shares
+					stmt.execute("CREATE TABLE ProxyForgers (forger QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, proxy_public_key QoraPublicKey NOT NULL, share DECIMAL(5,2) NOT NULL, "
+							+ "PRIMARY KEY (forger, recipient))");
+					// Proxy-forged blocks will contain proxy public key, which will be used to look up block reward sharing, so create index for those lookups
+					stmt.execute("CREATE INDEX ProxyForgersProxyPublicKeyIndex ON ProxyForgers (proxy_public_key)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
