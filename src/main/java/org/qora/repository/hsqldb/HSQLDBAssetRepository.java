@@ -213,7 +213,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT price, sum(amount - fulfilled), max(ordered) FROM AssetOrders "
+		String sql = "SELECT price, SUM(amount - fulfilled), MAX(ordered) FROM AssetOrders "
 				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE GROUP BY price ORDER BY price";
 		if (reverse != null && reverse)
 			sql += " DESC";

@@ -187,7 +187,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		try {
 			// params: long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature
 			return (TransactionData) subclassInfos[type.value].fromBaseMethod.invoke(txRepository, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
-		} catch (IllegalArgumentException | InvocationTargetException | IllegalAccessException e) {
+		} catch (InvocationTargetException e) {
+			if (e.getCause() instanceof DataException)
+				throw (DataException) e.getCause();
+
+			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
+		} catch (IllegalArgumentException | IllegalAccessException e) {
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 		}
 	}
@@ -699,7 +704,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		try {
 			subclassInfos[type.value].saveMethod.invoke(txRepository, transactionData);
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (InvocationTargetException e) {
+			if (e.getCause() instanceof DataException)
+				throw (DataException) e.getCause();
+
+			throw new DataException("Exception during save of transaction type [" + type.name() + "] into HSQLDB repository");
+		} catch (IllegalAccessException | IllegalArgumentException e) {
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during save into HSQLDB repository");
 		}
 	}

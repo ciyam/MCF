@@ -15,6 +15,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -23,6 +24,8 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
@@ -44,6 +47,7 @@ import org.qora.repository.Repository;
 import org.qora.repository.RepositoryFactory;
 import org.qora.repository.RepositoryManager;
 import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
+import org.qora.settings.Settings;
 import org.qora.transform.TransformationException;
 import org.qora.transform.block.BlockTransformer;
 import org.qora.transform.transaction.AtTransactionTransformer;
@@ -56,6 +60,11 @@ import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 
 public class v1feeder extends Thread {
+
+	static {
+		// This must go before any calls to LogManager/Logger
+		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
+	}
 
 	private static final Logger LOGGER = LogManager.getLogger(v1feeder.class);
 
@@ -528,6 +537,11 @@ public class v1feeder extends Thread {
 
 		String legacyATPathname = args[0];
 		readLegacyATs(legacyATPathname);
+
+		Security.insertProviderAt(new BouncyCastleProvider(), 0);
+		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
+
+		Settings.getInstance();
 
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.connectionUrl);
