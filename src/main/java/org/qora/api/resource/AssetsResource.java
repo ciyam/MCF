@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,7 +23,6 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
-import org.qora.account.Account;
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
@@ -32,11 +30,13 @@ import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.AggregatedOrder;
 import org.qora.api.model.TradeWithOrderInfo;
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
+import org.qora.data.asset.RecentTradeData;
 import org.qora.data.asset.TradeData;
 import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.CreateAssetOrderTransactionData;
@@ -140,12 +140,12 @@ public class AssetsResource {
 	}
 
 	@GET
-	@Path("/holders/{assetid}")
+	@Path("/balances")
 	@Operation(
-		summary = "List holders of an asset",
+		summary = "Asset balances owned by addresses and/or filtered to subset of assetIDs",
+		description = "Returns asset balances for these addresses/assetIDs, with balances. At least one address or assetID must be supplied.",
 		responses = {
 			@ApiResponse(
-				description = "asset holders",
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
@@ -157,20 +157,30 @@ public class AssetsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_CRITERIA, ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
+		ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
 	})
-	public List<AccountBalanceData> getAssetHolders(@PathParam("assetid") int assetId, @Parameter(
+	public List<AccountBalanceData> getAssetBalances(@QueryParam("address") List<String> addresses, @QueryParam("assetid") List<Long> assetIds, @Parameter(
 		ref = "limit"
 	) @QueryParam("limit") Integer limit, @Parameter(
 		ref = "offset"
 	) @QueryParam("offset") Integer offset, @Parameter(
 		ref = "reverse"
 	) @QueryParam("reverse") Boolean reverse) {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			if (!repository.getAssetRepository().assetExists(assetId))
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+		if (addresses.isEmpty() && assetIds.isEmpty())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
-			return repository.getAccountRepository().getAssetBalances(assetId, limit, offset, reverse);
+		for (String address : addresses)
+			if (!Crypto.isValidAddress(address))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			for (long assetId : assetIds)
+				if (!repository.getAssetRepository().assetExists(assetId))
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			return repository.getAccountRepository().getAssetBalances(addresses, assetIds, limit, offset, reverse);
+		} catch (ApiException e) {
+			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -264,6 +274,51 @@ public class AssetsResource {
 
 			// Map to aggregated form
 			return orders.stream().map(orderData -> new AggregatedOrder(orderData)).collect(Collectors.toList());
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/trades/recent")
+	@Operation(
+		summary = "Most recent asset trades",
+		description = "Returns list of most recent two asset trades for each assetID passed. Other assetID optional.",
+		responses = {
+			@ApiResponse(
+				description = "asset trades",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = RecentTradeData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
+	})
+	public List<RecentTradeData> getRecentTrades(@QueryParam("assetid") List<Long> assetIds, @QueryParam("otherassetid") Long otherAssetId, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			for (long assetId : assetIds)
+				if (!repository.getAssetRepository().assetExists(assetId))
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			if (otherAssetId == null)
+				otherAssetId = Asset.QORA;
+			else
+				if (!repository.getAssetRepository().assetExists(otherAssetId))
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			return repository.getAssetRepository().getRecentTrades(assetIds, otherAssetId, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -412,81 +467,6 @@ public class AssetsResource {
 	}
 
 	@GET
-	@Path("/address/{address}")
-	@Operation(
-		summary = "All assets owned by this address",
-		description = "Returns the list of assets for this address, with balances.",
-		responses = {
-			@ApiResponse(
-				description = "the list of assets",
-				content = @Content(
-					array = @ArraySchema(
-						schema = @Schema(
-							implementation = AccountBalanceData.class
-						)
-					)
-				)
-			)
-		}
-	)
-	@ApiErrors({
-		ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE
-	})
-	public List<AccountBalanceData> getOwnedAssets(@PathParam("address") String address, @Parameter(
-		ref = "limit"
-	) @QueryParam("limit") Integer limit, @Parameter(
-		ref = "offset"
-	) @QueryParam("offset") Integer offset, @Parameter(
-		ref = "reverse"
-	) @QueryParam("reverse") Boolean reverse) {
-		if (!Crypto.isValidAddress(address))
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getAccountRepository().getAllBalances(address, limit, offset, reverse);
-		} catch (ApiException e) {
-			throw e;
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
-
-	@GET
-	@Path("/balance/{assetid}/{address}")
-	@Operation(
-		summary = "Asset-specific balance request",
-		description = "Returns the confirmed balance of the given address for the given asset key.",
-		responses = {
-			@ApiResponse(
-				description = "the balance",
-				content = @Content(
-					mediaType = MediaType.TEXT_PLAIN,
-					schema = @Schema(
-						type = "string",
-						format = "number"
-					)
-				)
-			)
-		}
-	)
-	@ApiErrors({
-		ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE
-	})
-	public BigDecimal getAssetBalance(@PathParam("assetid") long assetid, @PathParam("address") String address) {
-		if (!Crypto.isValidAddress(address))
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			Account account = new Account(repository, address);
-			return account.getConfirmedBalance(assetid);
-		} catch (ApiException e) {
-			throw e;
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-	}
-
-	@GET
 	@Path("/orders/{address}")
 	@Operation(
 		summary = "Asset orders created by this address",
@@ -555,8 +535,8 @@ public class AssetsResource {
 	@ApiErrors({
 		ApiError.INVALID_ADDRESS, ApiError.ADDRESS_NO_EXISTS, ApiError.REPOSITORY_ISSUE
 	})
-	public List<OrderData> getAccountAssetPairOrders(@PathParam("address") String address, @PathParam("assetid") int assetId, @PathParam("otherassetid") int otherAssetId, @QueryParam("includeClosed") boolean includeClosed,
-			@QueryParam("includeFulfilled") boolean includeFulfilled, @Parameter(
+	public List<OrderData> getAccountAssetPairOrders(@PathParam("address") String address, @PathParam("assetid") int assetId,
+			@PathParam("otherassetid") int otherAssetId, @QueryParam("isClosed") Boolean isClosed, @QueryParam("isFulfilled") Boolean isFulfilled, @Parameter(
 				ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
 				ref = "offset"
@@ -582,7 +562,7 @@ public class AssetsResource {
 			if (!repository.getAssetRepository().assetExists(otherAssetId))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			return repository.getAssetRepository().getAccountsOrders(publicKey, assetId, otherAssetId, includeClosed, includeFulfilled, limit, offset, reverse);
+			return repository.getAssetRepository().getAccountsOrders(publicKey, assetId, otherAssetId, isClosed, isFulfilled, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

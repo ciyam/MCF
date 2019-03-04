@@ -13,6 +13,8 @@ public class AccountBalanceData {
 	private String address;
 	private long assetId;
 	private BigDecimal balance;
+	// Not always present:
+	private String assetName;
 
 	// Constructors
 
@@ -20,10 +22,15 @@ public class AccountBalanceData {
 	protected AccountBalanceData() {
 	}
 
-	public AccountBalanceData(String address, long assetId, BigDecimal balance) {
+	public AccountBalanceData(String address, long assetId, BigDecimal balance, String assetName) {
 		this.address = address;
 		this.assetId = assetId;
 		this.balance = balance;
+		this.assetName = assetName;
+	}
+
+	public AccountBalanceData(String address, long assetId, BigDecimal balance) {
+		this(address, assetId, balance, null);
 	}
 
 	// Getters/Setters
@@ -42,6 +49,10 @@ public class AccountBalanceData {
 
 	public void setBalance(BigDecimal balance) {
 		this.balance = balance;
+	}
+
+	public String getAssetName() {
+		return this.assetName;
 	}
 
 }

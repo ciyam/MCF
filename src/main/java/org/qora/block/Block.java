@@ -210,9 +210,6 @@ public class Block {
 		}
 
 		long timestamp = parentBlock.calcNextBlockTimestamp(version, generatorSignature, generator);
-		long maximumTimestamp = parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMaxBlockTime();
-		if (timestamp > maximumTimestamp)
-			timestamp = maximumTimestamp;
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
@@ -783,27 +780,9 @@ public class Block {
 		if (this.blockData.getGeneratingBalance().compareTo(parentBlock.calcNextBlockGeneratingBalance()) != 0)
 			return ValidationResult.GENERATING_BALANCE_INCORRECT;
 
-		// XXX Block.isValid generator check relaxation?? blockchain config option?
-		// After maximum block period, then generator checks are relaxed
-		if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMaxBlockTime()) {
-			// Check generator is allowed to forge this block
-			BigInteger hashValue = this.calcBlockHash();
-			BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
-
-			// Multiply target by guesses
-			long guesses = (this.blockData.getTimestamp() - parentBlockData.getTimestamp()) / 1000;
-			BigInteger lowerTarget = target.multiply(BigInteger.valueOf(guesses - 1));
-			target = target.multiply(BigInteger.valueOf(guesses));
-
-			// Generator's target must exceed block's hashValue threshold
-			if (hashValue.compareTo(target) >= 0)
-				return ValidationResult.GENERATOR_NOT_ACCEPTED;
-
-			// Odd gen1 comment: "CHECK IF FIRST BLOCK OF USER"
-			// Each second elapsed allows generator to test a new "target" window against hashValue
-			if (hashValue.compareTo(lowerTarget) < 0)
-				return ValidationResult.GENERATOR_NOT_ACCEPTED;
-		}
+		// Check generator is allowed to forge this block
+		if (!isGeneratorValidToForge(parentBlock))
+			return ValidationResult.GENERATOR_NOT_ACCEPTED;
 
 		// CIYAM ATs
 		if (this.blockData.getATCount() != 0) {
@@ -816,8 +795,6 @@ public class Block {
 				} else {
 					// Generate local AT states for comparison
 					this.executeATs();
-
-					// XXX do we need to revalidate signatures if transactions list has changed?
 				}
 
 				// Check locally generated AT states against ones received from elsewhere
@@ -887,7 +864,6 @@ public class Block {
 				}
 			}
 		} catch (DataException e) {
-			// XXX why was this TRANSACTION_TIMESTAMP_INVALID?
 			return ValidationResult.TRANSACTION_INVALID;
 		} finally {
 			// Rollback repository changes made by test-processing transactions above
@@ -960,10 +936,33 @@ public class Block {
 		this.blockData.setTransactionCount(this.blockData.getTransactionCount() + 1);
 
 		// We've added transactions, so recalculate transactions signature
-		// XXX surely this breaks Block.isSignatureValid which is called before we are?
-		// calcTransactionsSignature();
+		calcTransactionsSignature();
 	}
 
+	/** Returns whether block's generator is actually allowed to forge this block. */
+	protected boolean isGeneratorValidToForge(Block parentBlock) throws DataException {
+		BlockData parentBlockData = parentBlock.getBlockData();
+
+		BigInteger hashValue = this.calcBlockHash();
+		BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
+
+		// Multiply target by guesses
+		long guesses = (this.blockData.getTimestamp() - parentBlockData.getTimestamp()) / 1000;
+		BigInteger lowerTarget = target.multiply(BigInteger.valueOf(guesses - 1));
+		target = target.multiply(BigInteger.valueOf(guesses));
+
+		// Generator's target must exceed block's hashValue threshold
+		if (hashValue.compareTo(target) >= 0)
+			return false;
+
+		// Odd gen1 comment: "CHECK IF FIRST BLOCK OF USER"
+		// Each second elapsed allows generator to test a new "target" window against hashValue
+		if (hashValue.compareTo(lowerTarget) < 0)
+			return false;
+
+		return true;
+	}
+	
 	/**
 	 * Process block, and its transactions, adding them to the blockchain.
 	 * 
@@ -980,6 +979,9 @@ public class Block {
 		BigDecimal blockFee = this.blockData.getTotalFees();
 		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
 			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFee));
+
+		// Block rewards go here
+		processBlockRewards();
 
 		// Process AT fees and save AT states into repository
 		ATRepository atRepository = this.repository.getATRepository();
@@ -1020,6 +1022,10 @@ public class Block {
 		}
 	}
 
+	protected void processBlockRewards() throws DataException {
+		// NOP for vanilla qora-core
+	}
+
 	/**
 	 * Removes block from blockchain undoing transactions and adding them to unconfirmed pile.
 	 * 
@@ -1045,6 +1051,9 @@ public class Block {
 			this.repository.getTransactionRepository().deleteParticipants(transaction.getTransactionData());
 		}
 
+		// Block rewards removed here
+		orphanBlockRewards();
+
 		// If fees are non-zero then remove fees from generator's balance
 		BigDecimal blockFee = this.blockData.getTotalFees();
 		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
@@ -1063,6 +1072,10 @@ public class Block {
 
 		// Delete block from blockchain
 		this.repository.getBlockRepository().delete(this.blockData);
+	}
+
+	protected void orphanBlockRewards() throws DataException {
+		// NOP for vanilla qora-core
 	}
 
 	/**

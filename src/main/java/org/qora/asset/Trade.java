@@ -33,11 +33,15 @@ public class Trade {
 		OrderData initiatingOrder = assetRepository.fromOrderId(this.tradeData.getInitiator());
 		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().add(tradeData.getPrice()));
 		initiatingOrder.setIsFulfilled(Order.isFulfilled(initiatingOrder));
+		// Set isClosed to true if isFulfilled now true
+		initiatingOrder.setIsClosed(initiatingOrder.getIsFulfilled());
 		assetRepository.save(initiatingOrder);
 
 		OrderData targetOrder = assetRepository.fromOrderId(this.tradeData.getTarget());
 		targetOrder.setFulfilled(targetOrder.getFulfilled().add(tradeData.getAmount()));
 		targetOrder.setIsFulfilled(Order.isFulfilled(targetOrder));
+		// Set isClosed to true if isFulfilled now true
+		targetOrder.setIsClosed(targetOrder.getIsFulfilled());
 		assetRepository.save(targetOrder);
 
 		// Actually transfer asset balances
@@ -57,11 +61,15 @@ public class Trade {
 		OrderData initiatingOrder = assetRepository.fromOrderId(this.tradeData.getInitiator());
 		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().subtract(tradeData.getPrice()));
 		initiatingOrder.setIsFulfilled(Order.isFulfilled(initiatingOrder));
+		// Set isClosed to false if isFulfilled now false
+		initiatingOrder.setIsClosed(initiatingOrder.getIsFulfilled());
 		assetRepository.save(initiatingOrder);
 
 		OrderData targetOrder = assetRepository.fromOrderId(this.tradeData.getTarget());
 		targetOrder.setFulfilled(targetOrder.getFulfilled().subtract(tradeData.getAmount()));
 		targetOrder.setIsFulfilled(Order.isFulfilled(targetOrder));
+		// Set isClosed to false if isFulfilled now false
+		targetOrder.setIsClosed(targetOrder.getIsFulfilled());
 		assetRepository.save(targetOrder);
 
 		// Reverse asset transfers
