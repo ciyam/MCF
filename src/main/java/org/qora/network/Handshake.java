@@ -15,23 +15,11 @@ public enum Handshake {
 	STARTED(null) {
 		@Override
 		public Handshake onMessage(Peer peer, Message message) {
-			return VERSION;
-		}
-
-		@Override
-		public void action(Peer peer) {
-		}
-	},
-	VERSION(MessageType.VERSION) {
-		@Override
-		public Handshake onMessage(Peer peer, Message message) {
-			peer.setVersionMessage((VersionMessage) message);
 			return SELF_CHECK;
 		}
 
 		@Override
 		public void action(Peer peer) {
-			sendVersion(peer);
 		}
 	},
 	SELF_CHECK(MessageType.PEER_ID) {
@@ -63,6 +51,19 @@ public enum Handshake {
 				return null;
 			}
 
+			return VERSION;
+		}
+
+		@Override
+		public void action(Peer peer) {
+			sendMyId(peer);
+		}
+	},
+	VERSION(MessageType.VERSION) {
+		@Override
+		public Handshake onMessage(Peer peer, Message message) {
+			peer.setVersionMessage((VersionMessage) message);
+
 			// If we're both version 2 peers then next stage is proof
 			if (peer.getVersion() >= 2)
 				return PROOF;
@@ -73,7 +74,7 @@ public enum Handshake {
 
 		@Override
 		public void action(Peer peer) {
-			sendMyId(peer);
+			sendVersion(peer);
 		}
 	},
 	PROOF(MessageType.PROOF) {
