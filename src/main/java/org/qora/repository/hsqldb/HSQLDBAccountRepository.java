@@ -159,6 +159,12 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			// longs are safe enough to use literally
 			sql += "WHERE asset_id IN (" + String.join(", ", assetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList())) + ") ";
 
+		// For no-address queries, only return accounts with non-zero balance
+		if (addresses.isEmpty()) {
+			sql += assetIds.isEmpty() ? " WHERE " : " AND ";
+			sql += "balance != 0 ";
+		}
+
 		sql += "ORDER BY account";
 		if (reverse != null && reverse)
 			sql += " DESC";
