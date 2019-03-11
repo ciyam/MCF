@@ -145,16 +145,19 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
-		String sql = "SELECT account, asset_id, balance, asset_name FROM AccountBalances NATURAL JOIN Assets " + "WHERE ";
+		String sql = "SELECT account, asset_id, IFNULL(balance, 0), asset_name FROM ";
 
-		if (!addresses.isEmpty())
-			sql += "account IN (" + String.join(", ", Collections.nCopies(addresses.size(), "?")) + ") ";
-
-		if (!addresses.isEmpty() && !assetIds.isEmpty())
-			sql += "AND ";
+		if (!addresses.isEmpty()) {
+			sql += "(VALUES " + String.join(", ", Collections.nCopies(addresses.size(), "(?)")) + ") AS Accounts (account) ";
+			sql += "CROSS JOIN Assets LEFT OUTER JOIN AccountBalances USING (asset_id, account) ";
+		} else {
+			// Simplier, no-address query
+			sql += "AccountBalances NATURAL JOIN Assets ";
+		}
 
 		if (!assetIds.isEmpty())
-			sql += "asset_id IN (" + String.join(", ", assetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList())) + ") ";
+			// longs are safe enough to use literally
+			sql += "WHERE asset_id IN (" + String.join(", ", assetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList())) + ") ";
 
 		sql += "ORDER BY account";
 		if (reverse != null && reverse)

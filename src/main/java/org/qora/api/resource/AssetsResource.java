@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -300,7 +301,7 @@ public class AssetsResource {
 	@ApiErrors({
 		ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
 	})
-	public List<RecentTradeData> getRecentTrades(@QueryParam("assetid") List<Long> assetIds, @QueryParam("otherassetid") Long otherAssetId, @Parameter(
+	public List<RecentTradeData> getRecentTrades(@QueryParam("assetid") List<Long> assetIds, @QueryParam("otherassetid") List<Long> otherAssetIds, @Parameter(
 		ref = "limit"
 	) @QueryParam("limit") Integer limit, @Parameter(
 		ref = "offset"
@@ -308,17 +309,21 @@ public class AssetsResource {
 		ref = "reverse"
 	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			for (long assetId : assetIds)
-				if (!repository.getAssetRepository().assetExists(assetId))
-					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
-
-			if (otherAssetId == null)
-				otherAssetId = Asset.QORA;
+			if (assetIds.isEmpty())
+				assetIds = Collections.singletonList(Asset.QORA);
 			else
-				if (!repository.getAssetRepository().assetExists(otherAssetId))
-					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+				for (long assetId : assetIds)
+					if (!repository.getAssetRepository().assetExists(assetId))
+						throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			return repository.getAssetRepository().getRecentTrades(assetIds, otherAssetId, limit, offset, reverse);
+			if (otherAssetIds.isEmpty())
+				otherAssetIds = Collections.singletonList(Asset.QORA);
+			else
+				for (long assetId : otherAssetIds)
+					if (!repository.getAssetRepository().assetExists(assetId))
+						throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			return repository.getAssetRepository().getRecentTrades(assetIds, otherAssetIds, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

@@ -5,3 +5,7 @@
 /arbitrary*
 /Qora-BTC*
 /.factorypath
+/.settings*
+/.classpath
+/.project
+/log4j2-test.properties

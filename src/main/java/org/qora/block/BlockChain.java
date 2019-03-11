@@ -24,7 +24,6 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qora.data.block.BlockData;
-import org.qora.group.Group;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -65,8 +64,6 @@ public class BlockChain {
 
 	/** Whether transactions with txGroupId of NO_GROUP are allowed */
 	private boolean requireGroupForApproval;
-	/** Default groupID when account's default groupID isn't set */
-	private int defaultGroupId = Group.NO_GROUP;
 
 	private GenesisBlock.GenesisInfo genesisInfo;
 
@@ -216,10 +213,6 @@ public class BlockChain {
 		return this.requireGroupForApproval;
 	}
 
-	public int getDefaultGroupId() {
-		return this.defaultGroupId;
-	}
-
 	public boolean getUseBrokenMD160ForAddresses() {
 		return this.useBrokenMD160ForAddresses;
 	}
@@ -276,14 +269,6 @@ public class BlockChain {
 				LOGGER.error(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
 				throw new RuntimeException("Missing feature trigger in blockchain config");
 			}
-
-		// If approval-needing transactions require a group the defaultGroupId needs to be set
-		// XXX we could also check groupID exists, or at least created in genesis block, or in blockchain config
-		if (this.requireGroupForApproval && this.defaultGroupId == Group.NO_GROUP) {
-			LOGGER.error("defaultGroupId must be set to valid groupID in blockchain config if approval-needing transactions require a group");
-			throw new RuntimeException(
-					"defaultGroupId must be set to valid groupID in blockchain config if approval-needing transactions require a group");
-		}
 	}
 
 	/**

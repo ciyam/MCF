@@ -22,7 +22,6 @@ import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.asset.Asset;
-import org.qora.block.BlockChain;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
 import org.qora.group.Group;
@@ -62,11 +61,7 @@ public class AddressesResource {
 
 			// Not found?
 			if (accountData == null)
-				accountData = new AccountData(address, null, null, BlockChain.getInstance().getDefaultGroupId());
-
-			// If Blockchain config doesn't allow NO_GROUP for approval-needing tx type then change this to blockchain's default groupID
-			if (accountData.getDefaultGroupId() == Group.NO_GROUP && BlockChain.getInstance().getRequireGroupForApproval())
-				accountData.setDefaultGroupId(BlockChain.getInstance().getDefaultGroupId());
+				accountData = new AccountData(address, null, null, Group.NO_GROUP);
 
 			return accountData;
 		} catch (ApiException e) {
