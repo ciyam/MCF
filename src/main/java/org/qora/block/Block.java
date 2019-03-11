@@ -18,7 +18,9 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.at.AT;
+import org.qora.block.BlockChain.RewardsByHeight;
 import org.qora.crypto.Crypto;
+import org.qora.data.account.ProxyForgerData;
 import org.qora.data.at.ATData;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
@@ -962,13 +964,20 @@ public class Block {
 
 		return true;
 	}
-	
+
 	/**
 	 * Process block, and its transactions, adding them to the blockchain.
 	 * 
 	 * @throws DataException
 	 */
 	public void process() throws DataException {
+		// Set our block's height
+		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
+		this.blockData.setHeight(blockchainHeight + 1);
+
+		// Block rewards go before transactions processed
+		processBlockRewards();
+
 		// Process transactions (we'll link them to this block after saving the block itself)
 		// AT-generated transactions are already added to our transactions so no special handling is needed here.
 		List<Transaction> transactions = this.getTransactions();
@@ -979,9 +988,6 @@ public class Block {
 		BigDecimal blockFee = this.blockData.getTotalFees();
 		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
 			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFee));
-
-		// Block rewards go here
-		processBlockRewards();
 
 		// Process AT fees and save AT states into repository
 		ATRepository atRepository = this.repository.getATRepository();
@@ -995,12 +1001,10 @@ public class Block {
 		}
 
 		// Link block into blockchain by fetching signature of highest block and setting that as our reference
-		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
 		BlockData latestBlockData = this.repository.getBlockRepository().fromHeight(blockchainHeight);
 		if (latestBlockData != null)
 			this.blockData.setReference(latestBlockData.getSignature());
 
-		this.blockData.setHeight(blockchainHeight + 1);
 		this.repository.getBlockRepository().save(this.blockData);
 
 		// Link transactions to this block, thus removing them from unconfirmed transactions list.
@@ -1023,7 +1027,28 @@ public class Block {
 	}
 
 	protected void processBlockRewards() throws DataException {
-		// NOP for vanilla qora-core
+		BigDecimal reward = getRewardAtHeight(this.blockData.getHeight());
+
+		// No reward for our height?
+		if (reward == null)
+			return;
+
+		// Is generator public key actually a proxy forge key?
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
+		if (proxyForgerData != null) {
+			// Split reward to forger and recipient;
+			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
+			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare());
+			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).add(recipientShare));
+
+			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
+			BigDecimal forgerShare = reward.subtract(recipientShare);
+			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).add(forgerShare));
+			return;
+		}
+
+		// Give block reward to generator
+		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(reward));
 	}
 
 	/**
@@ -1051,7 +1076,7 @@ public class Block {
 			this.repository.getTransactionRepository().deleteParticipants(transaction.getTransactionData());
 		}
 
-		// Block rewards removed here
+		// Block rewards removed after transactions undone
 		orphanBlockRewards();
 
 		// If fees are non-zero then remove fees from generator's balance
@@ -1075,7 +1100,43 @@ public class Block {
 	}
 
 	protected void orphanBlockRewards() throws DataException {
-		// NOP for vanilla qora-core
+		BigDecimal reward = getRewardAtHeight(this.blockData.getHeight());
+
+		// No reward for our height?
+		if (reward == null)
+			return;
+
+		// Is generator public key actually a proxy forge key?
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
+		if (proxyForgerData != null) {
+			// Split reward from forger and recipient;
+			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
+			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare());
+			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).subtract(recipientShare));
+
+			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
+			BigDecimal forgerShare = reward.subtract(recipientShare);
+			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).subtract(forgerShare));
+			return;
+		}
+
+		// Take block reward from generator
+		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(reward));
+	}
+
+	protected BigDecimal getRewardAtHeight(int ourHeight) {
+		List<RewardsByHeight> rewardsByHeight = BlockChain.getInstance().getBlockRewardsByHeight();
+
+		// No rewards configured?
+		if (rewardsByHeight == null)
+			return null;
+
+		// Scan through for reward at our height
+		for (RewardsByHeight rewardInfo : rewardsByHeight)
+			if (rewardInfo.height <= ourHeight)
+				return rewardInfo.reward;
+
+		return null;
 	}
 
 	/**
