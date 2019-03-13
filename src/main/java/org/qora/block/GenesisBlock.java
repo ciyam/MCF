@@ -22,6 +22,7 @@ import org.qora.data.asset.AssetData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.transaction.Transaction;
@@ -117,7 +118,7 @@ public class GenesisBlock extends Block {
 				IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
 
 				return new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(), issueAssetTransactionData.getDescription(),
-						issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(), issueAssetTransactionData.getReference());
+						issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(), null, Group.NO_GROUP, issueAssetTransactionData.getReference());
 			}).collect(Collectors.toList());
 		}
 

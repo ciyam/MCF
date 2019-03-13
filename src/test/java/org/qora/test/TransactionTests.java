@@ -605,9 +605,10 @@ public class TransactionTests extends Common {
 		boolean isDivisible = true;
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
+		String data = (timestamp >= BlockChain.getInstance().getQoraV2Timestamp()) ? "{}" : null;
 
 		IssueAssetTransactionData issueAssetTransactionData = new IssueAssetTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-				sender.getAddress(), assetName, description, quantity, isDivisible, fee);
+				sender.getAddress(), assetName, description, quantity, isDivisible, data, fee);
 
 		Transaction issueAssetTransaction = new IssueAssetTransaction(repository, issueAssetTransactionData);
 		issueAssetTransaction.sign(sender);
@@ -989,11 +990,11 @@ public class TransactionTests extends Common {
 
 		// Check trade has correct values
 		BigDecimal expectedAmount = amount.divide(originalOrderData.getPrice()).setScale(8);
-		BigDecimal actualAmount = tradeData.getAmount();
+		BigDecimal actualAmount = tradeData.getTargetAmount();
 		assertTrue(expectedAmount.compareTo(actualAmount) == 0);
 
 		BigDecimal expectedPrice = amount;
-		BigDecimal actualPrice = tradeData.getPrice();
+		BigDecimal actualPrice = tradeData.getInitiatorAmount();
 		assertTrue(expectedPrice.compareTo(actualPrice) == 0);
 
 		// Check seller's "test asset" balance

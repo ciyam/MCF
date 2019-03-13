@@ -592,6 +592,26 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("UPDATE AssetOrders SET is_closed = TRUE WHERE is_fulfilled = TRUE");
 					break;
 
+				case 38:
+					// Rename asset trade columns for clarity
+					stmt.execute("ALTER TABLE AssetTrades ALTER COLUMN amount RENAME TO target_amount");
+					stmt.execute("ALTER TABLE AssetTrades ALTER COLUMN price RENAME TO initiator_amount");
+					// Add support for asset "data" - typically JSON map like registered name data
+					stmt.execute("CREATE TYPE AssetData AS VARCHAR(4000)");
+					stmt.execute("ALTER TABLE Assets ADD data AssetData NOT NULL DEFAULT '' BEFORE reference");
+					stmt.execute("ALTER TABLE Assets ADD creation_group_id GroupID NOT NULL DEFAULT 0 BEFORE reference");
+					// Add support for asset "data" to ISSUE_ASSET transaction
+					stmt.execute("ALTER TABLE IssueAssetTransactions ADD data AssetData NOT NULL DEFAULT '' BEFORE asset_id");
+					// Add support for UPDATE_ASSET transactions
+					stmt.execute("CREATE TABLE UpdateAssetTransactions (signature Signature, owner QoraPublicKey NOT NULL, asset_id AssetID NOT NULL, "
+									+ "new_owner QoraAddress NOT NULL, new_description GenericDescription NOT NULL, new_data AssetData NOT NULL, "
+									+ "orphan_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// Correct Assets.reference to use ISSUE_ASSET transaction's signature instead of reference.
+					// This is to help UPDATE_ASSET orphaning.
+					stmt.execute("MERGE INTO Assets USING (SELECT asset_id, signature FROM Assets JOIN Transactions USING (reference) JOIN IssueAssetTransactions USING (signature)) AS Updates "
+							+ "ON Assets.asset_id = Updates.asset_id WHEN MATCHED THEN UPDATE SET Assets.reference = Updates.signature");
+					break;
+
 				default:
 					// nothing to do
 					return false;

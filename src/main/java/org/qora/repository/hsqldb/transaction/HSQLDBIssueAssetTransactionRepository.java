@@ -18,7 +18,7 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT owner, asset_name, description, quantity, is_divisible, asset_id FROM IssueAssetTransactions WHERE signature = ?", signature)) {
+				"SELECT owner, asset_name, description, quantity, is_divisible, data, asset_id FROM IssueAssetTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
@@ -27,14 +27,15 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 			String description = resultSet.getString(3);
 			long quantity = resultSet.getLong(4);
 			boolean isDivisible = resultSet.getBoolean(5);
+			String data = resultSet.getString(6);
 
 			// Special null-checking for asset ID
-			Long assetId = resultSet.getLong(6);
+			Long assetId = resultSet.getLong(7);
 			if (resultSet.wasNull())
 				assetId = null;
 
 			return new IssueAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, assetId, owner, assetName, description, quantity, isDivisible,
-					fee, signature);
+					data, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch issue asset transaction from repository", e);
 		}
@@ -49,7 +50,8 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 		saveHelper.bind("signature", issueAssetTransactionData.getSignature()).bind("issuer", issueAssetTransactionData.getIssuerPublicKey())
 				.bind("owner", issueAssetTransactionData.getOwner()).bind("asset_name", issueAssetTransactionData.getAssetName())
 				.bind("description", issueAssetTransactionData.getDescription()).bind("quantity", issueAssetTransactionData.getQuantity())
-				.bind("is_divisible", issueAssetTransactionData.getIsDivisible()).bind("asset_id", issueAssetTransactionData.getAssetId());
+				.bind("is_divisible", issueAssetTransactionData.getIsDivisible())
+				.bind("data", issueAssetTransactionData.getData()).bind("asset_id", issueAssetTransactionData.getAssetId());
 
 		try {
 			saveHelper.execute(this.repository);
