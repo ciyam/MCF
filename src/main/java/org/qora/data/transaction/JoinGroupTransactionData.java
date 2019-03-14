@@ -26,6 +26,11 @@ public class JoinGroupTransactionData extends TransactionData {
 	@XmlTransient
 	@Schema(hidden = true)
 	private byte[] inviteReference;
+	/** Joiner's previous defaultGroupId, set only if this transaction changed it from NO_GROUP. */
+	// No need to expose this via API
+	@XmlTransient
+	@Schema(hidden = true)
+	private Integer previousGroupId;
 
 	// Constructors
 
@@ -38,17 +43,18 @@ public class JoinGroupTransactionData extends TransactionData {
 		this.creatorPublicKey = this.joinerPublicKey;
 	}
 
-	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, byte[] inviteReference, BigDecimal fee, byte[] signature) {
+	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, byte[] inviteReference, Integer previousGroupId, BigDecimal fee, byte[] signature) {
 		super(TransactionType.JOIN_GROUP, timestamp, txGroupId, reference, joinerPublicKey, fee, signature);
 
 		this.joinerPublicKey = joinerPublicKey;
 		this.groupId = groupId;
 		this.inviteReference = inviteReference;
+		this.previousGroupId = previousGroupId;
 	}
 
 	/** Constructor typically used after deserialization */
 	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, joinerPublicKey, groupId, null, fee, signature);
+		this(timestamp, txGroupId, reference, joinerPublicKey, groupId, null, null, fee, signature);
 	}
 
 	// Getters / setters
@@ -67,6 +73,14 @@ public class JoinGroupTransactionData extends TransactionData {
 
 	public void setInviteReference(byte[] inviteReference) {
 		this.inviteReference = inviteReference;
+	}
+
+	public Integer getPreviousGroupId() {
+		return this.previousGroupId;
+	}
+
+	public void setPreviousGroupId(Integer previousGroupId) {
+		this.previousGroupId = previousGroupId;
 	}
 
 }

@@ -113,6 +113,7 @@ public class JoinGroupTransaction extends Transaction {
 
 		// Update joiner's reference
 		joiner.setLastReference(joinGroupTransactionData.getSignature());
+
 	}
 
 	@Override

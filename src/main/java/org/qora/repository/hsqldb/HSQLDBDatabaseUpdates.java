@@ -612,6 +612,16 @@ public class HSQLDBDatabaseUpdates {
 							+ "ON Assets.asset_id = Updates.asset_id WHEN MATCHED THEN UPDATE SET Assets.reference = Updates.signature");
 					break;
 
+				case 39:
+					// Support for automatically setting joiner's default groupID when they join a group (by JOIN_GROUP or corresponding admin's INVITE_GROUP)
+					stmt.execute("ALTER TABLE JoinGroupTransactions ADD previous_group_id INTEGER");
+					stmt.execute("ALTER TABLE GroupInviteTransactions ADD previous_group_id INTEGER");
+					// Ditto for leaving
+					stmt.execute("ALTER TABLE LeaveGroupTransactions ADD previous_group_id INTEGER");
+					stmt.execute("ALTER TABLE GroupKickTransactions ADD previous_group_id INTEGER");
+					stmt.execute("ALTER TABLE GroupBanTransactions ADD previous_group_id INTEGER");
+					break;
+
 				default:
 					// nothing to do
 					return false;

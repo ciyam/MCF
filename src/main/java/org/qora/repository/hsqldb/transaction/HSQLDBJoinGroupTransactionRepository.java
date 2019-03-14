@@ -17,7 +17,7 @@ public class HSQLDBJoinGroupTransactionRepository extends HSQLDBTransactionRepos
 	}
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, invite_reference FROM JoinGroupTransactions WHERE signature = ?",
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, invite_reference, previous_group_id FROM JoinGroupTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
 				return null;
@@ -25,7 +25,11 @@ public class HSQLDBJoinGroupTransactionRepository extends HSQLDBTransactionRepos
 			int groupId = resultSet.getInt(1);
 			byte[] inviteReference = resultSet.getBytes(2);
 
-			return new JoinGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, inviteReference, fee, signature);
+			Integer previousGroupId = resultSet.getInt(3);
+			if (resultSet.wasNull())
+				previousGroupId = null;
+
+			return new JoinGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, inviteReference, previousGroupId, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch join group transaction from repository", e);
 		}
@@ -38,7 +42,8 @@ public class HSQLDBJoinGroupTransactionRepository extends HSQLDBTransactionRepos
 		HSQLDBSaver saveHelper = new HSQLDBSaver("JoinGroupTransactions");
 
 		saveHelper.bind("signature", joinGroupTransactionData.getSignature()).bind("joiner", joinGroupTransactionData.getJoinerPublicKey())
-				.bind("group_id", joinGroupTransactionData.getGroupId()).bind("invite_reference", joinGroupTransactionData.getInviteReference());
+				.bind("group_id", joinGroupTransactionData.getGroupId()).bind("invite_reference", joinGroupTransactionData.getInviteReference())
+				.bind("previous_group_id", joinGroupTransactionData.getPreviousGroupId());
 
 		try {
 			saveHelper.execute(this.repository);
