@@ -94,14 +94,14 @@ public class UpdateAssetTransaction extends Transaction {
 		if (!Crypto.isValidAddress(updateAssetTransactionData.getNewOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// Check new description size bounds
+		// Check new description size bounds. Note: zero length means DO NOT CHANGE description
 		int newDescriptionLength = Utf8.encodedLength(updateAssetTransactionData.getNewDescription());
-		if (newDescriptionLength < 1 || newDescriptionLength > Asset.MAX_DESCRIPTION_SIZE)
+		if (newDescriptionLength > Asset.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
-		// Check new data size bounds
+		// Check new data size bounds. Note: zero length means DO NOT CHANGE data
 		int newDataLength = Utf8.encodedLength(updateAssetTransactionData.getNewData());
-		if (newDataLength < 1 || newDataLength > Asset.MAX_DATA_SIZE)
+		if (newDataLength > Asset.MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
 		// As this transaction type could require approval, check txGroupId

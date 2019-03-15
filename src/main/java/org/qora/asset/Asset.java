@@ -74,8 +74,12 @@ public class Asset {
 
 		// Update asset's owner, description and data
 		this.assetData.setOwner(updateAssetTransactionData.getNewOwner());
-		this.assetData.setDescription(updateAssetTransactionData.getNewDescription());
-		this.assetData.setData(updateAssetTransactionData.getNewData());
+
+		if (!updateAssetTransactionData.getNewDescription().isEmpty())
+			this.assetData.setDescription(updateAssetTransactionData.getNewDescription());
+
+		if (!updateAssetTransactionData.getNewData().isEmpty())
+			this.assetData.setData(updateAssetTransactionData.getNewData());
 
 		// Save updated asset
 		this.repository.getAssetRepository().save(this.assetData);
@@ -85,33 +89,70 @@ public class Asset {
 		// Previous asset reference is taken from this transaction's cached copy
 		this.assetData.setReference(updateAssetTransactionData.getOrphanReference());
 
-		// Previous owner, description and/or data taken from referenced transaction
-		TransactionData previousTransactionData = this.repository.getTransactionRepository()
-				.fromSignature(this.assetData.getReference());
+		/*
+		 * It's possible the previous transaction might be an UPDATE_ASSET that didn't change
+		 * description/data fields and so we have to keep going back until we find an actual value,
+		 * even to the original ISSUE_ASSET transaction if necessary.
+		 * 
+		 * So we need to keep track of whether we still need
+		 * a previous description and/or data so we can stop looking.
+		 */
+		boolean needDescription = updateAssetTransactionData.getNewDescription() != null;
+		boolean needData = updateAssetTransactionData.getNewData() != null;
 
-		if (previousTransactionData == null)
-			throw new IllegalStateException("Missing referenced transaction when orphaning UPDATE_ASSET");
+		byte[] previousTransactionSignature = this.assetData.getReference();
 
-		switch (previousTransactionData.getType()) {
-			case ISSUE_ASSET:
-				IssueAssetTransactionData previousIssueAssetTransactionData = (IssueAssetTransactionData) previousTransactionData;
+		// There's always at least one round to potentially revert owner
+		do {
+			// Previous owner, description and/or data taken from referenced transaction
+			TransactionData previousTransactionData = this.repository.getTransactionRepository()
+					.fromSignature(previousTransactionSignature);
 
-				this.assetData.setOwner(previousIssueAssetTransactionData.getOwner());
-				this.assetData.setDescription(previousIssueAssetTransactionData.getDescription());
-				this.assetData.setData(previousIssueAssetTransactionData.getData());
-				break;
+			if (previousTransactionData == null)
+				throw new IllegalStateException("Missing referenced transaction when orphaning UPDATE_ASSET");
 
-			case UPDATE_ASSET:
-				UpdateAssetTransactionData previousUpdateAssetTransactionData = (UpdateAssetTransactionData) previousTransactionData;
+			switch (previousTransactionData.getType()) {
+				case ISSUE_ASSET:
+					IssueAssetTransactionData previousIssueAssetTransactionData = (IssueAssetTransactionData) previousTransactionData;
 
-				this.assetData.setOwner(previousUpdateAssetTransactionData.getNewOwner());
-				this.assetData.setDescription(previousUpdateAssetTransactionData.getNewDescription());
-				this.assetData.setData(previousUpdateAssetTransactionData.getNewData());
-				break;
+					this.assetData.setOwner(previousIssueAssetTransactionData.getOwner());
 
-			default:
-				throw new IllegalStateException("Invalid referenced transaction when orphaning UPDATE_ASSET");
-		}
+					if (needDescription) {
+						this.assetData.setDescription(previousIssueAssetTransactionData.getDescription());
+						needDescription = false;
+					}
+
+					if (needData) {
+						this.assetData.setData(previousIssueAssetTransactionData.getData());
+						needData = false;
+					}
+					break;
+
+				case UPDATE_ASSET:
+					UpdateAssetTransactionData previousUpdateAssetTransactionData = (UpdateAssetTransactionData) previousTransactionData;
+
+					this.assetData.setOwner(previousUpdateAssetTransactionData.getNewOwner());
+
+					if (needDescription && !previousUpdateAssetTransactionData.getNewDescription().isEmpty()) {
+						this.assetData.setDescription(previousUpdateAssetTransactionData.getNewDescription());
+						needDescription = false;
+					}
+
+					if (needData && !previousUpdateAssetTransactionData.getNewData().isEmpty()) {
+						this.assetData.setData(previousUpdateAssetTransactionData.getNewData());
+						needData = false;
+					}
+
+					// Get signature for previous transaction in chain, just in case we need it
+					if (needDescription || needData)
+						previousTransactionSignature = previousUpdateAssetTransactionData.getOrphanReference();
+					break;
+
+				default:
+					throw new IllegalStateException("Invalid referenced transaction when orphaning UPDATE_ASSET");
+			}
+
+		} while (needDescription || needData);
 
 		// Save reverted asset
 		this.repository.getAssetRepository().save(this.assetData);
