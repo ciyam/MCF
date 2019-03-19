@@ -59,7 +59,7 @@ public class AdminResource {
 		responses = {
 			@ApiResponse(
 				description = "uptime in milliseconds",
-				content = @Content(schema = @Schema(type = "number"))
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "number"))
 			)
 		}
 	)
@@ -75,7 +75,7 @@ public class AdminResource {
 		responses = {
 			@ApiResponse(
 				description = "\"true\"",
-				content = @Content(schema = @Schema(type = "string"))
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
 			)
 		}
 	)
