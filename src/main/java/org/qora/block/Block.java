@@ -240,6 +240,61 @@ public class Block {
 				generator.getPublicKey(), generatorSignature, atCount, atFees);
 	}
 
+	/**
+	 * Construct another block using this block as template, but with different generator account.
+	 * <p>
+	 * NOTE: uses the same transactions list, AT states, etc.
+	 * 
+	 * @param generator
+	 * @return
+	 * @throws DataException
+	 */
+	public Block regenerate(PrivateKeyAccount generator) throws DataException {
+		Block newBlock = new Block(this.repository, this.blockData);
+
+		BlockData parentBlockData = this.getParent();
+		Block parentBlock = new Block(repository, parentBlockData);
+
+		newBlock.generator = generator;
+
+		// Copy AT state data
+		newBlock.ourAtStates = this.ourAtStates;
+		newBlock.atStates = newBlock.ourAtStates;
+		newBlock.ourAtFees = this.ourAtFees;
+
+		// Calculate new block timestamp
+		int version = this.blockData.getVersion();
+		byte[] reference = this.blockData.getReference();
+		BigDecimal generatingBalance = this.blockData.getGeneratingBalance();
+
+		byte[] generatorSignature;
+		try {
+			generatorSignature = generator
+					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator));
+		} catch (TransformationException e) {
+			throw new DataException("Unable to calculate next block generator signature", e);
+		}
+
+		long timestamp = parentBlock.calcNextBlockTimestamp(version, generatorSignature, generator);
+
+		newBlock.transactions = this.transactions;
+		int transactionCount = this.blockData.getTransactionCount();
+		BigDecimal totalFees = this.blockData.getTotalFees();
+		byte[] transactionsSignature = null; // We'll calculate this later
+		Integer height = this.blockData.getHeight();
+
+		int atCount = newBlock.ourAtStates.size();
+		BigDecimal atFees = newBlock.ourAtFees;
+
+		newBlock.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+				generator.getPublicKey(), generatorSignature, atCount, atFees);
+
+		// Resign to update transactions signature
+		newBlock.sign();
+
+		return newBlock;
+	}
+
 	// Getters/setters
 
 	public BlockData getBlockData() {
@@ -359,7 +414,7 @@ public class Block {
 		return actualBlockTime;
 	}
 
-	private BigInteger calcGeneratorsTarget(Account nextBlockGenerator) throws DataException {
+	private BigInteger calcGeneratorsTarget(PublicKeyAccount nextBlockGenerator) throws DataException {
 		// Start with 32-byte maximum integer representing all possible correct "guesses"
 		// Where a "correct guess" is an integer greater than the threshold represented by calcBlockHash()
 		byte[] targetBytes = new byte[32];
@@ -371,9 +426,17 @@ public class Block {
 		BigInteger baseTarget = BigInteger.valueOf(calcBaseTarget(calcNextBlockGeneratingBalance()));
 		target = target.divide(baseTarget);
 
+		// If generator is actually proxy account then use forger's account to calculate target.
+		BigDecimal generatingBalance;
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(nextBlockGenerator.getPublicKey());
+		if (proxyForgerData != null)
+			generatingBalance = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey()).getGeneratingBalance();
+		else
+			generatingBalance = nextBlockGenerator.getGeneratingBalance();
+
 		// Multiply by account's generating balance
 		// So the greater the account's generating balance then the greater the remaining "correct guesses"
-		target = target.multiply(nextBlockGenerator.getGeneratingBalance().toBigInteger());
+		target = target.multiply(generatingBalance.toBigInteger());
 
 		return target;
 	}
@@ -410,8 +473,8 @@ public class Block {
 		return new BigInteger(1, hash);
 	}
 
-	/** Calculate next block's timestamp, given next block's version, generator signature and generator's private key */
-	private long calcNextBlockTimestamp(int nextBlockVersion, byte[] nextBlockGeneratorSignature, PrivateKeyAccount nextBlockGenerator) throws DataException {
+	/** Calculate next block's timestamp, given next block's version, generator signature and generator's public key */
+	private long calcNextBlockTimestamp(int nextBlockVersion, byte[] nextBlockGeneratorSignature, PublicKeyAccount nextBlockGenerator) throws DataException {
 		BigInteger hashValue = calcNextBlockHash(nextBlockVersion, nextBlockGeneratorSignature, nextBlockGenerator);
 		BigInteger target = calcGeneratorsTarget(nextBlockGenerator);
 
@@ -946,6 +1009,8 @@ public class Block {
 		BlockData parentBlockData = parentBlock.getBlockData();
 
 		BigInteger hashValue = this.calcBlockHash();
+
+		// calcGeneratorsTarget handles proxy forging aspect
 		BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
 
 		// Multiply target by guesses

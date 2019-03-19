@@ -15,6 +15,8 @@ import org.qora.data.account.ProxyForgerData;
 import org.qora.repository.AccountRepository;
 import org.qora.repository.DataException;
 
+import static org.qora.repository.hsqldb.HSQLDBRepository.nPlaceholders;
+
 public class HSQLDBAccountRepository implements AccountRepository {
 
 	protected HSQLDBRepository repository;
@@ -328,6 +330,51 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			return new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch proxy forge info from repository", e);
+		}
+	}
+
+	@Override
+	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT forger, recipient, share, proxy_public_key FROM ProxyForgers ";
+		List<Object> args = new ArrayList<>();
+
+		if (!forgers.isEmpty()) {
+			sql += "JOIN Accounts ON Accounts.public_key = ProxyForgers.forger "
+					+ "WHERE Accounts.account IN (" + nPlaceholders(forgers.size()) + ") ";
+			args.addAll(forgers);
+		}
+
+		if (!recipients.isEmpty()) {
+			sql += forgers.isEmpty() ? "WHERE " : "AND ";
+			sql += "recipient IN (" + nPlaceholders(recipients.size()) + ") ";
+			args.addAll(recipients);
+		}
+
+		sql += "ORDER BY recipient, share";
+
+		if (reverse != null && reverse)
+			sql += " DESC";
+
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<ProxyForgerData> proxyAccounts = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, args.toArray())) {
+			if (resultSet == null)
+				return proxyAccounts;
+
+			do {
+				byte[] forgerPublicKey = resultSet.getBytes(1);
+				String recipient = resultSet.getString(2);
+				BigDecimal share = resultSet.getBigDecimal(3);
+				byte[] proxyPublicKey = resultSet.getBytes(4);
+
+				proxyAccounts.add(new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share));
+			} while (resultSet.next());
+
+			return proxyAccounts;
+		} catch (SQLException e) {
+			throw new DataException("Unable to find proxy forge accounts in repository", e);
 		}
 	}
 

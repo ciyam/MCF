@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.TimeZone;
 
@@ -405,6 +406,11 @@ public class HSQLDBRepository implements Repository {
 			return null;
 
 		return offsetDateTime.toInstant().toEpochMilli();
+	}
+
+	/** Convenience method to return n comma-separated, placeholders as a string. */
+	public static String nPlaceholders(int n) {
+		return String.join(", ", Collections.nCopies(n, "?"));
 	}
 
 }

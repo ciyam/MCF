@@ -42,7 +42,6 @@ import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qora.settings.Settings;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
-import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 
 public class Controller extends Thread {
@@ -158,13 +157,9 @@ public class Controller extends Thread {
 			System.exit(2);
 		}
 
-		// XXX extract private key needed for block gen
-		if (args.length == 0 || !args[0].equals("NO-BLOCK-GEN")) {
-			LOGGER.info("Starting block generator");
-			byte[] privateKey = Base58.decode(args.length > 0 ? args[0] : "A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
-			blockGenerator = new BlockGenerator(privateKey);
-			blockGenerator.start();
-		}
+		LOGGER.info("Starting block generator");
+		blockGenerator = new BlockGenerator();
+		blockGenerator.start();
 
 		LOGGER.info("Starting API on port " + Settings.getInstance().getApiPort());
 		try {

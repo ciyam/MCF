@@ -1,8 +1,11 @@
 package org.qora.block;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.locks.Lock;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,8 +29,6 @@ import org.qora.utils.Base58;
 public class BlockGenerator extends Thread {
 
 	// Properties
-	private byte[] generatorPrivateKey;
-	private PrivateKeyAccount generator;
 	private boolean running;
 
 	// Other properties
@@ -35,8 +36,7 @@ public class BlockGenerator extends Thread {
 
 	// Constructors
 
-	public BlockGenerator(byte[] generatorPrivateKey) {
-		this.generatorPrivateKey = generatorPrivateKey;
+	public BlockGenerator() {
 		this.running = true;
 	}
 
@@ -44,6 +44,11 @@ public class BlockGenerator extends Thread {
 	@Override
 	public void run() {
 		Thread.currentThread().setName("BlockGenerator");
+
+		List<byte[]> generatorKeys = Settings.getInstance().getGeneratorKeys();
+		// No generators?
+		if (generatorKeys.isEmpty())
+			return;
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			if (Settings.getInstance().getWipeUnconfirmedOnStart()) {
@@ -58,37 +63,59 @@ public class BlockGenerator extends Thread {
 				repository.saveChanges();
 			}
 
-			generator = new PrivateKeyAccount(repository, generatorPrivateKey);
+			List<PrivateKeyAccount> generators = generatorKeys.stream().map(key -> new PrivateKeyAccount(repository, key)).collect(Collectors.toList());
 
 			// Going to need this a lot...
 			BlockRepository blockRepository = repository.getBlockRepository();
 			Block previousBlock = null;
-			Block newBlock = null;
+
+			List<Block> newBlocks = null;
 
 			while (running) {
 				// Check blockchain hasn't changed
 				BlockData lastBlockData = blockRepository.getLastBlock();
 				if (previousBlock == null || !Arrays.equals(previousBlock.getSignature(), lastBlockData.getSignature())) {
 					previousBlock = new Block(repository, lastBlockData);
-					newBlock = null;
+					newBlocks = null;
 				}
 
-				// Do we need to build a potential new block?
-				if (newBlock == null)
-					newBlock = new Block(repository, previousBlock.getBlockData(), generator);
+				// Do we need to build a potential new blocks?
+				if (newBlocks == null) {
+					// First block does the AT heavy-lifting
+					newBlocks = new ArrayList<>(generators.size());
+					Block newBlock = new Block(repository, previousBlock.getBlockData(), generators.get(0));
+					newBlocks.add(newBlock);
+
+					// The blocks for other generators require less effort...
+					for (int i = 1; i < generators.size(); ++i)
+						newBlocks.add(newBlock.regenerate(generators.get(i)));
+				}
 
 				// Make sure we're the only thread modifying the blockchain
 				Lock blockchainLock = Controller.getInstance().getBlockchainLock();
 				if (blockchainLock.tryLock())
 					generation: try {
-						// Is new block's timestamp valid yet?
-						// We do a separate check as some timestamp checks are skipped for testnet
-						if (newBlock.isTimestampValid() != ValidationResult.OK)
+						List<Block> goodBlocks = new ArrayList<>();
+
+						for (Block testBlock : newBlocks) {
+							// Is new block's timestamp valid yet?
+							// We do a separate check as some timestamp checks are skipped for testnet
+							if (testBlock.isTimestampValid() != ValidationResult.OK)
+								continue;
+
+							// Is new block valid yet? (Before adding unconfirmed transactions)
+							if (testBlock.isValid() != ValidationResult.OK)
+								continue;
+
+							goodBlocks.add(testBlock);
+						}
+
+						if (goodBlocks.isEmpty())
 							break generation;
 
-						// Is new block valid yet? (Before adding unconfirmed transactions)
-						if (newBlock.isValid() != ValidationResult.OK)
-							break generation;
+						// Pick random generator
+						int winningIndex = new Random().nextInt(goodBlocks.size());
+						Block newBlock = goodBlocks.get(winningIndex);
 
 						// Delete invalid transactions
 						deleteInvalidTransactions(repository);

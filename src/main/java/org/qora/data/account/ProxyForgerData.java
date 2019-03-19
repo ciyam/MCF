@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+
+import org.qora.crypto.Crypto;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -45,6 +48,11 @@ public class ProxyForgerData {
 
 	public BigDecimal getShare() {
 		return this.share;
+	}
+
+	@XmlElement(name = "forger")
+	public String getForger() {
+		return Crypto.toAddress(this.forgerPublicKey);
 	}
 
 }
