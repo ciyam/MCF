@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
+import org.qora.data.account.ForgingAccountData;
 import org.qora.data.account.ProxyForgerData;
 
 public interface AccountRepository {
@@ -90,5 +91,13 @@ public interface AccountRepository {
 	public void save(ProxyForgerData proxyForgerData) throws DataException;
 
 	public void delete(byte[] forgerPublickey, String recipient) throws DataException;
+
+	// Forging accounts used by BlockGenerator
+
+	public List<ForgingAccountData> getForgingAccounts() throws DataException;
+
+	public void save(ForgingAccountData forgingAccountData) throws DataException;
+
+	public int delete(byte[] forgingAccountSeed) throws DataException;
 
 }

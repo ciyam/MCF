@@ -719,6 +719,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX ProxyForgersProxyPublicKeyIndex ON ProxyForgers (proxy_public_key)");
 					break;
 
+				case 40:
+					// Stash of private keys used for generating blocks. These should be proxy keys!
+					stmt.execute("CREATE TYPE QoraKeySeed AS VARBINARY(32)");
+					stmt.execute("CREATE TABLE ForgingAccounts (forger_seed QoraKeySeed NOT NULL, PRIMARY KEY (forger_seed))");
+					break;
+
 				default:
 					// nothing to do
 					return false;

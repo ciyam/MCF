@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
+import org.qora.data.account.ForgingAccountData;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.repository.AccountRepository;
 import org.qora.repository.DataException;
@@ -398,6 +399,47 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			this.repository.delete("ProxyForgers", "forger = ? and recipient = ?", forgerPublickey, recipient);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete proxy forge info from repository", e);
+		}
+	}
+
+	// Forging accounts used by BlockGenerator
+
+	public List<ForgingAccountData> getForgingAccounts() throws DataException {
+		List<ForgingAccountData> forgingAccounts = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT forger_seed FROM ForgingAccounts")) {
+			if (resultSet == null)
+				return forgingAccounts;
+
+			do {
+				byte[] forgerSeed = resultSet.getBytes(1);
+
+				forgingAccounts.add(new ForgingAccountData(forgerSeed));
+			} while (resultSet.next());
+
+			return forgingAccounts;
+		} catch (SQLException e) {
+			throw new DataException("Unable to find forging accounts in repository", e);
+		}
+	}
+
+	public void save(ForgingAccountData forgingAccountData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("ForgingAccounts");
+
+		saveHelper.bind("forger_seed", forgingAccountData.getSeed());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save forging account into repository", e);
+		}
+	}
+
+	public int delete(byte[] forgingAccountSeed) throws DataException {
+		try {
+			return this.repository.delete("ForgingAccounts", "forger_seed = ?", forgingAccountSeed);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete forging account from repository", e);
 		}
 	}
 

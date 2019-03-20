@@ -12,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.Block.ValidationResult;
 import org.qora.controller.Controller;
+import org.qora.data.account.ForgingAccountData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.BlockRepository;
@@ -45,11 +46,6 @@ public class BlockGenerator extends Thread {
 	public void run() {
 		Thread.currentThread().setName("BlockGenerator");
 
-		List<byte[]> generatorKeys = Settings.getInstance().getGeneratorKeys();
-		// No generators?
-		if (generatorKeys.isEmpty())
-			return;
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			if (Settings.getInstance().getWipeUnconfirmedOnStart()) {
 				// Wipe existing unconfirmed transactions
@@ -63,32 +59,37 @@ public class BlockGenerator extends Thread {
 				repository.saveChanges();
 			}
 
-			List<PrivateKeyAccount> generators = generatorKeys.stream().map(key -> new PrivateKeyAccount(repository, key)).collect(Collectors.toList());
-
 			// Going to need this a lot...
 			BlockRepository blockRepository = repository.getBlockRepository();
 			Block previousBlock = null;
 
-			List<Block> newBlocks = null;
+			List<Block> newBlocks = new ArrayList<>();
 
 			while (running) {
 				// Check blockchain hasn't changed
 				BlockData lastBlockData = blockRepository.getLastBlock();
 				if (previousBlock == null || !Arrays.equals(previousBlock.getSignature(), lastBlockData.getSignature())) {
 					previousBlock = new Block(repository, lastBlockData);
-					newBlocks = null;
+					newBlocks.clear();
 				}
 
-				// Do we need to build a potential new blocks?
-				if (newBlocks == null) {
-					// First block does the AT heavy-lifting
-					newBlocks = new ArrayList<>(generators.size());
-					Block newBlock = new Block(repository, previousBlock.getBlockData(), generators.get(0));
-					newBlocks.add(newBlock);
+				// Do we need to build any potential new blocks?
+				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();
+				List<PrivateKeyAccount> forgingAccounts = forgingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getSeed())).collect(Collectors.toList());
 
-					// The blocks for other generators require less effort...
-					for (int i = 1; i < generators.size(); ++i)
-						newBlocks.add(newBlock.regenerate(generators.get(i)));
+				// Discard accounts we have blocks for
+				forgingAccounts.removeIf(account -> newBlocks.stream().anyMatch(newBlock -> newBlock.getGenerator().getAddress().equals(account.getAddress())));
+
+				for (PrivateKeyAccount generator : forgingAccounts) {
+					// First block does the AT heavy-lifting
+					if (newBlocks.isEmpty()) {
+						Block newBlock = new Block(repository, previousBlock.getBlockData(), generator);
+						newBlocks.add(newBlock);
+					} else {
+						// The blocks for other generators require less effort...
+						Block newBlock = newBlocks.get(0);
+						newBlocks.add(newBlock.regenerate(generator));
+					}
 				}
 
 				// Make sure we're the only thread modifying the blockchain
@@ -131,7 +132,7 @@ public class BlockGenerator extends Thread {
 						if (validationResult != ValidationResult.OK) {
 							// No longer valid? Report and discard
 							LOGGER.error("Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
-							newBlock = null;
+							newBlocks.clear();
 							break generation;
 						}
 
@@ -146,7 +147,7 @@ public class BlockGenerator extends Thread {
 						} catch (DataException e) {
 							// Unable to process block - report and discard
 							LOGGER.error("Unable to process newly generated block?", e);
-							newBlock = null;
+							newBlocks.clear();
 						}
 					} finally {
 						blockchainLock.unlock();

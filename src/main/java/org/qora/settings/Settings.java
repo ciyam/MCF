@@ -5,7 +5,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.util.List;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -13,7 +12,6 @@ import javax.xml.bind.UnmarshalException;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 import javax.xml.transform.stream.StreamSource;
 
 import org.apache.logging.log4j.LogManager;
@@ -21,7 +19,6 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
-import org.qora.api.Base58TypeAdapter;
 import org.qora.block.BlockChain;
 
 // All properties to be converted to JSON via JAXB
@@ -64,10 +61,6 @@ public class Settings {
 	// Which blockchains this node is running
 	private String blockchainConfig = "blockchain.json";
 	private boolean useBitcoinTestNet = false;
-
-	// Private keys to use for generating blocks
-	@XmlJavaTypeAdapter(type = byte[].class, value = Base58TypeAdapter.class)
-	private List<byte[]> generatorKeys;
 
 	// Constructors
 
@@ -233,10 +226,6 @@ public class Settings {
 
 	public boolean useBitcoinTestNet() {
 		return this.useBitcoinTestNet;
-	}
-
-	public List<byte[]> getGeneratorKeys() {
-		return this.generatorKeys;
 	}
 
 }
