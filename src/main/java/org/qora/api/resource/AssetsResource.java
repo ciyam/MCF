@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -166,7 +167,7 @@ public class AssetsResource {
 		ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
 	})
 	public List<AccountBalanceData> getAssetBalances(@QueryParam("address") List<String> addresses, @QueryParam("assetid") List<Long> assetIds,
-			@Parameter(required = true) @QueryParam("ordering") BalanceOrdering balanceOrdering,
+			@DefaultValue(value = "ASSET_BALANCE_ACCOUNT") @QueryParam("ordering") BalanceOrdering balanceOrdering,
 			@Parameter( ref = "limit" ) @QueryParam("limit") Integer limit,
 			@Parameter( ref = "offset" ) @QueryParam("offset") Integer offset,
 			@Parameter( ref = "reverse" ) @QueryParam("reverse") Boolean reverse) {
@@ -176,6 +177,9 @@ public class AssetsResource {
 		for (String address : addresses)
 			if (!Crypto.isValidAddress(address))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		if (balanceOrdering == null)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			for (long assetId : assetIds)
