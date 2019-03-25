@@ -45,6 +45,7 @@ import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.data.transaction.UpdateAssetTransactionData;
+import org.qora.repository.AccountRepository.BalanceOrdering;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -164,13 +165,11 @@ public class AssetsResource {
 	@ApiErrors({
 		ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
 	})
-	public List<AccountBalanceData> getAssetBalances(@QueryParam("address") List<String> addresses, @QueryParam("assetid") List<Long> assetIds, @Parameter(
-		ref = "limit"
-	) @QueryParam("limit") Integer limit, @Parameter(
-		ref = "offset"
-	) @QueryParam("offset") Integer offset, @Parameter(
-		ref = "reverse"
-	) @QueryParam("reverse") Boolean reverse) {
+	public List<AccountBalanceData> getAssetBalances(@QueryParam("address") List<String> addresses, @QueryParam("assetid") List<Long> assetIds,
+			@Parameter(required = true) @QueryParam("ordering") BalanceOrdering balanceOrdering,
+			@Parameter( ref = "limit" ) @QueryParam("limit") Integer limit,
+			@Parameter( ref = "offset" ) @QueryParam("offset") Integer offset,
+			@Parameter( ref = "reverse" ) @QueryParam("reverse") Boolean reverse) {
 		if (addresses.isEmpty() && assetIds.isEmpty())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
@@ -183,7 +182,7 @@ public class AssetsResource {
 				if (!repository.getAssetRepository().assetExists(assetId))
 					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			return repository.getAccountRepository().getAssetBalances(addresses, assetIds, limit, offset, reverse);
+			return repository.getAccountRepository().getAssetBalances(addresses, assetIds, balanceOrdering, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

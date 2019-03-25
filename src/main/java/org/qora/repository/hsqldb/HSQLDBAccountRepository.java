@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -143,7 +144,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, Integer limit, Integer offset, Boolean reverse)
+	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
 		String sql = "SELECT account, asset_id, IFNULL(balance, 0), asset_name FROM ";
 
@@ -165,13 +166,28 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			sql += "balance != 0 ";
 		}
 
-		sql += "ORDER BY account";
-		if (reverse != null && reverse)
-			sql += " DESC";
+		String[] orderingColumns;
+		switch (balanceOrdering) {
+			case ACCOUNT_ASSET:
+				orderingColumns = new String[] { "account", "asset_id" };
+				break;
 
-		sql += ", asset_id";
+			case ASSET_ACCOUNT:
+				orderingColumns = new String[] { "asset_id", "account" };
+				break;
+
+			case ASSET_BALANCE_ACCOUNT:
+				orderingColumns = new String[] { "asset_id", "balance", "account" };
+				break;
+
+			default:
+				throw new DataException(String.format("Unsupported asset balance result ordering: %s", balanceOrdering.name()));
+		}
+
 		if (reverse != null && reverse)
-			sql += " DESC";
+			orderingColumns = Arrays.stream(orderingColumns).map(column -> column + " DESC").toArray(size -> new String[size]);
+
+		sql += "ORDER BY " + String.join(", ", orderingColumns);
 
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
