@@ -6,6 +6,7 @@ import java.util.Map;
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 
 public interface TransactionRepository {
@@ -52,12 +53,26 @@ public interface TransactionRepository {
 	 * Returns list of transactions relating to specific asset ID.
 	 * 
 	 * @param assetId
+	 * @param confirmationStatus
 	 * @param limit
 	 * @param offset
 	 * @param reverse
 	 * @return list of transactions, or empty if none
 	 */
-	public List<TransactionData> getAssetTransactions(int assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
+	public List<TransactionData> getAssetTransactions(long assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
+			throws DataException;
+
+	/**
+	 * Returns list of TRANSFER_ASSET transactions relating to specific asset ID/address combination.
+	 * 
+	 * @param assetId
+	 * @param address
+	 * @param limit
+	 * @param offset
+	 * @param reverse
+	 * @return list of transactions, or empty if none
+	 */
+	public List<TransferAssetTransactionData> getAssetTransfers(long assetId, String address, Integer limit, Integer offset, Boolean reverse)
 			throws DataException;
 
 	/**

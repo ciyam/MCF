@@ -623,6 +623,50 @@ public class AssetsResource {
 		}
 	}
 
+	@GET
+	@Path("/transfers/{assetid}/{address}")
+	@Operation(
+		summary = "Asset transfers for specific asset and address combination",
+		responses = {
+			@ApiResponse(
+				description = "Asset transactions",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = TransferAssetTransactionData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_ADDRESS, ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
+	})
+	public List<TransferAssetTransactionData> getAssetTransfers(@Parameter(
+		ref = "assetid"
+	) @PathParam("assetid") int assetId, @PathParam("address") String address, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			if (!repository.getAssetRepository().assetExists(assetId))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			if (!Crypto.isValidAddress(address))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+			return repository.getTransactionRepository().getAssetTransfers(assetId, address, limit, offset, reverse);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 	@POST
 	@Path("/order/delete")
 	@Operation(
