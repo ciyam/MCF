@@ -10,6 +10,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
+import org.qora.block.BlockChain;
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
 import org.qora.data.asset.TradeData;
@@ -110,10 +111,16 @@ public class Order {
 		// Save this order into repository so it's available for matching, possibly by itself
 		this.repository.getAssetRepository().save(this.orderData);
 
+		boolean isOurOrderV2 = this.orderData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp();
+
 		// Attempt to match orders
 		LOGGER.debug("Processing our order " + HashCode.fromBytes(this.orderData.getOrderId()).toString());
 		LOGGER.trace("We have: " + this.orderData.getAmount().toPlainString() + " " + haveAssetData.getName());
-		LOGGER.trace("We want " + this.orderData.getPrice().toPlainString() + " " + wantAssetData.getName() + " per " + haveAssetData.getName());
+
+		if (isOurOrderV2)
+			LOGGER.trace("We want " + this.orderData.getPrice().toPlainString() + " " + wantAssetData.getName());
+		else
+			LOGGER.trace("We want " + this.orderData.getPrice().toPlainString() + " " + wantAssetData.getName() + " per " + haveAssetData.getName());
 
 		// Fetch corresponding open orders that might potentially match, hence reversed want/have assetId args.
 		// Returned orders are sorted with lowest "price" first.
@@ -121,7 +128,7 @@ public class Order {
 		LOGGER.trace("Open orders fetched from repository: " + orders.size());
 
 		/*
-		 * Our order example:
+		 * Our order example (V1):
 		 * 
 		 * haveAssetId=[GOLD], amount=10,000, wantAssetId=0 (QORA), price=0.002
 		 * 
@@ -130,17 +137,38 @@ public class Order {
 		 * So if our order matched, we'd end up with 10,000 * 0.002 = 20 QORA, essentially costing 1/0.002 = 500 GOLD each.
 		 * 
 		 * So 500 GOLD [each] is our "buyingPrice".
+		 *
+		 * Our order example (V2):
+		 * 
+		 * haveAssetId=[GOLD], amount=10,000, wantAssetId=0 (QORA), price=20
+		 * 
+		 * This translates to "we have 10,000 GOLD and want to buy 20 QORA"
+		 * 
+		 * So if our order matched, we'd end up with 20 QORA, essentially costing 10,000 / 20 = 500 GOLD each.
+		 * 
+		 * So 500 GOLD [each] is our "buyingPrice".
 		 */
-		BigDecimal ourPrice = this.orderData.getPrice();
+		BigDecimal ourAmount = this.orderData.getAmount();
+		BigDecimal ourPrice;
+		if (isOurOrderV2)
+			ourPrice = ourAmount.divide(this.orderData.getPrice(), RoundingMode.DOWN);
+		else
+			ourPrice = this.orderData.getPrice();
 
 		for (OrderData theirOrderData : orders) {
 			LOGGER.trace("Considering order " + HashCode.fromBytes(theirOrderData.getOrderId()).toString());
 			// Note swapped use of have/want asset data as this is from 'their' perspective.
 			LOGGER.trace("They have: " + theirOrderData.getAmount().toPlainString() + " " + wantAssetData.getName());
-			LOGGER.trace("They want " + theirOrderData.getPrice().toPlainString() + " " + haveAssetData.getName() + " per " + wantAssetData.getName());
+
+			boolean isTheirOrderV2 = theirOrderData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp();
+
+			if (isTheirOrderV2)
+				LOGGER.trace("They want " + theirOrderData.getPrice().toPlainString() + " " + haveAssetData.getName());
+			else
+				LOGGER.trace("They want " + theirOrderData.getPrice().toPlainString() + " " + haveAssetData.getName() + " per " + wantAssetData.getName());
 
 			/*
-			 * Potential matching order example:
+			 * Potential matching order example (V1):
 			 * 
 			 * haveAssetId=0 (QORA), amount=40, wantAssetId=[GOLD], price=486
 			 * 
@@ -149,10 +177,25 @@ public class Order {
 			 * So if their order matched, they'd end up with 40 * 486 = 19,440 GOLD, essentially costing 1/486 = 0.00205761 QORA each.
 			 * 
 			 * So 0.00205761 QORA [each] is their "buyingPrice".
+			 * 
+			 * Potential matching order example (V2):
+			 * 
+			 * haveAssetId=0 (QORA), amount=40, wantAssetId=[GOLD], price=19,440
+			 * 
+			 * This translates to "we have 40 QORA and want to buy 19,440 GOLD"
+			 * 
+			 * So if their order matched, they'd end up with 19,440 GOLD, essentially costing 40 / 19,440 = 0.00205761 QORA each.
+			 * 
+			 * So 0.00205761 QORA [each] is their "buyingPrice".
 			 */
 
 			// Round down otherwise their buyingPrice would be better than advertised and cause issues
-			BigDecimal theirBuyingPrice = BigDecimal.ONE.setScale(8).divide(theirOrderData.getPrice(), RoundingMode.DOWN);
+			BigDecimal theirBuyingPrice;
+
+			if (isTheirOrderV2)
+				theirBuyingPrice = theirOrderData.getAmount().divide(theirOrderData.getPrice(), RoundingMode.DOWN);
+			else
+				theirBuyingPrice = BigDecimal.ONE.setScale(8).divide(theirOrderData.getPrice(), RoundingMode.DOWN);
 			LOGGER.trace("theirBuyingPrice: " + theirBuyingPrice.toPlainString() + " " + wantAssetData.getName() + " per " + haveAssetData.getName());
 
 			// If their buyingPrice is less than what we're willing to pay then we're done as prices only get worse as we iterate through list of orders
@@ -162,9 +205,11 @@ public class Order {
 			// Calculate how many want-asset we could buy at their price
 			BigDecimal ourAmountLeft = this.getAmountLeft().multiply(theirBuyingPrice).setScale(8, RoundingMode.DOWN);
 			LOGGER.trace("ourAmountLeft (max we could buy at their price): " + ourAmountLeft.toPlainString() + " " + wantAssetData.getName());
+
 			// How many want-asset is remaining available in this order
 			BigDecimal theirAmountLeft = Order.getAmountLeft(theirOrderData);
 			LOGGER.trace("theirAmountLeft (max amount remaining in order): " + theirAmountLeft.toPlainString() + " " + wantAssetData.getName());
+
 			// So matchable want-asset amount is the minimum of above two values
 			BigDecimal matchedAmount = ourAmountLeft.min(theirAmountLeft);
 			LOGGER.trace("matchedAmount: " + matchedAmount.toPlainString() + " " + wantAssetData.getName());
@@ -186,7 +231,11 @@ public class Order {
 			// Trade can go ahead!
 
 			// Calculate the total cost to us, in have-asset, based on their price
-			BigDecimal tradePrice = matchedAmount.multiply(theirOrderData.getPrice()).setScale(8);
+			BigDecimal tradePrice;
+			if (isTheirOrderV2)
+				tradePrice = matchedAmount.divide(theirBuyingPrice).setScale(8); // XXX is this right?
+			else
+				tradePrice = matchedAmount.multiply(theirOrderData.getPrice()).setScale(8);
 			LOGGER.trace("tradePrice ('want' trade agreed): " + tradePrice.toPlainString() + " " + haveAssetData.getName());
 
 			// Construct trade

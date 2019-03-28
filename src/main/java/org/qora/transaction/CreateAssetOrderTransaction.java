@@ -130,9 +130,16 @@ public class CreateAssetOrderTransaction extends Transaction {
 			return ValidationResult.INVALID_AMOUNT;
 
 		// Check total return from fulfilled order would be integer if "want" asset is not divisible
-		if (!wantAssetData.getIsDivisible()
-				&& createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice()).stripTrailingZeros().scale() > 0)
-			return ValidationResult.INVALID_RETURN;
+		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp()) {
+			// v2
+			if (!wantAssetData.getIsDivisible() && createOrderTransactionData.getPrice().stripTrailingZeros().scale() > 0)
+				return ValidationResult.INVALID_RETURN;
+		} else {
+			// v1
+			if (!wantAssetData.getIsDivisible()
+					&& createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice()).stripTrailingZeros().scale() > 0)
+				return ValidationResult.INVALID_RETURN;
+		}
 
 		return ValidationResult.OK;
 	}

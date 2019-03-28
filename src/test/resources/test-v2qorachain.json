@@ -7,16 +7,17 @@
 	"blockTimestampMargin": 500,
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "0.1",
-	"requireGroupForApproval": true,
-	"defaultGroupId": 2,
+	"requireGroupForApproval": false,
 	"genesisInfo": {
 		"version": 4,
 		"timestamp": 0,
 		"generatingBalance": "10000000",
 		"transactions": [
-			{ "type": "ISSUE_ASSET", "owner": "QcFmNxSArv5tWEzCtTKb2Lqc5QkKuQ7RNs", "assetName": "QORA", "description": "QORA native coin", "quantity": 10000000000, "isDivisible": true, "fee": 0, "reference": "3Verk6ZKBJc3WTTVfxFC9icSjKdM8b92eeJEpJP8qNizG4ZszNFq8wdDYdSjJXq2iogDFR1njyhsBdVpbvDfjzU7" },
+			{ "type": "ISSUE_ASSET", "owner": "QcFmNxSArv5tWEzCtTKb2Lqc5QkKuQ7RNs", "assetName": "QORA", "description": "QORA native coin", "data": "", "quantity": 10000000000, "isDivisible": true, "fee": 0, "reference": "3Verk6ZKBJc3WTTVfxFC9icSjKdM8b92eeJEpJP8qNizG4ZszNFq8wdDYdSjJXq2iogDFR1njyhsBdVpbvDfjzU7" },
 			{ "type": "GENESIS", "recipient": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "amount": "9876543210.12345678", "fee": 0 },
-			{ "type": "CREATE_GROUP", "creatorPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "groupName": "dev-group", "description": "developer group", "isOpen": false, "approvalThreshold": "PCT100", "minimumBlockDelay": 0, "maximumBlockDelay": 1440 }
+			{ "type": "GENESIS", "recipient": "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK", "amount": "1000000", "fee": 0 },
+			{ "type": "CREATE_GROUP", "creatorPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "groupName": "dev-group", "description": "developer group", "isOpen": false, "approvalThreshold": "PCT100", "minimumBlockDelay": 0, "maximumBlockDelay": 1440 },
+			{ "type": "ISSUE_ASSET", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "assetName": "test", "description": "test asset", "data": "", "quantity": 1000, "isDivisible": true, "fee": 0 }
 		]
 	},
 	"featureTriggers": {

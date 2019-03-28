@@ -22,7 +22,7 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 	private long wantAssetId;
 	@Schema(description = "amount of \"have\" asset to trade")
 	private BigDecimal amount;
-	@Schema(description = "amount of \"want\" asset to receive per unit of \"have\" asset traded")
+	@Schema(description = "amount of \"want\" asset to receive")
 	private BigDecimal price;
 
 	// Constructors

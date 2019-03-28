@@ -310,6 +310,7 @@ public class GenesisBlock extends Block {
 				}
 
 				transaction.process();
+				creator.setLastReference(transactionData.getSignature());
 			}
 		} catch (TransformationException e) {
 			throw new RuntimeException("Can't process genesis block transaction", e);
