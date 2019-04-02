@@ -7,6 +7,7 @@ import java.security.Security;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.bitcoinj.core.Base58;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -33,7 +34,7 @@ public class Common {
 	public static final String testConnectionUrl = "jdbc:hsqldb:mem:testdb";
 	// public static final String testConnectionUrl = "jdbc:hsqldb:file:testdb/blockchain;create=true";
 
-	public static final String testSettingsFilename = "test-settings.json";
+	public static final String testSettingsFilename = "test-settings-v2.json";
 
 	public static final byte[] v2testPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
 	public static final byte[] v2testPublicKey = Base58.decode("2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP");
@@ -53,24 +54,48 @@ public class Common {
 	}
 
 	public static Map<String, TransactionData> lastTransactionByAddress;
-	public static Map<String, TestAccount> testAccountsByName = new HashMap<>();
+	private static Map<String, TestAccount> testAccountsByName = new HashMap<>();
 	static {
-		testAccountsByName.put("main", new TestAccount("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6"));
-		testAccountsByName.put("dummy", new TestAccount("AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot"));
+		testAccountsByName.put("alice", new TestAccount(null, "alice", "A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6"));
+		testAccountsByName.put("bob", new TestAccount(null, "bob", "AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot"));
+		testAccountsByName.put("chloe", new TestAccount(null, "chloe", "HqVngdE1AmEyDpfwTZqUdFHB13o4bCmpoTNAKEqki66K"));
+		testAccountsByName.put("dilbert", new TestAccount(null, "dilbert", "Gakhh6Ln4vtBFM88nE9JmDaLBDtUBg51aVFpWfSkyVw5"));
 	}
 
-	public static PrivateKeyAccount getTestAccount(Repository repository, String name) {
-		return new PrivateKeyAccount(repository, testAccountsByName.get(name).getSeed());
+	public static TestAccount getTestAccount(Repository repository, String name) {
+		return new TestAccount(repository, name, testAccountsByName.get(name).getSeed());
+	}
+
+	public static List<TestAccount> getTestAccounts(Repository repository) {
+		return testAccountsByName.values().stream().map(account -> new TestAccount(repository, account.accountName, account.getSeed())).collect(Collectors.toList());
+	}
+
+	public static void useSettings(String settingsFilename) throws DataException {
+		closeRepository();
+
+		// Load/check settings, which potentially sets up blockchain config, etc.
+		URL testSettingsUrl = Common.class.getClassLoader().getResource(settingsFilename);
+		assertNotNull("Test settings JSON file not found", testSettingsUrl);
+		Settings.fileInstance(testSettingsUrl.getPath());
+
+		setRepository();
+
+		resetBlockchain();
+	}
+
+	public static void useDefaultSettings() throws DataException {
+		useSettings(testSettingsFilename);
 	}
 
 	public static void resetBlockchain() throws DataException {
 		BlockChain.validate();
+
 		lastTransactionByAddress = new HashMap<>();
 
 		try (Repository repository = RepositoryManager.getRepository()) {
 			for (TestAccount account : testAccountsByName.values()) {
 				List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(null, null, null, account.getAddress(), ConfirmationStatus.BOTH, 1, null, true);
-				assertFalse("Test account should have existing transaction", signatures.isEmpty());
+				assertFalse(String.format("Test account '%s' should have existing transaction", account.accountName), signatures.isEmpty());
 
 				TransactionData transactionData = repository.getTransactionRepository().fromSignature(signatures.get(0));
 				lastTransactionByAddress.put(account.getAddress(), transactionData);

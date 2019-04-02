@@ -989,7 +989,7 @@ public class TransactionTests extends Common {
 		TradeData tradeData = trades.get(0);
 
 		// Check trade has correct values
-		BigDecimal expectedAmount = amount.divide(originalOrderData.getPrice()).setScale(8);
+		BigDecimal expectedAmount = amount.divide(originalOrderData.getUnitPrice()).setScale(8);
 		BigDecimal actualAmount = tradeData.getTargetAmount();
 		assertTrue(expectedAmount.compareTo(actualAmount) == 0);
 

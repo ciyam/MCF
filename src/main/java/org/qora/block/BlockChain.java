@@ -74,7 +74,8 @@ public class BlockChain {
 		votingTimestamp,
 		arbitraryTimestamp,
 		powfixTimestamp,
-		v2Timestamp;
+		v2Timestamp,
+		newAssetPricingTimestamp;
 	}
 
 	/** Map of which blockchain features are enabled when (height/timestamp) */
@@ -249,6 +250,10 @@ public class BlockChain {
 
 	public long getQoraV2Timestamp() {
 		return featureTriggers.get("v2Timestamp");
+	}
+
+	public long getNewAssetPricingTimestamp() {
+		return featureTriggers.get("newAssetPricingTimestamp");
 	}
 
 	/** Validate blockchain config read from JSON */

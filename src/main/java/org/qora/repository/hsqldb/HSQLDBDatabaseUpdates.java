@@ -630,6 +630,31 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE UpdateAssetTransactions ALTER COLUMN new_data AssetDataLob");
 					break;
 
+				case 41:
+					// New asset pricing
+					/*
+					 * We store "unit price" for asset orders but need enough precision to accurately
+					 * represent fractional values without loss.
+					 * Asset quantities can be up to either 1_000_000_000_000_000_000 (19 digits) if indivisible,
+					 * or 10_000_000_000.00000000 (11+8 = 19 digits) if divisible.
+					 * Two 19-digit numbers need 38 integer and 38 fractional to cover extremes of unit price.
+					 * However, we use another 10 more fractional digits to avoid rounding issues.
+					 * 38 integer + 48 fractional gives 86, so: DECIMAL (86, 48)
+					 */
+					// Rename price to unit_price to preserve indexes
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN price RENAME TO unit_price");
+					// Adjust precision
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN unit_price DECIMAL(76,48)");
+					// Add want-amount column
+					stmt.execute("ALTER TABLE AssetOrders ADD want_amount QoraAmount BEFORE unit_price");
+					// Calculate want-amount values
+					stmt.execute("UPDATE AssetOrders set want_amount = amount * unit_price");
+					// want-amounts all set, so disallow NULL
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN want_amount SET NOT NULL");
+					// Convert old "price" into buying unit price
+					stmt.execute("UPDATE AssetOrders set unit_price = 1 / unit_price");
+					break;
+
 				default:
 					// nothing to do
 					return false;

@@ -24,8 +24,11 @@ public class OrderData implements Comparable<OrderData> {
 	@Schema(description = "amount of \"have\" asset to trade")
 	private BigDecimal amount;
 
+	@Schema(description = "amount of \"want\" asset to receive")
+	private BigDecimal wantAmount;
+
 	@Schema(description = "amount of \"want\" asset to receive per unit of \"have\" asset traded")
-	private BigDecimal price;
+	private BigDecimal unitPrice;
 
 	@Schema(description = "how much \"have\" asset has traded")
 	private BigDecimal fulfilled;
@@ -44,22 +47,24 @@ public class OrderData implements Comparable<OrderData> {
 	protected OrderData() {
 	}
 
-	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal price,
-			long timestamp, boolean isClosed, boolean isFulfilled) {
+	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal wantAmount,
+			BigDecimal unitPrice, long timestamp, boolean isClosed, boolean isFulfilled) {
 		this.orderId = orderId;
 		this.creatorPublicKey = creatorPublicKey;
 		this.haveAssetId = haveAssetId;
 		this.wantAssetId = wantAssetId;
 		this.amount = amount;
 		this.fulfilled = fulfilled;
-		this.price = price;
+		this.wantAmount = wantAmount;
+		this.unitPrice = unitPrice;
 		this.timestamp = timestamp;
 		this.isClosed = isClosed;
 		this.isFulfilled = isFulfilled;
 	}
 
-	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, long timestamp) {
-		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, BigDecimal.ZERO.setScale(8), price, timestamp, false, false);
+	/** Constructs OrderData using typical deserialized network data */
+	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal wantAmount, BigDecimal unitPrice, long timestamp) {
+		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, BigDecimal.ZERO.setScale(8), wantAmount, unitPrice, timestamp, false, false);
 	}
 
 	// Getters/setters
@@ -92,8 +97,12 @@ public class OrderData implements Comparable<OrderData> {
 		this.fulfilled = fulfilled;
 	}
 
-	public BigDecimal getPrice() {
-		return this.price;
+	public BigDecimal getWantAmount() {
+		return this.wantAmount;
+	}
+
+	public BigDecimal getUnitPrice() {
+		return this.unitPrice;
 	}
 
 	public long getTimestamp() {
@@ -119,7 +128,7 @@ public class OrderData implements Comparable<OrderData> {
 	@Override
 	public int compareTo(OrderData orderData) {
 		// Compare using prices
-		return this.price.compareTo(orderData.getPrice());
+		return this.unitPrice.compareTo(orderData.getUnitPrice());
 	}
 
 }

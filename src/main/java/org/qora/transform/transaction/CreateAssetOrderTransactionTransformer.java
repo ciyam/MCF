@@ -35,7 +35,7 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 		layout.add("ID of asset of offer", TransformationType.LONG);
 		layout.add("ID of asset wanted", TransformationType.LONG);
 		layout.add("amount of asset on offer", TransformationType.ASSET_QUANTITY);
-		layout.add("amount of asset wanted per offered asset", TransformationType.ASSET_QUANTITY);
+		layout.add("amount of wanted asset", TransformationType.ASSET_QUANTITY);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
@@ -58,6 +58,7 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 
 		BigDecimal amount = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
 
+		// Under "new" asset pricing, this is actually the want-amount
 		BigDecimal price = Serialization.deserializeBigDecimal(byteBuffer, AMOUNT_LENGTH);
 
 		BigDecimal fee = Serialization.deserializeBigDecimal(byteBuffer);
@@ -86,6 +87,7 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 
 			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getAmount(), AMOUNT_LENGTH);
 
+			// Under "new" asset pricing, this is actually the want-amount
 			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getPrice(), AMOUNT_LENGTH);
 
 			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getFee());

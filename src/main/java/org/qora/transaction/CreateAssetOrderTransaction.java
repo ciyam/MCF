@@ -1,6 +1,7 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -130,12 +131,12 @@ public class CreateAssetOrderTransaction extends Transaction {
 			return ValidationResult.INVALID_AMOUNT;
 
 		// Check total return from fulfilled order would be integer if "want" asset is not divisible
-		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp()) {
-			// v2
+		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
+			// "new" asset pricing
 			if (!wantAssetData.getIsDivisible() && createOrderTransactionData.getPrice().stripTrailingZeros().scale() > 0)
 				return ValidationResult.INVALID_RETURN;
 		} else {
-			// v1
+			// "old" asset pricing
 			if (!wantAssetData.getIsDivisible()
 					&& createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice()).stripTrailingZeros().scale() > 0)
 				return ValidationResult.INVALID_RETURN;
@@ -160,9 +161,22 @@ public class CreateAssetOrderTransaction extends Transaction {
 		// Order Id is transaction's signature
 		byte[] orderId = createOrderTransactionData.getSignature();
 
+		BigDecimal wantAmount;
+		BigDecimal unitPrice;
+
+		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
+			// "new" asset pricing: want-amount provided, unit price to be calculated
+			wantAmount = createOrderTransactionData.getPrice();
+			unitPrice = wantAmount.setScale(Order.BD_PRICE_STORAGE_SCALE).divide(createOrderTransactionData.getAmount().setScale(Order.BD_PRICE_STORAGE_SCALE), RoundingMode.DOWN);
+		} else {
+			// "old" asset pricing: selling unit price provided, want-amount to be calculated
+			wantAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
+			unitPrice = createOrderTransactionData.getPrice();
+		}
+
 		// Process the order itself
 		OrderData orderData = new OrderData(orderId, createOrderTransactionData.getCreatorPublicKey(), createOrderTransactionData.getHaveAssetId(),
-				createOrderTransactionData.getWantAssetId(), createOrderTransactionData.getAmount(), createOrderTransactionData.getPrice(),
+				createOrderTransactionData.getWantAssetId(), createOrderTransactionData.getAmount(), wantAmount, unitPrice,
 				createOrderTransactionData.getTimestamp());
 
 		new Order(this.repository, orderData).process();
