@@ -83,7 +83,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check price is positive
-		if (createOrderTransactionData.getPrice().compareTo(BigDecimal.ZERO) <= 0)
+		if (createOrderTransactionData.getWantAmount().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_PRICE;
 
 		// Check fee is positive
@@ -133,12 +133,12 @@ public class CreateAssetOrderTransaction extends Transaction {
 		// Check total return from fulfilled order would be integer if "want" asset is not divisible
 		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
 			// "new" asset pricing
-			if (!wantAssetData.getIsDivisible() && createOrderTransactionData.getPrice().stripTrailingZeros().scale() > 0)
+			if (!wantAssetData.getIsDivisible() && createOrderTransactionData.getWantAmount().stripTrailingZeros().scale() > 0)
 				return ValidationResult.INVALID_RETURN;
 		} else {
 			// "old" asset pricing
 			if (!wantAssetData.getIsDivisible()
-					&& createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice()).stripTrailingZeros().scale() > 0)
+					&& createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getWantAmount()).stripTrailingZeros().scale() > 0)
 				return ValidationResult.INVALID_RETURN;
 		}
 
@@ -166,12 +166,12 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
 			// "new" asset pricing: want-amount provided, unit price to be calculated
-			wantAmount = createOrderTransactionData.getPrice();
+			wantAmount = createOrderTransactionData.getWantAmount();
 			unitPrice = wantAmount.setScale(Order.BD_PRICE_STORAGE_SCALE).divide(createOrderTransactionData.getAmount().setScale(Order.BD_PRICE_STORAGE_SCALE), RoundingMode.DOWN);
 		} else {
 			// "old" asset pricing: selling unit price provided, want-amount to be calculated
-			wantAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
-			unitPrice = createOrderTransactionData.getPrice();
+			wantAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getWantAmount());
+			unitPrice = createOrderTransactionData.getWantAmount(); // getWantAmount() was getPrice() in the "old" pricing scheme
 		}
 
 		// Process the order itself

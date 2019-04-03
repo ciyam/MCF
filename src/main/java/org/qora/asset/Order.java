@@ -71,14 +71,22 @@ public class Order {
 	 * @param theirPrice 
 	 * @return unit price of want asset
 	 */
-	public static BigDecimal calculateAmountGranularity(AssetData haveAssetData, AssetData wantAssetData, BigDecimal theirPrice) {
-		// Multiplier to scale BigDecimal.setScale(8) fractional amounts into integers, essentially 1e8
+	public static BigDecimal calculateAmountGranularity(AssetData haveAssetData, AssetData wantAssetData, OrderData theirOrderData) {
+		// Multiplier to scale BigDecimal fractional amounts into integer domain
 		BigInteger multiplier = BigInteger.valueOf(1_0000_0000L);
 
 		// Calculate the minimum increment at which I can buy using greatest-common-divisor
-		BigInteger haveAmount = multiplier; // 1 unit (* multiplier)
-		//BigInteger wantAmount = BigDecimal.valueOf(100_000_000L).setScale(Asset.BD_SCALE).divide(theirOrderData.getUnitPrice(), RoundingMode.DOWN).toBigInteger();
-		BigInteger wantAmount = theirPrice.movePointRight(8).toBigInteger();
+		BigInteger haveAmount;
+		BigInteger wantAmount;
+		if (theirOrderData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
+			// "new" pricing scheme
+			haveAmount = theirOrderData.getAmount().movePointRight(8).toBigInteger();
+			wantAmount = theirOrderData.getWantAmount().movePointRight(8).toBigInteger();
+		} else {
+			// legacy "old" behaviour
+			haveAmount = multiplier; // 1 unit (* multiplier)
+			wantAmount = theirOrderData.getUnitPrice().movePointRight(8).toBigInteger();
+		}
 
 		BigInteger gcd = haveAmount.gcd(wantAmount);
 		haveAmount = haveAmount.divide(gcd);
@@ -115,7 +123,6 @@ public class Order {
 		if (LOGGER.getLevel().isMoreSpecificThan(Level.DEBUG))
 			return;
 
-		final boolean isNewPricing = orderData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
 		final String weThey = isMatchingNotInitial ? "They" : "We";
 
 		AssetData haveAssetData = this.repository.getAssetRepository().fromAssetId(orderData.getHaveAssetId());
@@ -125,15 +132,9 @@ public class Order {
 
 		LOGGER.trace(String.format("%s have: %s %s", weThey, orderData.getAmount().stripTrailingZeros().toPlainString(), haveAssetData.getName()));
 
-		if (isNewPricing) {
-			LOGGER.trace(String.format("%s want: %s %s (@ %s %s each)", weThey,
-					orderData.getWantAmount().stripTrailingZeros().toPlainString(), wantAssetData.getName(),
-					orderData.getUnitPrice().toPlainString(), haveAssetData.getName()));
-		} else {
-			LOGGER.trace(String.format("%s want at least %s %s per %s (minimum %s %s total)", weThey,
-					orderData.getUnitPrice().toPlainString(), wantAssetData.getName(), haveAssetData.getName(),
-					orderData.getWantAmount().stripTrailingZeros().toPlainString(), wantAssetData.getName()));
-		}
+		LOGGER.trace(String.format("%s want at least %s %s per %s (minimum %s %s total)", weThey,
+				orderData.getUnitPrice().toPlainString(), wantAssetData.getName(), haveAssetData.getName(),
+				orderData.getWantAmount().stripTrailingZeros().toPlainString(), wantAssetData.getName()));
 	}
 
 	public void process() throws DataException {
@@ -254,18 +255,13 @@ public class Order {
 			if (matchedWantAmount.compareTo(BigDecimal.ZERO) <= 0)
 				continue;
 
-			// We can skip granularity if theirWantAmountLeft is an [integer] multiple of matchedWantAmount as that obviously fits
-			if (!isTheirOrderNewAssetPricing || theirWantAmountLeft.remainder(matchedWantAmount).compareTo(BigDecimal.ZERO) > 0) {
-				// Not an integer multiple so do granularity check
+			// Calculate want-amount granularity, based on price and both assets' divisibility, so that have-amount traded is a valid amount (integer or to 8 d.p.)
+			BigDecimal wantGranularity = calculateAmountGranularity(haveAssetData, wantAssetData, theirOrderData);
+			LOGGER.trace("wantGranularity (want-asset amount granularity): " + wantGranularity.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
 
-				// Calculate amount granularity based on both assets' divisibility
-				BigDecimal wantGranularity = calculateAmountGranularity(haveAssetData, wantAssetData, theirOrderData.getUnitPrice());
-				LOGGER.trace("wantGranularity (want-asset amount granularity): " + wantGranularity.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
-
-				// Reduce matched amount (if need be) to fit granularity
-				matchedWantAmount = matchedWantAmount.subtract(matchedWantAmount.remainder(wantGranularity));
-				LOGGER.trace("matchedWantAmount adjusted for granularity: " + matchedWantAmount.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
-			}
+			// Reduce matched amount (if need be) to fit granularity
+			matchedWantAmount = matchedWantAmount.subtract(matchedWantAmount.remainder(wantGranularity));
+			LOGGER.trace("matchedWantAmount adjusted for granularity: " + matchedWantAmount.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
 
 			// If we can't buy anything then try another order
 			if (matchedWantAmount.compareTo(BigDecimal.ZERO) <= 0)

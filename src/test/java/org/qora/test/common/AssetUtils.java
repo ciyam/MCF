@@ -10,7 +10,6 @@ import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
-import org.qora.test.Common;
 
 public class AssetUtils {
 
@@ -26,7 +25,7 @@ public class AssetUtils {
 
 		TransactionData transactionData = new IssueAssetTransactionData(timestamp, AssetUtils.txGroupId, reference, account.getPublicKey(), account.getAddress(), assetName, "desc", quantity, isDivisible, "{}", AssetUtils.fee);
 
-		Common.signAndForge(repository, transactionData, account);
+		TransactionUtils.signAndForge(repository, transactionData, account);
 
 		return repository.getAssetRepository().fromAssetName(assetName).getAssetId();
 	}
@@ -40,7 +39,7 @@ public class AssetUtils {
 
 		TransactionData transactionData = new TransferAssetTransactionData(timestamp, AssetUtils.txGroupId, reference, fromAccount.getPublicKey(), toAccount.getAddress(), amount, assetId, AssetUtils.fee);
 
-		Common.signAndForge(repository, transactionData, fromAccount);
+		TransactionUtils.signAndForge(repository, transactionData, fromAccount);
 	}
 
 	public static byte[] createOrder(Repository repository, String accountName, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal wantAmount) throws DataException {
@@ -52,7 +51,7 @@ public class AssetUtils {
 		// Note: "price" is not the same in V2 as in V1
 		TransactionData transactionData = new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, account.getPublicKey(), haveAssetId, wantAssetId, amount, wantAmount, fee);
 
-		Common.signAndForge(repository, transactionData, account);
+		TransactionUtils.signAndForge(repository, transactionData, account);
 
 		return repository.getAssetRepository().getAccountsOrders(account.getPublicKey(), null, null, null, null, true).get(0).getOrderId();
 	}

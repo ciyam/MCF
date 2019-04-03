@@ -3,6 +3,7 @@ package org.qora.test;
 import org.junit.Test;
 import org.qora.block.BlockChain;
 import org.qora.crypto.Crypto;
+import org.qora.test.common.Common;
 
 import static org.junit.Assert.*;
 

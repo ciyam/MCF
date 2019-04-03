@@ -88,7 +88,7 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getAmount(), AMOUNT_LENGTH);
 
 			// Under "new" asset pricing, this is actually the want-amount
-			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getPrice(), AMOUNT_LENGTH);
+			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getWantAmount(), AMOUNT_LENGTH);
 
 			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getFee());
 
@@ -128,7 +128,7 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getAmount(), AMOUNT_LENGTH);
 
 			// This is the crucial difference
-			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getPrice(), FEE_LENGTH);
+			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getWantAmount(), FEE_LENGTH);
 
 			Serialization.serializeBigDecimal(bytes, createOrderTransactionData.getFee());
 

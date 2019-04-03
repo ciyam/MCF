@@ -4,14 +4,16 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qora.asset.Asset;
+import org.qora.asset.Order;
+import org.qora.block.BlockChain;
+import org.qora.data.asset.AssetData;
+import org.qora.data.asset.OrderData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
-import org.qora.test.Common;
 import org.qora.test.common.AccountUtils;
 import org.qora.test.common.AssetUtils;
-
-import static org.junit.Assert.*;
+import org.qora.test.common.Common;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -25,6 +27,46 @@ public class TradingTests extends Common {
 
 	@After
 	public void afterTest() throws DataException {
+		Common.orphanCheck();
+	}
+
+	/**
+	 * Check granularity adjustment values.
+	 * <p>
+	 * If trading at a price of 12 eggs for 1 coin
+	 * then trades can only happen at multiples of
+	 * 0.000000001 or 0.00000012 depending on direction.
+	 */
+	@Test
+	public void testDivisibleGranularities() {
+		testGranularity(true, true, "12", "1", "0.00000012");
+		testGranularity(true, true, "1", "12", "0.00000001");
+	}
+
+	/**
+	 * Check granularity adjustment values.
+	 * <p>
+	 * If trading at a price of 123 riches per 50301 rags,
+	 * then the GCD(123, 50301) is 3 and so trades can only
+	 * happen at multiples of (50301/3) = 16767 rags or
+	 * (123/3) = 41 riches.
+	 */
+	@Test
+	public void testIndivisibleGranularities() {
+		testGranularity(false, false, "50301", "123", "16767");
+		testGranularity(false, false, "123", "50301", "41");
+	}
+
+	private void testGranularity(boolean isOurHaveDivisible, boolean isOurWantDivisible, String theirHaveAmount, String theirWantAmount, String expectedGranularity) {
+		final long newPricingTimestamp = BlockChain.getInstance().getNewAssetPricingTimestamp() + 1;
+
+		final AssetData ourHaveAssetData = new AssetData(null, null, null, 0, isOurHaveDivisible, null, 0, null);
+		final AssetData ourWantAssetData = new AssetData(null, null, null, 0, isOurWantDivisible, null, 0, null);
+
+		OrderData theirOrderData = new OrderData(null, null, 0, 0, new BigDecimal(theirHaveAmount), new BigDecimal(theirWantAmount), null, newPricingTimestamp);
+
+		BigDecimal granularity = Order.calculateAmountGranularity(ourHaveAssetData, ourWantAssetData, theirOrderData);
+		assertEqualBigDecimals("Granularity incorrect", new BigDecimal(expectedGranularity), granularity);
 	}
 
 	/**
@@ -164,8 +206,7 @@ public class TradingTests extends Common {
 
 			BigDecimal expectedFulfilled = asset113Matched2;
 			BigDecimal actualFulfilled = repository.getAssetRepository().fromOrderId(furtherOrderId).getFulfilled();
-			assertTrue(String.format("Order fulfilled incorrect: expected %s, actual %s", expectedFulfilled.toPlainString(), actualFulfilled.toPlainString()),
-					actualFulfilled.compareTo(expectedFulfilled) == 0);
+			assertEqualBigDecimals("Order fulfilled incorrect", expectedFulfilled, actualFulfilled);
 		}
 	}
 
@@ -394,8 +435,7 @@ public class TradingTests extends Common {
 	private static void assertBalance(Repository repository, String accountName, long assetId, BigDecimal expectedBalance) throws DataException {
 		BigDecimal actualBalance = Common.getTestAccount(repository, accountName).getConfirmedBalance(assetId);
 
-		assertTrue(String.format("Test account '%s' asset %d balance incorrect: expected %s, actual %s", accountName, assetId, expectedBalance.toPlainString(), actualBalance.toPlainString()),
-				actualBalance.compareTo(expectedBalance) == 0);
+		assertEqualBigDecimals(String.format("Test account '%s' asset %d balance incorrect", accountName, assetId), expectedBalance, actualBalance);
 	}
 
 }

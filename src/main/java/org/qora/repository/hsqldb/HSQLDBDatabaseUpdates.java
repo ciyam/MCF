@@ -651,8 +651,8 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("UPDATE AssetOrders set want_amount = amount * unit_price");
 					// want-amounts all set, so disallow NULL
 					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN want_amount SET NOT NULL");
-					// Convert old "price" into buying unit price
-					stmt.execute("UPDATE AssetOrders set unit_price = 1 / unit_price");
+					// Rename corresponding column in CreateAssetOrderTransactions
+					stmt.execute("ALTER TABLE CreateAssetOrderTransactions ALTER COLUMN price RENAME TO want_amount");
 					break;
 
 				default:

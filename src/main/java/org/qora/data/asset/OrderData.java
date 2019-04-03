@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -24,7 +25,8 @@ public class OrderData implements Comparable<OrderData> {
 	@Schema(description = "amount of \"have\" asset to trade")
 	private BigDecimal amount;
 
-	@Schema(description = "amount of \"want\" asset to receive")
+	@Schema(name = "return", description = "amount of \"want\" asset to receive")
+	@XmlElement(name = "return")
 	private BigDecimal wantAmount;
 
 	@Schema(description = "amount of \"want\" asset to receive per unit of \"have\" asset traded")

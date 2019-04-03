@@ -22,8 +22,9 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 	private long wantAssetId;
 	@Schema(description = "amount of \"have\" asset to trade")
 	private BigDecimal amount;
-	@Schema(description = "amount of \"want\" asset to receive")
-	private BigDecimal price;
+	@Schema(name = "return", description = "amount of \"want\" asset to receive")
+	@XmlElement(name = "return")
+	private BigDecimal wantAmount;
 
 	// Constructors
 
@@ -33,18 +34,18 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 	}
 
 	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
-			BigDecimal amount, BigDecimal price, BigDecimal fee, byte[] signature) {
+			BigDecimal amount, BigDecimal wantAmount, BigDecimal fee, byte[] signature) {
 		super(TransactionType.CREATE_ASSET_ORDER, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 
 		this.haveAssetId = haveAssetId;
 		this.wantAssetId = wantAssetId;
 		this.amount = amount;
-		this.price = price;
+		this.wantAmount = wantAmount;
 	}
 
 	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
-			BigDecimal amount, BigDecimal price, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, null);
+			BigDecimal amount, BigDecimal wantAmount, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, wantAmount, fee, null);
 	}
 
 	// Getters/Setters
@@ -61,8 +62,8 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 		return this.amount;
 	}
 
-	public BigDecimal getPrice() {
-		return this.price;
+	public BigDecimal getWantAmount() {
+		return this.wantAmount;
 	}
 
 	// Re-expose creatorPublicKey for this transaction type for JAXB
