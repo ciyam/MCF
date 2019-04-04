@@ -39,7 +39,7 @@ public interface AssetRepository {
 
 	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	// Internal, non-API use
+	/** Returns open orders, ordered by ascending unit price (i.e. best price first), for use by order matching logic. */
 	public default List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId) throws DataException {
 		return getOpenOrders(haveAssetId, wantAssetId, null, null, null);
 	}

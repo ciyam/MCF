@@ -130,6 +130,13 @@ public class Account {
 	}
 
 	public void setConfirmedBalance(long assetId, BigDecimal balance) throws DataException {
+		// Safety feature!
+		if (balance.compareTo(BigDecimal.ZERO) < 0) {
+			String message = String.format("Refusing to set negative balance %s [assetId %d] for %s", balance.toPlainString(), assetId, this.address);
+			LOGGER.error(message);
+			throw new DataException(message);
+		}
+
 		// Can't have a balance without an account - make sure it exists!
 		this.repository.getAccountRepository().ensureAccount(this.buildAccountData());
 

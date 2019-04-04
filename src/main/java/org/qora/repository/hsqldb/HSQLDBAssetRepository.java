@@ -192,7 +192,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public OrderData fromOrderId(byte[] orderId) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT creator, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE asset_order_id = ?",
+				"SELECT creator, have_asset_id, want_asset_id, amount, fulfilled, want_amount, unit_price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE asset_order_id = ?",
 				orderId)) {
 			if (resultSet == null)
 				return null;
@@ -202,13 +202,13 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			long wantAssetId = resultSet.getLong(3);
 			BigDecimal amount = resultSet.getBigDecimal(4);
 			BigDecimal fulfilled = resultSet.getBigDecimal(5);
-			BigDecimal price = resultSet.getBigDecimal(6);
-			long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-			boolean isClosed = resultSet.getBoolean(8);
-			boolean isFulfilled = resultSet.getBoolean(9);
+			BigDecimal wantAmount = resultSet.getBigDecimal(6);
+			BigDecimal unitPrice = resultSet.getBigDecimal(7);
+			long timestamp = resultSet.getTimestamp(8, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			boolean isClosed = resultSet.getBoolean(9);
+			boolean isFulfilled = resultSet.getBoolean(10);
 
-			return new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled, price,
-					timestamp, isClosed, isFulfilled);
+			return new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled, wantAmount, unitPrice, timestamp, isClosed, isFulfilled);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch asset order from repository", e);
 		}
@@ -217,8 +217,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset,
 			Boolean reverse) throws DataException {
-		String sql = "SELECT creator, asset_order_id, amount, fulfilled, price, ordered FROM AssetOrders "
-				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE ORDER BY price";
+		String sql = "SELECT creator, asset_order_id, amount, fulfilled, want_amount, unit_price, ordered FROM AssetOrders "
+				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE ORDER BY unit_price";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += ", ordered";
@@ -237,13 +237,14 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				byte[] orderId = resultSet.getBytes(2);
 				BigDecimal amount = resultSet.getBigDecimal(3);
 				BigDecimal fulfilled = resultSet.getBigDecimal(4);
-				BigDecimal price = resultSet.getBigDecimal(5);
-				long timestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				BigDecimal wantAmount = resultSet.getBigDecimal(5);
+				BigDecimal unitPrice = resultSet.getBigDecimal(6);
+				long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 				boolean isClosed = false;
 				boolean isFulfilled = false;
 
 				OrderData order = new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled,
-						price, timestamp, isClosed, isFulfilled);
+						wantAmount, unitPrice, timestamp, isClosed, isFulfilled);
 				orders.add(order);
 			} while (resultSet.next());
 
@@ -256,8 +257,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset,
 			Boolean reverse) throws DataException {
-		String sql = "SELECT price, SUM(amount - fulfilled), MAX(ordered) FROM AssetOrders "
-				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE GROUP BY price ORDER BY price";
+		String sql = "SELECT unit_price, SUM(amount - fulfilled), MAX(ordered) FROM AssetOrders "
+				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE GROUP BY unit_price ORDER BY unit_price";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
@@ -269,12 +270,12 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				return orders;
 
 			do {
-				BigDecimal price = resultSet.getBigDecimal(1);
+				BigDecimal unitPrice = resultSet.getBigDecimal(1);
 				BigDecimal totalUnfulfilled = resultSet.getBigDecimal(2);
 				long timestamp = resultSet.getTimestamp(3).getTime();
 
 				OrderData order = new OrderData(null, null, haveAssetId, wantAssetId, totalUnfulfilled, BigDecimal.ZERO,
-						price, timestamp, false, false);
+						BigDecimal.ZERO, unitPrice, timestamp, false, false);
 				orders.add(order);
 			} while (resultSet.next());
 
@@ -287,7 +288,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getAccountsOrders(byte[] publicKey, Boolean optIsClosed, Boolean optIsFulfilled,
 			Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT asset_order_id, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE creator = ?";
+		String sql = "SELECT asset_order_id, have_asset_id, want_asset_id, amount, fulfilled, want_amount, unit_price, ordered, is_closed, is_fulfilled "
+				+ "FROM AssetOrders WHERE creator = ?";
 		if (optIsClosed != null)
 			sql += " AND is_closed = " + (optIsClosed ? "TRUE" : "FALSE");
 		if (optIsFulfilled != null)
@@ -309,13 +311,14 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				long wantAssetId = resultSet.getLong(3);
 				BigDecimal amount = resultSet.getBigDecimal(4);
 				BigDecimal fulfilled = resultSet.getBigDecimal(5);
-				BigDecimal price = resultSet.getBigDecimal(6);
-				long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-				boolean isClosed = resultSet.getBoolean(8);
-				boolean isFulfilled = resultSet.getBoolean(9);
+				BigDecimal wantAmount = resultSet.getBigDecimal(6);
+				BigDecimal unitPrice = resultSet.getBigDecimal(7);
+				long timestamp = resultSet.getTimestamp(8, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				boolean isClosed = resultSet.getBoolean(9);
+				boolean isFulfilled = resultSet.getBoolean(10);
 
-				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, price,
-						timestamp, isClosed, isFulfilled);
+				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, wantAmount,
+						unitPrice, timestamp, isClosed, isFulfilled);
 				orders.add(order);
 			} while (resultSet.next());
 
@@ -328,7 +331,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, Boolean optIsClosed,
 			Boolean optIsFulfilled, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT asset_order_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE creator = ? AND have_asset_id = ? AND want_asset_id = ?";
+		String sql = "SELECT asset_order_id, amount, fulfilled, want_amount, unit_price, ordered, is_closed, is_fulfilled "
+				+ "FROM AssetOrders WHERE creator = ? AND have_asset_id = ? AND want_asset_id = ?";
 		if (optIsClosed != null)
 			sql += " AND is_closed = " + (optIsClosed ? "TRUE" : "FALSE");
 		if (optIsFulfilled != null)
@@ -348,13 +352,14 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				byte[] orderId = resultSet.getBytes(1);
 				BigDecimal amount = resultSet.getBigDecimal(2);
 				BigDecimal fulfilled = resultSet.getBigDecimal(3);
-				BigDecimal price = resultSet.getBigDecimal(4);
-				long timestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
-				boolean isClosed = resultSet.getBoolean(6);
-				boolean isFulfilled = resultSet.getBoolean(7);
+				BigDecimal wantAmount = resultSet.getBigDecimal(4);
+				BigDecimal unitPrice = resultSet.getBigDecimal(5);
+				long timestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				boolean isClosed = resultSet.getBoolean(7);
+				boolean isFulfilled = resultSet.getBoolean(8);
 
-				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, price,
-						timestamp, isClosed, isFulfilled);
+				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, wantAmount,
+						unitPrice, timestamp, isClosed, isFulfilled);
 				orders.add(order);
 			} while (resultSet.next());
 
@@ -371,7 +376,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		saveHelper.bind("asset_order_id", orderData.getOrderId()).bind("creator", orderData.getCreatorPublicKey())
 				.bind("have_asset_id", orderData.getHaveAssetId()).bind("want_asset_id", orderData.getWantAssetId())
 				.bind("amount", orderData.getAmount()).bind("fulfilled", orderData.getFulfilled())
-				.bind("price", orderData.getPrice()).bind("ordered", new Timestamp(orderData.getTimestamp()))
+				.bind("want_amount", orderData.getWantAmount()).bind("unit_price", orderData.getUnitPrice())
+				.bind("ordered", new Timestamp(orderData.getTimestamp()))
 				.bind("is_closed", orderData.getIsClosed()).bind("is_fulfilled", orderData.getIsFulfilled());
 
 		try {
@@ -395,8 +401,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<TradeData> getTrades(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
-		String sql = "SELECT initiating_order_id, target_order_id, AssetTrades.target_amount, AssetTrades.initiator_amount, traded FROM AssetOrders JOIN AssetTrades ON initiating_order_id = asset_order_id "
-				+ "WHERE have_asset_id = ? AND want_asset_id = ? ORDER BY traded";
+		String sql = "SELECT initiating_order_id, target_order_id, AssetTrades.target_amount, AssetTrades.initiator_amount, traded "
+			+ "FROM AssetOrders JOIN AssetTrades ON initiating_order_id = asset_order_id "
+			+ "WHERE have_asset_id = ? AND want_asset_id = ? ORDER BY traded";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
@@ -497,7 +504,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<TradeData> getOrdersTrades(byte[] orderId, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
-		String sql = "SELECT initiating_order_id, target_order_id, target_amount, initiator_amount, traded FROM AssetTrades WHERE initiating_order_id = ? OR target_order_id = ? ORDER BY traded";
+		String sql = "SELECT initiating_order_id, target_order_id, target_amount, initiator_amount, traded "
+				+ "FROM AssetTrades WHERE initiating_order_id = ? OR target_order_id = ? ORDER BY traded";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);

@@ -6,10 +6,12 @@ import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
+import org.qora.block.BlockChain;
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
 import org.qora.data.asset.TradeData;
@@ -20,6 +22,11 @@ import org.qora.repository.Repository;
 import com.google.common.hash.HashCode;
 
 public class Order {
+
+	/** BigDecimal scale for representing unit price in asset orders. */
+	public static final int BD_PRICE_SCALE = 38;
+	/** BigDecimal scale for representing unit price in asset orders in storage context. */
+	public static final int BD_PRICE_STORAGE_SCALE = BD_PRICE_SCALE + 10;
 
 	private static final Logger LOGGER = LogManager.getLogger(Order.class);
 
@@ -58,33 +65,49 @@ public class Order {
 		return Order.isFulfilled(this.orderData);
 	}
 
-	public BigDecimal calculateAmountGranularity(AssetData haveAssetData, AssetData wantAssetData, OrderData theirOrderData) {
-		// 100 million to scale BigDecimal.setScale(8) fractional amounts into integers, essentially 1e8
-		BigInteger multiplier = BigInteger.valueOf(100_000_000L);
+	/**
+	 * Returns want-asset granularity/unit-size given price.
+	 * <p>
+	 * @param theirPrice 
+	 * @return unit price of want asset
+	 */
+	public static BigDecimal calculateAmountGranularity(AssetData haveAssetData, AssetData wantAssetData, OrderData theirOrderData) {
+		// Multiplier to scale BigDecimal fractional amounts into integer domain
+		BigInteger multiplier = BigInteger.valueOf(1_0000_0000L);
 
 		// Calculate the minimum increment at which I can buy using greatest-common-divisor
-		BigInteger haveAmount = BigInteger.ONE.multiply(multiplier);
-		BigInteger priceAmount = theirOrderData.getPrice().multiply(new BigDecimal(multiplier)).toBigInteger();
-		BigInteger gcd = haveAmount.gcd(priceAmount);
+		BigInteger haveAmount;
+		BigInteger wantAmount;
+		if (theirOrderData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
+			// "new" pricing scheme
+			haveAmount = theirOrderData.getAmount().movePointRight(8).toBigInteger();
+			wantAmount = theirOrderData.getWantAmount().movePointRight(8).toBigInteger();
+		} else {
+			// legacy "old" behaviour
+			haveAmount = multiplier; // 1 unit (* multiplier)
+			wantAmount = theirOrderData.getUnitPrice().movePointRight(8).toBigInteger();
+		}
+
+		BigInteger gcd = haveAmount.gcd(wantAmount);
 		haveAmount = haveAmount.divide(gcd);
-		priceAmount = priceAmount.divide(gcd);
+		wantAmount = wantAmount.divide(gcd);
 
 		// Calculate GCD in combination with divisibility
 		if (wantAssetData.getIsDivisible())
 			haveAmount = haveAmount.multiply(multiplier);
 
 		if (haveAssetData.getIsDivisible())
-			priceAmount = priceAmount.multiply(multiplier);
+			wantAmount = wantAmount.multiply(multiplier);
 
-		gcd = haveAmount.gcd(priceAmount);
+		gcd = haveAmount.gcd(wantAmount);
 
-		// Calculate the increment at which we have to buy
-		BigDecimal increment = new BigDecimal(haveAmount.divide(gcd));
+		// Calculate the granularity at which we have to buy
+		BigDecimal granularity = new BigDecimal(haveAmount.divide(gcd));
 		if (wantAssetData.getIsDivisible())
-			increment = increment.divide(new BigDecimal(multiplier));
+			granularity = granularity.movePointLeft(8);
 
 		// Return
-		return increment;
+		return granularity;
 	}
 
 	// Navigation
@@ -94,6 +117,25 @@ public class Order {
 	}
 
 	// Processing
+
+	private void logOrder(String orderPrefix, boolean isMatchingNotInitial, OrderData orderData) throws DataException {
+		// Avoid calculations if possible
+		if (LOGGER.getLevel().isMoreSpecificThan(Level.DEBUG))
+			return;
+
+		final String weThey = isMatchingNotInitial ? "They" : "We";
+
+		AssetData haveAssetData = this.repository.getAssetRepository().fromAssetId(orderData.getHaveAssetId());
+		AssetData wantAssetData = this.repository.getAssetRepository().fromAssetId(orderData.getWantAssetId());
+
+		LOGGER.debug(String.format("%s %s", orderPrefix, HashCode.fromBytes(orderData.getOrderId()).toString()));
+
+		LOGGER.trace(String.format("%s have: %s %s", weThey, orderData.getAmount().stripTrailingZeros().toPlainString(), haveAssetData.getName()));
+
+		LOGGER.trace(String.format("%s want at least %s %s per %s (minimum %s %s total)", weThey,
+				orderData.getUnitPrice().toPlainString(), wantAssetData.getName(), haveAssetData.getName(),
+				orderData.getWantAmount().stripTrailingZeros().toPlainString(), wantAssetData.getName()));
+	}
 
 	public void process() throws DataException {
 		AssetRepository assetRepository = this.repository.getAssetRepository();
@@ -110,37 +152,57 @@ public class Order {
 		// Save this order into repository so it's available for matching, possibly by itself
 		this.repository.getAssetRepository().save(this.orderData);
 
-		// Attempt to match orders
-		LOGGER.debug("Processing our order " + HashCode.fromBytes(this.orderData.getOrderId()).toString());
-		LOGGER.trace("We have: " + this.orderData.getAmount().toPlainString() + " " + haveAssetData.getName());
-		LOGGER.trace("We want " + this.orderData.getPrice().toPlainString() + " " + wantAssetData.getName() + " per " + haveAssetData.getName());
+		/*
+		 * Our order example ("old"):
+		 * 
+		 * haveAssetId=[GOLD], amount=10,000, wantAssetId=[QORA], price=0.002
+		 * 
+		 * This translates to "we have 10,000 GOLD and want to buy QORA at a price of 0.002 QORA per GOLD"
+		 * 
+		 * So if our order matched, we'd end up with 10,000 * 0.002 = 20 QORA, essentially costing 1/0.002 = 500 GOLD each.
+		 * 
+		 * So 500 GOLD [each] is our (selling) unit price and want-amount is 20 QORA.
+		 * 
+		 * Another example (showing representation error and hence move to "new" pricing):
+		 * haveAssetId=[QORA], amount=24, wantAssetId=[GOLD], price=0.08333333
+		 * unit price: 12.00000048 GOLD, want-amount: 1.9999992 GOLD
+		 */
+
+		/*
+		 * Our order example ("new"):
+		 * 
+		 * haveAssetId=[GOLD], amount=10,000, wantAssetId=0 (QORA), want-amount=20
+		 * 
+		 * This translates to "we have 10,000 GOLD and want to buy 20 QORA"
+		 * 
+		 * So if our order matched, we'd end up with 20 QORA, essentially costing 10,000 / 20 = 500 GOLD each.
+		 * 
+		 * So 500 GOLD [each] is our (selling) unit price and want-amount is 20 QORA.
+		 * 
+		 * Another example:
+		 * haveAssetId=[QORA], amount=24, wantAssetId=[GOLD], want-amount=2
+		 * unit price: 12.00000000 GOLD, want-amount: 2.00000000 GOLD
+		 */
+		logOrder("Processing our order", false, this.orderData);
 
 		// Fetch corresponding open orders that might potentially match, hence reversed want/have assetId args.
 		// Returned orders are sorted with lowest "price" first.
 		List<OrderData> orders = assetRepository.getOpenOrders(wantAssetId, haveAssetId);
 		LOGGER.trace("Open orders fetched from repository: " + orders.size());
 
-		/*
-		 * Our order example:
-		 * 
-		 * haveAssetId=[GOLD], amount=10,000, wantAssetId=0 (QORA), price=0.002
-		 * 
-		 * This translates to "we have 10,000 GOLD and want to buy QORA at a price of 0.002 QORA per GOLD"
-		 * 
-		 * So if our order matched, we'd end up with 10,000 * 0.002 = 20 QORA, essentially costing 1/0.002 = 500 GOLD each.
-		 * 
-		 * So 500 GOLD [each] is our "buyingPrice".
-		 */
-		BigDecimal ourPrice = this.orderData.getPrice();
+		if (orders.isEmpty())
+			return;
+
+		// Attempt to match orders
+
+		BigDecimal ourUnitPrice = this.orderData.getUnitPrice();
+		LOGGER.trace(String.format("Our minimum price: %s %s per %s", ourUnitPrice.toPlainString(), wantAssetData.getName(), haveAssetData.getName()));
 
 		for (OrderData theirOrderData : orders) {
-			LOGGER.trace("Considering order " + HashCode.fromBytes(theirOrderData.getOrderId()).toString());
-			// Note swapped use of have/want asset data as this is from 'their' perspective.
-			LOGGER.trace("They have: " + theirOrderData.getAmount().toPlainString() + " " + wantAssetData.getName());
-			LOGGER.trace("They want " + theirOrderData.getPrice().toPlainString() + " " + haveAssetData.getName() + " per " + wantAssetData.getName());
+			logOrder("Considering order", true, theirOrderData);
 
 			/*
-			 * Potential matching order example:
+			 * Potential matching order example ("old"):
 			 * 
 			 * haveAssetId=0 (QORA), amount=40, wantAssetId=[GOLD], price=486
 			 * 
@@ -148,58 +210,131 @@ public class Order {
 			 * 
 			 * So if their order matched, they'd end up with 40 * 486 = 19,440 GOLD, essentially costing 1/486 = 0.00205761 QORA each.
 			 * 
-			 * So 0.00205761 QORA [each] is their "buyingPrice".
+			 * So 0.00205761 QORA [each] is their unit price and maximum amount is 19,440 GOLD.
 			 */
 
-			// Round down otherwise their buyingPrice would be better than advertised and cause issues
-			BigDecimal theirBuyingPrice = BigDecimal.ONE.setScale(8).divide(theirOrderData.getPrice(), RoundingMode.DOWN);
-			LOGGER.trace("theirBuyingPrice: " + theirBuyingPrice.toPlainString() + " " + wantAssetData.getName() + " per " + haveAssetData.getName());
+			/*
+			 * Potential matching order example ("new"):
+			 * 
+			 * haveAssetId=0 (QORA), amount=40, wantAssetId=[GOLD], price=19,440
+			 * 
+			 * This translates to "we have 40 QORA and want to buy 19,440 GOLD"
+			 * 
+			 * So if their order matched, they'd end up with 19,440 GOLD, essentially costing 40 / 19,440 = 0.00205761 QORA each.
+			 * 
+			 * So 0.00205761 QORA [each] is their unit price and maximum amount is 19,440 GOLD.
+			 */
 
-			// If their buyingPrice is less than what we're willing to pay then we're done as prices only get worse as we iterate through list of orders
-			if (theirBuyingPrice.compareTo(ourPrice) < 0)
+			boolean isTheirOrderNewAssetPricing = theirOrderData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
+
+			BigDecimal theirBuyingPrice = BigDecimal.ONE.setScale(isTheirOrderNewAssetPricing ? Order.BD_PRICE_STORAGE_SCALE : 8).divide(theirOrderData.getUnitPrice(), RoundingMode.DOWN);
+			LOGGER.trace(String.format("Their price: %s %s per %s", theirBuyingPrice.toPlainString(), wantAssetData.getName(), haveAssetData.getName()));
+
+			// If their buyingPrice is less than what we're willing to accept then we're done as prices only get worse as we iterate through list of orders
+			if (theirBuyingPrice.compareTo(ourUnitPrice) < 0)
 				break;
 
 			// Calculate how many want-asset we could buy at their price
-			BigDecimal ourAmountLeft = this.getAmountLeft().multiply(theirBuyingPrice).setScale(8, RoundingMode.DOWN);
-			LOGGER.trace("ourAmountLeft (max we could buy at their price): " + ourAmountLeft.toPlainString() + " " + wantAssetData.getName());
-			// How many want-asset is remaining available in this order
-			BigDecimal theirAmountLeft = Order.getAmountLeft(theirOrderData);
-			LOGGER.trace("theirAmountLeft (max amount remaining in order): " + theirAmountLeft.toPlainString() + " " + wantAssetData.getName());
+			BigDecimal ourMaxWantAmount = this.getAmountLeft().multiply(theirBuyingPrice).setScale(8, RoundingMode.DOWN);
+			LOGGER.trace("ourMaxWantAmount (max we could buy at their price): " + ourMaxWantAmount.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
+
+			if (isTheirOrderNewAssetPricing) {
+				ourMaxWantAmount = ourMaxWantAmount.max(this.getAmountLeft().divide(theirOrderData.getUnitPrice(), RoundingMode.DOWN).setScale(8, RoundingMode.DOWN));
+				LOGGER.trace("ourMaxWantAmount (max we could buy at their price) using inverted calculation: " + ourMaxWantAmount.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
+			}
+
+			// How many want-asset is remaining available in their order. (have-asset amount from their perspective).
+			BigDecimal theirWantAmountLeft = Order.getAmountLeft(theirOrderData);
+			LOGGER.trace("theirWantAmountLeft (max amount remaining in their order): " + theirWantAmountLeft.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
+
 			// So matchable want-asset amount is the minimum of above two values
-			BigDecimal matchedAmount = ourAmountLeft.min(theirAmountLeft);
-			LOGGER.trace("matchedAmount: " + matchedAmount.toPlainString() + " " + wantAssetData.getName());
+			BigDecimal matchedWantAmount = ourMaxWantAmount.min(theirWantAmountLeft);
+			LOGGER.trace("matchedWantAmount: " + matchedWantAmount.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
 
 			// If we can't buy anything then try another order
-			if (matchedAmount.compareTo(BigDecimal.ZERO) <= 0)
+			if (matchedWantAmount.compareTo(BigDecimal.ZERO) <= 0)
 				continue;
 
-			// Calculate amount granularity based on both assets' divisibility
-			BigDecimal increment = this.calculateAmountGranularity(haveAssetData, wantAssetData, theirOrderData);
-			LOGGER.trace("increment (want-asset amount granularity): " + increment.toPlainString() + " " + wantAssetData.getName());
-			matchedAmount = matchedAmount.subtract(matchedAmount.remainder(increment));
-			LOGGER.trace("matchedAmount adjusted for granularity: " + matchedAmount.toPlainString() + " " + wantAssetData.getName());
+			// Calculate want-amount granularity, based on price and both assets' divisibility, so that have-amount traded is a valid amount (integer or to 8 d.p.)
+			BigDecimal wantGranularity = calculateAmountGranularity(haveAssetData, wantAssetData, theirOrderData);
+			LOGGER.trace("wantGranularity (want-asset amount granularity): " + wantGranularity.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
+
+			// Reduce matched amount (if need be) to fit granularity
+			matchedWantAmount = matchedWantAmount.subtract(matchedWantAmount.remainder(wantGranularity));
+			LOGGER.trace("matchedWantAmount adjusted for granularity: " + matchedWantAmount.stripTrailingZeros().toPlainString() + " " + wantAssetData.getName());
 
 			// If we can't buy anything then try another order
-			if (matchedAmount.compareTo(BigDecimal.ZERO) <= 0)
+			if (matchedWantAmount.compareTo(BigDecimal.ZERO) <= 0)
 				continue;
+
+			// Safety checks
+			if (matchedWantAmount.compareTo(Order.getAmountLeft(theirOrderData)) > 0) {
+				Account participant = new PublicKeyAccount(this.repository, theirOrderData.getCreatorPublicKey());
+
+				String message = String.format("Refusing to trade more %s then requested %s [assetId %d] for %s",
+						matchedWantAmount.toPlainString(), Order.getAmountLeft(theirOrderData).toPlainString(), wantAssetId, participant.getAddress());
+				LOGGER.error(message);
+				throw new DataException(message);
+			}
+
+			if (!wantAssetData.getIsDivisible() && matchedWantAmount.stripTrailingZeros().scale() > 0) {
+				Account participant = new PublicKeyAccount(this.repository, theirOrderData.getCreatorPublicKey());
+
+				String message = String.format("Refusing to trade fractional %s [indivisible assetId %d] for %s",
+						matchedWantAmount.toPlainString(), wantAssetId, participant.getAddress());
+				LOGGER.error(message);
+				throw new DataException(message);
+			}
 
 			// Trade can go ahead!
 
 			// Calculate the total cost to us, in have-asset, based on their price
-			BigDecimal tradePrice = matchedAmount.multiply(theirOrderData.getPrice()).setScale(8);
-			LOGGER.trace("tradePrice ('want' trade agreed): " + tradePrice.toPlainString() + " " + haveAssetData.getName());
+			BigDecimal haveAmountTraded;
+
+			if (isTheirOrderNewAssetPricing) {
+				BigDecimal theirTruncatedPrice = theirBuyingPrice.setScale(Order.BD_PRICE_SCALE, RoundingMode.DOWN);
+				BigDecimal ourTruncatedPrice = ourUnitPrice.setScale(Order.BD_PRICE_SCALE, RoundingMode.DOWN);
+
+				// Safety check
+				if (theirTruncatedPrice.compareTo(ourTruncatedPrice) < 0) {
+					String message = String.format("Refusing to trade at worse price %s than our minimum of %s",
+							theirTruncatedPrice.toPlainString(), ourTruncatedPrice.toPlainString(), creator.getAddress());
+					LOGGER.error(message);
+					throw new DataException(message);
+				}
+
+				haveAmountTraded = matchedWantAmount.divide(theirTruncatedPrice, RoundingMode.DOWN).setScale(8, RoundingMode.DOWN);
+			} else {
+				haveAmountTraded = matchedWantAmount.multiply(theirOrderData.getUnitPrice()).setScale(8, RoundingMode.DOWN);
+			}
+			LOGGER.trace("haveAmountTraded: " + haveAmountTraded.stripTrailingZeros().toPlainString() + " " + haveAssetData.getName());
+
+			// Safety checks
+			if (haveAmountTraded.compareTo(this.getAmountLeft()) > 0) {
+				String message = String.format("Refusing to trade more %s then requested %s [assetId %d] for %s",
+						haveAmountTraded.toPlainString(), this.getAmountLeft().toPlainString(), haveAssetId, creator.getAddress());
+				LOGGER.error(message);
+				throw new DataException(message);
+			}
+
+			if (!haveAssetData.getIsDivisible() && haveAmountTraded.stripTrailingZeros().scale() > 0) {
+				String message = String.format("Refusing to trade fractional %s [indivisible assetId %d] for %s",
+						haveAmountTraded.toPlainString(), haveAssetId, creator.getAddress());
+				LOGGER.error(message);
+				throw new DataException(message);
+			}
 
 			// Construct trade
-			TradeData tradeData = new TradeData(this.orderData.getOrderId(), theirOrderData.getOrderId(), matchedAmount, tradePrice,
+			TradeData tradeData = new TradeData(this.orderData.getOrderId(), theirOrderData.getOrderId(), matchedWantAmount, haveAmountTraded,
 					this.orderData.getTimestamp());
 			// Process trade, updating corresponding orders in repository
 			Trade trade = new Trade(this.repository, tradeData);
 			trade.process();
 
 			// Update our order in terms of fulfilment, etc. but do not save into repository as that's handled by Trade above
-			this.orderData.setFulfilled(this.orderData.getFulfilled().add(tradePrice));
-			LOGGER.trace("Updated our order's fulfilled amount to: " + this.orderData.getFulfilled().toPlainString() + " " + haveAssetData.getName());
-			LOGGER.trace("Our order's amount remaining: " + this.getAmountLeft().toPlainString() + " " + haveAssetData.getName());
+			this.orderData.setFulfilled(this.orderData.getFulfilled().add(haveAmountTraded));
+			LOGGER.trace("Updated our order's fulfilled amount to: " + this.orderData.getFulfilled().stripTrailingZeros().toPlainString() + " " + haveAssetData.getName());
+			LOGGER.trace("Our order's amount remaining: " + this.getAmountLeft().stripTrailingZeros().toPlainString() + " " + haveAssetData.getName());
 
 			// Continue on to process other open orders if we still have amount left to match
 			if (this.getAmountLeft().compareTo(BigDecimal.ZERO) <= 0)

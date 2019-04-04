@@ -1,0 +1,6 @@
+{
+  "restrictedApi": false,
+  "blockchainConfig": "src/test/resources/test-chain-old-asset.json",
+  "wipeUnconfirmedOnStart": false,
+  "minPeers": 0
+}
