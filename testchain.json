@@ -28,6 +28,7 @@
 		"votingTimestamp": 0,
 		"arbitraryTimestamp": 0,
 		"powfixTimestamp": 0,
-		"v2Timestamp": 0
+		"v2Timestamp": 0,
+		"newAssetPricingTimestamp": 0
 	}
 }
