@@ -4,7 +4,7 @@ import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
 
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
-
+import org.eclipse.jetty.server.NCSARequestLog;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ErrorHandler;
 import org.eclipse.jetty.server.handler.InetAccessHandler;
@@ -37,6 +37,16 @@ public class ApiService {
 		// Error handler
 		ErrorHandler errorHandler = new ApiErrorHandler();
 		this.server.setErrorHandler(errorHandler);
+
+		// Request logging
+		if (Settings.getInstance().isApiLoggingEnabled()) {
+			NCSARequestLog requestLog = new NCSARequestLog("API-requests.log");
+			requestLog.setAppend(true);
+			requestLog.setExtended(false);
+			requestLog.setLogTimeZone("UTC");
+			requestLog.setLogLatency(true);
+			server.setRequestLog(requestLog);
+		}
 
 		// IP address based access control
 		InetAccessHandler accessHandler = new InetAccessHandler();
