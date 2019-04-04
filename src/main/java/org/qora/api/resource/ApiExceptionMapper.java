@@ -10,6 +10,7 @@ import javax.ws.rs.ext.Provider;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.glassfish.jersey.server.ParamException;
 
 @Provider
 public class ApiExceptionMapper implements ExceptionMapper<RuntimeException> {
@@ -25,6 +26,11 @@ public class ApiExceptionMapper implements ExceptionMapper<RuntimeException> {
 	@Override
 	public Response toResponse(RuntimeException e) {
 		LOGGER.info(String.format("Exception %s during API call: %s", e.getClass().getCanonicalName(), request.getRequestURI()));
+
+		if (e instanceof ParamException) {
+			ParamException pe = (ParamException) e;
+			return Response.status(Response.Status.BAD_REQUEST).entity("Bad parameter \"" + pe.getParameterName() + "\"").build();
+		}
 
 		if (e instanceof WebApplicationException)
 			return ((WebApplicationException) e).getResponse();
