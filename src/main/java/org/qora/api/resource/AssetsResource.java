@@ -92,7 +92,8 @@ public class AssetsResource {
 	@ApiErrors({
 		ApiError.REPOSITORY_ISSUE
 	})
-	public List<AssetData> getAllAssets(@Parameter(
+	public List<AssetData> getAllAssets(@QueryParam("includeData") Boolean includeData,
+	@Parameter(
 		ref = "limit"
 	) @QueryParam("limit") Integer limit, @Parameter(
 		ref = "offset"
@@ -102,7 +103,8 @@ public class AssetsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			List<AssetData> assets = repository.getAssetRepository().getAllAssets(limit, offset, reverse);
 
-			assets.forEach(asset -> asset.setData(null));
+			if (includeData == null || !includeData)
+				assets.forEach(asset -> asset.setData(null));
 
 			return assets;
 		} catch (DataException e) {
