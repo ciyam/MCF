@@ -100,7 +100,7 @@ public class Crypto {
 		}
 
 		// Check address length
-		if (addressBytes.length != Account.ADDRESS_LENGTH)
+		if (addressBytes == null || addressBytes.length != Account.ADDRESS_LENGTH)
 			return false;
 
 		// Check by address type
