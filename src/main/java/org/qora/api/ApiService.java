@@ -66,8 +66,9 @@ public class ApiService {
 
 		// Cross-origin resource sharing
 		FilterHolder corsFilterHolder = new FilterHolder(CrossOriginFilter.class);
-		corsFilterHolder.setInitParameter("allowedOrigins", "*");
-		corsFilterHolder.setInitParameter("allowedMethods", "GET, POST, DELETE");
+		corsFilterHolder.setInitParameter(CrossOriginFilter.ALLOWED_ORIGINS_PARAM, "*");
+		corsFilterHolder.setInitParameter(CrossOriginFilter.ALLOWED_METHODS_PARAM, "GET, POST, DELETE");
+		corsFilterHolder.setInitParameter(CrossOriginFilter.CHAIN_PREFLIGHT_PARAM, "false");
 		context.addFilter(corsFilterHolder, "/*", null);
 
 		// API servlet
