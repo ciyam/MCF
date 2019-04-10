@@ -633,9 +633,9 @@ public class AssetsResource {
 	}
 
 	@GET
-	@Path("/transfers/{assetid}/{address}")
+	@Path("/transfers/{assetid}")
 	@Operation(
-		summary = "Asset transfers for specific asset and address combination",
+		summary = "Asset transfers for specific asset, with optional address filter",
 		responses = {
 			@ApiResponse(
 				description = "Asset transactions",
@@ -654,7 +654,7 @@ public class AssetsResource {
 	})
 	public List<TransferAssetTransactionData> getAssetTransfers(@Parameter(
 		ref = "assetid"
-	) @PathParam("assetid") int assetId, @PathParam("address") String address, @Parameter(
+	) @PathParam("assetid") int assetId, @QueryParam("address") String address, @Parameter(
 		ref = "limit"
 	) @QueryParam("limit") Integer limit, @Parameter(
 		ref = "offset"
@@ -665,7 +665,7 @@ public class AssetsResource {
 			if (!repository.getAssetRepository().assetExists(assetId))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			if (!Crypto.isValidAddress(address))
+			if (address != null && !Crypto.isValidAddress(address))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 			return repository.getTransactionRepository().getAssetTransfers(assetId, address, limit, offset, reverse);
