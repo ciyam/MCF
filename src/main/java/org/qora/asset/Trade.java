@@ -1,7 +1,10 @@
 package org.qora.asset;
 
+import java.math.BigDecimal;
+
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
+import org.qora.block.BlockChain;
 import org.qora.data.asset.OrderData;
 import org.qora.data.asset.TradeData;
 import org.qora.repository.AssetRepository;
@@ -31,14 +34,19 @@ public class Trade {
 
 		// Update corresponding Orders on both sides of trade
 		OrderData initiatingOrder = assetRepository.fromOrderId(this.tradeData.getInitiator());
-		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().add(tradeData.getInitiatorAmount()));
+		OrderData targetOrder = assetRepository.fromOrderId(this.tradeData.getTarget());
+
+		// Under 'new' pricing scheme, "amount" and "fulfilled" are the same asset for both orders
+		boolean isNewPricing = initiatingOrder.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
+		BigDecimal newPricingAmount = (initiatingOrder.getHaveAssetId() < initiatingOrder.getWantAssetId()) ? this.tradeData.getTargetAmount() : this.tradeData.getInitiatorAmount();
+
+		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().add(isNewPricing ? newPricingAmount : tradeData.getInitiatorAmount()));
 		initiatingOrder.setIsFulfilled(Order.isFulfilled(initiatingOrder));
 		// Set isClosed to true if isFulfilled now true
 		initiatingOrder.setIsClosed(initiatingOrder.getIsFulfilled());
 		assetRepository.save(initiatingOrder);
 
-		OrderData targetOrder = assetRepository.fromOrderId(this.tradeData.getTarget());
-		targetOrder.setFulfilled(targetOrder.getFulfilled().add(tradeData.getTargetAmount()));
+		targetOrder.setFulfilled(targetOrder.getFulfilled().add(isNewPricing ? newPricingAmount : tradeData.getTargetAmount()));
 		targetOrder.setIsFulfilled(Order.isFulfilled(targetOrder));
 		// Set isClosed to true if isFulfilled now true
 		targetOrder.setIsClosed(targetOrder.getIsFulfilled());
@@ -59,14 +67,19 @@ public class Trade {
 
 		// Revert corresponding Orders on both sides of trade
 		OrderData initiatingOrder = assetRepository.fromOrderId(this.tradeData.getInitiator());
-		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().subtract(tradeData.getInitiatorAmount()));
+		OrderData targetOrder = assetRepository.fromOrderId(this.tradeData.getTarget());
+
+		// Under 'new' pricing scheme, "amount" and "fulfilled" are the same asset for both orders
+		boolean isNewPricing = initiatingOrder.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
+		BigDecimal newPricingAmount = (initiatingOrder.getHaveAssetId() < initiatingOrder.getWantAssetId()) ? this.tradeData.getTargetAmount() : this.tradeData.getInitiatorAmount();
+
+		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().subtract(isNewPricing ? newPricingAmount : tradeData.getInitiatorAmount()));
 		initiatingOrder.setIsFulfilled(Order.isFulfilled(initiatingOrder));
 		// Set isClosed to false if isFulfilled now false
 		initiatingOrder.setIsClosed(initiatingOrder.getIsFulfilled());
 		assetRepository.save(initiatingOrder);
 
-		OrderData targetOrder = assetRepository.fromOrderId(this.tradeData.getTarget());
-		targetOrder.setFulfilled(targetOrder.getFulfilled().subtract(tradeData.getTargetAmount()));
+		targetOrder.setFulfilled(targetOrder.getFulfilled().subtract(isNewPricing ? newPricingAmount : tradeData.getTargetAmount()));
 		targetOrder.setIsFulfilled(Order.isFulfilled(targetOrder));
 		// Set isClosed to false if isFulfilled now false
 		targetOrder.setIsClosed(targetOrder.getIsFulfilled());

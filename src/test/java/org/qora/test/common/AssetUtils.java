@@ -1,8 +1,13 @@
 package org.qora.test.common;
 
+import static org.junit.Assert.assertNotNull;
+
 import java.math.BigDecimal;
+import java.util.Map;
 
 import org.qora.account.PrivateKeyAccount;
+import org.qora.block.BlockChain;
+import org.qora.data.asset.OrderData;
 import org.qora.data.transaction.CreateAssetOrderTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -10,6 +15,7 @@ import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
+import org.qora.repository.RepositoryManager;
 
 public class AssetUtils {
 
@@ -42,18 +48,71 @@ public class AssetUtils {
 		TransactionUtils.signAndForge(repository, transactionData, fromAccount);
 	}
 
-	public static byte[] createOrder(Repository repository, String accountName, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal wantAmount) throws DataException {
+	public static byte[] createOrder(Repository repository, String accountName, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price) throws DataException {
 		PrivateKeyAccount account = Common.getTestAccount(repository, accountName);
 
 		byte[] reference = account.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1000;
 
-		// Note: "price" is not the same in V2 as in V1
-		TransactionData transactionData = new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, account.getPublicKey(), haveAssetId, wantAssetId, amount, wantAmount, fee);
+		TransactionData transactionData = new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, account.getPublicKey(), haveAssetId, wantAssetId, amount, price, fee);
 
 		TransactionUtils.signAndForge(repository, transactionData, account);
 
 		return repository.getAssetRepository().getAccountsOrders(account.getPublicKey(), null, null, null, null, true).get(0).getOrderId();
+	}
+
+	public static void genericTradeTest(long haveAssetId, long wantAssetId,
+			BigDecimal aliceAmount, BigDecimal alicePrice,
+			BigDecimal bobAmount, BigDecimal bobPrice,
+			BigDecimal aliceCommitment, BigDecimal bobCommitment,
+			BigDecimal aliceReturn, BigDecimal bobReturn) throws DataException {
+		try (Repository repository = RepositoryManager.getRepository()) {
+			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, haveAssetId, wantAssetId);
+
+			// Create target order
+			byte[] targetOrderId = createOrder(repository, "alice", haveAssetId, wantAssetId, aliceAmount, alicePrice);
+
+			// Create initiating order
+			byte[] initiatingOrderId = createOrder(repository, "bob", wantAssetId, haveAssetId, bobAmount, bobPrice);
+
+			// Check balances to check expected outcome
+			BigDecimal expectedBalance;
+
+			// Alice have asset
+			expectedBalance = initialBalances.get("alice").get(haveAssetId).subtract(aliceCommitment);
+			AccountUtils.assertBalance(repository, "alice", haveAssetId, expectedBalance);
+
+			// Alice want asset
+			expectedBalance = initialBalances.get("alice").get(wantAssetId).add(aliceReturn);
+			AccountUtils.assertBalance(repository, "alice", wantAssetId, expectedBalance);
+
+			// Bob want asset
+			expectedBalance = initialBalances.get("bob").get(wantAssetId).subtract(bobCommitment);
+			AccountUtils.assertBalance(repository, "bob", wantAssetId, expectedBalance);
+
+			// Bob have asset
+			expectedBalance = initialBalances.get("bob").get(haveAssetId).add(bobReturn);
+			AccountUtils.assertBalance(repository, "bob", haveAssetId, expectedBalance);
+
+			// Check orders
+			BigDecimal expectedFulfilled;
+
+			// Check matching order
+			OrderData targetOrderData = repository.getAssetRepository().fromOrderId(targetOrderId);
+			OrderData initiatingOrderData = repository.getAssetRepository().fromOrderId(initiatingOrderId);
+
+			boolean isNewPricing = initiatingOrderData.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
+			BigDecimal newPricingAmount = (initiatingOrderData.getHaveAssetId() < initiatingOrderData.getWantAssetId()) ? bobReturn : aliceReturn;
+
+			assertNotNull("matching order missing", initiatingOrderData);
+			expectedFulfilled = isNewPricing ? newPricingAmount : aliceReturn;
+			Common.assertEqualBigDecimals(String.format("Bob's order \"fulfilled\" incorrect"), expectedFulfilled, initiatingOrderData.getFulfilled());
+
+			// Check initial order
+			assertNotNull("initial order missing", targetOrderData);
+			expectedFulfilled = isNewPricing ? newPricingAmount : bobReturn;
+			Common.assertEqualBigDecimals(String.format("Alice's order \"fulfilled\" incorrect"), expectedFulfilled, targetOrderData.getFulfilled());
+		}
 	}
 
 }

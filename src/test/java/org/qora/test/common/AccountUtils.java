@@ -29,4 +29,10 @@ public class AccountUtils {
 		return balances;
 	}
 
+	public static void assertBalance(Repository repository, String accountName, long assetId, BigDecimal expectedBalance) throws DataException {
+		BigDecimal actualBalance = Common.getTestAccount(repository, accountName).getConfirmedBalance(assetId);
+
+		Common.assertEqualBigDecimals(String.format("Test account '%s' asset %d balance incorrect", accountName, assetId), expectedBalance, actualBalance);
+	}
+
 }

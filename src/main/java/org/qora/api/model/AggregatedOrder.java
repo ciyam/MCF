@@ -20,9 +20,9 @@ public class AggregatedOrder {
 		this.orderData = orderData;
 	}
 
-	@XmlElement(name = "unitPrice")
-	public BigDecimal getUnitPrice() {
-		return this.orderData.getUnitPrice();
+	@XmlElement(name = "price")
+	public BigDecimal getPrice() {
+		return this.orderData.getPrice();
 	}
 
 	@XmlElement(name = "unfulfilled")

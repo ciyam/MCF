@@ -1,5 +1,6 @@
 package org.qora.repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.qora.data.asset.AssetData;
@@ -43,6 +44,8 @@ public interface AssetRepository {
 	public default List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId) throws DataException {
 		return getOpenOrders(haveAssetId, wantAssetId, null, null, null);
 	}
+
+	public List<OrderData> getOpenOrdersForTrading(long haveAssetId, long wantAssetId, BigDecimal minimumPrice) throws DataException;
 
 	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
