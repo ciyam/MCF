@@ -340,9 +340,17 @@ public class Order {
 				LOGGER.trace(String.format("Their price: %s %s per %s", theirPrice.toPlainString(), wantAssetData.getName(), haveAssetData.getName()));
 			}
 
-			// If their buyingPrice is less than what we're willing to accept then we're done as prices only get worse as we iterate through list of orders
-			if (theirPrice.compareTo(ourPrice) < 0)
-				break;
+			// If their price is worse than what we're willing to accept then we're done as prices only get worse as we iterate through list of orders
+			if (isOurOrderNewPricing) {
+				if (haveAssetId < wantAssetId && theirPrice.compareTo(ourPrice) > 0)
+					break;
+				if (haveAssetId > wantAssetId && theirPrice.compareTo(ourPrice) < 0)
+					break;
+			} else {
+				// 'old' pricing scheme
+				if (theirPrice.compareTo(ourPrice) < 0)
+					break;
+			}
 
 			// Calculate how much we could buy at their price.
 			BigDecimal ourMaxAmount;
