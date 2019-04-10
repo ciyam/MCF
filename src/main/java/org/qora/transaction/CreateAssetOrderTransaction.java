@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -83,7 +82,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check price is positive
-		if (createOrderTransactionData.getWantAmount().compareTo(BigDecimal.ZERO) <= 0)
+		if (createOrderTransactionData.getPrice().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_PRICE;
 
 		// Check fee is positive
@@ -104,19 +103,63 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 		Account creator = getCreator();
 
-		// Check reference is correct
-		if (!Arrays.equals(creator.getLastReference(), createOrderTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
+		boolean isNewPricing = createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
+
+		BigDecimal committedCost;
+		BigDecimal maxOtherAmount;
+
+		if (isNewPricing) {
+			/*
+			 * This is different under "new" pricing scheme as "amount" might be either have-asset or want-asset,
+			 * whichever has the highest assetID.
+			 * 
+			 * e.g. with assetID 11 "GOLD":
+			 * haveAssetId: 0 (QORA), wantAssetId: 11 (GOLD), amount: 123 (GOLD), price: 400 (QORA/GOLD)
+			 * stake 49200 QORA, return 123 GOLD
+			 * 
+			 * haveAssetId: 11 (GOLD), wantAssetId: 0 (QORA), amount: 123 (GOLD), price: 400 (QORA/GOLD)
+			 * stake 123 GOLD, return 49200 QORA
+			 */
+			boolean isAmountWantAsset = haveAssetId < wantAssetId;
+
+			if (isAmountWantAsset) {
+				// have/commit 49200 QORA, want/return 123 GOLD
+				committedCost = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
+				maxOtherAmount = createOrderTransactionData.getAmount();
+			} else {
+				// have/commit 123 GOLD, want/return 49200 QORA
+				committedCost = createOrderTransactionData.getAmount();
+				maxOtherAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
+			}
+		} else {
+			/*
+			 * Under "old" pricing scheme, "amount" is always have-asset and price is always want-per-have.
+			 * 
+			 * e.g. with assetID 11 "GOLD":
+			 * haveAssetId: 0 (QORA), wantAssetId: 11 (GOLD), amount: 49200 (QORA), price: 0.00250000 (GOLD/QORA)
+			 * haveAssetId: 11 (GOLD), wantAssetId: 0 (QORA), amount: 123 (GOLD), price: 400 (QORA/GOLD)
+			 */
+			committedCost = createOrderTransactionData.getAmount();
+			maxOtherAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
+		}
+
+		// Check amount is integer if amount's asset is not divisible
+		if (!haveAssetData.getIsDivisible() && committedCost.stripTrailingZeros().scale() > 0)
+			return ValidationResult.INVALID_AMOUNT;
+
+		// Check total return from fulfilled order would be integer if return's asset is not divisible
+		if (!wantAssetData.getIsDivisible() && maxOtherAmount.stripTrailingZeros().scale() > 0)
+			return ValidationResult.INVALID_RETURN;
 
 		// Check order creator has enough asset balance AFTER removing fee, in case asset is QORA
 		// If asset is QORA then we need to check amount + fee in one go
 		if (haveAssetId == Asset.QORA) {
 			// Check creator has enough funds for amount + fee in QORA
-			if (creator.getConfirmedBalance(Asset.QORA).compareTo(createOrderTransactionData.getAmount().add(createOrderTransactionData.getFee())) < 0)
+			if (creator.getConfirmedBalance(Asset.QORA).compareTo(committedCost.add(createOrderTransactionData.getFee())) < 0)
 				return ValidationResult.NO_BALANCE;
 		} else {
 			// Check creator has enough funds for amount in whatever asset
-			if (creator.getConfirmedBalance(haveAssetId).compareTo(createOrderTransactionData.getAmount()) < 0)
+			if (creator.getConfirmedBalance(haveAssetId).compareTo(committedCost) < 0)
 				return ValidationResult.NO_BALANCE;
 
 			// Check creator has enough funds for fee in QORA
@@ -126,21 +169,9 @@ public class CreateAssetOrderTransaction extends Transaction {
 				return ValidationResult.NO_BALANCE;
 		}
 
-		// Check "have" amount is integer if "have" asset is not divisible
-		if (!haveAssetData.getIsDivisible() && createOrderTransactionData.getAmount().stripTrailingZeros().scale() > 0)
-			return ValidationResult.INVALID_AMOUNT;
-
-		// Check total return from fulfilled order would be integer if "want" asset is not divisible
-		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
-			// "new" asset pricing
-			if (!wantAssetData.getIsDivisible() && createOrderTransactionData.getWantAmount().stripTrailingZeros().scale() > 0)
-				return ValidationResult.INVALID_RETURN;
-		} else {
-			// "old" asset pricing
-			if (!wantAssetData.getIsDivisible()
-					&& createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getWantAmount()).stripTrailingZeros().scale() > 0)
-				return ValidationResult.INVALID_RETURN;
-		}
+		// Check reference is correct
+		if (!Arrays.equals(creator.getLastReference(), createOrderTransactionData.getReference()))
+			return ValidationResult.INVALID_REFERENCE;
 
 		return ValidationResult.OK;
 	}
@@ -161,22 +192,9 @@ public class CreateAssetOrderTransaction extends Transaction {
 		// Order Id is transaction's signature
 		byte[] orderId = createOrderTransactionData.getSignature();
 
-		BigDecimal wantAmount;
-		BigDecimal unitPrice;
-
-		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
-			// "new" asset pricing: want-amount provided, unit price to be calculated
-			wantAmount = createOrderTransactionData.getWantAmount();
-			unitPrice = wantAmount.setScale(Order.BD_PRICE_STORAGE_SCALE).divide(createOrderTransactionData.getAmount().setScale(Order.BD_PRICE_STORAGE_SCALE), RoundingMode.DOWN);
-		} else {
-			// "old" asset pricing: selling unit price provided, want-amount to be calculated
-			wantAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getWantAmount());
-			unitPrice = createOrderTransactionData.getWantAmount(); // getWantAmount() was getPrice() in the "old" pricing scheme
-		}
-
 		// Process the order itself
 		OrderData orderData = new OrderData(orderId, createOrderTransactionData.getCreatorPublicKey(), createOrderTransactionData.getHaveAssetId(),
-				createOrderTransactionData.getWantAssetId(), createOrderTransactionData.getAmount(), wantAmount, unitPrice,
+				createOrderTransactionData.getWantAssetId(), createOrderTransactionData.getAmount(), createOrderTransactionData.getPrice(),
 				createOrderTransactionData.getTimestamp());
 
 		new Order(this.repository, orderData).process();

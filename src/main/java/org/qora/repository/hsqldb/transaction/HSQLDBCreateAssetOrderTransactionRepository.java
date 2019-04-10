@@ -18,16 +18,16 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT have_asset_id, amount, want_asset_id, want_amount FROM CreateAssetOrderTransactions WHERE signature = ?", signature)) {
+				.checkedExecute("SELECT have_asset_id, amount, want_asset_id, price FROM CreateAssetOrderTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
 			long haveAssetId = resultSet.getLong(1);
 			BigDecimal amount = resultSet.getBigDecimal(2);
 			long wantAssetId = resultSet.getLong(3);
-			BigDecimal wantAmount = resultSet.getBigDecimal(4);
+			BigDecimal price = resultSet.getBigDecimal(4);
 
-			return new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, wantAmount, fee, signature);
+			return new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create order transaction from repository", e);
 		}
@@ -41,7 +41,7 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 
 		saveHelper.bind("signature", createOrderTransactionData.getSignature()).bind("creator", createOrderTransactionData.getCreatorPublicKey())
 				.bind("have_asset_id", createOrderTransactionData.getHaveAssetId()).bind("amount", createOrderTransactionData.getAmount())
-				.bind("want_asset_id", createOrderTransactionData.getWantAssetId()).bind("want_amount", createOrderTransactionData.getWantAmount());
+				.bind("want_asset_id", createOrderTransactionData.getWantAssetId()).bind("price", createOrderTransactionData.getPrice());
 
 		try {
 			saveHelper.execute(this.repository);
