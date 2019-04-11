@@ -410,12 +410,20 @@ public class Order {
 				throw new DataException(message);
 			}
 
-			// Construct trade
-			BigDecimal tradedWantAmount = (isOurOrderNewPricing && wantAssetId < haveAssetId) ? returnAmountTraded : matchedAmount;
+			BigDecimal tradedWantAmount = (isOurOrderNewPricing && haveAssetId > wantAssetId) ? returnAmountTraded : matchedAmount;
 			BigDecimal tradedHaveAmount = (isOurOrderNewPricing && haveAssetId > wantAssetId) ? matchedAmount : returnAmountTraded;
 
-			TradeData tradeData = new TradeData(this.orderData.getOrderId(), theirOrderData.getOrderId(), tradedWantAmount, tradedHaveAmount,
-					this.orderData.getTimestamp());
+			// We also need to know how much have-asset to refund based on price improvement ('new' pricing only)
+			BigDecimal haveAssetRefund = !isOurOrderNewPricing ? BigDecimal.ZERO : ourPrice.subtract(theirPrice).abs().multiply(tradedWantAmount).setScale(8, RoundingMode.DOWN);
+
+			LOGGER.trace(String.format("We traded %s %s (have-asset) for %s %s (want-asset), saving %s %s (have-asset)",
+					tradedHaveAmount.toPlainString(), haveAssetData.getName(),
+					tradedWantAmount.toPlainString(), wantAssetData.getName(),
+					haveAssetRefund.toPlainString(), haveAssetData.getName()));
+
+			// Construct trade
+			TradeData tradeData = new TradeData(this.orderData.getOrderId(), theirOrderData.getOrderId(),
+					tradedWantAmount, tradedHaveAmount, haveAssetRefund, this.orderData.getTimestamp());
 			// Process trade, updating corresponding orders in repository
 			Trade trade = new Trade(this.repository, tradeData);
 			trade.process();

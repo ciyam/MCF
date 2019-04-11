@@ -3,6 +3,7 @@ package org.qora.test.common;
 import static org.junit.Assert.assertNotNull;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Map;
 
 import org.qora.account.PrivateKeyAccount;
@@ -77,33 +78,37 @@ public class AssetUtils {
 
 			// Check balances to check expected outcome
 			BigDecimal expectedBalance;
+			OrderData targetOrderData = repository.getAssetRepository().fromOrderId(targetOrderId);
+			OrderData initiatingOrderData = repository.getAssetRepository().fromOrderId(initiatingOrderId);
 
-			// Alice have asset
+			boolean isNewPricing = initiatingOrderData.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
+
+			// Alice selling have asset
 			expectedBalance = initialBalances.get("alice").get(haveAssetId).subtract(aliceCommitment);
 			AccountUtils.assertBalance(repository, "alice", haveAssetId, expectedBalance);
 
-			// Alice want asset
+			// Alice buying want asset
 			expectedBalance = initialBalances.get("alice").get(wantAssetId).add(aliceReturn);
 			AccountUtils.assertBalance(repository, "alice", wantAssetId, expectedBalance);
 
-			// Bob want asset
-			expectedBalance = initialBalances.get("bob").get(wantAssetId).subtract(bobCommitment);
+			// Bob selling want asset
+			// If bobReturn is non-zero then we expect trade to go through
+			// so we can calculate potential saving to Bob due to price improvement ('new' pricing only)
+			BigDecimal bobSaving = BigDecimal.ZERO;
+			if (isNewPricing && bobReturn.compareTo(BigDecimal.ZERO) > 0)
+				bobSaving = alicePrice.subtract(bobPrice).abs().multiply(bobReturn).setScale(8, RoundingMode.DOWN);
+			expectedBalance = initialBalances.get("bob").get(wantAssetId).subtract(bobCommitment).add(bobSaving);
 			AccountUtils.assertBalance(repository, "bob", wantAssetId, expectedBalance);
 
-			// Bob have asset
+			// Bob buying have asset
 			expectedBalance = initialBalances.get("bob").get(haveAssetId).add(bobReturn);
 			AccountUtils.assertBalance(repository, "bob", haveAssetId, expectedBalance);
 
 			// Check orders
 			BigDecimal expectedFulfilled;
-
-			// Check matching order
-			OrderData targetOrderData = repository.getAssetRepository().fromOrderId(targetOrderId);
-			OrderData initiatingOrderData = repository.getAssetRepository().fromOrderId(initiatingOrderId);
-
-			boolean isNewPricing = initiatingOrderData.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
 			BigDecimal newPricingAmount = (initiatingOrderData.getHaveAssetId() < initiatingOrderData.getWantAssetId()) ? bobReturn : aliceReturn;
 
+			// Check matching order
 			assertNotNull("matching order missing", initiatingOrderData);
 			expectedFulfilled = isNewPricing ? newPricingAmount : aliceReturn;
 			Common.assertEqualBigDecimals(String.format("Bob's order \"fulfilled\" incorrect"), expectedFulfilled, initiatingOrderData.getFulfilled());

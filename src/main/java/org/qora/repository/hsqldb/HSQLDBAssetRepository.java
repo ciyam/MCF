@@ -510,14 +510,26 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<TradeData> getTrades(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
-		String sql = "SELECT initiating_order_id, target_order_id, AssetTrades.target_amount, AssetTrades.initiator_amount, traded "
+		List<TradeData> trades = new ArrayList<TradeData>();
+
+		// Cache have & want asset names for later use, which also saves a table join
+		AssetData haveAssetData = this.fromAssetId(haveAssetId);
+		if (haveAssetData == null)
+			return trades;
+
+		AssetData wantAssetData = this.fromAssetId(wantAssetId);
+		if (wantAssetData == null)
+			return trades;
+
+		String sql = "SELECT initiating_order_id, target_order_id, target_amount, initiator_amount, initiator_saving, traded "
 			+ "FROM AssetOrders JOIN AssetTrades ON initiating_order_id = asset_order_id "
-			+ "WHERE have_asset_id = ? AND want_asset_id = ? ORDER BY traded";
+			+ "WHERE have_asset_id = ? AND want_asset_id = ? ";
+
+		sql += "ORDER BY traded";
 		if (reverse != null && reverse)
 			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		List<TradeData> trades = new ArrayList<TradeData>();
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, haveAssetId, wantAssetId)) {
 			if (resultSet == null)
@@ -528,10 +540,11 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				byte[] targetOrderId = resultSet.getBytes(2);
 				BigDecimal targetAmount = resultSet.getBigDecimal(3);
 				BigDecimal initiatorAmount = resultSet.getBigDecimal(4);
-				long timestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				BigDecimal initiatorSaving = resultSet.getBigDecimal(5);
+				long timestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
-				TradeData trade = new TradeData(initiatingOrderId, targetOrderId, targetAmount, initiatorAmount,
-						timestamp);
+				TradeData trade = new TradeData(initiatingOrderId, targetOrderId, targetAmount, initiatorAmount, initiatorSaving,
+						timestamp, haveAssetId, haveAssetData.getName(), wantAssetId, wantAssetData.getName());
 				trades.add(trade);
 			} while (resultSet.next());
 
@@ -613,15 +626,23 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<TradeData> getOrdersTrades(byte[] orderId, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
-		String sql = "SELECT initiating_order_id, target_order_id, target_amount, initiator_amount, traded "
-				+ "FROM AssetTrades WHERE initiating_order_id = ? OR target_order_id = ? ORDER BY traded";
+		String sql = "SELECT initiating_order_id, target_order_id, target_amount, initiator_amount, initiator_saving, traded, "
+					+ "have_asset_id, HaveAsset.asset_name, want_asset_id, WantAsset.asset_name "
+				+ "FROM AssetTrades "
+				+ "JOIN AssetOrders ON asset_order_id = initiating_order_id "
+				+ "JOIN Assets AS HaveAsset ON HaveAsset.asset_id = have_asset_id "
+				+ "JOIN Assets AS WantAsset ON WantAsset.asset_id = want_asset_id "
+				+ "WHERE ? IN (initiating_order_id, target_order_id)";
+
+		sql += "ORDER BY traded";
 		if (reverse != null && reverse)
 			sql += " DESC";
+
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
 		List<TradeData> trades = new ArrayList<TradeData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, orderId, orderId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, orderId)) {
 			if (resultSet == null)
 				return trades;
 
@@ -630,10 +651,16 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				byte[] targetOrderId = resultSet.getBytes(2);
 				BigDecimal targetAmount = resultSet.getBigDecimal(3);
 				BigDecimal initiatorAmount = resultSet.getBigDecimal(4);
-				long timestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				BigDecimal initiatorSaving = resultSet.getBigDecimal(5);
+				long timestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
-				TradeData trade = new TradeData(initiatingOrderId, targetOrderId, targetAmount, initiatorAmount,
-						timestamp);
+				long haveAssetId = resultSet.getLong(7);
+				String haveAssetName = resultSet.getString(8);
+				long wantAssetId = resultSet.getLong(9);
+				String wantAssetName = resultSet.getString(10);
+
+				TradeData trade = new TradeData(initiatingOrderId, targetOrderId, targetAmount, initiatorAmount, initiatorSaving, timestamp,
+						haveAssetId, haveAssetName, wantAssetId, wantAssetName);
 				trades.add(trade);
 			} while (resultSet.next());
 
@@ -648,9 +675,8 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("AssetTrades");
 
 		saveHelper.bind("initiating_order_id", tradeData.getInitiator()).bind("target_order_id", tradeData.getTarget())
-				.bind("target_amount", tradeData.getTargetAmount())
-				.bind("initiator_amount", tradeData.getInitiatorAmount())
-				.bind("traded", new Timestamp(tradeData.getTimestamp()));
+				.bind("target_amount", tradeData.getTargetAmount()).bind("initiator_amount", tradeData.getInitiatorAmount())
+				.bind("initiator_saving", tradeData.getInitiatorSaving()).bind("traded", new Timestamp(tradeData.getTimestamp()));
 
 		try {
 			saveHelper.execute(this.repository);

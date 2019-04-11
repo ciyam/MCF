@@ -35,8 +35,8 @@ public class NewTradingTests extends Common {
 		final BigDecimal price = BigDecimal.valueOf(2L).setScale(8);
 		final BigDecimal qoraAmount = BigDecimal.valueOf(48L).setScale(8);
 
-		// amounts are in test-asset
-		// prices are in qora/test
+		// amounts are in TEST
+		// prices are in QORA/TEST
 
 		final BigDecimal aliceAmount = testAmount;
 		final BigDecimal alicePrice = price;
@@ -50,12 +50,47 @@ public class NewTradingTests extends Common {
 		final BigDecimal aliceReturn = qoraAmount;
 		final BigDecimal bobReturn = testAmount;
 
-		// alice (target) order: have 'testAmount' test, want qora @ 'price' qora/test (commits testAmount test)
-		// bob (initiating) order: have qora, want 'testAmount' test @ 'price' qora/test (commits testAmount*price = qoraAmount)
+		// alice (target) order: have 'testAmount' TEST, want QORA @ 'price' QORA/TEST (commits testAmount TEST)
+		// bob (initiating) order: have QORA, want 'testAmount' TEST @ 'price' QORA/TEST (commits testAmount*price = qoraAmount QORA)
 		// Alice should be -testAmount, +qoraAmount
 		// Bob should be -qoraAmount, +testAmount
 
 		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+	}
+
+	@Test
+	public void testSimpleInverted() throws DataException {
+		long otherAssetId;
+		try (Repository repository = RepositoryManager.getRepository()) {
+			// Issue indivisible asset
+			otherAssetId = AssetUtils.issueAsset(repository, "bob", "OTHER", 100000000L, false);
+		}
+
+		final BigDecimal testAmount = BigDecimal.valueOf(48L).setScale(8);
+		final BigDecimal price = BigDecimal.valueOf(2L).setScale(8);
+		final BigDecimal otherAmount = BigDecimal.valueOf(24L).setScale(8);
+
+		// amounts are in OTHER
+		// prices are in TEST/OTHER
+
+		final BigDecimal aliceAmount = otherAmount;
+		final BigDecimal alicePrice = price;
+
+		final BigDecimal bobAmount = otherAmount;
+		final BigDecimal bobPrice = price;
+
+		final BigDecimal aliceCommitment = testAmount;
+		final BigDecimal bobCommitment = otherAmount;
+
+		final BigDecimal aliceReturn = otherAmount;
+		final BigDecimal bobReturn = testAmount;
+
+		// alice (target) order: have TEST, want 'otherAmount' OTHER @ 'price' TEST/OTHER (commits otherAmount*price = testAmount TEST)
+		// bob (initiating) order: have 'otherAmount' OTHER, want TEST @ 'price' TEST/OTHER (commits otherAmount OTHER)
+		// Alice should be -testAmount, +otherAmount
+		// Bob should be -otherAmount, +testAmount
+
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
 	}
 
 	/**
@@ -68,15 +103,15 @@ public class NewTradingTests extends Common {
 	 * <li> amount * round_down(1 / unit price) </li>
 	 * <li> round_down(amount / unit price) </li>
 	 * </ol>
-	 * Alice's price is 12 QORA per ATNL so the ATNL per QORA unit price is 0.08333333...<br>
+	 * Alice's price is 12 QORA per OTHER so the OTHER per QORA unit price is 0.08333333...<br>
 	 * Bob wants to spend 24 QORA so:
 	 * <p>
 	 * <ol>
-	 * <li> 24 QORA * (1 / 0.0833333...) = 1.99999999 ATNL </li>
-	 * <li> 24 QORA / 0.08333333.... = 2 ATNL </li>
+	 * <li> 24 QORA * (1 / 0.0833333...) = 1.99999999 OTHER </li>
+	 * <li> 24 QORA / 0.08333333.... = 2 OTHER </li>
 	 * </ol>
 	 * The second result is obviously more intuitive as is critical where assets are not divisible,
-	 * like ATNL in this test case.
+	 * like OTHER in this test case.
 	 * <p>
 	 * @see NewTradingTests#testOldNonExactFraction
 	 * @see NewTradingTests#testNonExactFraction
@@ -85,32 +120,32 @@ public class NewTradingTests extends Common {
 	@Test
 	public void testMixedDivisibility() throws DataException {
 		// Issue indivisible asset
-		long atnlAssetId;
+		long otherAssetId;
 		try (Repository repository = RepositoryManager.getRepository()) {
 			// Issue indivisible asset
-			atnlAssetId = AssetUtils.issueAsset(repository, "alice", "ATNL", 100000000L, false);
+			otherAssetId = AssetUtils.issueAsset(repository, "alice", "OTHER", 100000000L, false);
 		}
 
-		final BigDecimal atnlAmount = BigDecimal.valueOf(2L).setScale(8);
+		final BigDecimal otherAmount = BigDecimal.valueOf(2L).setScale(8);
 		final BigDecimal qoraAmount = BigDecimal.valueOf(24L).setScale(8);
-		final BigDecimal price = qoraAmount.divide(atnlAmount, RoundingMode.DOWN);
+		final BigDecimal price = qoraAmount.divide(otherAmount, RoundingMode.DOWN);
 
-		// amounts are in ATNL
-		// prices are in qora/ATNL
+		// amounts are in OTHER
+		// prices are in QORA/OTHER
 
-		final BigDecimal aliceAmount = atnlAmount;
+		final BigDecimal aliceAmount = otherAmount;
 		final BigDecimal alicePrice = price;
 
-		final BigDecimal bobAmount = atnlAmount;
+		final BigDecimal bobAmount = otherAmount;
 		final BigDecimal bobPrice = price;
 
-		final BigDecimal aliceCommitment = atnlAmount;
+		final BigDecimal aliceCommitment = otherAmount;
 		final BigDecimal bobCommitment = qoraAmount;
 
 		final BigDecimal aliceReturn = qoraAmount;
-		final BigDecimal bobReturn = atnlAmount;
+		final BigDecimal bobReturn = otherAmount;
 
-		AssetUtils.genericTradeTest(atnlAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(otherAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
 	}
 
 	/**
@@ -240,6 +275,11 @@ public class NewTradingTests extends Common {
 	 */
 	@Test
 	public void testNonExactFraction() throws DataException {
+		long otherAssetId;
+		try (Repository repository = RepositoryManager.getRepository()) {
+			otherAssetId = AssetUtils.issueAsset(repository, "bob", "OTHER", 5000L, true);
+		}
+
 		final BigDecimal aliceAmount = new BigDecimal("24.00000000").setScale(8);
 		final BigDecimal alicePrice = new BigDecimal("0.08333333").setScale(8);
 		final BigDecimal aliceCommitment = new BigDecimal("1.99999992").setScale(8);
@@ -249,13 +289,8 @@ public class NewTradingTests extends Common {
 		final BigDecimal bobCommitment = new BigDecimal("24.00000000").setScale(8);
 
 		// Expected traded amounts
-		final BigDecimal aliceReturn = new BigDecimal("24.00000000").setScale(8); // other
-		final BigDecimal bobReturn = new BigDecimal("1.99999992").setScale(8); // test
-
-		long otherAssetId;
-		try (Repository repository = RepositoryManager.getRepository()) {
-			otherAssetId = AssetUtils.issueAsset(repository, "bob", "other", 5000L, true);
-		}
+		final BigDecimal aliceReturn = new BigDecimal("24.00000000").setScale(8); // OTHER
+		final BigDecimal bobReturn = new BigDecimal("1.99999992").setScale(8); // TEST
 
 		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
 	}
@@ -265,8 +300,8 @@ public class NewTradingTests extends Common {
 	 */
 	@Test
 	public void testPriceImprovement() throws DataException {
-		// Amounts are in "test
-		// Prices are in "qora/test"
+		// Amounts are in TEST
+		// Prices are in QORA/TEST
 
 		final BigDecimal initialTestAssetAmount = new BigDecimal("24.00000000").setScale(8);
 
@@ -298,36 +333,39 @@ public class NewTradingTests extends Common {
 			// We're expecting Alice's order to match with Chloe's order (as Bob's and Dilberts's orders have worse prices)
 			BigDecimal matchedQoraAmount = matchingTestAssetAmount.multiply(bestPrice).setScale(8, RoundingMode.DOWN);
 			BigDecimal tradedTestAssetAmount = matchingTestAssetAmount;
+			// Due to price improvement, Alice should get back some of her TEST
+			BigDecimal testRefund = minimalPrice.subtract(bestPrice).abs().multiply(matchedQoraAmount).setScale(8, RoundingMode.DOWN);
 
-			// Alice Qora
+			// Alice TEST
+			BigDecimal aliceCommitment = matchingTestAssetAmount;
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId).subtract(aliceCommitment).add(testRefund);
+			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
+
+			// Alice QORA
 			expectedBalance = initialBalances.get("alice").get(Asset.QORA).add(matchedQoraAmount);
 			AccountUtils.assertBalance(repository, "alice", Asset.QORA, expectedBalance);
 
-			// Alice test asset
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId).subtract(matchingTestAssetAmount);
-			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
-
-			// Bob Qora
+			// Bob QORA
 			expectedBalance = initialBalances.get("bob").get(Asset.QORA).subtract(initialTestAssetAmount.multiply(betterPrice).setScale(8, RoundingMode.DOWN));
 			AccountUtils.assertBalance(repository, "bob", Asset.QORA, expectedBalance);
 
-			// Bob test asset
+			// Bob TEST
 			expectedBalance = initialBalances.get("bob").get(AssetUtils.testAssetId);
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.testAssetId, expectedBalance);
 
-			// Chloe Qora
+			// Chloe QORA
 			expectedBalance = initialBalances.get("chloe").get(Asset.QORA).subtract(initialTestAssetAmount.multiply(bestPrice).setScale(8, RoundingMode.DOWN));
 			AccountUtils.assertBalance(repository, "chloe", Asset.QORA, expectedBalance);
 
-			// Chloe test asset
+			// Chloe TEST
 			expectedBalance = initialBalances.get("chloe").get(AssetUtils.testAssetId).add(tradedTestAssetAmount);
 			AccountUtils.assertBalance(repository, "chloe", AssetUtils.testAssetId, expectedBalance);
 
-			// Dilbert Qora
+			// Dilbert QORA
 			expectedBalance = initialBalances.get("dilbert").get(Asset.QORA).subtract(initialTestAssetAmount.multiply(basePrice).setScale(8, RoundingMode.DOWN));
 			AccountUtils.assertBalance(repository, "dilbert", Asset.QORA, expectedBalance);
 
-			// Dilbert test asset
+			// Dilbert TEST
 			expectedBalance = initialBalances.get("dilbert").get(AssetUtils.testAssetId);
 			AccountUtils.assertBalance(repository, "dilbert", AssetUtils.testAssetId, expectedBalance);
 
@@ -352,14 +390,117 @@ public class NewTradingTests extends Common {
 	}
 
 	/**
+	 * Check that better prices are used in preference when matching orders.
+	 */
+	@Test
+	public void testPriceImprovementInverted() throws DataException {
+		long otherAssetId;
+		try (Repository repository = RepositoryManager.getRepository()) {
+			otherAssetId = AssetUtils.issueAsset(repository, "bob", "OTHER", 100000000L, true);
+
+			AssetUtils.transferAsset(repository, "bob", "chloe", otherAssetId, BigDecimal.valueOf(1000L).setScale(8));
+
+			AssetUtils.transferAsset(repository, "bob", "dilbert", otherAssetId, BigDecimal.valueOf(1000L).setScale(8));
+		}
+
+		// Amounts are in OTHER
+		// Prices are in TEST/OTHER
+
+		final BigDecimal initialOtherAmount = new BigDecimal("24.00000000").setScale(8);
+
+		final BigDecimal basePrice = new BigDecimal("3.00000000").setScale(8);
+		final BigDecimal betterPrice = new BigDecimal("2.10000000").setScale(8);
+		final BigDecimal bestPrice = new BigDecimal("1.40000000").setScale(8);
+
+		final BigDecimal maximalPrice = new BigDecimal("2.5000000").setScale(8);
+		final BigDecimal aliceOtherAmount = new BigDecimal("12.00000000").setScale(8);
+
+		try (Repository repository = RepositoryManager.getRepository()) {
+			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORA, AssetUtils.testAssetId, otherAssetId);
+
+			// Create 'better' initial order: selling OTHER @ betterPrice
+			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", otherAssetId, AssetUtils.testAssetId, initialOtherAmount, betterPrice);
+
+			// Create 'best' initial - surrounded by other orders so price improvement code should re-order results
+			byte[] chloeOrderId = AssetUtils.createOrder(repository, "chloe", otherAssetId, AssetUtils.testAssetId, initialOtherAmount, bestPrice);
+
+			// Create 'base' initial order: selling OTHER @ basePrice (shouldn't even match)
+			byte[] dilbertOrderId = AssetUtils.createOrder(repository, "dilbert", otherAssetId, AssetUtils.testAssetId, initialOtherAmount, basePrice);
+
+			// Create matching order: buying OTHER @ maximalPrice which would match at least one sell order
+			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.testAssetId, otherAssetId, aliceOtherAmount, maximalPrice);
+
+			// Check balances to check expected outcome
+			BigDecimal expectedBalance;
+
+			// We're expecting Alice's order to match with Chloe's order (as Bob's and Dilberts's orders have worse prices)
+			BigDecimal matchedOtherAmount = aliceOtherAmount;
+			BigDecimal tradedTestAmount = aliceOtherAmount.multiply(bestPrice).setScale(8, RoundingMode.DOWN);
+			// Due to price improvement, Alice should get back some of her TEST
+			BigDecimal testRefund = maximalPrice.subtract(bestPrice).abs().multiply(matchedOtherAmount).setScale(8, RoundingMode.DOWN);
+
+			// Alice TEST
+			BigDecimal aliceCommitment = aliceOtherAmount.multiply(maximalPrice).setScale(8, RoundingMode.DOWN);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId).subtract(aliceCommitment).add(testRefund);
+			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
+
+			// Alice OTHER
+			expectedBalance = initialBalances.get("alice").get(otherAssetId).add(matchedOtherAmount);
+			AccountUtils.assertBalance(repository, "alice", otherAssetId, expectedBalance);
+
+			// Bob OTHER
+			expectedBalance = initialBalances.get("bob").get(otherAssetId).subtract(initialOtherAmount);
+			AccountUtils.assertBalance(repository, "bob", otherAssetId, expectedBalance);
+
+			// Bob TEST
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.testAssetId); // no trade
+			AccountUtils.assertBalance(repository, "bob", AssetUtils.testAssetId, expectedBalance);
+
+			// Chloe OTHER
+			expectedBalance = initialBalances.get("chloe").get(otherAssetId).subtract(initialOtherAmount);
+			AccountUtils.assertBalance(repository, "chloe", otherAssetId, expectedBalance);
+
+			// Chloe TEST
+			expectedBalance = initialBalances.get("chloe").get(AssetUtils.testAssetId).add(tradedTestAmount);
+			AccountUtils.assertBalance(repository, "chloe", AssetUtils.testAssetId, expectedBalance);
+
+			// Dilbert OTHER
+			expectedBalance = initialBalances.get("dilbert").get(otherAssetId).subtract(initialOtherAmount);
+			AccountUtils.assertBalance(repository, "dilbert", otherAssetId, expectedBalance);
+
+			// Dilbert TEST
+			expectedBalance = initialBalances.get("dilbert").get(AssetUtils.testAssetId); // no trade
+			AccountUtils.assertBalance(repository, "dilbert", AssetUtils.testAssetId, expectedBalance);
+
+			// Check orders
+			OrderData aliceOrderData = repository.getAssetRepository().fromOrderId(aliceOrderId);
+			OrderData bobOrderData = repository.getAssetRepository().fromOrderId(bobOrderId);
+			OrderData chloeOrderData = repository.getAssetRepository().fromOrderId(chloeOrderId);
+			OrderData dilbertOrderData = repository.getAssetRepository().fromOrderId(dilbertOrderId);
+
+			// Alice's fulfilled
+			Common.assertEqualBigDecimals("Alice's order's fulfilled amount incorrect", matchedOtherAmount, aliceOrderData.getFulfilled());
+
+			// Bob's fulfilled should be zero
+			Common.assertEqualBigDecimals("Bob's order should be totally unfulfilled", BigDecimal.ZERO, bobOrderData.getFulfilled());
+
+			// Chloe's fulfilled
+			Common.assertEqualBigDecimals("Chloe's order's fulfilled amount incorrect", matchedOtherAmount, chloeOrderData.getFulfilled());
+
+			// Dilbert's fulfilled should be zero
+			Common.assertEqualBigDecimals("Dilbert's order should be totally unfulfilled", BigDecimal.ZERO, dilbertOrderData.getFulfilled());
+		}
+	}
+
+	/**
 	 * Check that orders don't match.
 	 * <p>
 	 * "target" order with have-asset = amount-asset
 	 */
 	@Test
 	public void testWorsePriceNoMatch() throws DataException {
-		// amounts are in test-asset
-		// prices are in qora/test
+		// amounts are in TEST
+		// prices are in QORA/TEST
 
 		// Selling 10 TEST @ 2 QORA/TEST min so wants 20 QORA minimum
 		final BigDecimal aliceAmount = new BigDecimal("10").setScale(8);
@@ -369,8 +510,8 @@ public class NewTradingTests extends Common {
 		final BigDecimal bobAmount = new BigDecimal("10").setScale(8);
 		final BigDecimal bobPrice = new BigDecimal("1").setScale(8);
 
-		final BigDecimal aliceCommitment = new BigDecimal("10").setScale(8); // 10 test
-		final BigDecimal bobCommitment = new BigDecimal("10").setScale(8); // 10 test * 1 qora/test = 10 qora
+		final BigDecimal aliceCommitment = new BigDecimal("10").setScale(8); // 10 TEST
+		final BigDecimal bobCommitment = new BigDecimal("10").setScale(8); // 10 TEST * 1 QORA/TEST = 10 QORA
 
 		// Orders should not match!
 		final BigDecimal aliceReturn = BigDecimal.ZERO;
@@ -386,30 +527,30 @@ public class NewTradingTests extends Common {
 	 */
 	@Test
 	public void testWorsePriceNoMatchInverted() throws DataException {
-		long atnlAssetId;
+		long otherAssetId;
 		try (Repository repository = RepositoryManager.getRepository()) {
-			atnlAssetId = AssetUtils.issueAsset(repository, "bob", "ATNL", 100000000L, true);
+			otherAssetId = AssetUtils.issueAsset(repository, "bob", "OTHER", 100000000L, true);
 		}
 
-		// amounts are in ATNL
-		// prices are in test/ATNL
+		// amounts are in OTHER
+		// prices are in TEST/OTHER
 
-		// Buying 10 ATNL @ 1 TEST/ATNL max, paying 10 TEST maximum
+		// Buying 10 OTHER @ 1 TEST/OTHER max, paying 10 TEST maximum
 		final BigDecimal aliceAmount = new BigDecimal("10").setScale(8);
 		final BigDecimal alicePrice = new BigDecimal("1").setScale(8);
 
-		// Selling 10 ATNL @ 2 TEST/ATNL min, so wants 20 TEST minimum
-		final BigDecimal bobAmount = new BigDecimal("10").setScale(8); // ATNL
+		// Selling 10 OTHER @ 2 TEST/OTHER min, so wants 20 TEST minimum
+		final BigDecimal bobAmount = new BigDecimal("10").setScale(8); // OTHER
 		final BigDecimal bobPrice = new BigDecimal("2").setScale(8);
 
-		final BigDecimal aliceCommitment = new BigDecimal("10").setScale(8); // 10 ATNL * 1 test/ATNL = 10 test
-		final BigDecimal bobCommitment = new BigDecimal("10").setScale(8); // 10 ATNL
+		final BigDecimal aliceCommitment = new BigDecimal("10").setScale(8); // 10 OTHER * 1 TEST/OTHER = 10 TEST
+		final BigDecimal bobCommitment = new BigDecimal("10").setScale(8); // 10 OTHER
 
 		// Orders should not match!
 		final BigDecimal aliceReturn = BigDecimal.ZERO;
 		final BigDecimal bobReturn = BigDecimal.ZERO;
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, atnlAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
 	}
 
 }
