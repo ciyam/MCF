@@ -4,7 +4,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import org.qora.asset.Asset;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -38,8 +37,6 @@ public class OldTradingTests extends Common {
 	 */
 	@Test
 	public void testOldIndivisible() throws DataException {
-		Common.useSettings("test-settings-old-asset.json");
-
 		// Issue some indivisible assets
 		long asset112Id;
 		long asset113Id;
@@ -102,7 +99,7 @@ public class OldTradingTests extends Common {
 	 * Check legacy partial matching of orders with prices that
 	 * can't be represented in floating binary.
 	 * <p>
-	 * For example, sell 2 TEST for 24 QORA so
+	 * For example, sell 2 GOLD for 24 OTHER so
 	 * unit price is 2 / 24 or 0.08333333.
 	 * <p>
 	 * This inexactness causes the match amount to be
@@ -113,8 +110,6 @@ public class OldTradingTests extends Common {
 	 */
 	@Test
 	public void testOldNonExactFraction() throws DataException {
-		Common.useSettings("test-settings-old-asset.json");
-
 		final BigDecimal aliceAmount = new BigDecimal("24.00000000").setScale(8);
 		final BigDecimal alicePrice = new BigDecimal("0.08333333").setScale(8);
 
@@ -128,7 +123,7 @@ public class OldTradingTests extends Common {
 		final BigDecimal aliceReturn = new BigDecimal("1.99999992").setScale(8);
 		final BigDecimal bobReturn = new BigDecimal("24.00000000").setScale(8);
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
+		AssetUtils.genericTradeTest(AssetUtils.goldAssetId, AssetUtils.otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	/**
@@ -148,13 +143,7 @@ public class OldTradingTests extends Common {
 
 		// Trade: 1.17647050 [ATFunding] for 1.99999985 QORA
 
-		// Load/check settings, which potentially sets up blockchain config, etc.
-		Common.useSettings("test-settings-old-asset.json");
-
-		// Transfer some test asset to bob
-		try (Repository repository = RepositoryManager.getRepository()) {
-			AssetUtils.transferAsset(repository, "alice", "bob", AssetUtils.testAssetId, BigDecimal.valueOf(200000L).setScale(8));
-		}
+		// We'll use GOLD test asset instead of ATFunding, and OTHER test asset instead of QORA
 
 		final BigDecimal aliceAmount = new BigDecimal("150000").setScale(8);
 		final BigDecimal alicePrice = new BigDecimal("1.70000000").setScale(8);
@@ -168,7 +157,7 @@ public class OldTradingTests extends Common {
 		final BigDecimal aliceReturn = new BigDecimal("1.99999985").setScale(8);
 		final BigDecimal bobReturn = new BigDecimal("1.17647050").setScale(8);
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
+		AssetUtils.genericTradeTest(AssetUtils.goldAssetId, AssetUtils.otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	/**
@@ -189,13 +178,7 @@ public class OldTradingTests extends Common {
 
 		// Trade: 81389.99991860 [BitBTC] for 73250.99992674 [Bitcoin]
 
-		// Load/check settings, which potentially sets up blockchain config, etc.
-		Common.useSettings("test-settings-old-asset.json");
-
-		// Transfer some test asset to bob
-		try (Repository repository = RepositoryManager.getRepository()) {
-			AssetUtils.transferAsset(repository, "alice", "bob", AssetUtils.testAssetId, BigDecimal.valueOf(200000L).setScale(8));
-		}
+		// We'll use TEST test asset instead of BitBTC, and OTHER test asset instead of Bitcoin
 
 		final BigDecimal aliceAmount = new BigDecimal("1000000").setScale(8);
 		final BigDecimal alicePrice = new BigDecimal("0.90000000").setScale(8);
@@ -209,7 +192,7 @@ public class OldTradingTests extends Common {
 		final BigDecimal aliceReturn = new BigDecimal("73250.99992674").setScale(8);
 		final BigDecimal bobReturn = new BigDecimal("81389.99991860").setScale(8);
 
-		AssetUtils.genericTradeTest(Asset.QORA, AssetUtils.testAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, AssetUtils.otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 }

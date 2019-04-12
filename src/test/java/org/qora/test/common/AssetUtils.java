@@ -8,6 +8,7 @@ import java.util.Map;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.BlockChain;
 import org.qora.data.asset.OrderData;
+import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.CreateAssetOrderTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -21,7 +22,10 @@ public class AssetUtils {
 
 	public static final int txGroupId = Group.NO_GROUP;
 	public static final BigDecimal fee = BigDecimal.ONE.setScale(8);
-	public static final long testAssetId = 1L;
+
+	public static final long testAssetId = 1L; // Owned by Alice
+	public static final long otherAssetId = 2L; // Owned by Bob
+	public static final long goldAssetId = 3L; // Owned by Alice
 
 	public static long issueAsset(Repository repository, String issuerAccountName, String assetName, long quantity, boolean isDivisible) throws DataException {
 		PrivateKeyAccount account = Common.getTestAccount(repository, issuerAccountName);
@@ -59,6 +63,17 @@ public class AssetUtils {
 		TransactionUtils.signAndForge(repository, transactionData, account);
 
 		return repository.getAssetRepository().getAccountsOrders(account.getPublicKey(), null, null, null, null, true).get(0).getOrderId();
+	}
+
+	public static void cancelOrder(Repository repository, String accountName, byte[] orderId) throws DataException {
+		PrivateKeyAccount account = Common.getTestAccount(repository, accountName);
+
+		byte[] reference = account.getLastReference();
+		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1000;
+
+		TransactionData transactionData = new CancelAssetOrderTransactionData(timestamp, txGroupId, reference, account.getPublicKey(), orderId, fee);
+
+		TransactionUtils.signAndForge(repository, transactionData, account);
 	}
 
 	public static void genericTradeTest(long haveAssetId, long wantAssetId,
