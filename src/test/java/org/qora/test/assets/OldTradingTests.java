@@ -66,7 +66,7 @@ public class OldTradingTests extends Common {
 		final BigDecimal asset112Matched = new BigDecimal("1000").setScale(8);
 		final BigDecimal asset113Matched = new BigDecimal("1000").setScale(8);
 
-		AssetUtils.genericTradeTest(asset113Id, asset112Id, asset113Amount, asset112Price, asset112Amount, asset113Price, asset113Amount, asset112Amount, asset112Matched, asset113Matched);
+		AssetUtils.genericTradeTest(asset113Id, asset112Id, asset113Amount, asset112Price, asset112Amount, asset113Price, asset113Amount, asset112Amount, asset112Matched, asset113Matched, BigDecimal.ZERO);
 
 		// Further trade
 		final BigDecimal asset113Amount2 = new BigDecimal("986").setScale(8);
@@ -128,7 +128,7 @@ public class OldTradingTests extends Common {
 		final BigDecimal aliceReturn = new BigDecimal("1.99999992").setScale(8);
 		final BigDecimal bobReturn = new BigDecimal("24.00000000").setScale(8);
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	/**
@@ -168,7 +168,7 @@ public class OldTradingTests extends Common {
 		final BigDecimal aliceReturn = new BigDecimal("1.99999985").setScale(8);
 		final BigDecimal bobReturn = new BigDecimal("1.17647050").setScale(8);
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	/**
@@ -209,7 +209,7 @@ public class OldTradingTests extends Common {
 		final BigDecimal aliceReturn = new BigDecimal("73250.99992674").setScale(8);
 		final BigDecimal bobReturn = new BigDecimal("81389.99991860").setScale(8);
 
-		AssetUtils.genericTradeTest(Asset.QORA, AssetUtils.testAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(Asset.QORA, AssetUtils.testAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 }

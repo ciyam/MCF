@@ -3,7 +3,6 @@ package org.qora.test.common;
 import static org.junit.Assert.assertNotNull;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Map;
 
 import org.qora.account.PrivateKeyAccount;
@@ -66,7 +65,7 @@ public class AssetUtils {
 			BigDecimal aliceAmount, BigDecimal alicePrice,
 			BigDecimal bobAmount, BigDecimal bobPrice,
 			BigDecimal aliceCommitment, BigDecimal bobCommitment,
-			BigDecimal aliceReturn, BigDecimal bobReturn) throws DataException {
+			BigDecimal aliceReturn, BigDecimal bobReturn, BigDecimal bobSaving) throws DataException {
 		try (Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, haveAssetId, wantAssetId);
 
@@ -92,11 +91,6 @@ public class AssetUtils {
 			AccountUtils.assertBalance(repository, "alice", wantAssetId, expectedBalance);
 
 			// Bob selling want asset
-			// If bobReturn is non-zero then we expect trade to go through
-			// so we can calculate potential saving to Bob due to price improvement ('new' pricing only)
-			BigDecimal bobSaving = BigDecimal.ZERO;
-			if (isNewPricing && bobReturn.compareTo(BigDecimal.ZERO) > 0)
-				bobSaving = alicePrice.subtract(bobPrice).abs().multiply(bobReturn).setScale(8, RoundingMode.DOWN);
 			expectedBalance = initialBalances.get("bob").get(wantAssetId).subtract(bobCommitment).add(bobSaving);
 			AccountUtils.assertBalance(repository, "bob", wantAssetId, expectedBalance);
 
