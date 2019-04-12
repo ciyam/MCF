@@ -36,9 +36,6 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.data.account.ForgingAccountData;
-import org.qora.repository.DataException;
-import org.qora.repository.Repository;
-import org.qora.repository.RepositoryManager;
 import org.qora.utils.Base58;
 
 @Path("/admin")

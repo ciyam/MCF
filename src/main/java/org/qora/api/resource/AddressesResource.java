@@ -27,13 +27,13 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
+import org.qora.api.resource.TransactionsResource;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
 import org.qora.crypto.Ed25519;
 import org.qora.data.account.AccountData;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
-import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -74,7 +74,7 @@ public class AddressesResource {
 
 			// Not found?
 			if (accountData == null)
-				accountData = new AccountData(address, null, null, Group.NO_GROUP);
+				accountData = new AccountData(address);
 
 			return accountData;
 		} catch (ApiException e) {

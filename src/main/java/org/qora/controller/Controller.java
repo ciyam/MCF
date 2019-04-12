@@ -42,6 +42,7 @@ import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qora.settings.Settings;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
+import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 
 public class Controller extends Thread {
