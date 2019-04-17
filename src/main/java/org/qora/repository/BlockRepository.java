@@ -102,6 +102,11 @@ public interface BlockRepository {
 	public int countForgedBlocks(byte[] publicKey) throws DataException;
 
 	/**
+	 * Returns blocks with passed generator public key.
+	 */
+	public List<BlockData> getBlocksWithGenerator(byte[] generatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/**
 	 * Saves block into repository.
 	 * 
 	 * @param blockData

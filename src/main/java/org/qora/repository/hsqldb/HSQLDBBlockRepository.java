@@ -159,6 +159,30 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
+	public List<BlockData> getBlocksWithGenerator(byte[] generatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE generator = ? ORDER BY height ";
+		if (reverse != null && reverse)
+			sql += " DESC";
+
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<BlockData> blockData = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, generatorPublicKey)) {
+			if (resultSet == null)
+				return blockData;
+
+			do {
+				blockData.add(getBlockFromResultSet(resultSet));
+			} while (resultSet.next());
+
+			return blockData;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch generator's blocks from repository", e);
+		}
+	}
+
+	@Override
 	public void save(BlockData blockData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Blocks");
 
