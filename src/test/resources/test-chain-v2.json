@@ -21,9 +21,15 @@
 			{ "type": "CREATE_GROUP", "creatorPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "groupName": "dev-group", "description": "developer group", "isOpen": false, "approvalThreshold": "PCT100", "minimumBlockDelay": 0, "maximumBlockDelay": 1440 },
 			{ "type": "ISSUE_ASSET", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "assetName": "TEST", "description": "test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 },
 			{ "type": "ISSUE_ASSET", "owner": "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK", "assetName": "OTHER", "description": "other test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 },
-			{ "type": "ISSUE_ASSET", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "assetName": "GOLD", "description": "gold test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 }
+			{ "type": "ISSUE_ASSET", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "assetName": "GOLD", "description": "gold test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 },
+			{ "type": "ACCOUNT_FLAGS", "target": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "andMask": -1, "orMask": 1, "xorMask": 0 }
 		]
 	},
+	"rewardsByHeight": [
+		{ "height": 1, "reward": 100 },
+		{ "height": 11, "reward": 10 },
+		{ "height": 21, "reward": 1 }
+	],
 	"featureTriggers": {
 		"messageHeight": 0,
 		"atHeight": 0,

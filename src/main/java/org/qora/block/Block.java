@@ -5,6 +5,7 @@ import static java.util.stream.Collectors.toMap;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -1103,7 +1104,7 @@ public class Block {
 		if (proxyForgerData != null) {
 			// Split reward to forger and recipient;
 			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
-			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare());
+			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
 			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).add(recipientShare));
 
 			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
@@ -1176,7 +1177,7 @@ public class Block {
 		if (proxyForgerData != null) {
 			// Split reward from forger and recipient;
 			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
-			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare());
+			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
 			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).subtract(recipientShare));
 
 			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
@@ -1197,9 +1198,9 @@ public class Block {
 			return null;
 
 		// Scan through for reward at our height
-		for (RewardsByHeight rewardInfo : rewardsByHeight)
-			if (rewardInfo.height <= ourHeight)
-				return rewardInfo.reward;
+		for (int i = rewardsByHeight.size() - 1; i >= 0; --i)
+			if (rewardsByHeight.get(i).height <= ourHeight)
+				return rewardsByHeight.get(i).reward;
 
 		return null;
 	}
