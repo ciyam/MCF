@@ -21,6 +21,16 @@
 			{ "type": "CREATE_GROUP", "creatorPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "groupName": "MCF", "description": "MCF group", "isOpen": false, "approvalThreshold": "PCT80", "minimumBlockDelay": 5, "maximumBlockDelay": 120 }
 		]
 	},
+	"rewardsByHeight": [
+		{ "height": 1, "reward": 160 },
+		{ "height": 81, "reward": 20 },
+		{ "height": 881, "reward": 4 }
+	],
+	"forgingTiers": [
+		{ "minBlocks": 5, "maxSubAccounts": 5 },
+		{ "minBlocks": 4, "maxSubAccounts": 3 },
+		{ "minBlocks": 0, "maxSubAccounts": 0 }
+	],
 	"featureTriggers": {
 		"messageHeight": 0,
 		"atHeight": 0,
