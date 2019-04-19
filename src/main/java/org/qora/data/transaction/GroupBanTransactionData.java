@@ -58,6 +58,11 @@ public class GroupBanTransactionData extends TransactionData {
 	@XmlTransient
 	@Schema(hidden = true)
 	private byte[] joinInviteReference;
+	/** Offender's previous defaultGroupId, set only if this transaction changed it to NO_GROUP. */
+	// No need to expose this via API
+	@XmlTransient
+	@Schema(hidden = true)
+	private Integer previousGroupId;
 
 	// Constructors
 
@@ -71,7 +76,7 @@ public class GroupBanTransactionData extends TransactionData {
 	}
 
 	public GroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member,
-			String reason, int timeToLive, byte[] memberReference, byte[] adminReference, byte[] joinInviteReference, BigDecimal fee, byte[] signature) {
+			String reason, int timeToLive, byte[] memberReference, byte[] adminReference, byte[] joinInviteReference, Integer previousGroupId, BigDecimal fee, byte[] signature) {
 		super(TransactionType.GROUP_BAN, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
 
 		this.adminPublicKey = adminPublicKey;
@@ -82,12 +87,13 @@ public class GroupBanTransactionData extends TransactionData {
 		this.memberReference = memberReference;
 		this.adminReference = adminReference;
 		this.joinInviteReference = joinInviteReference;
+		this.previousGroupId = previousGroupId;
 	}
 
 	/** Constructor typically used after deserialization */
 	public GroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String offender, String reason,
 			int timeToLive, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, offender, reason, timeToLive, null, null, null, fee, signature);
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, offender, reason, timeToLive, null, null, null, null, fee, signature);
 	}
 
 	// Getters / setters
@@ -134,6 +140,14 @@ public class GroupBanTransactionData extends TransactionData {
 
 	public void setJoinInviteReference(byte[] reference) {
 		this.joinInviteReference = reference;
+	}
+
+	public Integer getPreviousGroupId() {
+		return this.previousGroupId;
+	}
+
+	public void setPreviousGroupId(Integer previousGroupId) {
+		this.previousGroupId = previousGroupId;
 	}
 
 }

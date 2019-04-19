@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
+import org.qora.data.account.ForgingAccountData;
+import org.qora.data.account.ProxyForgerData;
 
 public interface AccountRepository {
 
@@ -17,6 +19,12 @@ public interface AccountRepository {
 
 	/** Returns account's default groupID or null if account not found. */
 	public Integer getDefaultGroupId(String address) throws DataException;
+
+	/** Returns account's flags or null if account not found. */
+	public Integer getFlags(String address) throws DataException;
+
+	/** Returns number of accounts enabled to forge by given address. */
+	public int countForgingAccountsEnabledByAddress(String address) throws DataException;
 
 	/**
 	 * Ensures at least minimal account info in repository.
@@ -39,26 +47,57 @@ public interface AccountRepository {
 	 */
 	public void setDefaultGroupId(AccountData accountData) throws DataException;
 
+	/**
+	 * Saves account's flags, and public key if present, in repository.
+	 * <p>
+	 * Note: ignores other fields like last reference, default groupID.
+	 */
+	public void setFlags(AccountData accountData) throws DataException;
+
+	/**
+	 * Saves account's forging enabler, and public key if present, in repository.
+	 * <p>
+	 * Note: ignores other fields like last reference, default groupID.
+	 */
+	public void setForgingEnabler(AccountData accountData) throws DataException;
+
+	/** Delete account from repository. */
 	public void delete(String address) throws DataException;
 
 	// Account balances
 
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException;
 
-	public List<AccountBalanceData> getAllBalances(String address, Integer limit, Integer offset, Boolean reverse) throws DataException;
-
-	public default List<AccountBalanceData> getAllBalances(String address) throws DataException {
-		return getAllBalances(address, null, null, null);
+	public enum BalanceOrdering {
+		ASSET_BALANCE_ACCOUNT,
+		ACCOUNT_ASSET,
+		ASSET_ACCOUNT
 	}
 
-	public List<AccountBalanceData> getAssetBalances(long assetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
-
-	public default List<AccountBalanceData> getAssetBalances(long assetId) throws DataException {
-		return getAssetBalances(assetId, null, null, null);
-	}
+	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
 
 	public void delete(String address, long assetId) throws DataException;
+
+	// Proxy forging
+
+	public ProxyForgerData getProxyForgeData(byte[] forgerPublicKey, String recipient) throws DataException;
+
+	public ProxyForgerData getProxyForgeData(byte[] proxyPublicKey) throws DataException;
+
+	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	public void save(ProxyForgerData proxyForgerData) throws DataException;
+
+	public void delete(byte[] forgerPublickey, String recipient) throws DataException;
+
+	// Forging accounts used by BlockGenerator
+
+	public List<ForgingAccountData> getForgingAccounts() throws DataException;
+
+	public void save(ForgingAccountData forgingAccountData) throws DataException;
+
+	public int delete(byte[] forgingAccountSeed) throws DataException;
 
 }

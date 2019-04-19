@@ -11,7 +11,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import static java.util.Arrays.stream;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -20,6 +22,7 @@ import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.TransactionRepository;
@@ -112,6 +115,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	protected HSQLDBTransactionRepository() {
 	}
 
+	// Fetching transactions / transaction height
+
 	@Override
 	public TransactionData fromSignature(byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT type, reference, creator, creation, fee, tx_group_id FROM Transactions WHERE signature = ?",
@@ -187,7 +192,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		try {
 			// params: long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature
 			return (TransactionData) subclassInfos[type.value].fromBaseMethod.invoke(txRepository, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
-		} catch (IllegalArgumentException | InvocationTargetException | IllegalAccessException e) {
+		} catch (InvocationTargetException e) {
+			if (e.getCause() instanceof DataException)
+				throw (DataException) e.getCause();
+
+			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
+		} catch (IllegalArgumentException | IllegalAccessException e) {
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 		}
 	}
@@ -267,6 +277,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
+	// Transaction participants
+
 	@Override
 	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException {
 		List<byte[]> signatures = new ArrayList<byte[]>();
@@ -310,6 +322,35 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			this.repository.delete("TransactionParticipants", "signature = ?", transactionData.getSignature());
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete transaction participants from repository", e);
+		}
+	}
+
+	// Searching transactions
+
+	@Override
+	public Map<TransactionType, Integer> getTransactionSummary(int startHeight, int endHeight) throws DataException {
+		String sql = "SELECT type, COUNT(signature) FROM Transactions "
+				+ "JOIN BlockTransactions ON transaction_signature = signature "
+				+ "JOIN Blocks ON Blocks.signature = block_signature "
+				+ "WHERE height BETWEEN ? AND ? "
+				+ "GROUP BY type";
+
+		Map<TransactionType, Integer> transactionCounts = new HashMap<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, startHeight, endHeight)) {
+			if (resultSet == null)
+				return transactionCounts;
+
+			do {
+				int type = resultSet.getInt(1);
+				int count = resultSet.getInt(2);
+
+				transactionCounts.put(TransactionType.valueOf(type), count);
+			} while (resultSet.next());
+
+			return transactionCounts;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch transaction counts from repository", e);
 		}
 	}
 
@@ -406,7 +447,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<TransactionData> getAssetTransactions(int assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
+	public List<TransactionData> getAssetTransactions(long assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
 		TransactionType[] transactionTypes = new TransactionType[] {
 			ISSUE_ASSET, TRANSFER_ASSET, CREATE_ASSET_ORDER, CANCEL_ASSET_ORDER
@@ -488,6 +529,56 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return transactions;
 		} catch (SQLException | DataException e) {
 			throw new DataException("Unable to fetch asset-related transactions from repository", e);
+		}
+	}
+
+	@Override
+	public List<TransferAssetTransactionData> getAssetTransfers(long assetId, String address, Integer limit, Integer offset, Boolean reverse)
+			throws DataException {
+		List<Object> bindParams = new ArrayList<>(3);
+
+		String sql = "SELECT creation, tx_group_id, reference, fee, signature, sender, recipient, amount, asset_name "
+				+ "FROM TransferAssetTransactions JOIN Transactions USING (signature) ";
+
+		if (address != null)
+			sql += "JOIN Accounts ON public_key = sender ";
+
+		sql += "JOIN Assets USING (asset_id) WHERE asset_id = ? ";
+		bindParams.add(assetId);
+
+		if (address != null) {
+			sql += "AND ? IN (account, recipient) ";
+			bindParams.add(address);
+		}
+
+		sql += "ORDER by creation ";
+
+		sql += (reverse == null || !reverse) ? "ASC" : "DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<TransferAssetTransactionData> assetTransfers = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
+			if (resultSet == null)
+				return assetTransfers;
+
+			do {
+				long timestamp = resultSet.getTimestamp(1, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				int txGroupId = resultSet.getInt(2);
+				byte[] reference = resultSet.getBytes(3);
+				BigDecimal fee = resultSet.getBigDecimal(4).setScale(8);
+				byte[] signature = resultSet.getBytes(5);
+				byte[] creatorPublicKey = resultSet.getBytes(6);
+				String recipient = resultSet.getString(7);
+				BigDecimal amount = resultSet.getBigDecimal(8);
+				String assetName = resultSet.getString(9);
+
+				assetTransfers.add(new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, assetName, signature));
+			} while (resultSet.next());
+
+			return assetTransfers;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch asset-transfer transactions from repository", e);
 		}
 	}
 
@@ -699,7 +790,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		try {
 			subclassInfos[type.value].saveMethod.invoke(txRepository, transactionData);
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (InvocationTargetException e) {
+			if (e.getCause() instanceof DataException)
+				throw (DataException) e.getCause();
+
+			throw new DataException("Exception during save of transaction type [" + type.name() + "] into HSQLDB repository");
+		} catch (IllegalAccessException | IllegalArgumentException e) {
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during save into HSQLDB repository");
 		}
 	}

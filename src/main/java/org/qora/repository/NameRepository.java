@@ -28,6 +28,8 @@ public interface NameRepository {
 		return getNamesByOwner(address, null, null, null);
 	}
 
+	public List<String> getRecentNames(long start) throws DataException;
+
 	public void save(NameData nameData) throws DataException;
 
 	public void delete(String name) throws DataException;

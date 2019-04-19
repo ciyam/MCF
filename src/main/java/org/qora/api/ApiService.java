@@ -4,8 +4,9 @@ import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
 
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
-
+import org.eclipse.jetty.server.NCSARequestLog;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ErrorHandler;
 import org.eclipse.jetty.server.handler.InetAccessHandler;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.FilterHolder;
@@ -33,6 +34,20 @@ public class ApiService {
 		// Create RPC server
 		this.server = new Server(Settings.getInstance().getApiPort());
 
+		// Error handler
+		ErrorHandler errorHandler = new ApiErrorHandler();
+		this.server.setErrorHandler(errorHandler);
+
+		// Request logging
+		if (Settings.getInstance().isApiLoggingEnabled()) {
+			NCSARequestLog requestLog = new NCSARequestLog("API-requests.log");
+			requestLog.setAppend(true);
+			requestLog.setExtended(false);
+			requestLog.setLogTimeZone("UTC");
+			requestLog.setLogLatency(true);
+			server.setRequestLog(requestLog);
+		}
+
 		// IP address based access control
 		InetAccessHandler accessHandler = new InetAccessHandler();
 		for (String pattern : Settings.getInstance().getApiWhitelist()) {
@@ -49,10 +64,12 @@ public class ApiService {
 		context.setContextPath("/");
 		rewriteHandler.setHandler(context);
 
-		FilterHolder filterHolder = new FilterHolder(CrossOriginFilter.class);
-		filterHolder.setInitParameter("allowedOrigins", "*");
-		filterHolder.setInitParameter("allowedMethods", "GET, POST");
-		context.addFilter(filterHolder, "/*", null);
+		// Cross-origin resource sharing
+		FilterHolder corsFilterHolder = new FilterHolder(CrossOriginFilter.class);
+		corsFilterHolder.setInitParameter(CrossOriginFilter.ALLOWED_ORIGINS_PARAM, "*");
+		corsFilterHolder.setInitParameter(CrossOriginFilter.ALLOWED_METHODS_PARAM, "GET, POST, DELETE");
+		corsFilterHolder.setInitParameter(CrossOriginFilter.CHAIN_PREFLIGHT_PARAM, "false");
+		context.addFilter(corsFilterHolder, "/*", null);
 
 		// API servlet
 		ServletContainer container = new ServletContainer(config);

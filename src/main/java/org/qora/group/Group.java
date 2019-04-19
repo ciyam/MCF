@@ -467,6 +467,14 @@ public class Group {
 
 		// Kicked, so no longer a member
 		this.deleteMember(member);
+
+		// If member had this group set as their defaultGroupId then change it to NO_GROUP
+		Account memberAccount = new Account(this.repository, member);
+		if (memberAccount.getDefaultGroupId() == groupKickTransactionData.getGroupId()) {
+			memberAccount.setDefaultGroupId(Group.NO_GROUP);
+			// Reflect that this has happened in joinGroupTransactionData
+			groupKickTransactionData.setPreviousGroupId(groupKickTransactionData.getGroupId());
+		}
 	}
 
 	public void unkick(GroupKickTransactionData groupKickTransactionData) throws DataException {
@@ -483,6 +491,13 @@ public class Group {
 
 		// Rebuild member entry using stored transaction reference
 		this.rebuildMember(member, groupKickTransactionData.getMemberReference());
+
+		// Revert member's defaultGroupId if necessary
+		Integer previousDefaultGroupId = groupKickTransactionData.getPreviousGroupId();
+		if (previousDefaultGroupId != null) {
+			Account memberAccount = new Account(this.repository, member);
+			memberAccount.setDefaultGroupId(previousDefaultGroupId);
+		}
 
 		if (groupKickTransactionData.getAdminReference() != null)
 			// Rebuild admin entry using stored transaction reference
@@ -516,6 +531,14 @@ public class Group {
 
 			// Kicked, so no longer a member
 			this.deleteMember(offender);
+
+			// If offender had this group set as their defaultGroupId then change it to NO_GROUP
+			Account offenderAccount = new Account(this.repository, offender);
+			if (offenderAccount.getDefaultGroupId() == groupBanTransactionData.getGroupId()) {
+				offenderAccount.setDefaultGroupId(Group.NO_GROUP);
+				// Reflect that this has happened in joinGroupTransactionData
+				groupBanTransactionData.setPreviousGroupId(groupBanTransactionData.getGroupId());
+			}
 		} else {
 			// If there is a pending join request then this is a essentially a deny response so delete join request
 			GroupJoinRequestData groupJoinRequestData = this.getJoinRequest(offender);
@@ -570,6 +593,13 @@ public class Group {
 			if (groupBanTransactionData.getAdminReference() != null)
 				// Rebuild admin entry using stored transaction reference
 				this.rebuildAdmin(offender, groupBanTransactionData.getAdminReference());
+
+			// Revert offender's defaultGroupId if necessary
+			Integer previousDefaultGroupId = groupBanTransactionData.getPreviousGroupId();
+			if (previousDefaultGroupId != null) {
+				Account offenderAccount = new Account(this.repository, offender);
+				offenderAccount.setDefaultGroupId(previousDefaultGroupId);
+			}
 		} else {
 			// Do we need to reinstate pending invite or join-request?
 			byte[] groupReference = groupBanTransactionData.getJoinInviteReference();
@@ -626,6 +656,14 @@ public class Group {
 			// Save reference to transaction that created join request so we can rebuild join request during orphaning.
 			groupInviteTransactionData.setJoinReference(groupJoinRequestData.getReference());
 
+			// If invitee's defaultGroupId is NO_GROUP then set it to joined group
+			Account inviteeAccount = new Account(this.repository, invitee);
+			if (inviteeAccount.getDefaultGroupId() == Group.NO_GROUP) {
+				inviteeAccount.setDefaultGroupId(groupInviteTransactionData.getGroupId());
+				// Reflect that this has happened in groupInviteTransactionData
+				groupInviteTransactionData.setPreviousGroupId(Group.NO_GROUP);
+			}
+
 			// Delete join request
 			this.deleteJoinRequest(invitee);
 
@@ -642,6 +680,13 @@ public class Group {
 		if (this.memberExists(invitee)) {
 			// Rebuild join request using cached reference to transaction that created join request.
 			this.rebuildJoinRequest(invitee, groupInviteTransactionData.getJoinReference());
+
+			// Revert invitee's defaultGroupId if necessary
+			Integer previousDefaultGroupId = groupInviteTransactionData.getPreviousGroupId();
+			if (previousDefaultGroupId != null) {
+				Account inviteeAccount = new Account(this.repository, invitee);
+				inviteeAccount.setDefaultGroupId(previousDefaultGroupId);
+			}
 
 			// Delete member
 			this.deleteMember(invitee);
@@ -706,6 +751,13 @@ public class Group {
 
 		// Actually add new member to group
 		this.addMember(joiner.getAddress(), joinGroupTransactionData);
+
+		// If joiner's defaultGroupId is NO_GROUP then set it to joined group
+		if (joiner.getDefaultGroupId() == Group.NO_GROUP) {
+			joiner.setDefaultGroupId(joinGroupTransactionData.getGroupId());
+			// Reflect that this has happened in joinGroupTransactionData
+			joinGroupTransactionData.setPreviousGroupId(Group.NO_GROUP);
+		}
 	}
 
 	public void unjoin(JoinGroupTransactionData joinGroupTransactionData) throws DataException {
@@ -733,6 +785,11 @@ public class Group {
 
 		// Delete member
 		this.deleteMember(joiner.getAddress());
+
+		// Revert joiner's defaultGroupId if necessary
+		Integer previousDefaultGroupId = joinGroupTransactionData.getPreviousGroupId();
+		if (previousDefaultGroupId != null)
+			joiner.setDefaultGroupId(previousDefaultGroupId);
 	}
 
 	public void leave(LeaveGroupTransactionData leaveGroupTransactionData) throws DataException {
@@ -761,6 +818,13 @@ public class Group {
 
 		// Remove as member
 		this.deleteMember(leaver.getAddress());
+
+		// If member had this group set as their defaultGroupId then change it to NO_GROUP
+		if (leaver.getDefaultGroupId() == leaveGroupTransactionData.getGroupId()) {
+			leaver.setDefaultGroupId(Group.NO_GROUP);
+			// Reflect that this has happened in joinGroupTransactionData
+			leaveGroupTransactionData.setPreviousGroupId(leaveGroupTransactionData.getGroupId());
+		}
 	}
 
 	public void unleave(LeaveGroupTransactionData leaveGroupTransactionData) throws DataException {
@@ -773,6 +837,11 @@ public class Group {
 		if (adminTransactionSignature != null)
 			// Restore adminship using cached reference to transaction that caused adminship
 			this.rebuildAdmin(leaver.getAddress(), adminTransactionSignature);
+
+		// Revert leaver's defaultGroupId if necessary
+		Integer previousDefaultGroupId = leaveGroupTransactionData.getPreviousGroupId();
+		if (previousDefaultGroupId != null)
+			leaver.setDefaultGroupId(previousDefaultGroupId);
 	}
 
 }

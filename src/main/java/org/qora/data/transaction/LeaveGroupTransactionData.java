@@ -31,6 +31,11 @@ public class LeaveGroupTransactionData extends TransactionData {
 	@XmlTransient
 	@Schema(hidden = true)
 	private byte[] adminReference;
+	/** Leaver's previous defaultGroupId, set only if this transaction changed it to NO_GROUP. */
+	// No need to expose this via API
+	@XmlTransient
+	@Schema(hidden = true)
+	private Integer previousGroupId;
 
 	// Constructors
 
@@ -43,18 +48,20 @@ public class LeaveGroupTransactionData extends TransactionData {
 		this.creatorPublicKey = this.leaverPublicKey;
 	}
 
-	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, byte[] memberReference, byte[] adminReference, BigDecimal fee, byte[] signature) {
+	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, byte[] memberReference, byte[] adminReference, Integer previousGroupId, 
+			BigDecimal fee, byte[] signature) {
 		super(TransactionType.LEAVE_GROUP, timestamp, txGroupId, reference, leaverPublicKey, fee, signature);
 
 		this.leaverPublicKey = leaverPublicKey;
 		this.groupId = groupId;
 		this.memberReference = memberReference;
 		this.adminReference = adminReference;
+		this.previousGroupId = previousGroupId;
 	}
 
 	/** Constructor typically used after deserialization */
 	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, leaverPublicKey, groupId, null, null, fee, signature);
+		this(timestamp, txGroupId, reference, leaverPublicKey, groupId, null, null, null, fee, signature);
 	}
 
 	// Getters / setters
@@ -81,6 +88,14 @@ public class LeaveGroupTransactionData extends TransactionData {
 
 	public void setAdminReference(byte[] adminReference) {
 		this.adminReference = adminReference;
+	}
+
+	public Integer getPreviousGroupId() {
+		return this.previousGroupId;
+	}
+
+	public void setPreviousGroupId(Integer previousGroupId) {
+		this.previousGroupId = previousGroupId;
 	}
 
 }

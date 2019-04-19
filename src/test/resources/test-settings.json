@@ -1,6 +1,0 @@
-{
-  "restrictedApi": false,
-  "blockchainConfig": "src/test/resources/test-v2qorachain.json",
-  "wipeUnconfirmedOnStart": false,
-  "minPeers": 0
-}

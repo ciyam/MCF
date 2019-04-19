@@ -6,10 +6,10 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
-import org.qora.transaction.IssueAssetTransaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
@@ -26,8 +26,10 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	private static final int QUANTITY_LENGTH = LONG_LENGTH;
 	private static final int IS_DIVISIBLE_LENGTH = BOOLEAN_LENGTH;
 	private static final int ASSET_REFERENCE_LENGTH = REFERENCE_LENGTH;
+	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
 
-	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + QUANTITY_LENGTH + IS_DIVISIBLE_LENGTH;
+	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + QUANTITY_LENGTH
+			+ IS_DIVISIBLE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -45,6 +47,8 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		layout.add("asset description", TransformationType.STRING);
 		layout.add("asset quantity", TransformationType.LONG);
 		layout.add("can asset quantities be fractional?", TransformationType.BOOLEAN);
+		layout.add("asset data length", TransformationType.INT);
+		layout.add("asset data", TransformationType.STRING);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
@@ -63,16 +67,22 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 		String owner = Serialization.deserializeAddress(byteBuffer);
 
-		String assetName = Serialization.deserializeSizedString(byteBuffer, IssueAssetTransaction.MAX_NAME_SIZE);
+		String assetName = Serialization.deserializeSizedString(byteBuffer, Asset.MAX_NAME_SIZE);
 
-		String description = Serialization.deserializeSizedString(byteBuffer, IssueAssetTransaction.MAX_DESCRIPTION_SIZE);
+		String description = Serialization.deserializeSizedString(byteBuffer, Asset.MAX_DESCRIPTION_SIZE);
 
 		long quantity = byteBuffer.getLong();
 
 		boolean isDivisible = byteBuffer.get() != 0;
 
+		// in v2, assets have "data" field
+		String data = "";
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			data = Serialization.deserializeSizedString(byteBuffer, Asset.MAX_DATA_SIZE);
+
 		byte[] assetReference = new byte[ASSET_REFERENCE_LENGTH];
-		// In v1, IssueAssetTransaction uses Asset.parse which also deserializes reference.
+		// In v1, IssueAssetTransaction uses Asset.parse which also deserializes
+		// reference.
 		if (timestamp < BlockChain.getInstance().getQoraV2Timestamp())
 			byteBuffer.get(assetReference);
 
@@ -81,17 +91,23 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new IssueAssetTransactionData(timestamp, txGroupId, reference, issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee,
-				signature);
+		return new IssueAssetTransactionData(timestamp, txGroupId, reference, issuerPublicKey, owner, assetName,
+				description, quantity, isDivisible, data, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
 
-		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH + Utf8.encodedLength(issueAssetTransactionData.getAssetName())
+		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH
+				+ Utf8.encodedLength(issueAssetTransactionData.getAssetName())
 				+ Utf8.encodedLength(issueAssetTransactionData.getDescription());
 
-		// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes reference.
+		// In v2, assets have "data" field
+		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
+			dataLength += DATA_SIZE_LENGTH + Utf8.encodedLength(issueAssetTransactionData.getData());
+
+		// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes
+		// reference.
 		if (transactionData.getTimestamp() < BlockChain.getInstance().getQoraV2Timestamp())
 			dataLength += ASSET_REFERENCE_LENGTH;
 
@@ -115,7 +131,13 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 			bytes.write(Longs.toByteArray(issueAssetTransactionData.getQuantity()));
 			bytes.write((byte) (issueAssetTransactionData.getIsDivisible() ? 1 : 0));
 
-			// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes Asset's reference which is the IssueAssetTransaction's signature
+			// In v2, assets have "data"
+			if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
+				Serialization.serializeSizedString(bytes, issueAssetTransactionData.getData());
+
+			// In v1, IssueAssetTransaction uses Asset.toBytes which also
+			// serializes Asset's reference which is the IssueAssetTransaction's
+			// signature
 			if (transactionData.getTimestamp() < BlockChain.getInstance().getQoraV2Timestamp()) {
 				byte[] assetReference = issueAssetTransactionData.getSignature();
 				if (assetReference != null)
@@ -136,7 +158,8 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 	}
 
 	/**
-	 * In Qora v1, the bytes used for verification have asset's reference zeroed so we need to test for v1-ness and adjust the bytes accordingly.
+	 * In Qora v1, the bytes used for verification have asset's reference zeroed
+	 * so we need to test for v1-ness and adjust the bytes accordingly.
 	 * 
 	 * @param transactionData
 	 * @return byte[]
@@ -151,7 +174,11 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		// Special v1 version
 
 		// Zero duplicate signature/reference
-		int start = bytes.length - ASSET_REFERENCE_LENGTH - FEE_LENGTH; // before asset reference (and fee)
+		int start = bytes.length - ASSET_REFERENCE_LENGTH - FEE_LENGTH; // before
+																		// asset
+																		// reference
+																		// (and
+																		// fee)
 		int end = start + ASSET_REFERENCE_LENGTH;
 		Arrays.fill(bytes, start, end, (byte) 0);
 

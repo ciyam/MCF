@@ -385,9 +385,14 @@ public class UtilsResource {
 		if (privateKey.length != 32)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
-		byte[] publicKey = new PrivateKeyAccount(null, privateKey).getPublicKey();
+		try {
+			byte[] publicKey = new PrivateKeyAccount(null, privateKey).getPublicKey();
 
-		return Base58.encode(publicKey);
+			return Base58.encode(publicKey);
+		} catch (IllegalArgumentException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
+		}
+
 	}
 
 	@GET

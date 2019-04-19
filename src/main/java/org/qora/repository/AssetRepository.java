@@ -1,9 +1,11 @@
 package org.qora.repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
+import org.qora.data.asset.RecentTradeData;
 import org.qora.data.asset.TradeData;
 
 public interface AssetRepository {
@@ -24,6 +26,8 @@ public interface AssetRepository {
 		return getAllAssets(null, null, null);
 	}
 
+	public List<Long> getRecentAssetIds(long start) throws DataException;
+
 	// For a list of asset holders, see AccountRepository.getAssetBalances
 
 	public void save(AssetData assetData) throws DataException;
@@ -36,20 +40,24 @@ public interface AssetRepository {
 
 	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
+	/** Returns open orders, ordered by ascending unit price (i.e. best price first), for use by order matching logic. */
 	public default List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId) throws DataException {
 		return getOpenOrders(haveAssetId, wantAssetId, null, null, null);
 	}
 
+	public List<OrderData> getOpenOrdersForTrading(long haveAssetId, long wantAssetId, BigDecimal minimumPrice) throws DataException;
+
 	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled, Integer limit, Integer offset, Boolean reverse)
+	public List<OrderData> getAccountsOrders(byte[] publicKey, Boolean optIsClosed, Boolean optIsFulfilled, Integer limit, Integer offset, Boolean reverse)
 			throws DataException;
 
-	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, boolean includeClosed, boolean includeFulfilled,
+	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, Boolean optIsClosed, Boolean optIsFulfilled,
 			Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public default List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled) throws DataException {
-		return getAccountsOrders(publicKey, includeClosed, includeFulfilled, null, null, null);
+	// Internal, non-API use
+	public default List<OrderData> getAccountsOrders(byte[] publicKey, Boolean optIsClosed, Boolean optIsFulfilled) throws DataException {
+		return getAccountsOrders(publicKey, optIsClosed, optIsFulfilled, null, null, null);
 	}
 
 	public void save(OrderData orderData) throws DataException;
@@ -60,13 +68,17 @@ public interface AssetRepository {
 
 	public List<TradeData> getTrades(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
+	// Internal, non-API use
 	public default List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException {
 		return getTrades(haveAssetId, wantAssetId, null, null, null);
 	}
 
+	public List<RecentTradeData> getRecentTrades(List<Long> assetIds, List<Long> otherAssetIds, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
 	/** Returns TradeData for trades where orderId was involved, i.e. either initiating OR target order */
 	public List<TradeData> getOrdersTrades(byte[] orderId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
+	// Internal, non-API use
 	public default List<TradeData> getOrdersTrades(byte[] orderId) throws DataException {
 		return getOrdersTrades(orderId, null, null, null);
 	}

@@ -3,6 +3,7 @@ package org.qora.block;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -21,6 +22,7 @@ import org.qora.data.asset.AssetData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.transaction.Transaction;
@@ -85,7 +87,7 @@ public class GenesisBlock extends Block {
 			info.timestamp = System.currentTimeMillis();
 		}
 
-		transactionsData = Arrays.asList(info.transactions);
+		transactionsData = new ArrayList<TransactionData>(Arrays.asList(info.transactions));
 
 		// Add default values to transactions
 		transactionsData.stream().forEach(transactionData -> {
@@ -112,11 +114,11 @@ public class GenesisBlock extends Block {
 			}
 
 			// Convert ISSUE_ASSET transactions into initial assets
-			issueAssetTransactions.stream().map(transactionData -> {
+			initialAssets = issueAssetTransactions.stream().map(transactionData -> {
 				IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
 
 				return new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(), issueAssetTransactionData.getDescription(),
-						issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(), issueAssetTransactionData.getReference());
+						issueAssetTransactionData.getQuantity(), issueAssetTransactionData.getIsDivisible(), null, Group.NO_GROUP, issueAssetTransactionData.getReference());
 			}).collect(Collectors.toList());
 		}
 
@@ -308,6 +310,7 @@ public class GenesisBlock extends Block {
 				}
 
 				transaction.process();
+				creator.setLastReference(transactionData.getSignature());
 			}
 		} catch (TransformationException e) {
 			throw new RuntimeException("Can't process genesis block transaction", e);

@@ -208,9 +208,15 @@ public abstract class TransactionTransformer extends Transformer {
 
 		try {
 			return (TransactionData) method.invoke(null, byteBuffer);
-		} catch (BufferUnderflowException e) {
-			throw new TransformationException("Byte data too short for transaction type [" + type.value + "]");
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (InvocationTargetException e) {
+			if (e.getCause() instanceof BufferUnderflowException)
+				throw new TransformationException("Byte data too short for transaction type [" + type.value + "]");
+
+			if (e.getCause() instanceof TransformationException)
+				throw (TransformationException) e.getCause();
+
+			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion from bytes");
+		} catch (IllegalAccessException | IllegalArgumentException e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion from bytes");
 		}
 	}
@@ -231,7 +237,12 @@ public abstract class TransactionTransformer extends Transformer {
 		try {
 			Method method = subclassInfos[type.value].getDataLengthMethod;
 			return (int) method.invoke(null, transactionData);
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (InvocationTargetException e) {
+			if (e.getCause() instanceof TransformationException)
+				throw (TransformationException) e.getCause();
+
+			throw new TransformationException("Internal error with transaction type [" + type.value + "] when requesting byte length");
+		} catch (IllegalAccessException | IllegalArgumentException e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] when requesting byte length");
 		}
 	}
@@ -242,7 +253,12 @@ public abstract class TransactionTransformer extends Transformer {
 		try {
 			Method method = subclassInfos[type.value].toBytesMethod;
 			return (byte[]) method.invoke(null, transactionData);
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (InvocationTargetException e) {
+			if (e.getCause() instanceof TransformationException)
+				throw (TransformationException) e.getCause();
+
+			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to bytes");
+		} catch (IllegalAccessException | IllegalArgumentException  e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to bytes");
 		}
 	}
@@ -262,7 +278,12 @@ public abstract class TransactionTransformer extends Transformer {
 		try {
 			Method method = subclassInfos[type.value].toBytesForSigningImplMethod;
 			return (byte[]) method.invoke(null, transactionData);
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+		} catch (InvocationTargetException e) {
+			if (e.getCause() instanceof TransformationException)
+				throw (TransformationException) e.getCause();
+
+			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to bytes for signing");
+		} catch (IllegalAccessException | IllegalArgumentException e) {
 			throw new TransformationException("Internal error with transaction type [" + type.value + "] during conversion to bytes for signing");
 		}
 	}

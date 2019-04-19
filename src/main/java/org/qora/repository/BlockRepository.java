@@ -2,6 +2,7 @@ package org.qora.repository;
 
 import java.util.List;
 
+import org.qora.api.model.BlockForgeSummary;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -91,6 +92,25 @@ public interface BlockRepository {
 	public default List<TransactionData> getTransactionsFromSignature(byte[] signature) throws DataException {
 		return getTransactionsFromSignature(signature, null, null, null);
 	}
+
+	/**
+	 * Returns number of blocks forged by account with given public key.
+	 * 
+	 * @param publicKey
+	 * @return number of blocks
+	 * @throws DataException
+	 */
+	public int countForgedBlocks(byte[] publicKey) throws DataException;
+
+	/**
+	 * Returns summaries of block forgers.
+	 */
+	public List<BlockForgeSummary> getBlockForgers(Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/**
+	 * Returns blocks with passed generator public key.
+	 */
+	public List<BlockData> getBlocksWithGenerator(byte[] generatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Saves block into repository.

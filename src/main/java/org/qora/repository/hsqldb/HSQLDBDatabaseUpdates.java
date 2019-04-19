@@ -7,6 +7,7 @@ import java.sql.Statement;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qora.block.BlockChain;
 
 public class HSQLDBDatabaseUpdates {
 
@@ -109,7 +110,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE AssetOrderID AS VARBINARY(64)");
 					stmt.execute("CREATE TYPE ATName AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE ATType AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
-					stmt.execute("CREATE TYPE ATTags AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
+					stmt.execute("CREATE TYPE ATTags AS VARCHAR(80) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE ATCode AS BLOB(64K)"); // 16bit * 1
 					stmt.execute("CREATE TYPE ATState AS BLOB(1M)"); // 16bit * 8 + 16bit * 4 + 16bit * 4
 					stmt.execute("CREATE TYPE ATCreationBytes AS BLOB(576K)"); // 16bit * 1 + 16bit * 8
@@ -133,6 +134,8 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX BlockGeneratorIndex ON Blocks (generator)");
 					// For finding blocks by reference, e.g. child blocks.
 					stmt.execute("CREATE INDEX BlockReferenceIndex ON Blocks (reference)");
+					// For finding blocks by generation timestamp or finding height of latest block immediately before generation timestamp, etc.
+					stmt.execute("CREATE INDEX BlockGenerationHeightIndex ON Blocks (generation, height)");
 					// Use a separate table space as this table will be very large.
 					stmt.execute("SET TABLE Blocks NEW SPACE");
 					break;
@@ -581,6 +584,145 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ATs ADD COLUMN creation_group_id GroupID NOT NULL DEFAULT 0");
 					// Groups can be updated but updates require approval from original groupID
 					stmt.execute("ALTER TABLE Groups ADD COLUMN creation_group_id GroupID NOT NULL DEFAULT 0");
+					break;
+
+				case 37:
+					// Performance-improving INDEX
+					stmt.execute("CREATE INDEX IF NOT EXISTS BlockGenerationHeightIndex ON Blocks (generation, height)");
+					// Asset orders now have isClosed=true when isFulfilled=true
+					stmt.execute("UPDATE AssetOrders SET is_closed = TRUE WHERE is_fulfilled = TRUE");
+					break;
+
+				case 38:
+					// Rename asset trade columns for clarity
+					stmt.execute("ALTER TABLE AssetTrades ALTER COLUMN amount RENAME TO target_amount");
+					stmt.execute("ALTER TABLE AssetTrades ALTER COLUMN price RENAME TO initiator_amount");
+					// Add support for asset "data" - typically JSON map like registered name data
+					stmt.execute("CREATE TYPE AssetData AS VARCHAR(4000)");
+					stmt.execute("ALTER TABLE Assets ADD data AssetData NOT NULL DEFAULT '' BEFORE reference");
+					stmt.execute("ALTER TABLE Assets ADD creation_group_id GroupID NOT NULL DEFAULT 0 BEFORE reference");
+					// Add support for asset "data" to ISSUE_ASSET transaction
+					stmt.execute("ALTER TABLE IssueAssetTransactions ADD data AssetData NOT NULL DEFAULT '' BEFORE asset_id");
+					// Add support for UPDATE_ASSET transactions
+					stmt.execute("CREATE TABLE UpdateAssetTransactions (signature Signature, owner QoraPublicKey NOT NULL, asset_id AssetID NOT NULL, "
+									+ "new_owner QoraAddress NOT NULL, new_description GenericDescription NOT NULL, new_data AssetData NOT NULL, "
+									+ "orphan_reference Signature, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// Correct Assets.reference to use ISSUE_ASSET transaction's signature instead of reference.
+					// This is to help UPDATE_ASSET orphaning.
+					stmt.execute("MERGE INTO Assets USING (SELECT asset_id, signature FROM Assets JOIN Transactions USING (reference) JOIN IssueAssetTransactions USING (signature)) AS Updates "
+							+ "ON Assets.asset_id = Updates.asset_id WHEN MATCHED THEN UPDATE SET Assets.reference = Updates.signature");
+					break;
+
+				case 39:
+					// Support for automatically setting joiner's default groupID when they join a group (by JOIN_GROUP or corresponding admin's INVITE_GROUP)
+					stmt.execute("ALTER TABLE JoinGroupTransactions ADD previous_group_id INTEGER");
+					stmt.execute("ALTER TABLE GroupInviteTransactions ADD previous_group_id INTEGER");
+					// Ditto for leaving
+					stmt.execute("ALTER TABLE LeaveGroupTransactions ADD previous_group_id INTEGER");
+					stmt.execute("ALTER TABLE GroupKickTransactions ADD previous_group_id INTEGER");
+					stmt.execute("ALTER TABLE GroupBanTransactions ADD previous_group_id INTEGER");
+					break;
+
+				case 40:
+					// Increase asset "data" size from 4K to 400K
+					stmt.execute("CREATE TYPE AssetDataLob AS CLOB(400K)");
+					stmt.execute("ALTER TABLE Assets ALTER COLUMN data AssetDataLob");
+					stmt.execute("ALTER TABLE IssueAssetTransactions ALTER COLUMN data AssetDataLob");
+					stmt.execute("ALTER TABLE UpdateAssetTransactions ALTER COLUMN new_data AssetDataLob");
+					break;
+
+				case 41:
+					// New asset pricing
+					/*
+					 * We store "unit price" for asset orders but need enough precision to accurately
+					 * represent fractional values without loss.
+					 * Asset quantities can be up to either 1_000_000_000_000_000_000 (19 digits) if indivisible,
+					 * or 10_000_000_000.00000000 (11+8 = 19 digits) if divisible.
+					 * Two 19-digit numbers need 38 integer and 38 fractional to cover extremes of unit price.
+					 * However, we use another 10 more fractional digits to avoid rounding issues.
+					 * 38 integer + 48 fractional gives 86, so: DECIMAL (86, 48)
+					 */
+					// Rename price to unit_price to preserve indexes
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN price RENAME TO unit_price");
+					// Adjust precision
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN unit_price DECIMAL(76,48)");
+					// Add want-amount column
+					stmt.execute("ALTER TABLE AssetOrders ADD want_amount QoraAmount BEFORE unit_price");
+					// Calculate want-amount values
+					stmt.execute("UPDATE AssetOrders set want_amount = amount * unit_price");
+					// want-amounts all set, so disallow NULL
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN want_amount SET NOT NULL");
+					// Rename corresponding column in CreateAssetOrderTransactions
+					stmt.execute("ALTER TABLE CreateAssetOrderTransactions ALTER COLUMN price RENAME TO want_amount");
+					break;
+
+				case 42:
+					// New asset pricing #2
+					/*
+					 *  Use "price" (discard want-amount) but enforce pricing units in one direction
+					 *  to avoid all the reciprocal and round issues.
+					 */
+					stmt.execute("ALTER TABLE CreateAssetOrderTransactions ALTER COLUMN want_amount RENAME TO price");
+					stmt.execute("ALTER TABLE AssetOrders DROP COLUMN want_amount");
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN unit_price RENAME TO price");
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN price QoraAmount");
+					/*
+					 *  Normalize any 'old' orders to 'new' pricing.
+					 *  We must do this so that requesting open orders can be sorted by price.
+					 */
+					// Make sure new asset pricing timestamp (used below) is UTC
+					stmt.execute("SET TIME ZONE INTERVAL '0:00' HOUR TO MINUTE");
+					// Normalize amount/fulfilled to asset with highest assetID, BEFORE price correction
+					stmt.execute("UPDATE AssetOrders SET amount = amount * price, fulfilled = fulfilled * price "
+							+ "WHERE ordered < timestamp(" + BlockChain.getInstance().getNewAssetPricingTimestamp() + ") "
+							+ "AND have_asset_id < want_asset_id");
+					// Normalize price into lowest-assetID/highest-assetID price-pair, e.g. QORA/asset100
+					// Note: HSQLDB uses BigDecimal's dividend.divide(divisor, RoundingMode.DOWN) too
+					stmt.execute("UPDATE AssetOrders SET price = CAST(1 AS QoraAmount) / price "
+							+ "WHERE ordered < timestamp(" + BlockChain.getInstance().getNewAssetPricingTimestamp() + ") "
+							+ "AND have_asset_id < want_asset_id");
+					// Revert time zone change above
+					stmt.execute("SET TIME ZONE LOCAL");
+					break;
+
+				case 43:
+					// More work on 'new' asset pricing - refunds due to price improvement
+					stmt.execute("ALTER TABLE AssetTrades ADD initiator_saving QoraAmount NOT NULL DEFAULT 0");
+					break;
+
+				case 44:
+					// Account flags
+					stmt.execute("ALTER TABLE Accounts ADD COLUMN flags INT NOT NULL DEFAULT 0");
+					// Corresponding transaction to set/clear flags
+					stmt.execute("CREATE TABLE AccountFlagsTransactions (signature Signature, creator QoraPublicKey NOT NULL, target QoraAddress NOT NULL, and_mask INT NOT NULL, or_mask INT NOT NULL, xor_mask INT NOT NULL, "
+							+ "previous_flags INT, PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					break;
+
+				case 45:
+					// Enabling other accounts to forge
+					// Transaction to allow one account to enable other account to forge
+					stmt.execute("CREATE TABLE EnableForgingTransactions (signature Signature, creator QoraPublicKey NOT NULL, target QoraAddress NOT NULL, "
+							+ "PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// Modification to accounts to record who enabled them to forge (useful for counting accounts and potentially orphaning)
+					stmt.execute("ALTER TABLE Accounts ADD COLUMN forging_enabler QoraAddress");
+					break;
+
+				case 46:
+					// Proxy forging
+					// Transaction emitted by forger announcing they are forging on behalf of recipient
+					stmt.execute("CREATE TABLE ProxyForgingTransactions (signature Signature, forger QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, proxy_public_key QoraPublicKey NOT NULL, share DECIMAL(5,2) NOT NULL, "
+							+ "previous_share DECIMAL(5,2), PRIMARY KEY (signature), FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
+					// Table of current shares
+					stmt.execute("CREATE TABLE ProxyForgers (forger QoraPublicKey NOT NULL, recipient QoraAddress NOT NULL, proxy_public_key QoraPublicKey NOT NULL, share DECIMAL(5,2) NOT NULL, "
+							+ "PRIMARY KEY (forger, recipient))");
+					// Proxy-forged blocks will contain proxy public key, which will be used to look up block reward sharing, so create index for those lookups
+					stmt.execute("CREATE INDEX ProxyForgersProxyPublicKeyIndex ON ProxyForgers (proxy_public_key)");
+					break;
+
+				case 47:
+					// Stash of private keys used for generating blocks. These should be proxy keys!
+					stmt.execute("CREATE TYPE QoraKeySeed AS VARBINARY(32)");
+					stmt.execute("CREATE TABLE ForgingAccounts (forger_seed QoraKeySeed NOT NULL, PRIMARY KEY (forger_seed))");
 					break;
 
 				default:

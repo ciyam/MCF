@@ -18,7 +18,7 @@ public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRep
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_id, invitee, time_to_live, join_reference FROM GroupInviteTransactions WHERE signature = ?", signature)) {
+				.checkedExecute("SELECT group_id, invitee, time_to_live, join_reference, previous_group_id FROM GroupInviteTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
@@ -27,7 +27,11 @@ public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRep
 			int timeToLive = resultSet.getInt(3);
 			byte[] joinReference = resultSet.getBytes(4);
 
-			return new GroupInviteTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, invitee, timeToLive, joinReference, fee, signature);
+			Integer previousGroupId = resultSet.getInt(5);
+			if (resultSet.wasNull())
+				previousGroupId = null;
+
+			return new GroupInviteTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, invitee, timeToLive, joinReference, previousGroupId, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group invite transaction from repository", e);
 		}
@@ -41,7 +45,8 @@ public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRep
 
 		saveHelper.bind("signature", groupInviteTransactionData.getSignature()).bind("admin", groupInviteTransactionData.getAdminPublicKey())
 				.bind("group_id", groupInviteTransactionData.getGroupId()).bind("invitee", groupInviteTransactionData.getInvitee())
-				.bind("time_to_live", groupInviteTransactionData.getTimeToLive()).bind("join_reference", groupInviteTransactionData.getJoinReference());
+				.bind("time_to_live", groupInviteTransactionData.getTimeToLive()).bind("join_reference", groupInviteTransactionData.getJoinReference())
+				.bind("previous_group_id", groupInviteTransactionData.getPreviousGroupId());
 
 		try {
 			saveHelper.execute(this.repository);

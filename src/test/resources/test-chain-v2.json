@@ -1,0 +1,48 @@
+{
+	"isTestNet": true,
+	"maxBalance": "10000000000",
+	"blockDifficultyInterval": 10,
+	"minBlockTime": 30,
+	"maxBlockTime": 60,
+	"blockTimestampMargin": 500,
+	"maxBytesPerUnitFee": 1024,
+	"unitFee": "0.1",
+	"requireGroupForApproval": false,
+	"genesisInfo": {
+		"version": 4,
+		"timestamp": 0,
+		"generatingBalance": "10000000",
+		"transactions": [
+			{ "type": "ISSUE_ASSET", "owner": "QcFmNxSArv5tWEzCtTKb2Lqc5QkKuQ7RNs", "assetName": "QORA", "description": "QORA native coin", "data": "", "quantity": 10000000000, "isDivisible": true, "fee": 0, "reference": "3Verk6ZKBJc3WTTVfxFC9icSjKdM8b92eeJEpJP8qNizG4ZszNFq8wdDYdSjJXq2iogDFR1njyhsBdVpbvDfjzU7" },
+			{ "type": "GENESIS", "recipient": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "amount": "1000000000", "fee": 0 },
+			{ "type": "GENESIS", "recipient": "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK", "amount": "1000000", "fee": 0 },
+			{ "type": "GENESIS", "recipient": "QaUpHNhT3Ygx6avRiKobuLdusppR5biXjL", "amount": "1000000", "fee": 0 },
+			{ "type": "GENESIS", "recipient": "Qci5m9k4rcwe4ruKrZZQKka4FzUUMut3er", "amount": "1000000", "fee": 0 },
+			{ "type": "CREATE_GROUP", "creatorPublicKey": "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "groupName": "dev-group", "description": "developer group", "isOpen": false, "approvalThreshold": "PCT100", "minimumBlockDelay": 0, "maximumBlockDelay": 1440 },
+			{ "type": "ISSUE_ASSET", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "assetName": "TEST", "description": "test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 },
+			{ "type": "ISSUE_ASSET", "owner": "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK", "assetName": "OTHER", "description": "other test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 },
+			{ "type": "ISSUE_ASSET", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "assetName": "GOLD", "description": "gold test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 },
+			{ "type": "ACCOUNT_FLAGS", "target": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "andMask": -1, "orMask": 1, "xorMask": 0 }
+		]
+	},
+	"rewardsByHeight": [
+		{ "height": 1, "reward": 100 },
+		{ "height": 11, "reward": 10 },
+		{ "height": 21, "reward": 1 }
+	],
+	"forgingTiers": [
+		{ "minBlocks": 5, "maxSubAccounts": 5 },
+		{ "minBlocks": 4, "maxSubAccounts": 3 },
+		{ "minBlocks": 0, "maxSubAccounts": 0 }
+	],
+	"featureTriggers": {
+		"messageHeight": 0,
+		"atHeight": 0,
+		"assetsTimestamp": 0,
+		"votingTimestamp": 0,
+		"arbitraryTimestamp": 0,
+		"powfixTimestamp": 0,
+		"v2Timestamp": 0,
+		"newAssetPricingTimestamp": 0
+	}
+}

@@ -1,10 +1,12 @@
 package org.qora.repository;
 
 import java.util.List;
+import java.util.Map;
 
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 
 public interface TransactionRepository {
@@ -32,6 +34,18 @@ public interface TransactionRepository {
 
 	// Searching transactions
 
+	/**
+	 * Returns number of each transaction type in blocks from startHeight to endHeight inclusive.
+	 * <p>
+	 * Note: endHeight >= startHeight
+	 * 
+	 * @param startHeight height of first block to check
+	 * @param endHeight height of last block to check
+	 * @return transaction counts, indexed by transaction type value
+	 * @throws DataException
+	 */
+	public Map<TransactionType, Integer> getTransactionSummary(int startHeight, int endHeight) throws DataException;
+
 	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, TransactionType txType, String address,
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
@@ -39,12 +53,26 @@ public interface TransactionRepository {
 	 * Returns list of transactions relating to specific asset ID.
 	 * 
 	 * @param assetId
+	 * @param confirmationStatus
 	 * @param limit
 	 * @param offset
 	 * @param reverse
 	 * @return list of transactions, or empty if none
 	 */
-	public List<TransactionData> getAssetTransactions(int assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
+	public List<TransactionData> getAssetTransactions(long assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
+			throws DataException;
+
+	/**
+	 * Returns list of TRANSFER_ASSET transactions relating to specific asset ID, with optional address filter.
+	 * 
+	 * @param assetId
+	 * @param address
+	 * @param limit
+	 * @param offset
+	 * @param reverse
+	 * @return list of transactions, or empty if none
+	 */
+	public List<TransferAssetTransactionData> getAssetTransfers(long assetId, String address, Integer limit, Integer offset, Boolean reverse)
 			throws DataException;
 
 	/**

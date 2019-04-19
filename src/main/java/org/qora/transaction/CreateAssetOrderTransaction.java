@@ -103,19 +103,63 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 		Account creator = getCreator();
 
-		// Check reference is correct
-		if (!Arrays.equals(creator.getLastReference(), createOrderTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
+		boolean isNewPricing = createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp();
+
+		BigDecimal committedCost;
+		BigDecimal maxOtherAmount;
+
+		if (isNewPricing) {
+			/*
+			 * This is different under "new" pricing scheme as "amount" might be either have-asset or want-asset,
+			 * whichever has the highest assetID.
+			 * 
+			 * e.g. with assetID 11 "GOLD":
+			 * haveAssetId: 0 (QORA), wantAssetId: 11 (GOLD), amount: 123 (GOLD), price: 400 (QORA/GOLD)
+			 * stake 49200 QORA, return 123 GOLD
+			 * 
+			 * haveAssetId: 11 (GOLD), wantAssetId: 0 (QORA), amount: 123 (GOLD), price: 400 (QORA/GOLD)
+			 * stake 123 GOLD, return 49200 QORA
+			 */
+			boolean isAmountWantAsset = haveAssetId < wantAssetId;
+
+			if (isAmountWantAsset) {
+				// have/commit 49200 QORA, want/return 123 GOLD
+				committedCost = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
+				maxOtherAmount = createOrderTransactionData.getAmount();
+			} else {
+				// have/commit 123 GOLD, want/return 49200 QORA
+				committedCost = createOrderTransactionData.getAmount();
+				maxOtherAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
+			}
+		} else {
+			/*
+			 * Under "old" pricing scheme, "amount" is always have-asset and price is always want-per-have.
+			 * 
+			 * e.g. with assetID 11 "GOLD":
+			 * haveAssetId: 0 (QORA), wantAssetId: 11 (GOLD), amount: 49200 (QORA), price: 0.00250000 (GOLD/QORA)
+			 * haveAssetId: 11 (GOLD), wantAssetId: 0 (QORA), amount: 123 (GOLD), price: 400 (QORA/GOLD)
+			 */
+			committedCost = createOrderTransactionData.getAmount();
+			maxOtherAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice());
+		}
+
+		// Check amount is integer if amount's asset is not divisible
+		if (!haveAssetData.getIsDivisible() && committedCost.stripTrailingZeros().scale() > 0)
+			return ValidationResult.INVALID_AMOUNT;
+
+		// Check total return from fulfilled order would be integer if return's asset is not divisible
+		if (!wantAssetData.getIsDivisible() && maxOtherAmount.stripTrailingZeros().scale() > 0)
+			return ValidationResult.INVALID_RETURN;
 
 		// Check order creator has enough asset balance AFTER removing fee, in case asset is QORA
 		// If asset is QORA then we need to check amount + fee in one go
 		if (haveAssetId == Asset.QORA) {
 			// Check creator has enough funds for amount + fee in QORA
-			if (creator.getConfirmedBalance(Asset.QORA).compareTo(createOrderTransactionData.getAmount().add(createOrderTransactionData.getFee())) < 0)
+			if (creator.getConfirmedBalance(Asset.QORA).compareTo(committedCost.add(createOrderTransactionData.getFee())) < 0)
 				return ValidationResult.NO_BALANCE;
 		} else {
 			// Check creator has enough funds for amount in whatever asset
-			if (creator.getConfirmedBalance(haveAssetId).compareTo(createOrderTransactionData.getAmount()) < 0)
+			if (creator.getConfirmedBalance(haveAssetId).compareTo(committedCost) < 0)
 				return ValidationResult.NO_BALANCE;
 
 			// Check creator has enough funds for fee in QORA
@@ -125,14 +169,9 @@ public class CreateAssetOrderTransaction extends Transaction {
 				return ValidationResult.NO_BALANCE;
 		}
 
-		// Check "have" amount is integer if "have" asset is not divisible
-		if (!haveAssetData.getIsDivisible() && createOrderTransactionData.getAmount().stripTrailingZeros().scale() > 0)
-			return ValidationResult.INVALID_AMOUNT;
-
-		// Check total return from fulfilled order would be integer if "want" asset is not divisible
-		if (!wantAssetData.getIsDivisible()
-				&& createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice()).stripTrailingZeros().scale() > 0)
-			return ValidationResult.INVALID_RETURN;
+		// Check reference is correct
+		if (!Arrays.equals(creator.getLastReference(), createOrderTransactionData.getReference()))
+			return ValidationResult.INVALID_REFERENCE;
 
 		return ValidationResult.OK;
 	}

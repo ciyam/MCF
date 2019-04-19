@@ -1,14 +1,18 @@
 package org.qora.block;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.locks.Lock;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.Block.ValidationResult;
 import org.qora.controller.Controller;
+import org.qora.data.account.ForgingAccountData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.BlockRepository;
@@ -26,8 +30,6 @@ import org.qora.utils.Base58;
 public class BlockGenerator extends Thread {
 
 	// Properties
-	private byte[] generatorPrivateKey;
-	private PrivateKeyAccount generator;
 	private boolean running;
 
 	// Other properties
@@ -35,8 +37,7 @@ public class BlockGenerator extends Thread {
 
 	// Constructors
 
-	public BlockGenerator(byte[] generatorPrivateKey) {
-		this.generatorPrivateKey = generatorPrivateKey;
+	public BlockGenerator() {
 		this.running = true;
 	}
 
@@ -58,37 +59,64 @@ public class BlockGenerator extends Thread {
 				repository.saveChanges();
 			}
 
-			generator = new PrivateKeyAccount(repository, generatorPrivateKey);
-
 			// Going to need this a lot...
 			BlockRepository blockRepository = repository.getBlockRepository();
 			Block previousBlock = null;
-			Block newBlock = null;
+
+			List<Block> newBlocks = new ArrayList<>();
 
 			while (running) {
 				// Check blockchain hasn't changed
 				BlockData lastBlockData = blockRepository.getLastBlock();
 				if (previousBlock == null || !Arrays.equals(previousBlock.getSignature(), lastBlockData.getSignature())) {
 					previousBlock = new Block(repository, lastBlockData);
-					newBlock = null;
+					newBlocks.clear();
 				}
 
-				// Do we need to build a potential new block?
-				if (newBlock == null)
-					newBlock = new Block(repository, previousBlock.getBlockData(), generator);
+				// Do we need to build any potential new blocks?
+				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();
+				List<PrivateKeyAccount> forgingAccounts = forgingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getSeed())).collect(Collectors.toList());
+
+				// Discard accounts we have blocks for
+				forgingAccounts.removeIf(account -> newBlocks.stream().anyMatch(newBlock -> newBlock.getGenerator().getAddress().equals(account.getAddress())));
+
+				for (PrivateKeyAccount generator : forgingAccounts) {
+					// First block does the AT heavy-lifting
+					if (newBlocks.isEmpty()) {
+						Block newBlock = new Block(repository, previousBlock.getBlockData(), generator);
+						newBlocks.add(newBlock);
+					} else {
+						// The blocks for other generators require less effort...
+						Block newBlock = newBlocks.get(0);
+						newBlocks.add(newBlock.regenerate(generator));
+					}
+				}
 
 				// Make sure we're the only thread modifying the blockchain
 				Lock blockchainLock = Controller.getInstance().getBlockchainLock();
 				if (blockchainLock.tryLock())
 					generation: try {
-						// Is new block's timestamp valid yet?
-						// We do a separate check as some timestamp checks are skipped for testnet
-						if (newBlock.isTimestampValid() != ValidationResult.OK)
+						List<Block> goodBlocks = new ArrayList<>();
+
+						for (Block testBlock : newBlocks) {
+							// Is new block's timestamp valid yet?
+							// We do a separate check as some timestamp checks are skipped for testnet
+							if (testBlock.isTimestampValid() != ValidationResult.OK)
+								continue;
+
+							// Is new block valid yet? (Before adding unconfirmed transactions)
+							if (testBlock.isValid() != ValidationResult.OK)
+								continue;
+
+							goodBlocks.add(testBlock);
+						}
+
+						if (goodBlocks.isEmpty())
 							break generation;
 
-						// Is new block valid yet? (Before adding unconfirmed transactions)
-						if (newBlock.isValid() != ValidationResult.OK)
-							break generation;
+						// Pick random generator
+						int winningIndex = new Random().nextInt(goodBlocks.size());
+						Block newBlock = goodBlocks.get(winningIndex);
 
 						// Delete invalid transactions
 						deleteInvalidTransactions(repository);
@@ -104,7 +132,7 @@ public class BlockGenerator extends Thread {
 						if (validationResult != ValidationResult.OK) {
 							// No longer valid? Report and discard
 							LOGGER.error("Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
-							newBlock = null;
+							newBlocks.clear();
 							break generation;
 						}
 
@@ -119,7 +147,7 @@ public class BlockGenerator extends Thread {
 						} catch (DataException e) {
 							// Unable to process block - report and discard
 							LOGGER.error("Unable to process newly generated block?", e);
-							newBlock = null;
+							newBlocks.clear();
 						}
 					} finally {
 						blockchainLock.unlock();

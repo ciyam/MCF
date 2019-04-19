@@ -7,7 +7,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.sql.Statement;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.TimeZone;
 
@@ -383,6 +387,30 @@ public class HSQLDBRepository implements Repository {
 		}
 
 		return e;
+	}
+
+	/** Converts milliseconds from epoch to OffsetDateTime needed for TIMESTAMP WITH TIME ZONE columns. */
+	/* package */ static OffsetDateTime toOffsetDateTime(long timestamp) {
+		return OffsetDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC);
+	}
+
+	/** Converts OffsetDateTime from TIMESTAMP WITH TIME ZONE column to milliseconds from epoch. */
+	/* package */ static long fromOffsetDateTime(OffsetDateTime offsetDateTime) {
+		return offsetDateTime.toInstant().toEpochMilli();
+	}
+
+	/** Returns TIMESTAMP WITH TIME ZONE column value as milliseconds from epoch, or null. */
+	/* package */ static Long getZonedTimestampMilli(ResultSet resultSet, int columnIndex) throws SQLException {
+		OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+		if (offsetDateTime == null)
+			return null;
+
+		return offsetDateTime.toInstant().toEpochMilli();
+	}
+
+	/** Convenience method to return n comma-separated, placeholders as a string. */
+	public static String nPlaceholders(int n) {
+		return String.join(", ", Collections.nCopies(n, "?"));
 	}
 
 }

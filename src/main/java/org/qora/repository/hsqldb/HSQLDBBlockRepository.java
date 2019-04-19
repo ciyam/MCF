@@ -3,17 +3,20 @@ package org.qora.repository.hsqldb;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
+import org.qora.api.model.BlockForgeSummary;
+import org.qora.crypto.Crypto;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.TransactionRepository;
+
+import static org.qora.repository.hsqldb.HSQLDBRepository.toOffsetDateTime;
+import static org.qora.repository.hsqldb.HSQLDBRepository.getZonedTimestampMilli;
 
 public class HSQLDBBlockRepository implements BlockRepository {
 
@@ -37,7 +40,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			BigDecimal totalFees = resultSet.getBigDecimal(4);
 			byte[] transactionsSignature = resultSet.getBytes(5);
 			int height = resultSet.getInt(6);
-			long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			long timestamp = getZonedTimestampMilli(resultSet, 7);
 			BigDecimal generatingBalance = resultSet.getBigDecimal(8);
 			byte[] generatorPublicKey = resultSet.getBytes(9);
 			byte[] generatorSignature = resultSet.getBytes(10);
@@ -92,7 +95,9 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int getHeightFromTimestamp(long timestamp) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT MAX(height) FROM Blocks WHERE generation <= ?", new Timestamp(timestamp))) {
+		// Uses (generation, height) index
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks WHERE generation <= ? ORDER BY generation DESC LIMIT 1",
+				toOffsetDateTime(timestamp))) {
 			if (resultSet == null)
 				return 0;
 
@@ -104,7 +109,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int getBlockchainHeight() throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT MAX(height) FROM Blocks LIMIT 1")) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks ORDER BY height DESC LIMIT 1")) {
 			if (resultSet == null)
 				return 0;
 
@@ -147,13 +152,73 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
+	public int countForgedBlocks(byte[] publicKey) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT COUNT(*) FROM Blocks WHERE generator = ? LIMIT 1", publicKey)) {
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch forged blocks count from repository", e);
+		}
+	}
+
+	@Override
+	public List<BlockForgeSummary> getBlockForgers(Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT generator, COUNT(signature) FROM Blocks GROUP BY generator ORDER BY COUNT(signature) ";
+		if (reverse != null && reverse)
+			sql += " DESC";
+
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<BlockForgeSummary> summaries = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return summaries;
+
+			do {
+				byte[] generator = resultSet.getBytes(1);
+				int count = resultSet.getInt(2);
+
+				summaries.add(new BlockForgeSummary(Crypto.toAddress(generator), count));
+			} while (resultSet.next());
+
+			return summaries;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch generator's blocks from repository", e);
+		}
+	}
+
+	@Override
+	public List<BlockData> getBlocksWithGenerator(byte[] generatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE generator = ? ORDER BY height ";
+		if (reverse != null && reverse)
+			sql += " DESC";
+
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<BlockData> blockData = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, generatorPublicKey)) {
+			if (resultSet == null)
+				return blockData;
+
+			do {
+				blockData.add(getBlockFromResultSet(resultSet));
+			} while (resultSet.next());
+
+			return blockData;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch generator's blocks from repository", e);
+		}
+	}
+
+	@Override
 	public void save(BlockData blockData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Blocks");
 
 		saveHelper.bind("signature", blockData.getSignature()).bind("version", blockData.getVersion()).bind("reference", blockData.getReference())
 				.bind("transaction_count", blockData.getTransactionCount()).bind("total_fees", blockData.getTotalFees())
 				.bind("transactions_signature", blockData.getTransactionsSignature()).bind("height", blockData.getHeight())
-				.bind("generation", new Timestamp(blockData.getTimestamp())).bind("generating_balance", blockData.getGeneratingBalance())
+				.bind("generation", toOffsetDateTime(blockData.getTimestamp())).bind("generating_balance", blockData.getGeneratingBalance())
 				.bind("generator", blockData.getGeneratorPublicKey()).bind("generator_signature", blockData.getGeneratorSignature())
 				.bind("AT_count", blockData.getATCount()).bind("AT_fees", blockData.getATFees());
 

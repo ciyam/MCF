@@ -2,12 +2,16 @@ package org.qora.data.asset;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Marshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
-import io.swagger.v3.oas.annotations.media.Schema;
+import org.qora.crypto.Crypto;
 
-// All properties to be converted to JSON via JAX-RS
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
+
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 public class OrderData implements Comparable<OrderData> {
 
@@ -21,13 +25,13 @@ public class OrderData implements Comparable<OrderData> {
 	@Schema(description = "asset wanted to receive by order creator")
 	private long wantAssetId;
 
-	@Schema(description = "amount of \"have\" asset to trade")
+	@Schema(description = "amount of highest-assetID asset to trade")
 	private BigDecimal amount;
 
-	@Schema(description = "amount of \"want\" asset to receive per unit of \"have\" asset traded")
+	@Schema(description = "price in lowest-assetID asset / highest-assetID asset")
 	private BigDecimal price;
 
-	@Schema(description = "how much \"have\" asset has traded")
+	@Schema(description = "how much of \"amount\" has traded")
 	private BigDecimal fulfilled;
 
 	private long timestamp;
@@ -38,14 +42,59 @@ public class OrderData implements Comparable<OrderData> {
 	@Schema(description = "has this order been fully traded?")
 	private boolean isFulfilled;
 
+	// Used by API - not always present
+
+	@Schema(accessMode = AccessMode.READ_ONLY)
+	private String creator;
+
+	@Schema(accessMode = AccessMode.READ_ONLY)
+	private String haveAssetName;
+
+	@Schema(accessMode = AccessMode.READ_ONLY)
+	private String wantAssetName;
+
+	@Schema(accessMode = AccessMode.READ_ONLY)
+	private long amountAssetId;
+
+	@Schema(accessMode = AccessMode.READ_ONLY)
+	private String amountAssetName;
+
+	@Schema(accessMode = AccessMode.READ_ONLY)
+	private String pricePair;
+
 	// Constructors
 
-	// necessary for JAX-RS serialization
+	// Necessary for JAXB serialization
 	protected OrderData() {
 	}
 
-	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal price,
-			long timestamp, boolean isClosed, boolean isFulfilled) {
+	// Called before converting to JSON for API
+	public void beforeMarshal(Marshaller m) {
+		if (this.creator == null && this.creatorPublicKey != null)
+			this.creator = Crypto.toAddress(this.creatorPublicKey);
+
+		// If we don't have the extra asset name fields then we can't fill in the others
+		if (this.haveAssetName == null)
+			return;
+
+		// 'old' pricing scheme is simpler so test for that first
+		// XXX TODO
+
+		// 'new' pricing scheme
+		if (this.haveAssetId < this.wantAssetId) {
+			this.amountAssetId = this.wantAssetId;
+			this.amountAssetName = this.wantAssetName;
+			this.pricePair = this.haveAssetName + "/" + this.wantAssetName;
+		} else {
+			this.amountAssetId = this.haveAssetId;
+			this.amountAssetName = this.haveAssetName;
+			this.pricePair = this.wantAssetName + "/" + this.haveAssetName;
+		}
+	}
+
+	/** Constructs OrderData using data from repository, including optional API fields. */
+	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal price, long timestamp,
+			boolean isClosed, boolean isFulfilled, String haveAssetName, String wantAssetName) {
 		this.orderId = orderId;
 		this.creatorPublicKey = creatorPublicKey;
 		this.haveAssetId = haveAssetId;
@@ -56,8 +105,17 @@ public class OrderData implements Comparable<OrderData> {
 		this.timestamp = timestamp;
 		this.isClosed = isClosed;
 		this.isFulfilled = isFulfilled;
+
+		this.haveAssetName = haveAssetName;
+		this.wantAssetName = wantAssetName;
 	}
 
+	/** Constructs OrderData using data from repository, excluding optional API fields. */
+	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal fulfilled, BigDecimal price, long timestamp, boolean isClosed, boolean isFulfilled) {
+		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed, isFulfilled, null, null);
+	}
+
+	/** Constructs OrderData using data typically received from network. */
 	public OrderData(byte[] orderId, byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, long timestamp) {
 		this(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, BigDecimal.ZERO.setScale(8), price, timestamp, false, false);
 	}
@@ -114,6 +172,28 @@ public class OrderData implements Comparable<OrderData> {
 
 	public void setIsFulfilled(boolean isFulfilled) {
 		this.isFulfilled = isFulfilled;
+	}
+
+	// Some JAXB/API-related getters
+
+	public String getHaveAssetName() {
+		return this.haveAssetName;
+	}
+
+	public String getWantAssetName() {
+		return this.wantAssetName;
+	}
+
+	public long getAmountAssetId() {
+		return this.amountAssetId;
+	}
+
+	public String getAmountAssetName() {
+		return this.amountAssetName;
+	}
+
+	public String getPricePair() {
+		return this.pricePair;
 	}
 
 	@Override

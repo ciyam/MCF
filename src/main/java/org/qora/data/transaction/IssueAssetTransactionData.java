@@ -37,6 +37,8 @@ public class IssueAssetTransactionData extends TransactionData {
 	private long quantity;
 	@Schema(description = "whether asset quantities can be fractional", example = "true")
 	private boolean isDivisible;
+	@Schema(description = "non-human-readable asset-related data, typically JSON", example = "{\"logo\": \"data:image/jpeg;base64,/9j/4AAQSkZJRgA==\"}")
+	private String data;
 
 	// Constructors
 
@@ -58,7 +60,7 @@ public class IssueAssetTransactionData extends TransactionData {
 	}
 
 	public IssueAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] issuerPublicKey, Long assetId, String owner,
-			String assetName, String description, long quantity, boolean isDivisible, BigDecimal fee, byte[] signature) {
+			String assetName, String description, long quantity, boolean isDivisible, String data, BigDecimal fee, byte[] signature) {
 		super(TransactionType.ISSUE_ASSET, timestamp, txGroupId, reference, issuerPublicKey, fee, signature);
 
 		this.assetId = assetId;
@@ -68,16 +70,17 @@ public class IssueAssetTransactionData extends TransactionData {
 		this.description = description;
 		this.quantity = quantity;
 		this.isDivisible = isDivisible;
+		this.data = data;
 	}
 
 	public IssueAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] issuerPublicKey, String owner, String assetName,
-			String description, long quantity, boolean isDivisible, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, issuerPublicKey, null, owner, assetName, description, quantity, isDivisible, fee, signature);
+			String description, long quantity, boolean isDivisible, String data, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, issuerPublicKey, null, owner, assetName, description, quantity, isDivisible, data, fee, signature);
 	}
 
 	public IssueAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] issuerPublicKey, String owner, String assetName,
-			String description, long quantity, boolean isDivisible, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, issuerPublicKey, null, owner, assetName, description, quantity, isDivisible, fee, null);
+			String description, long quantity, boolean isDivisible, String data, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, issuerPublicKey, null, owner, assetName, description, quantity, isDivisible, data, fee, null);
 	}
 
 	// Getters/Setters
@@ -116,6 +119,10 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	public boolean getIsDivisible() {
 		return this.isDivisible;
+	}
+
+	public String getData() {
+		return this.data;
 	}
 
 }

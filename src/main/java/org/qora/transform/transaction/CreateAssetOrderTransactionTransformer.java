@@ -35,7 +35,7 @@ public class CreateAssetOrderTransactionTransformer extends TransactionTransform
 		layout.add("ID of asset of offer", TransformationType.LONG);
 		layout.add("ID of asset wanted", TransformationType.LONG);
 		layout.add("amount of asset on offer", TransformationType.ASSET_QUANTITY);
-		layout.add("amount of asset wanted per offered asset", TransformationType.ASSET_QUANTITY);
+		layout.add("trade price in (lowest-assetID asset)/(highest-assetID asset)", TransformationType.ASSET_QUANTITY);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}

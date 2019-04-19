@@ -39,6 +39,7 @@ import org.qora.repository.AssetRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.test.common.Common;
 import org.qora.transaction.BuyNameTransaction;
 import org.qora.transaction.CancelAssetOrderTransaction;
 import org.qora.transaction.CancelSellNameTransaction;
@@ -102,7 +103,7 @@ public class TransactionTests extends Common {
 
 		// Create test generator account
 		generator = new PrivateKeyAccount(repository, generatorSeed);
-		accountRepository.setLastReference(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey(), Group.NO_GROUP));
+		accountRepository.setLastReference(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey(), Group.NO_GROUP, 0, null));
 		accountRepository.save(new AccountBalanceData(generator.getAddress(), Asset.QORA, initialGeneratorBalance));
 
 		// Create test sender account
@@ -110,7 +111,7 @@ public class TransactionTests extends Common {
 
 		// Mock account
 		reference = senderSeed;
-		accountRepository.setLastReference(new AccountData(sender.getAddress(), reference, sender.getPublicKey(), Group.NO_GROUP));
+		accountRepository.setLastReference(new AccountData(sender.getAddress(), reference, sender.getPublicKey(), Group.NO_GROUP, 0, null));
 
 		// Mock balance
 		accountRepository.save(new AccountBalanceData(sender.getAddress(), Asset.QORA, initialSenderBalance));
@@ -605,9 +606,10 @@ public class TransactionTests extends Common {
 		boolean isDivisible = true;
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
+		String data = (timestamp >= BlockChain.getInstance().getQoraV2Timestamp()) ? "{}" : null;
 
 		IssueAssetTransactionData issueAssetTransactionData = new IssueAssetTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-				sender.getAddress(), assetName, description, quantity, isDivisible, fee);
+				sender.getAddress(), assetName, description, quantity, isDivisible, data, fee);
 
 		Transaction issueAssetTransaction = new IssueAssetTransaction(repository, issueAssetTransactionData);
 		issueAssetTransaction.sign(sender);
@@ -989,11 +991,11 @@ public class TransactionTests extends Common {
 
 		// Check trade has correct values
 		BigDecimal expectedAmount = amount.divide(originalOrderData.getPrice()).setScale(8);
-		BigDecimal actualAmount = tradeData.getAmount();
+		BigDecimal actualAmount = tradeData.getTargetAmount();
 		assertTrue(expectedAmount.compareTo(actualAmount) == 0);
 
 		BigDecimal expectedPrice = amount;
-		BigDecimal actualPrice = tradeData.getPrice();
+		BigDecimal actualPrice = tradeData.getInitiatorAmount();
 		assertTrue(expectedPrice.compareTo(actualPrice) == 0);
 
 		// Check seller's "test asset" balance

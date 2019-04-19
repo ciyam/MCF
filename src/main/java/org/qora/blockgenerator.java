@@ -47,7 +47,7 @@ public class blockgenerator {
 			System.exit(2);
 		}
 
-		BlockGenerator blockGenerator = new BlockGenerator(privateKey);
+		BlockGenerator blockGenerator = new BlockGenerator();
 		blockGenerator.start();
 
 		Runtime.getRuntime().addShutdownHook(new Thread() {

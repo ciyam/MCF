@@ -18,7 +18,7 @@ public class HSQLDBGroupKickTransactionRepository extends HSQLDBTransactionRepos
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT group_id, address, reason, member_reference, admin_reference, join_reference FROM GroupKickTransactions WHERE signature = ?",
+				"SELECT group_id, address, reason, member_reference, admin_reference, join_reference, previous_group_id FROM GroupKickTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
 				return null;
@@ -30,8 +30,12 @@ public class HSQLDBGroupKickTransactionRepository extends HSQLDBTransactionRepos
 			byte[] adminReference = resultSet.getBytes(5);
 			byte[] joinReference = resultSet.getBytes(6);
 
+			Integer previousGroupId = resultSet.getInt(7);
+			if (resultSet.wasNull())
+				previousGroupId = null;
+
 			return new GroupKickTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, member, reason, memberReference, adminReference,
-					joinReference, fee, signature);
+					joinReference, previousGroupId, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group kick transaction from repository", e);
 		}
@@ -46,7 +50,8 @@ public class HSQLDBGroupKickTransactionRepository extends HSQLDBTransactionRepos
 		saveHelper.bind("signature", groupKickTransactionData.getSignature()).bind("admin", groupKickTransactionData.getAdminPublicKey())
 				.bind("group_id", groupKickTransactionData.getGroupId()).bind("address", groupKickTransactionData.getMember())
 				.bind("reason", groupKickTransactionData.getReason()).bind("member_reference", groupKickTransactionData.getMemberReference())
-				.bind("admin_reference", groupKickTransactionData.getAdminReference()).bind("join_reference", groupKickTransactionData.getJoinReference());
+				.bind("admin_reference", groupKickTransactionData.getAdminReference()).bind("join_reference", groupKickTransactionData.getJoinReference())
+				.bind("previous_group_id", groupKickTransactionData.getPreviousGroupId());
 
 		try {
 			saveHelper.execute(this.repository);

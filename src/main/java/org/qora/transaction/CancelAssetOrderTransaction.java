@@ -114,9 +114,6 @@ public class CancelAssetOrderTransaction extends Transaction {
 		OrderData orderData = this.repository.getAssetRepository().fromOrderId(cancelOrderTransactionData.getOrderId());
 		Order order = new Order(this.repository, orderData);
 		order.cancel();
-
-		// Update creator's balance with unfulfilled amount
-		creator.setConfirmedBalance(orderData.getHaveAssetId(), creator.getConfirmedBalance(orderData.getHaveAssetId()).add(order.getAmountLeft()));
 	}
 
 	@Override
@@ -136,9 +133,6 @@ public class CancelAssetOrderTransaction extends Transaction {
 		OrderData orderData = this.repository.getAssetRepository().fromOrderId(cancelOrderTransactionData.getOrderId());
 		Order order = new Order(this.repository, orderData);
 		order.reopen();
-
-		// Update creator's balance with unfulfilled amount
-		creator.setConfirmedBalance(orderData.getHaveAssetId(), creator.getConfirmedBalance(orderData.getHaveAssetId()).subtract(order.getAmountLeft()));
 	}
 
 }

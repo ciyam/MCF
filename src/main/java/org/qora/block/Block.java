@@ -5,6 +5,7 @@ import static java.util.stream.Collectors.toMap;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -18,7 +19,9 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.at.AT;
+import org.qora.block.BlockChain.RewardByHeight;
 import org.qora.crypto.Crypto;
+import org.qora.data.account.ProxyForgerData;
 import org.qora.data.at.ATData;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
@@ -210,9 +213,6 @@ public class Block {
 		}
 
 		long timestamp = parentBlock.calcNextBlockTimestamp(version, generatorSignature, generator);
-		long maximumTimestamp = parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMaxBlockTime();
-		if (timestamp > maximumTimestamp)
-			timestamp = maximumTimestamp;
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
@@ -239,6 +239,61 @@ public class Block {
 		// Rebuild blockData using post-AT-execute data
 		this.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
 				generator.getPublicKey(), generatorSignature, atCount, atFees);
+	}
+
+	/**
+	 * Construct another block using this block as template, but with different generator account.
+	 * <p>
+	 * NOTE: uses the same transactions list, AT states, etc.
+	 * 
+	 * @param generator
+	 * @return
+	 * @throws DataException
+	 */
+	public Block regenerate(PrivateKeyAccount generator) throws DataException {
+		Block newBlock = new Block(this.repository, this.blockData);
+
+		BlockData parentBlockData = this.getParent();
+		Block parentBlock = new Block(repository, parentBlockData);
+
+		newBlock.generator = generator;
+
+		// Copy AT state data
+		newBlock.ourAtStates = this.ourAtStates;
+		newBlock.atStates = newBlock.ourAtStates;
+		newBlock.ourAtFees = this.ourAtFees;
+
+		// Calculate new block timestamp
+		int version = this.blockData.getVersion();
+		byte[] reference = this.blockData.getReference();
+		BigDecimal generatingBalance = this.blockData.getGeneratingBalance();
+
+		byte[] generatorSignature;
+		try {
+			generatorSignature = generator
+					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator));
+		} catch (TransformationException e) {
+			throw new DataException("Unable to calculate next block generator signature", e);
+		}
+
+		long timestamp = parentBlock.calcNextBlockTimestamp(version, generatorSignature, generator);
+
+		newBlock.transactions = this.transactions;
+		int transactionCount = this.blockData.getTransactionCount();
+		BigDecimal totalFees = this.blockData.getTotalFees();
+		byte[] transactionsSignature = null; // We'll calculate this later
+		Integer height = this.blockData.getHeight();
+
+		int atCount = newBlock.ourAtStates.size();
+		BigDecimal atFees = newBlock.ourAtFees;
+
+		newBlock.blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
+				generator.getPublicKey(), generatorSignature, atCount, atFees);
+
+		// Resign to update transactions signature
+		newBlock.sign();
+
+		return newBlock;
 	}
 
 	// Getters/setters
@@ -360,7 +415,7 @@ public class Block {
 		return actualBlockTime;
 	}
 
-	private BigInteger calcGeneratorsTarget(Account nextBlockGenerator) throws DataException {
+	private BigInteger calcGeneratorsTarget(PublicKeyAccount nextBlockGenerator) throws DataException {
 		// Start with 32-byte maximum integer representing all possible correct "guesses"
 		// Where a "correct guess" is an integer greater than the threshold represented by calcBlockHash()
 		byte[] targetBytes = new byte[32];
@@ -372,9 +427,17 @@ public class Block {
 		BigInteger baseTarget = BigInteger.valueOf(calcBaseTarget(calcNextBlockGeneratingBalance()));
 		target = target.divide(baseTarget);
 
+		// If generator is actually proxy account then use forger's account to calculate target.
+		BigDecimal generatingBalance;
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(nextBlockGenerator.getPublicKey());
+		if (proxyForgerData != null)
+			generatingBalance = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey()).getGeneratingBalance();
+		else
+			generatingBalance = nextBlockGenerator.getGeneratingBalance();
+
 		// Multiply by account's generating balance
 		// So the greater the account's generating balance then the greater the remaining "correct guesses"
-		target = target.multiply(nextBlockGenerator.getGeneratingBalance().toBigInteger());
+		target = target.multiply(generatingBalance.toBigInteger());
 
 		return target;
 	}
@@ -411,8 +474,8 @@ public class Block {
 		return new BigInteger(1, hash);
 	}
 
-	/** Calculate next block's timestamp, given next block's version, generator signature and generator's private key */
-	private long calcNextBlockTimestamp(int nextBlockVersion, byte[] nextBlockGeneratorSignature, PrivateKeyAccount nextBlockGenerator) throws DataException {
+	/** Calculate next block's timestamp, given next block's version, generator signature and generator's public key */
+	private long calcNextBlockTimestamp(int nextBlockVersion, byte[] nextBlockGeneratorSignature, PublicKeyAccount nextBlockGenerator) throws DataException {
 		BigInteger hashValue = calcNextBlockHash(nextBlockVersion, nextBlockGeneratorSignature, nextBlockGenerator);
 		BigInteger target = calcGeneratorsTarget(nextBlockGenerator);
 
@@ -783,27 +846,9 @@ public class Block {
 		if (this.blockData.getGeneratingBalance().compareTo(parentBlock.calcNextBlockGeneratingBalance()) != 0)
 			return ValidationResult.GENERATING_BALANCE_INCORRECT;
 
-		// XXX Block.isValid generator check relaxation?? blockchain config option?
-		// After maximum block period, then generator checks are relaxed
-		if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMaxBlockTime()) {
-			// Check generator is allowed to forge this block
-			BigInteger hashValue = this.calcBlockHash();
-			BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
-
-			// Multiply target by guesses
-			long guesses = (this.blockData.getTimestamp() - parentBlockData.getTimestamp()) / 1000;
-			BigInteger lowerTarget = target.multiply(BigInteger.valueOf(guesses - 1));
-			target = target.multiply(BigInteger.valueOf(guesses));
-
-			// Generator's target must exceed block's hashValue threshold
-			if (hashValue.compareTo(target) >= 0)
-				return ValidationResult.GENERATOR_NOT_ACCEPTED;
-
-			// Odd gen1 comment: "CHECK IF FIRST BLOCK OF USER"
-			// Each second elapsed allows generator to test a new "target" window against hashValue
-			if (hashValue.compareTo(lowerTarget) < 0)
-				return ValidationResult.GENERATOR_NOT_ACCEPTED;
-		}
+		// Check generator is allowed to forge this block
+		if (!isGeneratorValidToForge(parentBlock))
+			return ValidationResult.GENERATOR_NOT_ACCEPTED;
 
 		// CIYAM ATs
 		if (this.blockData.getATCount() != 0) {
@@ -816,8 +861,6 @@ public class Block {
 				} else {
 					// Generate local AT states for comparison
 					this.executeATs();
-
-					// XXX do we need to revalidate signatures if transactions list has changed?
 				}
 
 				// Check locally generated AT states against ones received from elsewhere
@@ -887,7 +930,6 @@ public class Block {
 				}
 			}
 		} catch (DataException e) {
-			// XXX why was this TRANSACTION_TIMESTAMP_INVALID?
 			return ValidationResult.TRANSACTION_INVALID;
 		} finally {
 			// Rollback repository changes made by test-processing transactions above
@@ -960,8 +1002,33 @@ public class Block {
 		this.blockData.setTransactionCount(this.blockData.getTransactionCount() + 1);
 
 		// We've added transactions, so recalculate transactions signature
-		// XXX surely this breaks Block.isSignatureValid which is called before we are?
-		// calcTransactionsSignature();
+		calcTransactionsSignature();
+	}
+
+	/** Returns whether block's generator is actually allowed to forge this block. */
+	protected boolean isGeneratorValidToForge(Block parentBlock) throws DataException {
+		BlockData parentBlockData = parentBlock.getBlockData();
+
+		BigInteger hashValue = this.calcBlockHash();
+
+		// calcGeneratorsTarget handles proxy forging aspect
+		BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
+
+		// Multiply target by guesses
+		long guesses = (this.blockData.getTimestamp() - parentBlockData.getTimestamp()) / 1000;
+		BigInteger lowerTarget = target.multiply(BigInteger.valueOf(guesses - 1));
+		target = target.multiply(BigInteger.valueOf(guesses));
+
+		// Generator's target must exceed block's hashValue threshold
+		if (hashValue.compareTo(target) >= 0)
+			return false;
+
+		// Odd gen1 comment: "CHECK IF FIRST BLOCK OF USER"
+		// Each second elapsed allows generator to test a new "target" window against hashValue
+		if (hashValue.compareTo(lowerTarget) < 0)
+			return false;
+
+		return true;
 	}
 
 	/**
@@ -970,6 +1037,13 @@ public class Block {
 	 * @throws DataException
 	 */
 	public void process() throws DataException {
+		// Set our block's height
+		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
+		this.blockData.setHeight(blockchainHeight + 1);
+
+		// Block rewards go before transactions processed
+		processBlockRewards();
+
 		// Process transactions (we'll link them to this block after saving the block itself)
 		// AT-generated transactions are already added to our transactions so no special handling is needed here.
 		List<Transaction> transactions = this.getTransactions();
@@ -993,12 +1067,10 @@ public class Block {
 		}
 
 		// Link block into blockchain by fetching signature of highest block and setting that as our reference
-		int blockchainHeight = this.repository.getBlockRepository().getBlockchainHeight();
 		BlockData latestBlockData = this.repository.getBlockRepository().fromHeight(blockchainHeight);
 		if (latestBlockData != null)
 			this.blockData.setReference(latestBlockData.getSignature());
 
-		this.blockData.setHeight(blockchainHeight + 1);
 		this.repository.getBlockRepository().save(this.blockData);
 
 		// Link transactions to this block, thus removing them from unconfirmed transactions list.
@@ -1018,6 +1090,31 @@ public class Block {
 			List<String> participantAddresses = participants.stream().map(account -> account.getAddress()).collect(Collectors.toList());
 			this.repository.getTransactionRepository().saveParticipants(transaction.getTransactionData(), participantAddresses);
 		}
+	}
+
+	protected void processBlockRewards() throws DataException {
+		BigDecimal reward = getRewardAtHeight(this.blockData.getHeight());
+
+		// No reward for our height?
+		if (reward == null)
+			return;
+
+		// Is generator public key actually a proxy forge key?
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
+		if (proxyForgerData != null) {
+			// Split reward to forger and recipient;
+			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
+			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
+			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).add(recipientShare));
+
+			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
+			BigDecimal forgerShare = reward.subtract(recipientShare);
+			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).add(forgerShare));
+			return;
+		}
+
+		// Give block reward to generator
+		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(reward));
 	}
 
 	/**
@@ -1045,6 +1142,9 @@ public class Block {
 			this.repository.getTransactionRepository().deleteParticipants(transaction.getTransactionData());
 		}
 
+		// Block rewards removed after transactions undone
+		orphanBlockRewards();
+
 		// If fees are non-zero then remove fees from generator's balance
 		BigDecimal blockFee = this.blockData.getTotalFees();
 		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
@@ -1063,6 +1163,46 @@ public class Block {
 
 		// Delete block from blockchain
 		this.repository.getBlockRepository().delete(this.blockData);
+	}
+
+	protected void orphanBlockRewards() throws DataException {
+		BigDecimal reward = getRewardAtHeight(this.blockData.getHeight());
+
+		// No reward for our height?
+		if (reward == null)
+			return;
+
+		// Is generator public key actually a proxy forge key?
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
+		if (proxyForgerData != null) {
+			// Split reward from forger and recipient;
+			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
+			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
+			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).subtract(recipientShare));
+
+			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
+			BigDecimal forgerShare = reward.subtract(recipientShare);
+			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).subtract(forgerShare));
+			return;
+		}
+
+		// Take block reward from generator
+		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(reward));
+	}
+
+	protected BigDecimal getRewardAtHeight(int ourHeight) {
+		List<RewardByHeight> rewardsByHeight = BlockChain.getInstance().getBlockRewardsByHeight();
+
+		// No rewards configured?
+		if (rewardsByHeight == null)
+			return null;
+
+		// Scan through for reward at our height
+		for (int i = rewardsByHeight.size() - 1; i >= 0; --i)
+			if (rewardsByHeight.get(i).height <= ourHeight)
+				return rewardsByHeight.get(i).reward;
+
+		return null;
 	}
 
 	/**

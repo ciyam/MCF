@@ -4,12 +4,19 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
+import org.qora.data.account.ForgingAccountData;
+import org.qora.data.account.ProxyForgerData;
 import org.qora.repository.AccountRepository;
 import org.qora.repository.DataException;
+
+import static org.qora.repository.hsqldb.HSQLDBRepository.nPlaceholders;
 
 public class HSQLDBAccountRepository implements AccountRepository {
 
@@ -23,15 +30,18 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference, public_key, default_group_id FROM Accounts WHERE account = ?", address)) {
+		try (ResultSet resultSet = this.repository
+				.checkedExecute("SELECT reference, public_key, default_group_id, flags, forging_enabler FROM Accounts WHERE account = ?", address)) {
 			if (resultSet == null)
 				return null;
 
 			byte[] reference = resultSet.getBytes(1);
 			byte[] publicKey = resultSet.getBytes(2);
 			int defaultGroupId = resultSet.getInt(3);
+			int flags = resultSet.getInt(4);
+			String forgingEnabler = resultSet.getString(5);
 
-			return new AccountData(address, reference, publicKey, defaultGroupId);
+			return new AccountData(address, reference, publicKey, defaultGroupId, flags, forgingEnabler);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account info from repository", e);
 		}
@@ -56,9 +66,31 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				return null;
 
 			// Column is NOT NULL so this should never implicitly convert to 0
-			return resultSet.getInt(1); 
+			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account's default groupID from repository", e);
+		}
+	}
+
+	@Override
+	public Integer getFlags(String address) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT flags FROM Accounts WHERE account = ?", address)) {
+			if (resultSet == null)
+				return null;
+
+			// Column is NOT NULL so this should never implicitly convert to 0
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's flags from repository", e);
+		}
+	}
+
+	@Override
+	public int countForgingAccountsEnabledByAddress(String address) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT COUNT(*) FROM Accounts WHERE forging_enabler = ? LIMIT 1", address)) {
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to count forging accounts enabled in repository", e);
 		}
 	}
 
@@ -114,6 +146,40 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public void setFlags(AccountData accountData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
+		saveHelper.bind("account", accountData.getAddress()).bind("flags", accountData.getFlags());
+
+		byte[] publicKey = accountData.getPublicKey();
+		if (publicKey != null)
+			saveHelper.bind("public_key", publicKey);
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save account's flags into repository", e);
+		}
+	}
+
+	@Override
+	public void setForgingEnabler(AccountData accountData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
+		saveHelper.bind("account", accountData.getAddress()).bind("forging_enabler", accountData.getForgingEnabler());
+
+		byte[] publicKey = accountData.getPublicKey();
+		if (publicKey != null)
+			saveHelper.bind("public_key", publicKey);
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save account's forging enabler into repository", e);
+		}
+	}
+
+	@Override
 	public void delete(String address) throws DataException {
 		// NOTE: Account balances are deleted automatically by the database thanks to "ON DELETE CASCADE" in AccountBalances' FOREIGN KEY
 		// definition.
@@ -141,54 +207,72 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public List<AccountBalanceData> getAllBalances(String address, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT asset_id, balance FROM AccountBalances WHERE account = ? ORDER BY asset_id";
-		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Integer limit, Integer offset, Boolean reverse)
+			throws DataException {
+		String sql = "SELECT account, asset_id, IFNULL(balance, 0), asset_name FROM ";
 
-		List<AccountBalanceData> balances = new ArrayList<AccountBalanceData>();
-
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
-			if (resultSet == null)
-				return balances;
-
-			do {
-				long assetId = resultSet.getLong(1);
-				BigDecimal balance = resultSet.getBigDecimal(2).setScale(8);
-
-				balances.add(new AccountBalanceData(address, assetId, balance));
-			} while (resultSet.next());
-
-			return balances;
-		} catch (SQLException e) {
-			throw new DataException("Unable to fetch account balances from repository", e);
+		if (!addresses.isEmpty()) {
+			sql += "(VALUES " + String.join(", ", Collections.nCopies(addresses.size(), "(?)")) + ") AS Accounts (account) ";
+			sql += "CROSS JOIN Assets LEFT OUTER JOIN AccountBalances USING (asset_id, account) ";
+		} else {
+			// Simplier, no-address query
+			sql += "AccountBalances NATURAL JOIN Assets ";
 		}
-	}
 
-	@Override
-	public List<AccountBalanceData> getAssetBalances(long assetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT account, balance FROM AccountBalances WHERE asset_id = ? ORDER BY account";
+		if (!assetIds.isEmpty())
+			// longs are safe enough to use literally
+			sql += "WHERE asset_id IN (" + String.join(", ", assetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList())) + ") ";
+
+		// For no-address queries, only return accounts with non-zero balance
+		if (addresses.isEmpty()) {
+			sql += assetIds.isEmpty() ? " WHERE " : " AND ";
+			sql += "balance != 0 ";
+		}
+
+		String[] orderingColumns;
+		switch (balanceOrdering) {
+			case ACCOUNT_ASSET:
+				orderingColumns = new String[] { "account", "asset_id" };
+				break;
+
+			case ASSET_ACCOUNT:
+				orderingColumns = new String[] { "asset_id", "account" };
+				break;
+
+			case ASSET_BALANCE_ACCOUNT:
+				orderingColumns = new String[] { "asset_id", "balance", "account" };
+				break;
+
+			default:
+				throw new DataException(String.format("Unsupported asset balance result ordering: %s", balanceOrdering.name()));
+		}
+
 		if (reverse != null && reverse)
-			sql += " DESC";
+			orderingColumns = Arrays.stream(orderingColumns).map(column -> column + " DESC").toArray(size -> new String[size]);
+
+		sql += "ORDER BY " + String.join(", ", orderingColumns);
+
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		List<AccountBalanceData> balances = new ArrayList<AccountBalanceData>();
+		String[] addressesArray = addresses.toArray(new String[addresses.size()]);
+		List<AccountBalanceData> accountBalances = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, (Object[]) addressesArray)) {
 			if (resultSet == null)
-				return balances;
+				return accountBalances;
 
 			do {
 				String address = resultSet.getString(1);
-				BigDecimal balance = resultSet.getBigDecimal(2).setScale(8);
+				long assetId = resultSet.getLong(2);
+				BigDecimal balance = resultSet.getBigDecimal(3).setScale(8);
+				String assetName = resultSet.getString(4);
 
-				balances.add(new AccountBalanceData(address, assetId, balance));
+				accountBalances.add(new AccountBalanceData(address, assetId, balance, assetName));
 			} while (resultSet.next());
 
-			return balances;
+			return accountBalances;
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch asset account balances from repository", e);
+			throw new DataException("Unable to fetch asset balances from repository", e);
 		}
 	}
 
@@ -212,6 +296,150 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			this.repository.delete("AccountBalances", "account = ? and asset_id = ?", address, assetId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete account balance from repository", e);
+		}
+	}
+
+	// Proxy forging
+
+	@Override
+	public ProxyForgerData getProxyForgeData(byte[] forgerPublicKey, String recipient) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT proxy_public_key, share FROM ProxyForgers WHERE forger = ? AND recipient = ?",
+				forgerPublicKey, recipient)) {
+			if (resultSet == null)
+				return null;
+
+			byte[] proxyPublicKey = resultSet.getBytes(1);
+			BigDecimal share = resultSet.getBigDecimal(2);
+
+			return new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch proxy forge info from repository", e);
+		}
+	}
+
+	@Override
+	public ProxyForgerData getProxyForgeData(byte[] proxyPublicKey) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT forger, recipient, share FROM ProxyForgers WHERE proxy_public_key = ?",
+				proxyPublicKey)) {
+			if (resultSet == null)
+				return null;
+
+			byte[] forgerPublicKey = resultSet.getBytes(1);
+			String recipient = resultSet.getString(2);
+			BigDecimal share = resultSet.getBigDecimal(3);
+
+			return new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch proxy forge info from repository", e);
+		}
+	}
+
+	@Override
+	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT forger, recipient, share, proxy_public_key FROM ProxyForgers ";
+		List<Object> args = new ArrayList<>();
+
+		if (!forgers.isEmpty()) {
+			sql += "JOIN Accounts ON Accounts.public_key = ProxyForgers.forger "
+					+ "WHERE Accounts.account IN (" + nPlaceholders(forgers.size()) + ") ";
+			args.addAll(forgers);
+		}
+
+		if (!recipients.isEmpty()) {
+			sql += forgers.isEmpty() ? "WHERE " : "AND ";
+			sql += "recipient IN (" + nPlaceholders(recipients.size()) + ") ";
+			args.addAll(recipients);
+		}
+
+		sql += "ORDER BY recipient, share";
+
+		if (reverse != null && reverse)
+			sql += " DESC";
+
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<ProxyForgerData> proxyAccounts = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, args.toArray())) {
+			if (resultSet == null)
+				return proxyAccounts;
+
+			do {
+				byte[] forgerPublicKey = resultSet.getBytes(1);
+				String recipient = resultSet.getString(2);
+				BigDecimal share = resultSet.getBigDecimal(3);
+				byte[] proxyPublicKey = resultSet.getBytes(4);
+
+				proxyAccounts.add(new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share));
+			} while (resultSet.next());
+
+			return proxyAccounts;
+		} catch (SQLException e) {
+			throw new DataException("Unable to find proxy forge accounts in repository", e);
+		}
+	}
+
+	@Override
+	public void save(ProxyForgerData proxyForgerData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("ProxyForgers");
+
+		saveHelper.bind("forger", proxyForgerData.getForgerPublicKey()).bind("recipient", proxyForgerData.getRecipient())
+				.bind("proxy_public_key", proxyForgerData.getProxyPublicKey()).bind("share", proxyForgerData.getShare());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save proxy forge info into repository", e);
+		}
+	}
+
+	@Override
+	public void delete(byte[] forgerPublickey, String recipient) throws DataException {
+		try {
+			this.repository.delete("ProxyForgers", "forger = ? and recipient = ?", forgerPublickey, recipient);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete proxy forge info from repository", e);
+		}
+	}
+
+	// Forging accounts used by BlockGenerator
+
+	public List<ForgingAccountData> getForgingAccounts() throws DataException {
+		List<ForgingAccountData> forgingAccounts = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT forger_seed FROM ForgingAccounts")) {
+			if (resultSet == null)
+				return forgingAccounts;
+
+			do {
+				byte[] forgerSeed = resultSet.getBytes(1);
+
+				forgingAccounts.add(new ForgingAccountData(forgerSeed));
+			} while (resultSet.next());
+
+			return forgingAccounts;
+		} catch (SQLException e) {
+			throw new DataException("Unable to find forging accounts in repository", e);
+		}
+	}
+
+	public void save(ForgingAccountData forgingAccountData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("ForgingAccounts");
+
+		saveHelper.bind("forger_seed", forgingAccountData.getSeed());
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save forging account into repository", e);
+		}
+	}
+
+	public int delete(byte[] forgingAccountSeed) throws DataException {
+		try {
+			return this.repository.delete("ForgingAccounts", "forger_seed = ?", forgingAccountSeed);
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete forging account from repository", e);
 		}
 	}
 

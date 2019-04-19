@@ -71,7 +71,11 @@ public abstract class Transaction {
 		JOIN_GROUP(31, false),
 		LEAVE_GROUP(32, false),
 		GROUP_APPROVAL(33, false),
-		SET_GROUP(34, false);
+		SET_GROUP(34, false),
+		UPDATE_ASSET(35, true),
+		ACCOUNT_FLAGS(36, false),
+		ENABLE_FORGING(37, false),
+		PROXY_FORGING(38, false);
 
 		public final int value;
 		public final boolean needsApproval;
@@ -158,7 +162,7 @@ public abstract class Transaction {
 		INVALID_TAGS_LENGTH(37),
 		INVALID_AT_TYPE_LENGTH(38),
 		INVALID_AT_TRANSACTION(39),
-		AT_IS_FINISHED(40),
+		INSUFFICIENT_FEE(40),
 		ASSET_DOES_NOT_MATCH_AT(41),
 		ASSET_ALREADY_EXISTS(43),
 		MISSING_CREATOR(44),
@@ -187,6 +191,16 @@ public abstract class Transaction {
 		INVALID_TX_GROUP_ID(67),
 		TX_GROUP_ID_MISMATCH(68),
 		MULTIPLE_NAMES_FORBIDDEN(69),
+		INVALID_ASSET_OWNER(70),
+		AT_IS_FINISHED(71),
+		NO_FLAG_PERMISSION(72),
+		NO_FORGING_PERMISSION(73),
+		FORGING_ALREADY_ENABLED(74),
+		FORGE_MORE_BLOCKS(75),
+		FORGING_ENABLE_LIMIT(76),
+		INVALID_FORGE_SHARE(77),
+		PUBLIC_KEY_UNKNOWN(78),
+		INVALID_PUBLIC_KEY(79),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -474,6 +488,10 @@ public abstract class Transaction {
 		long maxTimestamp = NTP.getTime() + Settings.getInstance().getMaxTransactionTimestampFuture();
 		if (this.transactionData.getTimestamp() > maxTimestamp)
 			return ValidationResult.TIMESTAMP_TOO_NEW;
+
+		// Check fee is sufficient
+		if (!hasMinimumFee() || !hasMinimumFeePerByte())
+			return ValidationResult.INSUFFICIENT_FEE;
 
 		repository.setSavepoint();
 		try {

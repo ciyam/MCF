@@ -18,7 +18,7 @@ public class HSQLDBGroupBanTransactionRepository extends HSQLDBTransactionReposi
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT group_id, address, reason, time_to_live, member_reference, admin_reference, join_invite_reference FROM GroupBanTransactions WHERE signature = ?",
+				"SELECT group_id, address, reason, time_to_live, member_reference, admin_reference, join_invite_reference, previous_group_id FROM GroupBanTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
 				return null;
@@ -31,8 +31,12 @@ public class HSQLDBGroupBanTransactionRepository extends HSQLDBTransactionReposi
 			byte[] adminReference = resultSet.getBytes(6);
 			byte[] joinInviteReference = resultSet.getBytes(7);
 
+			Integer previousGroupId = resultSet.getInt(8);
+			if (resultSet.wasNull())
+				previousGroupId = null;
+
 			return new GroupBanTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, offender, reason, timeToLive,
-					memberReference, adminReference, joinInviteReference, fee, signature);
+					memberReference, adminReference, joinInviteReference, previousGroupId, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group ban transaction from repository", e);
 		}
@@ -48,7 +52,7 @@ public class HSQLDBGroupBanTransactionRepository extends HSQLDBTransactionReposi
 				.bind("group_id", groupBanTransactionData.getGroupId()).bind("address", groupBanTransactionData.getOffender())
 				.bind("reason", groupBanTransactionData.getReason()).bind("time_to_live", groupBanTransactionData.getTimeToLive())
 				.bind("member_reference", groupBanTransactionData.getMemberReference()).bind("admin_reference", groupBanTransactionData.getAdminReference())
-				.bind("join_invite_reference", groupBanTransactionData.getJoinInviteReference());
+				.bind("join_invite_reference", groupBanTransactionData.getJoinInviteReference()).bind("previous_group_id", groupBanTransactionData.getPreviousGroupId());
 
 		try {
 			saveHelper.execute(this.repository);

@@ -27,8 +27,10 @@ import org.apache.logging.log4j.Logger;
 import org.qora.controller.Controller;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.Message;
+import org.qora.network.message.Message.MessageType;
 import org.qora.network.message.PeersMessage;
 import org.qora.network.message.PeersV2Message;
 import org.qora.network.message.PingMessage;
@@ -306,6 +308,10 @@ public class Network extends Thread {
 
 			// Check message type is as expected
 			if (handshakeStatus.expectedMessageType != null && message.getType() != handshakeStatus.expectedMessageType) {
+				// v1 nodes are keen on sending PINGs early. Discard as we'll send a PING right after handshake
+				if (message.getType() == MessageType.PING)
+					return;
+
 				LOGGER.debug(String.format("Unexpected %s message from %s, expected %s", message.getType().name(), peer, handshakeStatus.expectedMessageType));
 				peer.disconnect();
 				return;
@@ -429,6 +435,11 @@ public class Network extends Thread {
 		} catch (DataException e) {
 			LOGGER.error("Repository issue while sending unconfirmed transactions", e);
 		}
+
+		// Request their peers list
+		Message getPeersMessage = new GetPeersMessage();
+		if (!peer.sendMessage(getPeersMessage))
+			peer.disconnect();
 	}
 
 	/** Returns PEERS message made from peers we've connected to recently, and this node's details */
