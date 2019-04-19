@@ -6,6 +6,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.qora.api.model.BlockForgeSummary;
+import org.qora.crypto.Crypto;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -155,6 +157,33 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch forged blocks count from repository", e);
+		}
+	}
+
+	@Override
+	public List<BlockForgeSummary> getBlockForgers(Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT generator, COUNT(signature) FROM Blocks GROUP BY generator ORDER BY COUNT(signature) ";
+		if (reverse != null && reverse)
+			sql += " DESC";
+
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<BlockForgeSummary> summaries = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return summaries;
+
+			do {
+				byte[] generator = resultSet.getBytes(1);
+				int count = resultSet.getInt(2);
+
+				summaries.add(new BlockForgeSummary(Crypto.toAddress(generator), count));
+			} while (resultSet.next());
+
+			return summaries;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch generator's blocks from repository", e);
 		}
 	}
 

@@ -2,6 +2,7 @@ package org.qora.repository;
 
 import java.util.List;
 
+import org.qora.api.model.BlockForgeSummary;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -100,6 +101,11 @@ public interface BlockRepository {
 	 * @throws DataException
 	 */
 	public int countForgedBlocks(byte[] publicKey) throws DataException;
+
+	/**
+	 * Returns summaries of block forgers.
+	 */
+	public List<BlockForgeSummary> getBlockForgers(Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Returns blocks with passed generator public key.

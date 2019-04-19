@@ -30,6 +30,11 @@
 		{ "height": 11, "reward": 10 },
 		{ "height": 21, "reward": 1 }
 	],
+	"forgingTiers": [
+		{ "minBlocks": 5, "maxSubAccounts": 5 },
+		{ "minBlocks": 4, "maxSubAccounts": 3 },
+		{ "minBlocks": 0, "maxSubAccounts": 0 }
+	],
 	"featureTriggers": {
 		"messageHeight": 0,
 		"atHeight": 0,

@@ -11,7 +11,7 @@ import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
-import org.qora.block.BlockChain.RewardsByHeight;
+import org.qora.block.BlockChain.RewardByHeight;
 import org.qora.block.BlockGenerator;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -54,11 +54,11 @@ public class RewardTests extends Common {
 
 			PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, "alice");
 
-			List<RewardsByHeight> rewards = BlockChain.getInstance().getBlockRewardsByHeight();
+			List<RewardByHeight> rewards = BlockChain.getInstance().getBlockRewardsByHeight();
 
 			int rewardIndex = rewards.size() - 1;
 
-			RewardsByHeight rewardInfo = rewards.get(rewardIndex);
+			RewardByHeight rewardInfo = rewards.get(rewardIndex);
 			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORA);
 
 			for (int height = rewardInfo.height; height > 1; --height) {

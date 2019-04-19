@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.qora.account.PrivateKeyAccount;
+import org.qora.crypto.Crypto;
+import org.qora.data.transaction.EnableForgingTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -44,6 +46,30 @@ public class AccountUtils {
 		TransactionUtils.signAndForge(repository, transactionData, forgingAccount);
 
 		return proxyPrivateKey;
+	}
+
+	public static TransactionData createEnableForging(Repository repository, String forger, byte[] recipientPublicKey) throws DataException {
+		PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, forger);
+
+		byte[] reference = forgingAccount.getLastReference();
+		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1000;
+
+		return new EnableForgingTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), Crypto.toAddress(recipientPublicKey), fee);
+	}
+
+	public static TransactionData createEnableForging(Repository repository, String forger, String recipient) throws DataException {
+		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
+
+		return createEnableForging(repository, forger, recipientAccount.getPublicKey());
+	}
+
+	public static TransactionData enableForging(Repository repository, String forger, String recipient) throws DataException {
+		TransactionData transactionData = createEnableForging(repository, forger, recipient);
+
+		PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, forger);
+		TransactionUtils.signAndForge(repository, transactionData, forgingAccount);
+
+		return transactionData;
 	}
 
 	public static Map<String, Map<Long, BigDecimal>> getBalances(Repository repository, long... assetIds) throws DataException {

@@ -19,7 +19,7 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.at.AT;
-import org.qora.block.BlockChain.RewardsByHeight;
+import org.qora.block.BlockChain.RewardByHeight;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.at.ATData;
@@ -1191,7 +1191,7 @@ public class Block {
 	}
 
 	protected BigDecimal getRewardAtHeight(int ourHeight) {
-		List<RewardsByHeight> rewardsByHeight = BlockChain.getInstance().getBlockRewardsByHeight();
+		List<RewardByHeight> rewardsByHeight = BlockChain.getInstance().getBlockRewardsByHeight();
 
 		// No rewards configured?
 		if (rewardsByHeight == null)
