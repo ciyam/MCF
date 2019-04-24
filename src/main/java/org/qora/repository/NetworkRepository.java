@@ -12,4 +12,6 @@ public interface NetworkRepository {
 
 	public int delete(PeerData peerData) throws DataException;
 
+	public int deleteAllPeers() throws DataException;
+
 }

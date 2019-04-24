@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -15,6 +16,7 @@ import org.qora.account.Account;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.block.BlockChain;
+import org.qora.controller.Controller;
 import org.qora.data.block.BlockData;
 import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
@@ -474,6 +476,8 @@ public abstract class Transaction {
 	 * unconfirmed transactions, and hence uses a repository savepoint.
 	 * <p>
 	 * This is not done normally because we don't want unconfirmed transactions affecting validity of transactions already included in a block.
+	 * <p>
+	 * Also temporarily acquires blockchain lock.
 	 * 
 	 * @return true if transaction can be added to unconfirmed transactions, false otherwise
 	 * @throws DataException
@@ -493,6 +497,14 @@ public abstract class Transaction {
 		if (!hasMinimumFee() || !hasMinimumFeePerByte())
 			return ValidationResult.INSUFFICIENT_FEE;
 
+		/*
+		 * We have to grab the blockchain lock because we're updating
+		 * when we fake the creator's last reference,
+		 * even though we throw away the update when we rollback the
+		 * savepoint.
+		 */
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		blockchainLock.lock();
 		repository.setSavepoint();
 		try {
 			PublicKeyAccount creator = this.getCreator();
@@ -513,6 +525,7 @@ public abstract class Transaction {
 			return result;
 		} finally {
 			repository.rollbackToSavepoint();
+			blockchainLock.unlock();
 		}
 	}
 
@@ -558,10 +571,12 @@ public abstract class Transaction {
 	}
 
 	/**
-	 * Returns sorted, unconfirmed transactions, deleting invalid.
+	 * Returns sorted, unconfirmed transactions, excluding invalid.
 	 * <p>
 	 * NOTE: temporarily updates accounts' lastReference to that from
 	 * unconfirmed transactions, hence uses a repository savepoint.
+	 * <p>
+	 * Also temporarily acquires blockchain lock.
 	 * 
 	 * @return sorted unconfirmed transactions
 	 * @throws DataException
@@ -573,6 +588,14 @@ public abstract class Transaction {
 
 		unconfirmedTransactions.sort(getDataComparator());
 
+		/*
+		 * We have to grab the blockchain lock because we're updating
+		 * when we fake the creator's last reference,
+		 * even though we throw away the update when we rollback the
+		 * savepoint.
+		 */
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		blockchainLock.lock();
 		repository.setSavepoint();
 		try {
 			for (int i = 0; i < unconfirmedTransactions.size(); ++i) {
@@ -587,11 +610,23 @@ public abstract class Transaction {
 		} finally {
 			// Throw away temporary updates to account lastReference
 			repository.rollbackToSavepoint();
+			blockchainLock.unlock();
 		}
 
 		return unconfirmedTransactions;
 	}
 
+	/**
+	 * Returns invalid, unconfirmed transactions.
+	 * <p>
+	 * NOTE: temporarily updates accounts' lastReference to that from
+	 * unconfirmed transactions, hence uses a repository savepoint.
+	 * <p>
+	 * Also temporarily acquires blockchain lock.
+	 * 
+	 * @return sorted unconfirmed transactions
+	 * @throws DataException
+	 */
 	public static List<TransactionData> getInvalidTransactions(Repository repository) throws DataException {
 		BlockData latestBlockData = repository.getBlockRepository().getLastBlock();
 
@@ -600,6 +635,14 @@ public abstract class Transaction {
 
 		unconfirmedTransactions.sort(getDataComparator());
 
+		/*
+		 * We have to grab the blockchain lock because we're updating
+		 * when we fake the creator's last reference,
+		 * even though we throw away the update when we rollback the
+		 * savepoint.
+		 */
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		blockchainLock.lock();
 		repository.setSavepoint();
 		try {
 			for (int i = 0; i < unconfirmedTransactions.size(); ++i) {
@@ -616,6 +659,7 @@ public abstract class Transaction {
 		} finally {
 			// Throw away temporary updates to account lastReference
 			repository.rollbackToSavepoint();
+			blockchainLock.unlock();
 		}
 
 		return invalidTransactions;
@@ -627,6 +671,10 @@ public abstract class Transaction {
 	 * NOTE: temporarily updates creator's lastReference to that from
 	 * unconfirmed transactions, and hence caller should use a repository
 	 * savepoint or invoke <tt>repository.discardChanges()</tt>.
+	 * <p>
+	 * Caller should also hold the blockchain lock as we're 'updating'
+	 * when we fake the transaction creator's last reference, even if
+	 * it discarded at rollback.
 	 * 
 	 * @return true if transaction can be added to unconfirmed transactions, false otherwise
 	 * @throws DataException

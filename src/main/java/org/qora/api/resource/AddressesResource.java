@@ -75,6 +75,13 @@ public class AddressesResource {
 			// Not found?
 			if (accountData == null)
 				accountData = new AccountData(address);
+			else {
+				// Unconfirmed transactions could update lastReference
+				Account account = new Account(repository, address);
+				byte[] unconfirmedLastReference = account.getUnconfirmedLastReference(null);
+				if (unconfirmedLastReference != null)
+					accountData.setReference(unconfirmedLastReference);
+			}
 
 			return accountData;
 		} catch (ApiException e) {

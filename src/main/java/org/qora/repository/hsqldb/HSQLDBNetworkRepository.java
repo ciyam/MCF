@@ -84,4 +84,12 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 		}
 	}
 
+	@Override
+	public int deleteAllPeers() throws DataException {
+		try {
+			return this.repository.delete("Peers");
+		} catch (SQLException e) {
+			throw new DataException("Unable to delete peers from repository", e);
+		}
+	}
 }

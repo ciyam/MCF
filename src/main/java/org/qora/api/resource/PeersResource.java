@@ -217,4 +217,37 @@ public class PeersResource {
 		}
 	}
 
+	@DELETE
+	@Path("/known")
+	@Operation(
+		summary = "Remove any known peers from database",
+		responses = {
+			@ApiResponse(
+				description = "true if any peers were removed, false if there were no peers to delete",
+				content = @Content(
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE
+	})
+	public String removeKnownPeers(String address) {
+		Security.checkApiCallAllowed(request);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			int numDeleted = repository.getNetworkRepository().deleteAllPeers();
+			repository.saveChanges();
+
+			return numDeleted != 0 ? "true" : "false";
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 }
