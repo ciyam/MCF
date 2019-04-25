@@ -515,7 +515,10 @@ public abstract class Transaction {
 			if (!this.isValidTxGroupId())
 				return ValidationResult.INVALID_TX_GROUP_ID;
 
-			creator.setLastReference(creator.getUnconfirmedLastReference());
+			byte[] unconfirmedLastReference = creator.getUnconfirmedLastReference();
+			if (unconfirmedLastReference != null)
+				creator.setLastReference(unconfirmedLastReference);
+
 			ValidationResult result = this.isValid();
 
 			// Reject if unconfirmed pile already has X transactions from same creator

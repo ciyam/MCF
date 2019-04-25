@@ -78,7 +78,7 @@ public class AddressesResource {
 			else {
 				// Unconfirmed transactions could update lastReference
 				Account account = new Account(repository, address);
-				byte[] unconfirmedLastReference = account.getUnconfirmedLastReference(null);
+				byte[] unconfirmedLastReference = account.getUnconfirmedLastReference();
 				if (unconfirmedLastReference != null)
 					accountData.setReference(unconfirmedLastReference);
 			}
@@ -109,9 +109,12 @@ public class AddressesResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		byte[] lastReference = null;
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
 			lastReference = account.getUnconfirmedLastReference();
+			if (lastReference == null)
+				lastReference = account.getLastReference();
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
