@@ -355,12 +355,12 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, TransactionType txType, String address,
+	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, List<TransactionType> txTypes, String address,
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		List<byte[]> signatures = new ArrayList<byte[]>();
 
 		boolean hasAddress = address != null && !address.isEmpty();
-		boolean hasTxType = txType != null;
+		boolean hasTxTypes = txTypes != null && !txTypes.isEmpty();
 		boolean hasHeightRange = startBlock != null || blockLimit != null;
 
 		if (hasHeightRange && startBlock == null)
@@ -407,8 +407,10 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				whereClauses.add("Blocks.height < " + (startBlock + blockLimit));
 		}
 
-		if (hasTxType)
-			whereClauses.add("Transactions.type = " + txType.value);
+		if (hasTxTypes) {
+			whereClauses.add("Transactions.type IN (" + HSQLDBRepository.nPlaceholders(txTypes.size()) + ")");
+			bindParams.addAll(txTypes.stream().map(txType -> txType.value).collect(Collectors.toList()));
+		}
 
 		if (hasAddress) {
 			whereClauses.add("TransactionParticipants.participant = ?");
