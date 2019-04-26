@@ -59,7 +59,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
-			throw new DataException("Error loading data from DB", e);
+			throw new DataException("Error fetching block by signature from repository", e);
 		}
 	}
 
@@ -68,7 +68,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE reference = ?", reference)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
-			throw new DataException("Error loading data from DB", e);
+			throw new DataException("Error fetching block by reference from repository", e);
 		}
 	}
 
@@ -77,7 +77,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", height)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
-			throw new DataException("Error loading data from DB", e);
+			throw new DataException("Error fetching block by height from repository", e);
 		}
 	}
 
@@ -89,7 +89,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
-			throw new DataException("Error obtaining block height from repository", e);
+			throw new DataException("Error obtaining block height by signature from repository", e);
 		}
 	}
 
@@ -103,7 +103,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
-			throw new DataException("Error obtaining block height from repository", e);
+			throw new DataException("Error obtaining block height by timestamp from repository", e);
 		}
 	}
 
@@ -121,7 +121,11 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public BlockData getLastBlock() throws DataException {
-		return fromHeight(getBlockchainHeight());
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks ORDER BY height DESC LIMIT 1")) {
+			return getBlockFromResultSet(resultSet);
+		} catch (SQLException e) {
+			throw new DataException("Error fetching last block from repository", e);
+		}
 	}
 
 	@Override
