@@ -43,7 +43,7 @@ public class HSQLDBRepository implements Repository {
 	protected Deque<Savepoint> savepoints;
 	protected boolean debugState = false;
 	protected Long slowQueryThreshold = null;
-	protected List<String> queries;
+	protected List<String> sqlStatements;
 
 	// NB: no visibility modifier so only callable from within same package
 	HSQLDBRepository(Connection connection) {
@@ -52,7 +52,7 @@ public class HSQLDBRepository implements Repository {
 
 		this.slowQueryThreshold = Settings.getInstance().getSlowQueryThreshold();
 		if (this.slowQueryThreshold != null)
-			this.queries = new ArrayList<String>();
+			this.sqlStatements = new ArrayList<String>();
 	}
 
 	@Override
@@ -109,8 +109,8 @@ public class HSQLDBRepository implements Repository {
 		} finally {
 			this.savepoints.clear();
 
-			if (this.queries != null)
-				this.queries.clear();
+			if (this.sqlStatements != null)
+				this.sqlStatements.clear();
 		}
 	}
 
@@ -123,19 +123,24 @@ public class HSQLDBRepository implements Repository {
 		} finally {
 			this.savepoints.clear();
 
-			if (this.queries != null)
-				this.queries.clear();
+			if (this.sqlStatements != null)
+				this.sqlStatements.clear();
 		}
 	}
 
 	@Override
 	public void setSavepoint() throws DataException {
 		try {
+			if (this.sqlStatements != null)
+				// We don't know savepoint's ID yet
+				this.sqlStatements.add("SAVEPOINT [?]");
+
 			Savepoint savepoint = this.connection.setSavepoint();
 			this.savepoints.push(savepoint);
 
-			if (this.queries != null)
-				this.queries.add("SAVEPOINT");
+			// Update query log with savepoint ID
+			if (this.sqlStatements != null)
+				this.sqlStatements.set(this.sqlStatements.size() - 1, "SAVEPOINT [" + savepoint.getSavepointId() + "]");
 		} catch (SQLException e) {
 			throw new DataException("savepoint error", e);
 		}
@@ -149,10 +154,10 @@ public class HSQLDBRepository implements Repository {
 		Savepoint savepoint = this.savepoints.pop();
 
 		try {
-			this.connection.rollback(savepoint);
+			if (this.sqlStatements != null)
+				this.sqlStatements.add("ROLLBACK TO SAVEPOINT [" + savepoint.getSavepointId() + "]");
 
-			if (this.queries != null)
-				this.queries.add("ROLLBACK TO SAVEPOINT");
+			this.connection.rollback(savepoint);
 		} catch (SQLException e) {
 			throw new DataException("savepoint rollback error", e);
 		}
@@ -207,10 +212,10 @@ public class HSQLDBRepository implements Repository {
 		if (this.debugState)
 			LOGGER.debug(sql);
 
-		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
+		if (this.sqlStatements != null)
+			this.sqlStatements.add(sql);
 
-		if (this.queries != null)
-			this.queries.add(sql);
+		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
 
 		return preparedStatement;
 	}
@@ -219,11 +224,11 @@ public class HSQLDBRepository implements Repository {
 	 * Logs this transaction's SQL statements, if enabled.
 	 */
 	public void logStatements() {
-		if (this.queries == null)
+		if (this.sqlStatements == null)
 			return;
 
-		for (String query : this.queries)
-			LOGGER.info(query);
+		for (String sql : this.sqlStatements)
+			LOGGER.info(sql);
 	}
 
 	/**
@@ -427,11 +432,9 @@ public class HSQLDBRepository implements Repository {
 
 	/** Logs other HSQLDB sessions then re-throws passed exception */
 	public SQLException examineException(SQLException e) throws SQLException {
-		LOGGER.error("SQL error: " + e.getMessage());
+		LOGGER.error("SQL error: " + e.getMessage(), e);
 
-		if (this.queries != null)
-			for (String query : this.queries)
-				LOGGER.info(query);
+		logStatements();
 
 		// Serialization failure / potential deadlock - so list other sessions
 		try (ResultSet resultSet = this.checkedExecute(
