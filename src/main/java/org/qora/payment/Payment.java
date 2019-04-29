@@ -60,10 +60,19 @@ public class Payment {
 			if (!Crypto.isValidAddress(paymentData.getRecipient()))
 				return ValidationResult.INVALID_ADDRESS;
 
-			// Do not allow payments to finished/dead ATs
-			ATData atData = this.repository.getATRepository().fromATAddress(paymentData.getRecipient());
-			if (atData != null && atData.getIsFinished())
-				return ValidationResult.AT_IS_FINISHED;
+			boolean recipientIsAT = Crypto.isValidAtAddress(paymentData.getRecipient());
+			ATData atData = null;
+
+			// Do not allow payments to finished/dead/nonexistent ATs
+			if (recipientIsAT) {
+				atData = this.repository.getATRepository().fromATAddress(paymentData.getRecipient());
+
+				if (atData == null)
+					return ValidationResult.AT_UNKNOWN;
+
+				if (atData != null && atData.getIsFinished())
+					return ValidationResult.AT_IS_FINISHED;
+			}
 
 			AssetData assetData = assetRepository.fromAssetId(paymentData.getAssetId());
 			// Check asset even exists

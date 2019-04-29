@@ -242,7 +242,7 @@ public class HSQLDBRepository implements Repository {
 		if (this.sqlStatements == null)
 			return;
 
-		LOGGER.info("HSQLDB SQL statements leading up to this were:");
+		LOGGER.info(String.format("HSQLDB SQL statements (session %d) leading up to this were:", this.sessionId));
 
 		for (String sql : this.sqlStatements)
 			LOGGER.info(sql);
@@ -449,7 +449,7 @@ public class HSQLDBRepository implements Repository {
 
 	/** Logs other HSQLDB sessions then re-throws passed exception */
 	public SQLException examineException(SQLException e) throws SQLException {
-		LOGGER.error("SQL error: " + e.getMessage(), e);
+		LOGGER.error(String.format("HSQLDB error (session %d): %s", this.sessionId, e.getMessage()), e);
 
 		logStatements();
 
