@@ -33,6 +33,8 @@ public interface Repository extends AutoCloseable {
 
 	public void rebuild() throws DataException;
 
+	public boolean getDebug();
+
 	public void setDebug(boolean debugState);
 
 }
