@@ -35,7 +35,7 @@ public class HSQLDBATRepository implements ATRepository {
 			long creation = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			int version = resultSet.getInt(3);
 			long assetId = resultSet.getLong(4);
-			byte[] codeBytes = resultSet.getBytes(5); // XXX: Actually BLOB
+			byte[] codeBytes = resultSet.getBytes(5); // Actually BLOB
 			boolean isSleeping = resultSet.getBoolean(6);
 
 			Integer sleepUntilHeight = resultSet.getInt(7);
@@ -74,7 +74,7 @@ public class HSQLDBATRepository implements ATRepository {
 				long creation = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 				int version = resultSet.getInt(4);
 				long assetId = resultSet.getLong(5);
-				byte[] codeBytes = resultSet.getBytes(6); // XXX: Actually BLOB
+				byte[] codeBytes = resultSet.getBytes(6); // Actually BLOB
 				boolean isSleeping = resultSet.getBoolean(7);
 
 				Integer sleepUntilHeight = resultSet.getInt(8);
