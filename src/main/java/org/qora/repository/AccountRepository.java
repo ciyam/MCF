@@ -23,6 +23,9 @@ public interface AccountRepository {
 	/** Returns account's flags or null if account not found. */
 	public Integer getFlags(String address) throws DataException;
 
+	/** Returns whether account exists. */
+	public boolean accountExists(String address) throws DataException;
+
 	/** Returns number of accounts enabled to forge by given address. */
 	public int countForgingAccountsEnabledByAddress(String address) throws DataException;
 

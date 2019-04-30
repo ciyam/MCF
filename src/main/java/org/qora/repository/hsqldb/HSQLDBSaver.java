@@ -58,7 +58,7 @@ public class HSQLDBSaver {
 	 */
 	public boolean execute(HSQLDBRepository repository) throws SQLException {
 		String sql = this.formatInsertWithPlaceholders();
-		try (PreparedStatement preparedStatement = repository.connection.prepareStatement(sql)) {
+		try (PreparedStatement preparedStatement = repository.prepareStatement(sql)) {
 			this.bindValues(preparedStatement);
 
 			return preparedStatement.execute();

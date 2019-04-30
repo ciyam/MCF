@@ -62,6 +62,12 @@ public class Settings {
 	private String blockchainConfig = "blockchain.json";
 	private boolean useBitcoinTestNet = false;
 
+	// Repository related
+	/** Queries that take longer than this are logged. (milliseconds) */
+	private Long slowQueryThreshold = null;
+	/** Repository storage path. */
+	private String repositoryPath = null;
+
 	// Constructors
 
 	private Settings() {
@@ -226,6 +232,14 @@ public class Settings {
 
 	public boolean useBitcoinTestNet() {
 		return this.useBitcoinTestNet;
+	}
+
+	public Long getSlowQueryThreshold() {
+		return this.slowQueryThreshold;
+	}
+
+	public String getRepositoryPath() {
+		return this.repositoryPath;
 	}
 
 }

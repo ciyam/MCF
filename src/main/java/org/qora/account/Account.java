@@ -163,11 +163,12 @@ public class Account {
 	}
 
 	/**
-	 * Fetch last reference for account, considering unconfirmed transactions.
+	 * Fetch last reference for account, considering unconfirmed transactions only, or return null.
 	 * <p>
-	 * NOTE: a repository savepoint may be used during execution.
+	 * NOTE: calls Transaction.getUnconfirmedTransactions which discards uncommitted
+	 * repository changes.
 	 * 
-	 * @return byte[] reference, or null if no reference or account not found.
+	 * @return byte[] reference, or null if no unconfirmed transactions for this account.
 	 * @throws DataException
 	 */
 	public byte[] getUnconfirmedLastReference() throws DataException {
@@ -183,11 +184,7 @@ public class Account {
 				reference = transactionData.getSignature();
 		}
 
-		if (reference != null)
-			return reference;
-
-		// No unconfirmed transactions
-		return getLastReference();
+		return reference;
 	}
 
 	/**

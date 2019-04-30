@@ -90,6 +90,17 @@ public class Crypto {
 	}
 
 	public static boolean isValidAddress(String address) {
+		return isValidTypedAddress(address, ADDRESS_VERSION, AT_ADDRESS_VERSION);
+	}
+
+	public static boolean isValidAtAddress(String address) {
+		return isValidTypedAddress(address, AT_ADDRESS_VERSION);
+	}
+
+	private static boolean isValidTypedAddress(String address, byte...addressVersions) {
+		if (addressVersions == null || addressVersions.length == 0)
+			return false;
+
 		byte[] addressBytes;
 
 		try {
@@ -104,18 +115,16 @@ public class Crypto {
 			return false;
 
 		// Check by address type
-		switch (addressBytes[0]) {
-			case ADDRESS_VERSION:
-			case AT_ADDRESS_VERSION:
+		for (byte addressVersion : addressVersions)
+			if (addressBytes[0] == addressVersion) {
 				byte[] addressWithoutChecksum = Arrays.copyOf(addressBytes, addressBytes.length - 4);
 				byte[] passedChecksum = Arrays.copyOfRange(addressBytes, addressBytes.length - 4, addressBytes.length);
 
 				byte[] generatedChecksum = Arrays.copyOf(doubleDigest(addressWithoutChecksum), 4);
 				return Arrays.equals(passedChecksum, generatedChecksum);
+			}
 
-			default:
-				return false;
-		}
+		return false;
 	}
 
 }

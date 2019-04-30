@@ -77,8 +77,7 @@ public class OrderData implements Comparable<OrderData> {
 		if (this.haveAssetName == null)
 			return;
 
-		// 'old' pricing scheme is simpler so test for that first
-		// XXX TODO
+		// TODO: fill in for 'old' pricing scheme
 
 		// 'new' pricing scheme
 		if (this.haveAssetId < this.wantAssetId) {

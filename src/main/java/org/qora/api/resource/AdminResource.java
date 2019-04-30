@@ -10,6 +10,9 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -23,9 +26,13 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.appender.RollingFileAppender;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
@@ -40,10 +47,14 @@ import org.qora.data.account.ForgingAccountData;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.utils.Base58;
 
+import com.google.common.collect.Lists;
+
 @Path("/admin")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
 @Tag(name = "Admin")
 public class AdminResource {
+
+	private static final int MAX_LOG_LINES = 500;
 
 	@Context
 	HttpServletRequest request;
@@ -258,6 +269,65 @@ public class AdminResource {
 		}
 
 		return "true";
+	}
+
+	@GET
+	@Path("/logs")
+	@Operation(
+		summary = "Return logs entries",
+		description = "Limit pegged to 500 max",
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	public String fetchLogs(@Parameter(
+			ref = "limit"
+			) @QueryParam("limit") Integer limit, @Parameter(
+				ref = "offset"
+			) @QueryParam("offset") Integer offset, @Parameter(
+				ref = "reverse"
+			) @QueryParam("reverse") Boolean reverse) {
+		LoggerContext loggerContext = (LoggerContext) LogManager.getContext();
+		RollingFileAppender fileAppender = (RollingFileAppender) loggerContext.getConfiguration().getAppenders().values().stream().filter(appender -> appender instanceof RollingFileAppender).findFirst().get();
+
+		String filename = fileAppender.getManager().getFileName();
+		java.nio.file.Path logPath = Paths.get(filename);
+
+		try {
+			List<String> logLines = Files.readAllLines(logPath);
+
+			// Slicing
+			if (reverse != null && reverse)
+				logLines = Lists.reverse(logLines);
+
+			// offset out of bounds?
+			if (offset != null && (offset < 0 || offset >= logLines.size()))
+				return "";
+
+			if (offset != null) {
+				offset = Math.min(offset, logLines.size() - 1);
+				logLines.subList(0, offset).clear();
+			}
+
+			// invalid limit
+			if (limit != null && limit <= 0)
+				return "";
+
+			if (limit != null)
+				limit = Math.min(limit, MAX_LOG_LINES);
+			else
+				limit = MAX_LOG_LINES;
+
+			limit = Math.min(limit, logLines.size());
+
+			logLines.subList(limit - 1, logLines.size()).clear();
+
+			return String.join("\n", logLines);
+		} catch (IOException e) {
+			return "";
+		}
 	}
 
 }

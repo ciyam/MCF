@@ -71,15 +71,15 @@ public class SetGroupTransactionData extends TransactionData {
 
 	// Re-expose to JAXB
 
-	@Override
-	@XmlElement
-	public byte[] getCreatorPublicKey() {
+	@XmlElement(name = "creatorPublicKey")
+	@Schema(name = "creatorPublicKey", description = "creator's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
+	public byte[] getSetGroupCreatorPublicKey() {
 		return super.getCreatorPublicKey();
 	}
 
-	@Override
-	@XmlElement
-	public void setCreatorPublicKey(byte[] creatorPublicKey) {
+	@XmlElement(name = "creatorPublicKey")
+	@Schema(name = "creatorPublicKey", description = "creator's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
+	public void setSetGroupCreatorPublicKey(byte[] creatorPublicKey) {
 		super.setCreatorPublicKey(creatorPublicKey);
 	}
 

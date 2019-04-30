@@ -291,7 +291,7 @@ public class TransactionsResource {
 		ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE
 	})
 	public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit,
-			@QueryParam("txType") TransactionType txType, @QueryParam("address") String address, @Parameter(
+			@QueryParam("txType") List<TransactionType> txTypes, @QueryParam("address") String address, @Parameter(
 				description = "whether to include confirmed, unconfirmed or both",
 				required = true
 			) @QueryParam("confirmationStatus") ConfirmationStatus confirmationStatus, @Parameter(
@@ -302,7 +302,7 @@ public class TransactionsResource {
 				ref = "reverse"
 			) @QueryParam("reverse") Boolean reverse) {
 		// Must have at least one of txType / address / limit <= 20
-		if (txType == null && (address == null || address.isEmpty()) && (limit == null || limit > 20))
+		if ((txTypes == null || txTypes.isEmpty()) && (address == null || address.isEmpty()) && (limit == null || limit > 20))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		// You can't ask for unconfirmed and impose a block height range
@@ -310,7 +310,7 @@ public class TransactionsResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(startBlock, blockLimit, txType, address,
+			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(startBlock, blockLimit, txTypes, address,
 					confirmationStatus, limit, offset, reverse);
 
 			// Expand signatures to transactions
@@ -366,6 +366,8 @@ public class TransactionsResource {
 			byte[] rawBytes = Bytes.concat(signRequest.transactionBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
 
 			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 			PrivateKeyAccount signer = new PrivateKeyAccount(null, signRequest.privateKey);
 
@@ -417,6 +419,8 @@ public class TransactionsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] rawBytes = Base58.decode(rawBytes58);
 			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 			if (!transaction.isSignatureValid())
@@ -488,6 +492,9 @@ public class TransactionsResource {
 				hasSignature = false;
 				transactionData = TransactionTransformer.fromBytes(rawBytes);
 			}
+
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
