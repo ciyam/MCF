@@ -4,7 +4,9 @@ import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
 
 import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
-import org.eclipse.jetty.server.NCSARequestLog;
+import org.eclipse.jetty.server.CustomRequestLog;
+import org.eclipse.jetty.server.RequestLog;
+import org.eclipse.jetty.server.RequestLogWriter;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ErrorHandler;
 import org.eclipse.jetty.server.handler.InetAccessHandler;
@@ -40,11 +42,10 @@ public class ApiService {
 
 		// Request logging
 		if (Settings.getInstance().isApiLoggingEnabled()) {
-			NCSARequestLog requestLog = new NCSARequestLog("API-requests.log");
-			requestLog.setAppend(true);
-			requestLog.setExtended(false);
-			requestLog.setLogTimeZone("UTC");
-			requestLog.setLogLatency(true);
+			RequestLogWriter logWriter = new RequestLogWriter("API-requests.log");
+			logWriter.setAppend(true);
+			logWriter.setTimeZone("UTC");
+			RequestLog requestLog = new CustomRequestLog(logWriter, CustomRequestLog.EXTENDED_NCSA_FORMAT);
 			server.setRequestLog(requestLog);
 		}
 
