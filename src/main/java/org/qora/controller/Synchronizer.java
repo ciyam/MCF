@@ -1,14 +1,17 @@
 package org.qora.controller;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.block.Block;
 import org.qora.block.Block.ValidationResult;
+import org.qora.block.BlockChain;
 import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
@@ -81,39 +84,41 @@ public class Synchronizer {
 							return false;
 						}
 
-						// If we have blocks after common block then decide whether we want to sync (lowest block signature wins)
-						for (int height = commonBlockHeight + 1; height <= peerHeight && height <= this.ourHeight; ++height) {
-							int sigIndex = height - commonBlockHeight - 1;
+						// If we both have blocks after common block then decide whether we want to sync
+						int highestMutualHeight = Math.min(peerHeight, this.ourHeight);
+						if (highestMutualHeight > commonBlockHeight) {
+							int numberRequired = highestMutualHeight - commonBlockHeight;
 
-							// Do we need more signatures?
-							if (signatures.size() - 1 < sigIndex) {
-								// Grab more signatures
-								byte[] previousSignature = sigIndex == 0 ? commonBlockData.getSignature() : signatures.get(sigIndex - 1);
-								List<byte[]> moreSignatures = this.getBlockSignatures(peer, previousSignature, MAXIMUM_BLOCK_STEP);
-								if (moreSignatures == null || moreSignatures.isEmpty()) {
-									LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d", peer, height - 1));
+							// We need block summaries (which we also use to fill signatures list)
+							byte[] previousSignature = commonBlockData.getSignature();
+							List<BlockSummaryData> blockSummaries = new ArrayList<>();
+
+							while (blockSummaries.size() < numberRequired) {
+								int height = commonBlockHeight + blockSummaries.size();
+
+								List<BlockSummaryData> moreBlockSummaries = this.getBlockSummaries(peer, previousSignature, numberRequired - blockSummaries.size());
+
+								if (moreBlockSummaries == null || moreBlockSummaries.isEmpty()) {
+									LOGGER.info(String.format("Peer %s failed to respond with block summaries after height %d", peer, height));
 									return false;
 								}
 
-								signatures.addAll(moreSignatures);
+								blockSummaries.addAll(moreBlockSummaries);
 							}
 
-							byte[] ourSignature = this.repository.getBlockRepository().fromHeight(height).getSignature();
-							byte[] peerSignature = signatures.get(sigIndex);
+							// Add to signatures from block summaries
+							signatures.addAll(blockSummaries.stream().map(blockSummary -> blockSummary.getSignature()).collect(Collectors.toList()));
 
-							for (int i = 0; i < ourSignature.length; ++i) {
-								/*
-								 * If our byte is lower, we don't synchronize with this peer,
-								 * if their byte is lower, check next height,
-								 * (if bytes are equal, try next byte).
-								 */
-								if (ourSignature[i] < peerSignature[i]) {
-									LOGGER.info(String.format("Not synchronizing with peer %s as we have better block at height %d", peer, height));
-									return false;
-								}
+							// Calculate total 'distance' of peer's blockchain
+							BigInteger peerBlockchainValue = BlockChain.calcBlockchainDistance(new BlockSummaryData(commonBlockData), blockSummaries);
 
-								if (peerSignature[i] < ourSignature[i])
-									break;
+							// Calculate total 'distance' of our blockchain for same blocks
+							BigInteger ourBlockchainValue = BlockChain.calcBlockchainDistance(repository, commonBlockHeight + 1, highestMutualHeight);
+
+							// If our blockchain has a lower distance then don't synchronize with peer
+							if (ourBlockchainValue.compareTo(peerBlockchainValue) <= 0) {
+								LOGGER.info(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
+								return false;
 							}
 						}
 
