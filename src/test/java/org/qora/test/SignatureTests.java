@@ -3,6 +3,7 @@ package org.qora.test;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.Block;
+import org.qora.block.BlockChain;
 import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
 import org.qora.repository.DataException;
@@ -58,7 +59,7 @@ public class SignatureTests extends Common {
 			BlockData blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
 					generatorPublicKey, generatorSignature, atCount, atFees);
 
-			Block block = new Block(repository, blockData, generator);
+			Block block = new Block(repository, blockData, generator, timestamp + BlockChain.getInstance().getMinBlockTime() + 1);
 			block.sign();
 
 			assertTrue(block.isSignatureValid());

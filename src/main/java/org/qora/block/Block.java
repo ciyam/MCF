@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.account.Account;
+import org.qora.account.Forging;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
@@ -41,6 +42,7 @@ import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Longs;
 
 /*
  * Typical use-case scenarios:
@@ -194,7 +196,7 @@ public class Block {
 	 * @param generator
 	 * @throws DataException
 	 */
-	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount generator) throws DataException {
+	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount generator, long timestamp) throws DataException {
 		this.repository = repository;
 		this.generator = generator;
 
@@ -211,8 +213,6 @@ public class Block {
 		} catch (TransformationException e) {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
-
-		long timestamp = parentBlock.calcNextBlockTimestamp(version, generatorSignature, generator);
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
@@ -254,7 +254,6 @@ public class Block {
 		Block newBlock = new Block(this.repository, this.blockData);
 
 		BlockData parentBlockData = this.getParent();
-		Block parentBlock = new Block(repository, parentBlockData);
 
 		newBlock.generator = generator;
 
@@ -276,7 +275,7 @@ public class Block {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
 
-		long timestamp = parentBlock.calcNextBlockTimestamp(version, generatorSignature, generator);
+		long timestamp = this.blockData.getTimestamp();
 
 		newBlock.transactions = this.transactions;
 		int transactionCount = this.blockData.getTransactionCount();
@@ -397,11 +396,6 @@ public class Block {
 		return this.cachedNextGeneratingBalance;
 	}
 
-	public static long calcBaseTarget(BigDecimal generatingBalance) {
-		generatingBalance = Block.minMaxBalance(generatingBalance);
-		return generatingBalance.longValue() * calcForgingDelay(generatingBalance);
-	}
-
 	/**
 	 * Return expected forging delay, in seconds, since previous block based on passed generating balance.
 	 */
@@ -413,86 +407,6 @@ public class Block {
 				+ ((BlockChain.getInstance().getMaxBlockTime() - BlockChain.getInstance().getMinBlockTime()) * (1 - percentageOfTotal)));
 
 		return actualBlockTime;
-	}
-
-	private BigInteger calcGeneratorsTarget(PublicKeyAccount nextBlockGenerator) throws DataException {
-		// Start with 32-byte maximum integer representing all possible correct "guesses"
-		// Where a "correct guess" is an integer greater than the threshold represented by calcBlockHash()
-		byte[] targetBytes = new byte[32];
-		Arrays.fill(targetBytes, Byte.MAX_VALUE);
-		BigInteger target = new BigInteger(1, targetBytes);
-
-		// Divide by next block's base target
-		// So if next block requires a higher generating balance then there are fewer remaining "correct guesses"
-		BigInteger baseTarget = BigInteger.valueOf(calcBaseTarget(calcNextBlockGeneratingBalance()));
-		target = target.divide(baseTarget);
-
-		// If generator is actually proxy account then use forger's account to calculate target.
-		BigDecimal generatingBalance;
-		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(nextBlockGenerator.getPublicKey());
-		if (proxyForgerData != null)
-			generatingBalance = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey()).getGeneratingBalance();
-		else
-			generatingBalance = nextBlockGenerator.getGeneratingBalance();
-
-		// Multiply by account's generating balance
-		// So the greater the account's generating balance then the greater the remaining "correct guesses"
-		target = target.multiply(generatingBalance.toBigInteger());
-
-		return target;
-	}
-
-	/** Returns pseudo-random, but deterministic, integer for this block (and block's generator for v3+ blocks) */
-	private BigInteger calcBlockHash() {
-		byte[] hashData;
-
-		if (this.blockData.getVersion() < 3)
-			hashData = this.blockData.getGeneratorSignature();
-		else
-			hashData = Bytes.concat(this.blockData.getReference(), generator.getPublicKey());
-
-		// Calculate 32-byte hash as pseudo-random, but deterministic, integer (unique to this generator for v3+ blocks)
-		byte[] hash = Crypto.digest(hashData);
-
-		// Convert hash to BigInteger form
-		return new BigInteger(1, hash);
-	}
-
-	/** Returns pseudo-random, but deterministic, integer for next block (and next block's generator for v3+ blocks) */
-	private BigInteger calcNextBlockHash(int nextBlockVersion, byte[] preVersion3GeneratorSignature, PublicKeyAccount nextBlockGenerator) {
-		byte[] hashData;
-
-		if (nextBlockVersion < 3)
-			hashData = preVersion3GeneratorSignature;
-		else
-			hashData = Bytes.concat(this.blockData.getSignature(), nextBlockGenerator.getPublicKey());
-
-		// Calculate 32-byte hash as pseudo-random, but deterministic, integer (unique to this generator for v3+ blocks)
-		byte[] hash = Crypto.digest(hashData);
-
-		// Convert hash to BigInteger form
-		return new BigInteger(1, hash);
-	}
-
-	/** Calculate next block's timestamp, given next block's version, generator signature and generator's public key */
-	private long calcNextBlockTimestamp(int nextBlockVersion, byte[] nextBlockGeneratorSignature, PublicKeyAccount nextBlockGenerator) throws DataException {
-		BigInteger hashValue = calcNextBlockHash(nextBlockVersion, nextBlockGeneratorSignature, nextBlockGenerator);
-		BigInteger target = calcGeneratorsTarget(nextBlockGenerator);
-
-		// If target is zero then generator has no balance so return longest value
-		if (target.compareTo(BigInteger.ZERO) == 0)
-			return Long.MAX_VALUE;
-
-		// Use ratio of "correct guesses" to calculate minimum delay until this generator can forge a block
-		BigInteger seconds = hashValue.divide(target).add(BigInteger.ONE);
-
-		// Calculate next block timestamp using delay
-		BigInteger timestamp = seconds.multiply(BigInteger.valueOf(1000)).add(BigInteger.valueOf(this.blockData.getTimestamp()));
-
-		// Limit timestamp to maximum long value
-		timestamp = timestamp.min(BigInteger.valueOf(Long.MAX_VALUE));
-
-		return timestamp.longValue();
 	}
 
 	/**
@@ -728,6 +642,20 @@ public class Block {
 		}
 	}
 
+	public static byte[] calcIdealGeneratorPublicKey(int height, byte[] blockSignature) {
+		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), blockSignature));
+	}
+
+	public static byte[] calcHeightPerturbedGenerator(int height, byte[] generatorPublicKey) {
+		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), generatorPublicKey));
+	}
+
+	public BigInteger calcGeneratorDistance(BlockData parentBlockData) {
+		BigInteger idealGeneratorBI = new BigInteger(Block.calcIdealGeneratorPublicKey(parentBlockData.getHeight(), parentBlockData.getSignature()));
+		BigInteger ourGeneratorBI = new BigInteger(Block.calcHeightPerturbedGenerator(this.blockData.getHeight(), this.blockData.getGeneratorPublicKey()));
+		return idealGeneratorBI.subtract(ourGeneratorBI).abs();
+	}
+
 	/**
 	 * Recalculate block's generator and transactions signatures, thus giving block full signature.
 	 * <p>
@@ -786,14 +714,9 @@ public class Block {
 		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
 			return ValidationResult.TIMESTAMP_IN_FUTURE;
 
-		// Legacy gen1 test: check timestamp milliseconds is the same as parent timestamp milliseconds?
-		if (this.blockData.getTimestamp() % 1000 != parentBlockData.getTimestamp() % 1000)
-			return ValidationResult.TIMESTAMP_MS_INCORRECT;
-
 		// Too early to forge block?
-		// XXX DISABLED as it doesn't work - but why?
-		// if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
-		// 	return ValidationResult.TIMESTAMP_TOO_SOON;
+		if (this.blockData.getTimestamp() < parentBlockData.getTimestamp() + BlockChain.getInstance().getMinBlockTime() * 1000L)
+			return ValidationResult.TIMESTAMP_TOO_SOON;
 
 		return ValidationResult.OK;
 	}
@@ -1007,28 +930,21 @@ public class Block {
 
 	/** Returns whether block's generator is actually allowed to forge this block. */
 	protected boolean isGeneratorValidToForge(Block parentBlock) throws DataException {
-		BlockData parentBlockData = parentBlock.getBlockData();
+		// Generator must have forging flag enabled
+		Account generator = new PublicKeyAccount(repository, this.blockData.getGeneratorPublicKey());
+		if (Forging.canForge(generator))
+			return true;
 
-		BigInteger hashValue = this.calcBlockHash();
+		// Check whether generator public key could be a proxy forge account
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
+		if (proxyForgerData != null) {
+			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
 
-		// calcGeneratorsTarget handles proxy forging aspect
-		BigInteger target = parentBlock.calcGeneratorsTarget(this.generator);
+			if (Forging.canForge(forger))
+				return true;
+		}
 
-		// Multiply target by guesses
-		long guesses = (this.blockData.getTimestamp() - parentBlockData.getTimestamp()) / 1000;
-		BigInteger lowerTarget = target.multiply(BigInteger.valueOf(guesses - 1));
-		target = target.multiply(BigInteger.valueOf(guesses));
-
-		// Generator's target must exceed block's hashValue threshold
-		if (hashValue.compareTo(target) >= 0)
-			return false;
-
-		// Odd gen1 comment: "CHECK IF FIRST BLOCK OF USER"
-		// Each second elapsed allows generator to test a new "target" window against hashValue
-		if (hashValue.compareTo(lowerTarget) < 0)
-			return false;
-
-		return true;
+		return false;
 	}
 
 	/**

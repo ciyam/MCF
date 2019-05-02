@@ -27,6 +27,7 @@ import org.qora.data.transaction.MultiPaymentTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.RegisterNameTransactionData;
 import org.qora.data.transaction.SellNameTransactionData;
+import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.data.transaction.UpdateNameTransactionData;
 import org.qora.data.transaction.VoteOnPollTransactionData;
@@ -156,9 +157,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, paymentTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(paymentTransactionData);
-		block.sign();
+		Block block = forgeBlock(paymentTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -217,9 +216,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, registerNameTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(registerNameTransactionData);
-		block.sign();
+		Block block = forgeBlock(registerNameTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -273,9 +270,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, updateNameTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(updateNameTransactionData);
-		block.sign();
+		Block block = forgeBlock(updateNameTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -319,9 +314,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, sellNameTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(sellNameTransactionData);
-		block.sign();
+		Block block = forgeBlock(sellNameTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -371,9 +364,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, cancelSellNameTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(cancelSellNameTransactionData);
-		block.sign();
+		Block block = forgeBlock(cancelSellNameTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -418,9 +409,7 @@ public class TransactionTests extends Common {
 		byte[] buyersReference = somePaymentTransaction.getTransactionData().getSignature();
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(somePaymentTransaction.getTransactionData());
-		block.sign();
+		Block block = forgeBlock(somePaymentTransaction.getTransactionData());
 
 		block.process();
 		repository.saveChanges();
@@ -437,9 +426,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, buyNameTransaction.isValid());
 
 		// Forge new block with transaction
-		block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(buyNameTransactionData);
-		block.sign();
+		block = forgeBlock(buyNameTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -490,9 +477,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, createPollTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(createPollTransactionData);
-		block.sign();
+		Block block = forgeBlock(createPollTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -549,9 +534,7 @@ public class TransactionTests extends Common {
 			assertEquals(ValidationResult.OK, voteOnPollTransaction.isValid());
 
 			// Forge new block with transaction
-			Block block = new Block(repository, parentBlockData, generator);
-			block.addTransaction(voteOnPollTransactionData);
-			block.sign();
+			Block block = forgeBlock(voteOnPollTransactionData);
 
 			assertTrue("Block signatures invalid", block.isSignatureValid());
 			assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -617,9 +600,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, issueAssetTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(issueAssetTransactionData);
-		block.sign();
+		Block block = forgeBlock(issueAssetTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -707,9 +688,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, transferAssetTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(transferAssetTransactionData);
-		block.sign();
+		Block block = forgeBlock(transferAssetTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -787,9 +766,7 @@ public class TransactionTests extends Common {
 		byte[] buyersReference = somePaymentTransaction.getTransactionData().getSignature();
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(somePaymentTransaction.getTransactionData());
-		block.sign();
+		Block block = forgeBlock(somePaymentTransaction.getTransactionData());
 
 		block.process();
 		repository.saveChanges();
@@ -811,9 +788,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());
 
 		// Forge new block with transaction
-		block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(createOrderTransactionData);
-		block.sign();
+		block = forgeBlock(createOrderTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -893,9 +868,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, cancelOrderTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(cancelOrderTransactionData);
-		block.sign();
+		Block block = forgeBlock(cancelOrderTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -968,9 +941,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, createOrderTransaction.isValid());
 
 		// Forge new block with transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(createOrderTransactionData);
-		block.sign();
+		Block block = forgeBlock(createOrderTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -1078,9 +1049,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, multiPaymentTransaction.isValid());
 
 		// Forge new block with payment transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(multiPaymentTransactionData);
-		block.sign();
+		Block block = forgeBlock(multiPaymentTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -1148,9 +1117,7 @@ public class TransactionTests extends Common {
 		assertEquals(ValidationResult.OK, messageTransaction.isValid());
 
 		// Forge new block with message transaction
-		Block block = new Block(repository, parentBlockData, generator);
-		block.addTransaction(messageTransactionData);
-		block.sign();
+		Block block = forgeBlock(messageTransactionData);
 
 		assertTrue("Block signatures invalid", block.isSignatureValid());
 		assertEquals("Block is invalid", Block.ValidationResult.OK, block.isValid());
@@ -1172,6 +1139,14 @@ public class TransactionTests extends Common {
 		expectedBalance = amount;
 		actualBalance = accountRepository.getBalance(recipient.getAddress(), Asset.QORA).getBalance();
 		assertTrue("Recipient's new balance incorrect", expectedBalance.compareTo(actualBalance) == 0);
+	}
+
+	private Block forgeBlock(TransactionData transactionData) throws DataException {
+		long newTimestamp = parentBlockData.getTimestamp() + BlockChain.getInstance().getMinBlockTime() + 1;
+		Block block = new Block(repository, parentBlockData, generator, newTimestamp);
+		block.addTransaction(transactionData);
+		block.sign();
+		return block;
 	}
 
 }

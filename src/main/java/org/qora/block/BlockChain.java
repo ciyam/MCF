@@ -5,10 +5,13 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.MathContext;
 import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -24,13 +27,18 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
+import org.qora.crypto.Crypto;
 import org.qora.data.block.BlockData;
+import org.qora.data.network.BlockSummaryData;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
 import org.qora.utils.StringLongMapXmlAdapter;
+
+import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Longs;
 
 /**
  * Class representing the blockchain as a whole.
@@ -340,6 +348,42 @@ public class BlockChain {
 
 			repository.saveChanges();
 		}
+	}
+
+	public static BigInteger calcBlockchainDistance(BlockSummaryData parentBlockSummary, List<BlockSummaryData> blockSummaries) {
+		BigInteger weight = BigInteger.ZERO;
+
+		HashSet<byte[]> seenGenerators = new HashSet<>();
+
+		for (BlockSummaryData blockSummary : blockSummaries) {
+			byte[] idealGenerator = Block.calcIdealGeneratorPublicKey(parentBlockSummary.getHeight(), parentBlockSummary.getSignature());
+			BigInteger idealBI = new BigInteger(idealGenerator);
+
+			byte[] heightPerturbedGenerator = Crypto.digest(Bytes.concat(Longs.toByteArray(blockSummary.getHeight()), blockSummary.getGeneratorPublicKey()));
+			BigInteger distance = new BigInteger(heightPerturbedGenerator).subtract(idealBI).abs();
+
+			weight = weight.add(distance);
+
+			if (!seenGenerators.contains(blockSummary.getGeneratorPublicKey()))
+				seenGenerators.add(blockSummary.getGeneratorPublicKey());
+
+			parentBlockSummary = blockSummary;
+		}
+
+		// A variety of generators is a benefit
+		weight = weight.divide(BigInteger.valueOf(seenGenerators.size()));
+
+		return weight;
+	}
+
+	public static BigInteger calcBlockchainDistance(Repository repository, int firstBlockHeight, int lastBlockHeight) throws DataException {
+		BlockData parentBlockData = repository.getBlockRepository().fromHeight(firstBlockHeight - 1);
+		BlockSummaryData parentBlockSummary = new BlockSummaryData(parentBlockData);
+
+		List<BlockData> blocksData = repository.getBlockRepository().getBlocks(firstBlockHeight, lastBlockHeight);
+		List<BlockSummaryData> blockSummaries = blocksData.stream().map(blockData -> new BlockSummaryData(blockData)).collect(Collectors.toList());
+
+		return BlockChain.calcBlockchainDistance(parentBlockSummary, blockSummaries);
 	}
 
 }
