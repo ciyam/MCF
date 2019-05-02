@@ -66,6 +66,15 @@ public class BlockGenerator extends Thread {
 			List<Block> newBlocks = new ArrayList<>();
 
 			while (running) {
+				// Sleep for a while
+				try {
+					repository.discardChanges(); // Free repository locks, if any
+					Thread.sleep(1000); // No point sleeping less than this as block timestamp millisecond values must be the same
+				} catch (InterruptedException e) {
+					// We've been interrupted - time to exit
+					return;
+				}
+
 				// Check blockchain hasn't changed
 				BlockData lastBlockData = blockRepository.getLastBlock();
 				if (previousBlock == null || !Arrays.equals(previousBlock.getSignature(), lastBlockData.getSignature())) {
@@ -155,15 +164,6 @@ public class BlockGenerator extends Thread {
 					} finally {
 						blockchainLock.unlock();
 					}
-
-				// Sleep for a while
-				try {
-					repository.discardChanges(); // Free repository locks, if any
-					Thread.sleep(1000); // No point sleeping less than this as block timestamp millisecond values must be the same
-				} catch (InterruptedException e) {
-					// We've been interrupted - time to exit
-					return;
-				}
 			}
 		} catch (DataException e) {
 			LOGGER.warn("Repository issue while running block generator", e);

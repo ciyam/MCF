@@ -11,9 +11,12 @@ import org.qora.block.Block;
 import org.qora.block.Block.ValidationResult;
 import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
+import org.qora.data.network.BlockSummaryData;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
+import org.qora.network.message.BlockSummariesMessage;
 import org.qora.network.message.GetBlockMessage;
+import org.qora.network.message.GetBlockSummariesMessage;
 import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
@@ -262,6 +265,18 @@ public class Synchronizer {
 		}
 
 		return blockSignatures;
+	}
+
+	private List<BlockSummaryData> getBlockSummaries(Peer peer, byte[] parentSignature, int numberRequested) {
+		Message getBlockSummariesMessage = new GetBlockSummariesMessage(parentSignature, numberRequested);
+
+		Message message = peer.getResponse(getBlockSummariesMessage);
+		if (message == null || message.getType() != MessageType.BLOCK_SUMMARIES)
+			return null;
+
+		BlockSummariesMessage blockSummariesMessage = (BlockSummariesMessage) message;
+
+		return blockSummariesMessage.getBlockSummaries();
 	}
 
 	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) {

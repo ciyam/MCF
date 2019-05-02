@@ -113,6 +113,11 @@ public interface BlockRepository {
 	public List<BlockData> getBlocksWithGenerator(byte[] generatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
+	 * Returns blocks within height range.
+	 */
+	public List<BlockData> getBlocks(int firstBlockHeight, int lastBlockHeight) throws DataException;
+
+	/**
 	 * Saves block into repository.
 	 * 
 	 * @param blockData
