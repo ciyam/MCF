@@ -40,7 +40,9 @@ public abstract class Message {
 		VERSION(10),
 		PEER_ID(11),
 		PROOF(12),
-		PEERS_V2(13);
+		PEERS_V2(13),
+		GET_BLOCK_SUMMARIES(14),
+		BLOCK_SUMMARIES(15);
 
 		public final int value;
 		public final Method fromByteBuffer;

@@ -216,6 +216,26 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
+	public List<BlockData> getBlocks(int firstBlockHeight, int lastBlockHeight) throws DataException {
+		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height BETWEEN ? AND ?";
+
+		List<BlockData> blockData = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, firstBlockHeight, lastBlockHeight)) {
+			if (resultSet == null)
+				return blockData;
+
+			do {
+				blockData.add(getBlockFromResultSet(resultSet));
+			} while (resultSet.next());
+
+			return blockData;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch height-ranged blocks from repository", e);
+		}
+	}
+
+	@Override
 	public void save(BlockData blockData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Blocks");
 
