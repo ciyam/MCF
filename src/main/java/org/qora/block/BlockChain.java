@@ -353,7 +353,7 @@ public class BlockChain {
 	public static BigInteger calcBlockchainDistance(BlockSummaryData parentBlockSummary, List<BlockSummaryData> blockSummaries) {
 		BigInteger weight = BigInteger.ZERO;
 
-		HashSet<byte[]> seenGenerators = new HashSet<>();
+		HashSet<String> seenGenerators = new HashSet<>();
 
 		for (BlockSummaryData blockSummary : blockSummaries) {
 			byte[] idealGenerator = Block.calcIdealGeneratorPublicKey(parentBlockSummary.getHeight(), parentBlockSummary.getSignature());
@@ -364,8 +364,7 @@ public class BlockChain {
 
 			weight = weight.add(distance);
 
-			if (!seenGenerators.contains(blockSummary.getGeneratorPublicKey()))
-				seenGenerators.add(blockSummary.getGeneratorPublicKey());
+			seenGenerators.add(Crypto.toAddress(blockSummary.getGeneratorPublicKey()));
 
 			parentBlockSummary = blockSummary;
 		}

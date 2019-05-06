@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -102,6 +101,8 @@ public class Synchronizer {
 						if (highestMutualHeight > commonBlockHeight) {
 							int numberRequired = highestMutualHeight - commonBlockHeight;
 
+							LOGGER.debug(String.format("Comparing blocks %d to %d with peer %s", commonBlockHeight + 1, highestMutualHeight, peer));
+
 							// We need block summaries (which we also use to fill signatures list)
 							byte[] previousSignature = commonBlockData.getSignature();
 							List<BlockSummaryData> blockSummaries = new ArrayList<>();
@@ -119,9 +120,6 @@ public class Synchronizer {
 								blockSummaries.addAll(moreBlockSummaries);
 							}
 
-							// Add to signatures from block summaries
-							signatures.addAll(blockSummaries.stream().map(blockSummary -> blockSummary.getSignature()).collect(Collectors.toList()));
-
 							// Calculate total 'distance' of peer's blockchain
 							BigInteger peerBlockchainValue = BlockChain.calcBlockchainDistance(new BlockSummaryData(commonBlockData), blockSummaries);
 
@@ -131,7 +129,7 @@ public class Synchronizer {
 							// If our blockchain has a lower distance then don't synchronize with peer
 							if (ourBlockchainValue.compareTo(peerBlockchainValue) <= 0) {
 								LOGGER.info(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
-								return false;
+								return true;
 							}
 						}
 
