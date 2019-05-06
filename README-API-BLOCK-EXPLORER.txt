@@ -4,7 +4,7 @@ If you're reading this then you have checked out the correct branch!
 
 You should see a "db" folder and "MCF-core.jar" in current folder.
 The "db" folder should contain approx. 480MB over ~4 files.
-MCF-core.jar is about 37MB with MD5 of 765edf756b9f286c14ef1b6785a3c251
+MCF-core.jar is about 37MB with MD5 of 9c7f8e30f7cff8bc4d9f26fae4267d0f
 
 Fire up the API server:
 
