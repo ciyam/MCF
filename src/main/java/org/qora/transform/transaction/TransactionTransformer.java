@@ -222,8 +222,8 @@ public abstract class TransactionTransformer extends Transformer {
 	}
 
 	protected static int getBaseLength(TransactionData transactionData) {
-		// All transactions have at least txType, timestamp, maybe txGroupId, tx creator's public key and finally signature (on the end)
-		int baseLength = TYPE_LENGTH + TIMESTAMP_LENGTH + PUBLIC_KEY_LENGTH + SIGNATURE_LENGTH;
+		// All transactions have at least txType, timestamp, reference, tx creator's public key and also fee and signature (on the end)
+		int baseLength = TYPE_LENGTH + TIMESTAMP_LENGTH + REFERENCE_LENGTH + PUBLIC_KEY_LENGTH + FEE_LENGTH + SIGNATURE_LENGTH;
 
 		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
 			baseLength += GROUPID_LENGTH;
