@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,6 +50,15 @@ public class Synchronizer {
 		return instance;
 	}
 
+	/**
+	 * Attempt to synchronize blockchain with peer.
+	 * <p>
+	 * Will return <tt>true</tt> if synchronization succeeded,
+	 * even if no changes were made to our blockchain.
+	 * <p>
+	 * @param peer
+	 * @return false if something went wrong, true otherwise.
+	 */
 	public boolean synchronize(Peer peer) {
 		// Make sure we're the only thread modifying the blockchain
 		// If we're already synchronizing with another peer then this will also return fast
@@ -61,9 +69,9 @@ public class Synchronizer {
 					try {
 						this.repository = repository;
 						this.ourHeight = this.repository.getBlockRepository().getBlockchainHeight();
-						int peerHeight = peer.getPeerData().getLastHeight();
+						final int peerHeight = peer.getPeerData().getLastHeight();
 
-						LOGGER.info(String.format("Synchronizing with peer %s from height %d to height %d", peer, this.ourHeight, peerHeight));
+						LOGGER.info(String.format("Synchronizing with peer %s at height %d, our height %d", peer, peerHeight, this.ourHeight));
 
 						List<byte[]> signatures = findSignaturesFromCommonBlock(peer);
 						if (signatures == null) {
@@ -73,13 +81,17 @@ public class Synchronizer {
 
 						// First signature is common block
 						BlockData commonBlockData = this.repository.getBlockRepository().fromSignature(signatures.get(0));
-						int commonBlockHeight = commonBlockData.getHeight();
+						final int commonBlockHeight = commonBlockData.getHeight();
 						LOGGER.info(String.format("Common block with peer %s is at height %d", peer, commonBlockHeight));
 						signatures.remove(0);
 
+						// If common block is peer's latest block then we simply have a longer chain to peer, so exit now
+						if (commonBlockHeight == peerHeight)
+							return true;
+
 						// If common block is too far behind us then we're on massively different forks so give up.
 						int minHeight = ourHeight - MAXIMUM_HEIGHT_DELTA;
-						if (commonBlockData.getHeight() < minHeight) {
+						if (commonBlockHeight < minHeight) {
 							LOGGER.info(String.format("Blockchain too divergent with peer %s", peer));
 							return false;
 						}
@@ -88,6 +100,8 @@ public class Synchronizer {
 						int highestMutualHeight = Math.min(peerHeight, this.ourHeight);
 						if (highestMutualHeight > commonBlockHeight) {
 							int numberRequired = highestMutualHeight - commonBlockHeight;
+
+							LOGGER.debug(String.format("Comparing blocks %d to %d with peer %s", commonBlockHeight + 1, highestMutualHeight, peer));
 
 							// We need block summaries (which we also use to fill signatures list)
 							byte[] previousSignature = commonBlockData.getSignature();
@@ -106,9 +120,6 @@ public class Synchronizer {
 								blockSummaries.addAll(moreBlockSummaries);
 							}
 
-							// Add to signatures from block summaries
-							signatures.addAll(blockSummaries.stream().map(blockSummary -> blockSummary.getSignature()).collect(Collectors.toList()));
-
 							// Calculate total 'distance' of peer's blockchain
 							BigInteger peerBlockchainValue = BlockChain.calcBlockchainDistance(new BlockSummaryData(commonBlockData), blockSummaries);
 
@@ -118,15 +129,15 @@ public class Synchronizer {
 							// If our blockchain has a lower distance then don't synchronize with peer
 							if (ourBlockchainValue.compareTo(peerBlockchainValue) <= 0) {
 								LOGGER.info(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
-								return false;
+								return true;
 							}
 						}
 
-						if (this.ourHeight > commonBlockData.getHeight()) {
+						if (this.ourHeight > commonBlockHeight) {
 							// Unwind to common block (unless common block is our latest block)
-							LOGGER.debug(String.format("Orphaning blocks back to height %d", commonBlockData.getHeight()));
+							LOGGER.debug(String.format("Orphaning blocks back to height %d", commonBlockHeight));
 
-							while (this.ourHeight > commonBlockData.getHeight()) {
+							while (this.ourHeight > commonBlockHeight) {
 								BlockData blockData = repository.getBlockRepository().fromHeight(this.ourHeight);
 								Block block = new Block(repository, blockData);
 								block.orphan();
@@ -134,7 +145,7 @@ public class Synchronizer {
 								--this.ourHeight;
 							}
 
-							LOGGER.debug(String.format("Orphaned blocks back to height %d - fetching blocks from peer", commonBlockData.getHeight(), peer));
+							LOGGER.debug(String.format("Orphaned blocks back to height %d - fetching blocks from peer", commonBlockHeight, peer));
 						} else {
 							LOGGER.debug(String.format("Fetching new blocks from peer %s", peer));
 						}
@@ -198,7 +209,7 @@ public class Synchronizer {
 	}
 
 	/**
-	 * Returns list of block signatures start with common block with peer.
+	 * Returns list of peer's block signatures starting with common block with peer.
 	 * 
 	 * @param peer
 	 * @return block signatures

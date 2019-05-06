@@ -6,9 +6,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
 import org.qora.transform.Transformer;
 import org.qora.transform.block.BlockTransformer;
@@ -21,9 +19,8 @@ public class BlockSummariesMessage extends Message {
 
 	private List<BlockSummaryData> blockSummaries;
 
-	public BlockSummariesMessage(List<BlockData> blocksData) {
-		// Extract what we need from block data
-		this(-1, blocksData.stream().map(blockData -> new BlockSummaryData(blockData)).collect(Collectors.toList()));
+	public BlockSummariesMessage(List<BlockSummaryData> blockSummaries) {
+		this(-1, blockSummaries);
 	}
 
 	private BlockSummariesMessage(int id, List<BlockSummaryData> blockSummaries) {
@@ -67,7 +64,7 @@ public class BlockSummariesMessage extends Message {
 			bytes.write(Ints.toByteArray(this.blockSummaries.size()));
 
 			for (BlockSummaryData blockSummary : this.blockSummaries) {
-				bytes.write(blockSummary.getHeight());
+				bytes.write(Ints.toByteArray(blockSummary.getHeight()));
 				bytes.write(blockSummary.getSignature());
 				bytes.write(blockSummary.getGeneratorPublicKey());
 			}
