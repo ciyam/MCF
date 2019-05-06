@@ -8,6 +8,8 @@ import java.nio.ByteBuffer;
 import org.qora.transform.Transformer;
 import org.qora.transform.block.BlockTransformer;
 
+import com.google.common.primitives.Ints;
+
 public class GetBlockSummariesMessage extends Message {
 
 	private static final int BLOCK_SIGNATURE_LENGTH = BlockTransformer.BLOCK_SIGNATURE_LENGTH;
@@ -53,7 +55,7 @@ public class GetBlockSummariesMessage extends Message {
 
 			bytes.write(this.parentSignature);
 
-			bytes.write(this.numberRequested);
+			bytes.write(Ints.toByteArray(this.numberRequested));
 
 			return bytes.toByteArray();
 		} catch (IOException e) {

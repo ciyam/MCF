@@ -21,12 +21,15 @@ import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockGenerator;
 import org.qora.data.block.BlockData;
+import org.qora.data.network.BlockSummaryData;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.Network;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
+import org.qora.network.message.BlockSummariesMessage;
 import org.qora.network.message.GetBlockMessage;
+import org.qora.network.message.GetBlockSummariesMessage;
 import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.HeightMessage;
@@ -204,7 +207,7 @@ public class Controller extends Thread {
 
 				potentiallySynchronize();
 
-				// Query random connections for unconfirmed transactions
+				// Query random connections for unconfirmed transactions?
 			}
 		} catch (InterruptedException e) {
 			// time to exit
@@ -225,10 +228,10 @@ public class Controller extends Thread {
 		for(Peer peer : peers)
 			LOGGER.trace(String.format("Peer %s is at height %d", peer, peer.getPeerData().getLastHeight()));
 
-		// Remove peers with lower, or unknown, height
+		// Remove peers with unknown, or same, height
 		peers.removeIf(peer -> {
 			Integer peerHeight = peer.getPeerData().getLastHeight();
-			return peerHeight == null || peerHeight <= ourHeight;
+			return peerHeight == null;
 		});
 
 		// Remove peers that have "misbehaved" recently
@@ -260,8 +263,10 @@ public class Controller extends Thread {
 
 			LOGGER.debug(String.format("Synchronized with peer %s", peer));
 
-			// Broadcast our new height
-			Network.getInstance().broadcast(recipientPeer -> new HeightMessage(getChainHeight()));
+			// Broadcast our new height (if changed)
+			int updatedHeight = getChainHeight();
+			if (updatedHeight != ourHeight)
+				Network.getInstance().broadcast(recipientPeer -> new HeightMessage(updatedHeight));
 		}
 	}
 
@@ -363,7 +368,7 @@ public class Controller extends Thread {
 
 						parentSignature = blockData.getSignature();
 						signatures.add(parentSignature);
-					} while (signatures.size() < 500);
+					} while (signatures.size() < Network.MAX_SIGNATURES_PER_REPLY);
 
 					Message signaturesMessage = new SignaturesMessage(signatures);
 					signaturesMessage.setId(message.getId());
@@ -427,6 +432,35 @@ public class Controller extends Thread {
 					repository.getTransactionRepository().save(transactionData);
 					repository.getTransactionRepository().unconfirmTransaction(transactionData);
 					repository.saveChanges();
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while responding to %s from peer %s", message.getType().name(), peer), e);
+				}
+				break;
+
+			case GET_BLOCK_SUMMARIES:
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					GetBlockSummariesMessage getBlockSummariesMessage = (GetBlockSummariesMessage) message;
+					byte[] parentSignature = getBlockSummariesMessage.getParentSignature();
+
+					List<BlockSummaryData> blockSummaries = new ArrayList<>();
+
+					int numberRequested = Math.min(Network.MAX_BLOCK_SUMMARIES_PER_REPLY, getBlockSummariesMessage.getNumberRequested());
+
+					do {
+						BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+
+						if (blockData == null)
+							break;
+
+						BlockSummaryData blockSummary = new BlockSummaryData(blockData);
+						blockSummaries.add(blockSummary);
+						parentSignature = blockData.getSignature();
+					} while (blockSummaries.size() < numberRequested);
+
+					Message blockSummariesMessage = new BlockSummariesMessage(blockSummaries);
+					blockSummariesMessage.setId(message.getId());
+					if (!peer.sendMessage(blockSummariesMessage))
+						peer.disconnect();
 				} catch (DataException e) {
 					LOGGER.error(String.format("Repository issue while responding to %s from peer %s", message.getType().name(), peer), e);
 				}

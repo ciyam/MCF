@@ -55,6 +55,8 @@ public class Network extends Thread {
 	/** Maximum time since last successful connection for peer info to be propagated, in milliseconds. */
 	private static final long RECENT_CONNECTION_THRESHOLD = 24 * 60 * 60 * 1000; // ms
 
+	public static final int MAX_SIGNATURES_PER_REPLY = 500;
+	public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
 	public static final int PEER_ID_LENGTH = 128;
 
 	private final byte[] ourPeerId;
