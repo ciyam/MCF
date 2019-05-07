@@ -28,8 +28,8 @@ import com.google.common.hash.HashCode;
 
 public class AutoUpdate {
 
-	private static final String JAR_FILENAME = "qora-core.jar";
-	private static final String NODE_EXE = "qora-core.exe";
+	private static final String JAR_FILENAME = "MCF-core.jar";
+	private static final String NODE_EXE = "MCF-core.exe";
 
 	private static final long CHECK_INTERVAL = 1 * 1000;
 	private static final int MAX_ATTEMPTS = 10;
@@ -105,7 +105,7 @@ public class AutoUpdate {
 			ArbitraryTransactionData arbitraryTxData = (ArbitraryTransactionData) transactionData;
 
 			// Arbitrary transaction's data contains git commit hash needed to grab JAR:
-			// https://github.com/catbref/qora-core/blob/cf86b5f3ce828f75cb18db1b685f2d9e29630d77/qora-core.jar
+			// https://github.com/ciyam/MCF/blob/cf86b5f3ce828f75cb18db1b685f2d9e29630d77/MCF-core.jar
 			InputStream in = ApiRequest.fetchStream(BASE_URI + "arbitrary/raw/" + Base58.encode(arbitraryTxData.getSignature()));
 			if (in == null)
 				continue;

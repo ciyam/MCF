@@ -56,7 +56,7 @@ public class Controller extends Thread {
 
 	public static final String connectionUrl = "jdbc:hsqldb:file:db/blockchain;create=true";
 	public static final long startTime = System.currentTimeMillis();
-	public static final String VERSION_PREFIX = "qora-core-";
+	public static final String VERSION_PREFIX = "MCF-";
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
 	private static final long MISBEHAVIOUR_COOLOFF = 24 * 60 * 60 * 1000; // ms
@@ -106,7 +106,8 @@ public class Controller extends Thread {
 
 	public byte[] getMessageMagic() {
 		return new byte[] {
-			0x12, 0x34, 0x56, 0x78
+			// "qMCF"
+			0x71, 0x4d, 0x43, 0x46
 		};
 	}
 
