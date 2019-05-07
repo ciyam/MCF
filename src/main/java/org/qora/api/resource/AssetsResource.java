@@ -20,7 +20,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -62,12 +61,7 @@ import org.qora.transform.transaction.UpdateAssetTransactionTransformer;
 import org.qora.utils.Base58;
 
 @Path("/assets")
-@Produces({
-	MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN
-})
-@Tag(
-	name = "Assets"
-)
+@Tag(name = "Assets")
 public class AssetsResource {
 
 	@Context

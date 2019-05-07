@@ -68,6 +68,11 @@ public class Settings {
 	/** Repository storage path. */
 	private String repositoryPath = null;
 
+	// Auto-update sources
+	private String[] autoUpdateRepos = new String[] {
+		"https://github.com/ciyam/MCF"
+	};
+
 	// Constructors
 
 	private Settings() {
@@ -240,6 +245,10 @@ public class Settings {
 
 	public String getRepositoryPath() {
 		return this.repositoryPath;
+	}
+
+	public String[] getAutoUpdateRepos() {
+		return this.autoUpdateRepos;
 	}
 
 }

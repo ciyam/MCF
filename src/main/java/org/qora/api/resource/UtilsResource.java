@@ -19,7 +19,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -31,6 +30,7 @@ import org.qora.api.ApiExceptionFactory;
 import org.qora.crypto.Crypto;
 import org.qora.settings.Settings;
 import org.qora.transaction.Transaction.TransactionType;
+import org.qora.transform.Transformer;
 import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.transform.transaction.TransactionTransformer.Transformation;
 import org.qora.utils.BIP39;
@@ -42,12 +42,7 @@ import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
 
 @Path("/utils")
-@Produces({
-	MediaType.TEXT_PLAIN, MediaType.APPLICATION_JSON
-})
-@Tag(
-	name = "Utilities"
-)
+@Tag(name = "Utilities")
 public class UtilsResource {
 
 	@Context
@@ -382,7 +377,7 @@ public class UtilsResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}
 
-		if (privateKey.length != 32)
+		if (privateKey.length != Transformer.PRIVATE_KEY_LENGTH)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 		try {

@@ -46,7 +46,8 @@ public interface TransactionRepository {
 	 */
 	public Map<TransactionType, Integer> getTransactionSummary(int startHeight, int endHeight) throws DataException;
 
-	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, List<TransactionType> txTypes, String address,
+	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, Integer txGroupId,
+			List<TransactionType> txTypes, Integer service, String address,
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
