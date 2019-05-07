@@ -1,42 +1,25 @@
 package org.qora.transaction;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.math.BigDecimal;
-import java.nio.file.DirectoryNotEmptyException;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
-import org.qora.crypto.Crypto;
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.TransactionData;
-import org.qora.data.transaction.ArbitraryTransactionData.DataType;
 import org.qora.payment.Payment;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
-import org.qora.settings.Settings;
-import org.qora.utils.Base58;
 
 public class ArbitraryTransaction extends Transaction {
 
 	// Properties
 	private ArbitraryTransactionData arbitraryTransactionData;
-
-	// Other properties
-	private static final Logger LOGGER = LogManager.getLogger(ArbitraryTransaction.class);
 
 	// Other useful constants
 	public static final int MAX_DATA_SIZE = 4000;
@@ -133,47 +116,12 @@ public class ArbitraryTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		/*
-		 * We might have either raw data or only a hash of data, depending on content filtering.
+		 * Save the transaction.
 		 * 
-		 * If we have raw data then we need to save it somewhere and store the hash in the repository.
+		 * We might have either raw data or only a hash of data, depending on content filtering.
+		 * If we have raw data then the repository save will store the raw data somewhere and save the data's hash in the repository.
+		 * This also modifies the passed transactionData.
 		 */
-		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA) {
-			byte[] rawData = arbitraryTransactionData.getData();
-
-			// Calculate hash of data and update our transaction to use that
-			byte[] dataHash = Crypto.digest(rawData);
-			arbitraryTransactionData.setData(dataHash);
-			arbitraryTransactionData.setDataType(DataType.DATA_HASH);
-
-			// Now store actual data somewhere, e.g. <userpath>/arbitrary/<sender address>/<block height>/<tx-sig>-<service>.raw
-			Account sender = this.getSender();
-			int blockHeight = this.repository.getBlockRepository().getBlockchainHeight();
-
-			String senderPathname = Settings.getInstance().getUserPath() + "arbitrary" + File.separator + sender.getAddress();
-			String blockPathname = senderPathname + File.separator + blockHeight;
-			String dataPathname = blockPathname + File.separator + Base58.encode(arbitraryTransactionData.getSignature()) + "-"
-					+ arbitraryTransactionData.getService() + ".raw";
-
-			Path dataPath = Paths.get(dataPathname);
-
-			// Make sure directory structure exists
-			try {
-				Files.createDirectories(dataPath.getParent());
-			} catch (IOException e) {
-				LOGGER.error("Unable to create arbitrary transaction directory", e);
-				throw new DataException("Unable to create arbitrary transaction directory", e);
-			}
-
-			// Output actual transaction data
-			try (OutputStream dataOut = Files.newOutputStream(dataPath)) {
-				dataOut.write(rawData);
-			} catch (IOException e) {
-				LOGGER.error("Unable to store arbitrary transaction data", e);
-				throw new DataException("Unable to store arbitrary transaction data", e);
-			}
-		}
-
-		// Save this transaction itself
 		this.repository.getTransactionRepository().save(this.transactionData);
 
 		// Wrap and delegate payment processing to Payment class. Always update recipients' last references regardless of asset.
@@ -183,38 +131,31 @@ public class ArbitraryTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Delete corresponding data file (if any - storing raw data is optional)
-		Account sender = this.getSender();
-		int blockHeight = this.repository.getBlockRepository().getBlockchainHeight();
-
-		String senderPathname = Settings.getInstance().getUserPath() + "arbitrary" + File.separator + sender.getAddress();
-		String blockPathname = senderPathname + File.separator + blockHeight;
-		String dataPathname = blockPathname + File.separator + Base58.encode(arbitraryTransactionData.getSignature()) + "-"
-				+ arbitraryTransactionData.getService() + ".raw";
-
-		try {
-			// Delete the actual arbitrary data
-			Files.delete(Paths.get(dataPathname));
-
-			// If block-directory now empty, delete that too
-			Files.delete(Paths.get(blockPathname));
-
-			// If sender-directory now empty, delete that too
-			Files.delete(Paths.get(senderPathname));
-		} catch (NoSuchFileException e) {
-			LOGGER.warn("Unable to remove old arbitrary transaction data at " + dataPathname);
-		} catch (DirectoryNotEmptyException e) {
-			// This happens when block-directory or sender-directory is not empty but is OK
-		} catch (IOException e) {
-			LOGGER.warn("IOException when trying to remove old arbitrary transaction data", e);
-		}
-
-		// Delete this transaction itself
+		/*
+		 * Delete the transaction.
+		 * 
+		 * The repository will also remove the stored raw data, if present.
+		 */
 		this.repository.getTransactionRepository().delete(this.transactionData);
 
 		// Wrap and delegate payment processing to Payment class. Always revert recipients' last references regardless of asset.
 		new Payment(this.repository).orphan(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
 				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference(), true);
+	}
+
+	// Data access
+
+	public boolean isDataLocal() throws DataException {
+		return this.repository.getArbitraryRepository().isDataLocal(this.transactionData.getSignature());
+	}
+
+	public byte[] fetchData() throws DataException {
+		// If local, read from file
+		if (isDataLocal())
+			return this.repository.getArbitraryRepository().fetchData(this.transactionData.getSignature());
+
+		// TODO If not local, attempt to fetch via network?
+		return null;
 	}
 
 }

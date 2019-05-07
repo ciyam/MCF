@@ -17,7 +17,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -46,7 +45,6 @@ import org.qora.transform.transaction.ProxyForgingTransactionTransformer;
 import org.qora.utils.Base58;
 
 @Path("/addresses")
-@Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
 @Tag(name = "Addresses")
 public class AddressesResource {
 
@@ -334,14 +332,20 @@ public class AddressesResource {
 		}
 	)
 	public String calculateProxyKey(@PathParam("generatorprivatekey") String generatorKey58, @PathParam("recipientpublickey") String recipientKey58) {
-		PrivateKeyAccount generator = new PrivateKeyAccount(null, Base58.decode(generatorKey58));
-		byte[] recipientKey = Base58.decode(recipientKey58);
+		try {
+			byte[] generatorKey = Base58.decode(generatorKey58);
+			byte[] recipientKey = Base58.decode(recipientKey58);
+			if (generatorKey.length != Transformer.PRIVATE_KEY_LENGTH || recipientKey.length != Transformer.PRIVATE_KEY_LENGTH)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
+			PrivateKeyAccount generator = new PrivateKeyAccount(null, generatorKey);
+			byte[] sharedSecret = generator.getSharedSecret(recipientKey);
 
-		byte[] sharedSecret = generator.getSharedSecret(recipientKey);
+			byte[] proxySeed = Crypto.digest(sharedSecret);
 
-		byte[] proxySeed = Crypto.digest(sharedSecret);
-
-		return Base58.encode(proxySeed);
+			return Base58.encode(proxySeed);
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
+		}
 	}
 
 	@POST

@@ -43,8 +43,8 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
 		// Refuse to store raw data in the repository - it needs to be saved elsewhere!
-		if (arbitraryTransactionData.getDataType() != DataType.DATA_HASH)
-			throw new DataException("Refusing to save arbitrary transaction data into repository");
+		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA)
+			this.repository.getArbitraryRepository().save(arbitraryTransactionData);
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ArbitraryTransactions");
 
@@ -61,6 +61,13 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 		if (arbitraryTransactionData.getVersion() != 1)
 			// Save payments. If this fails then it is the caller's responsibility to catch the DataException as the underlying transaction will have been lost.
 			this.savePayments(transactionData.getSignature(), arbitraryTransactionData.getPayments());
+	}
+
+	public void delete(TransactionData transactionData) throws DataException {
+		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+
+		// Potentially delete raw data stored locally too
+		this.repository.getArbitraryRepository().delete(arbitraryTransactionData);
 	}
 
 }

@@ -42,6 +42,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		public Constructor<?> constructor;
 		public Method fromBaseMethod;
 		public Method saveMethod;
+		public Method deleteMethod;
 	}
 
 	private static final RepositorySubclassInfo[] subclassInfos;
@@ -76,6 +77,15 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			try {
 				subclassInfo.saveMethod = subclassInfo.clazz.getDeclaredMethod("save", TransactionData.class);
 			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
+				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass's \"save\" method not found for transaction type \"%s\"", txType.name()));
+			}
+
+			try {
+				subclassInfo.deleteMethod = subclassInfo.clazz.getDeclaredMethod("delete", TransactionData.class);
+			} catch (NoSuchMethodException e) {
+				// Subclass has no "delete" method - this is OK
+				subclassInfo.deleteMethod = null;
+			} catch (IllegalArgumentException | SecurityException e) {
 				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass's \"save\" method not found for transaction type \"%s\"", txType.name()));
 			}
 
@@ -355,7 +365,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, List<TransactionType> txTypes, String address,
+	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, Integer txGroupId,
+			List<TransactionType> txTypes, Integer service, String address,
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		List<byte[]> signatures = new ArrayList<byte[]>();
 
@@ -399,6 +410,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			signatureColumn = "TransactionParticipants.signature";
 		}
 
+		if (service != null) {
+			// This is for ARBITRARY transactions
+			tables += " LEFT OUTER JOIN ArbitraryTransactions ON ArbitraryTransactions.signature = Transactions.signature";
+		}
+
 		// WHERE clauses next
 		if (hasHeightRange) {
 			whereClauses.add("Blocks.height >= " + startBlock);
@@ -407,9 +423,19 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				whereClauses.add("Blocks.height < " + (startBlock + blockLimit));
 		}
 
+		if (txGroupId != null) {
+			whereClauses.add("Transactions.tx_group_id = ?");
+			bindParams.add(txGroupId);
+		}
+
 		if (hasTxTypes) {
 			whereClauses.add("Transactions.type IN (" + HSQLDBRepository.nPlaceholders(txTypes.size()) + ")");
 			bindParams.addAll(txTypes.stream().map(txType -> txType.value).collect(Collectors.toList()));
+		}
+
+		if (service != null) {
+			whereClauses.add("ArbitraryTransactions.service = ?");
+			bindParams.add(service);
 		}
 
 		if (hasAddress) {
@@ -815,6 +841,23 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			this.repository.delete("UnconfirmedTransactions", "signature = ?", transactionData.getSignature());
 		} catch (SQLException e) {
 			throw new DataException("Unable to remove transaction from unconfirmed transactions repository", e);
+		}
+
+		// If transaction subclass has a "delete" method - call that now
+		TransactionType type = transactionData.getType();
+		if (subclassInfos[type.value].deleteMethod != null) {
+			HSQLDBTransactionRepository txRepository = repositoryByTxType[type.value];
+
+			try {
+				subclassInfos[type.value].deleteMethod.invoke(txRepository, transactionData);
+			} catch (InvocationTargetException e) {
+				if (e.getCause() instanceof DataException)
+					throw (DataException) e.getCause();
+
+				throw new DataException("Exception during delete of transaction type [" + type.name() + "] from HSQLDB repository");
+			} catch (IllegalAccessException | IllegalArgumentException e) {
+				throw new DataException("Unsupported transaction type [" + type.name() + "] during delete from HSQLDB repository");
+			}
 		}
 	}
 
