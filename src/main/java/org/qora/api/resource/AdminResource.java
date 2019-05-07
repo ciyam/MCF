@@ -25,7 +25,6 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -39,6 +38,7 @@ import org.qora.api.ApiErrors;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.Security;
 import org.qora.api.model.ActivitySummary;
+import org.qora.api.model.NodeInfo;
 import org.qora.controller.Controller;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -50,7 +50,6 @@ import org.qora.utils.Base58;
 import com.google.common.collect.Lists;
 
 @Path("/admin")
-@Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
 @Tag(name = "Admin")
 public class AdminResource {
 
@@ -86,6 +85,26 @@ public class AdminResource {
 	)
 	public long uptime() {
 		return System.currentTimeMillis() - Controller.startTime;
+	}
+
+	@GET
+	@Path("/info")
+	@Operation(
+		summary = "Fetch generic node info",
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = NodeInfo.class))
+			)
+		}
+	)
+	public NodeInfo info() {
+		NodeInfo nodeInfo = new NodeInfo();
+
+		nodeInfo.uptime = System.currentTimeMillis() - Controller.startTime;
+		nodeInfo.buildVersion = Controller.getInstance().getVersionString();
+		nodeInfo.buildTimestamp = Controller.getInstance().getBuildTimestamp();
+
+		return nodeInfo;
 	}
 
 	@GET

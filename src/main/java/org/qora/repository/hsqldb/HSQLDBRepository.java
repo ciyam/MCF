@@ -21,6 +21,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.repository.ATRepository;
 import org.qora.repository.AccountRepository;
+import org.qora.repository.ArbitraryRepository;
 import org.qora.repository.AssetRepository;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.GroupRepository;
@@ -81,6 +82,11 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public AccountRepository getAccountRepository() {
 		return new HSQLDBAccountRepository(this);
+	}
+
+	@Override
+	public ArbitraryRepository getArbitraryRepository() {
+		return new HSQLDBArbitraryRepository(this);
 	}
 
 	@Override

@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.qora.block.BlockChain;
+import org.qora.crypto.Crypto;
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -146,8 +147,12 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 	 */
 	public static byte[] toBytesForSigningImpl(TransactionData transactionData) throws TransformationException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
-		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
 
+		// For v4, signature uses hash of data, not raw data itself
+		if (arbitraryTransactionData.getVersion() == 4)
+			return toBytesForSigningImplV4(arbitraryTransactionData);
+
+		byte[] bytes = TransactionTransformer.toBytesForSigningImpl(transactionData);
 		if (arbitraryTransactionData.getVersion() == 1 || transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
 			return bytes;
 
@@ -163,6 +168,43 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		int v1Start = bytes.length - v1Length;
 
 		return Arrays.copyOfRange(bytes, v1Start, bytes.length);
+	}
+
+	private static byte[] toBytesForSigningImplV4(ArbitraryTransactionData arbitraryTransactionData) throws TransformationException {
+		try {
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+			transformCommonBytes(arbitraryTransactionData, bytes);
+
+			if (arbitraryTransactionData.getVersion() != 1) {
+				List<PaymentData> payments = arbitraryTransactionData.getPayments();
+				bytes.write(Ints.toByteArray(payments.size()));
+
+				for (PaymentData paymentData : payments)
+					bytes.write(PaymentTransformer.toBytes(paymentData));
+			}
+
+			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService()));
+
+			switch (arbitraryTransactionData.getDataType()) {
+				case DATA_HASH:
+					bytes.write(arbitraryTransactionData.getData());
+					break;
+
+				case RAW_DATA:
+					bytes.write(Crypto.digest(arbitraryTransactionData.getData()));
+					break;
+			}
+
+			Serialization.serializeBigDecimal(bytes, arbitraryTransactionData.getFee());
+
+			// Never append signature
+
+			return bytes.toByteArray();
+		} catch (IOException | ClassCastException e) {
+			throw new TransformationException(e);
+		}
+
 	}
 
 }

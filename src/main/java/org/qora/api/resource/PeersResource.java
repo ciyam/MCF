@@ -16,7 +16,6 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
@@ -34,12 +33,7 @@ import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 
 @Path("/peers")
-@Produces({
-	MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN
-})
-@Tag(
-	name = "Peers"
-)
+@Tag(name = "Peers")
 public class PeersResource {
 
 	@Context

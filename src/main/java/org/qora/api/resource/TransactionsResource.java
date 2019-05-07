@@ -17,7 +17,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -45,12 +44,7 @@ import org.qora.utils.Base58;
 import com.google.common.primitives.Bytes;
 
 @Path("/transactions")
-@Produces({
-	MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN
-})
-@Tag(
-	name = "Transactions"
-)
+@Tag(name = "Transactions")
 public class TransactionsResource {
 
 	@Context
@@ -291,6 +285,7 @@ public class TransactionsResource {
 		ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE
 	})
 	public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit,
+			@QueryParam("txGroupId") Integer txGroupId,
 			@QueryParam("txType") List<TransactionType> txTypes, @QueryParam("address") String address, @Parameter(
 				description = "whether to include confirmed, unconfirmed or both",
 				required = true
@@ -310,8 +305,8 @@ public class TransactionsResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(startBlock, blockLimit, txTypes, address,
-					confirmationStatus, limit, offset, reverse);
+			List<byte[]> signatures = repository.getTransactionRepository().getSignaturesMatchingCriteria(startBlock, blockLimit, txGroupId,
+					txTypes, null, address, confirmationStatus, limit, offset, reverse);
 
 			// Expand signatures to transactions
 			List<TransactionData> transactions = new ArrayList<TransactionData>(signatures.size());

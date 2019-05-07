@@ -6,6 +6,8 @@ public interface Repository extends AutoCloseable {
 
 	public AccountRepository getAccountRepository();
 
+	public ArbitraryRepository getArbitraryRepository();
+
 	public AssetRepository getAssetRepository();
 
 	public BlockRepository getBlockRepository();
