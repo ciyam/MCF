@@ -16,6 +16,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
+import org.qora.AutoUpdate;
 import org.qora.api.ApiService;
 import org.qora.block.Block;
 import org.qora.block.BlockChain;
@@ -54,13 +55,14 @@ public class Controller extends Thread {
 		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
 	}
 
-	public static final String connectionUrl = "jdbc:hsqldb:file:db/blockchain;create=true";
 	public static final long startTime = System.currentTimeMillis();
 	public static final String VERSION_PREFIX = "MCF-";
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
 	private static final long MISBEHAVIOUR_COOLOFF = 24 * 60 * 60 * 1000; // ms
 	private static final Object shutdownLock = new Object();
+	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true";
+
 	private static boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
 	private static Controller instance;
@@ -104,6 +106,10 @@ public class Controller extends Thread {
 
 	// Getters / setters
 
+	public static String getRepositoryUrl() {
+		return String.format(repositoryUrlTemplate, Settings.getInstance().getRepositoryPath());
+	}
+
 	public byte[] getMessageMagic() {
 		return new byte[] {
 			// "qMCF"
@@ -146,7 +152,7 @@ public class Controller extends Thread {
 
 		LOGGER.info("Starting repository");
 		try {
-			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
+			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(getRepositoryUrl());
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
 		} catch (DataException e) {
 			LOGGER.error("Unable to start repository", e);
@@ -194,6 +200,9 @@ public class Controller extends Thread {
 
 		LOGGER.info("Starting controller");
 		Controller.getInstance().start();
+
+		// Auto-update service
+		AutoUpdate.controllerStart();
 	}
 
 	// Main thread

@@ -162,7 +162,6 @@ public class ArbitraryResource {
 	}
 
 	@POST
-	@Path("/")
 	@Operation(
 		summary = "Build raw, unsigned, ARBITRARY transaction",
 		requestBody = @RequestBody(
