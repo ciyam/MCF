@@ -51,6 +51,8 @@ public class Settings {
 	private int maxUnconfirmedPerAccount = 100;
 	/** Max milliseconds into future for accepting new, unconfirmed transactions */
 	private int maxTransactionTimestampFuture = 24 * 60 * 60 * 1000; // milliseconds
+	// auto-update
+	private boolean autoUpdateEnabled = true;
 
 	// Peer-to-peer related
 	private int listenPort = DEFAULT_LISTEN_PORT;
@@ -66,7 +68,7 @@ public class Settings {
 	/** Queries that take longer than this are logged. (milliseconds) */
 	private Long slowQueryThreshold = null;
 	/** Repository storage path. */
-	private String repositoryPath = null;
+	private String repositoryPath = "db";
 
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
@@ -117,7 +119,7 @@ public class Settings {
 			LOGGER.info("Using settings file: " + path + filename);
 
 			// Create the StreamSource by creating Reader to the JSON input
-			try (Reader settingsReader = new FileReader(filename)) {
+			try (Reader settingsReader = new FileReader(path + filename)) {
 				StreamSource json = new StreamSource(settingsReader);
 
 				// Attempt to unmarshal JSON stream to Settings
@@ -150,7 +152,6 @@ public class Settings {
 				// Add trailing directory separator if needed
 				if (!path.endsWith(File.separator))
 					path += File.separator;
-
 			}
 		} while (settings.userPath != null);
 
@@ -158,8 +159,7 @@ public class Settings {
 		settings.validate();
 
 		// Minor fix-up
-		if (settings.userPath == null)
-			settings.userPath = "";
+		settings.userPath = path;
 
 		// Successfully read settings now in effect
 		instance = settings;
@@ -245,6 +245,10 @@ public class Settings {
 
 	public String getRepositoryPath() {
 		return this.repositoryPath;
+	}
+
+	public boolean isAutoUpdateEnabled() {
+		return this.autoUpdateEnabled;
 	}
 
 	public String[] getAutoUpdateRepos() {
