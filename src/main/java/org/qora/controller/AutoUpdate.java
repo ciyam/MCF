@@ -100,8 +100,10 @@ public class AutoUpdate extends Thread {
 				// TODO: check arbitrary data length (pre-fetch) matches build timestamp (8) + git commit length (20) + sha256 hash length (32) = 60 bytes
 
 				byte[] data = arbitraryTransaction.fetchData();
-				if (data.length != EXPECTED_DATA_LENGTH)
+				if (data.length != EXPECTED_DATA_LENGTH) {
+					LOGGER.debug(String.format("Arbitrary data length %d doesn't match %d", data.length, EXPECTED_DATA_LENGTH));
 					continue;
+				}
 
 				ByteBuffer byteBuffer = ByteBuffer.wrap(data);
 
@@ -136,6 +138,7 @@ public class AutoUpdate extends Thread {
 
 	public void shutdown() {
 		isStopping = true;
+		this.interrupt();
 	}
 
 	private static boolean attemptUpdate(byte[] commitHash, byte[] downloadHash, String repoBaseUri) {
