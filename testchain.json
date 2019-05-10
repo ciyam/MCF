@@ -12,7 +12,7 @@
 	"oneNamePerAccount": true,
 	"genesisInfo": {
 		"version": 4,
-		"timestamp": 0,
+		"timestamp": 1557512000000,
 		"generatingBalance": "10000000",
 		"transactions": [
 			{ "type": "ISSUE_ASSET", "owner": "QcFmNxSArv5tWEzCtTKb2Lqc5QkKuQ7RNs", "assetName": "MCF", "description": "MCF native coin", "data": "{}", "quantity": 10000000000, "isDivisible": true, "fee": 0, "reference": "3Verk6ZKBJc3WTTVfxFC9icSjKdM8b92eeJEpJP8qNizG4ZszNFq8wdDYdSjJXq2iogDFR1njyhsBdVpbvDfjzU7" },
