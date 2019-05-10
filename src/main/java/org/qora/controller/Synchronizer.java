@@ -83,6 +83,10 @@ public class Synchronizer {
 						LOGGER.info(String.format("Common block with peer %s is at height %d", peer, commonBlockHeight));
 						signatures.remove(0);
 
+						// If common block is genesis block then peer has no blocks so ignore them for a while
+						if (commonBlockHeight == 1)
+							return false;
+
 						// If common block is peer's latest block then we simply have a longer chain to peer, so exit now
 						if (commonBlockHeight == peerHeight)
 							return true;
