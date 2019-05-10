@@ -25,7 +25,7 @@ import org.qora.block.BlockChain;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class Settings {
 
-	public static final int DEFAULT_LISTEN_PORT = 9084;
+	public static final int DEFAULT_LISTEN_PORT = 9889;
 
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -38,7 +38,7 @@ public class Settings {
 
 	// API-related
 	private boolean apiEnabled = true;
-	private int apiPort = 9085;
+	private int apiPort = 9888;
 	private String[] apiWhitelist = new String[] {
 		"::1", "127.0.0.1"
 	};
