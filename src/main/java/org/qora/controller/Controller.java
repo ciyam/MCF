@@ -16,7 +16,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
-import org.qora.AutoUpdate;
 import org.qora.api.ApiService;
 import org.qora.block.Block;
 import org.qora.block.BlockChain;
@@ -67,7 +66,7 @@ public class Controller extends Thread {
 	private static BlockGenerator blockGenerator = null;
 	private static Controller instance;
 	private final String buildVersion;
-	private final long buildTimestamp;
+	private final long buildTimestamp; // seconds
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly generated block. */
 	private final ReentrantLock blockchainLock;
@@ -202,7 +201,8 @@ public class Controller extends Thread {
 		Controller.getInstance().start();
 
 		// Auto-update service
-		AutoUpdate.controllerStart();
+		LOGGER.info("Starting auto-update");
+		AutoUpdate.getInstance().start();
 	}
 
 	// Main thread
@@ -286,6 +286,9 @@ public class Controller extends Thread {
 		synchronized (shutdownLock) {
 			if (!isStopping) {
 				isStopping = true;
+
+				LOGGER.info("Shutting down auto-update");
+				AutoUpdate.getInstance().shutdown();
 
 				LOGGER.info("Shutting down controller");
 				this.interrupt();
