@@ -213,7 +213,7 @@ public class Controller extends Thread {
 
 		try {
 			while (!isStopping) {
-				Thread.sleep(1000);
+				Thread.sleep(10000);
 
 				potentiallySynchronize();
 
