@@ -2,10 +2,13 @@ package org.qora.controller;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -22,6 +25,7 @@ import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
 import org.qora.transaction.ArbitraryTransaction;
 import org.qora.transaction.Transaction.TransactionType;
+import org.qora.transform.Transformer;
 import org.qora.utils.NTP;
 
 import com.google.common.hash.HashCode;
@@ -37,6 +41,9 @@ public class AutoUpdate extends Thread {
 	private static final int DEV_GROUP_ID = 1;
 	private static final int UPDATE_SERVICE = 1;
 	private static final List<TransactionType> ARBITRARY_TX_TYPE = Arrays.asList(TransactionType.ARBITRARY);
+
+	private static final int GIT_COMMIT_HASH_LENGTH = 20; // SHA-1
+	private static final int EXPECTED_DATA_LENGTH = Transformer.TIMESTAMP_LENGTH + GIT_COMMIT_HASH_LENGTH + Transformer.SHA256_LENGTH;
 
 	private static AutoUpdate instance;
 
@@ -90,14 +97,29 @@ public class AutoUpdate extends Thread {
 				if (!arbitraryTransaction.isDataLocal())
 					continue; // We can't access data
 
-				// TODO: check arbitrary data length (pre-fetch) matches git commit length (20) + sha256 hash length (32) = 52 bytes
+				// TODO: check arbitrary data length (pre-fetch) matches build timestamp (8) + git commit length (20) + sha256 hash length (32) = 60 bytes
 
-				byte[] commitHash = arbitraryTransaction.fetchData();
+				byte[] data = arbitraryTransaction.fetchData();
+				if (data.length != EXPECTED_DATA_LENGTH)
+					continue;
+
+				ByteBuffer byteBuffer = ByteBuffer.wrap(data);
+
+				long updateTimestamp = byteBuffer.getLong();
+				if (updateTimestamp <= buildTimestamp)
+					continue; // update is the same, or older, than current code
+
+				byte[] commitHash = new byte[GIT_COMMIT_HASH_LENGTH];
+				byteBuffer.get(commitHash);
+
+				byte[] downloadHash = new byte[Transformer.SHA256_LENGTH];
+				byteBuffer.get(downloadHash);
+
 				LOGGER.info(String.format("Update's git commit hash: %s", HashCode.fromBytes(commitHash).toString()));
 
 				String[] autoUpdateRepos = Settings.getInstance().getAutoUpdateRepos();
 				for (String repo : autoUpdateRepos)
-					if (attemptUpdate(commitHash, repo)) {
+					if (attemptUpdate(commitHash, downloadHash, repo)) {
 						// Consider ourselves updated so don't re-re-re-download
 						buildTimestamp = NTP.getTime();
 						attemptedUpdate = true;
@@ -116,7 +138,7 @@ public class AutoUpdate extends Thread {
 		isStopping = true;
 	}
 
-	private static boolean attemptUpdate(byte[] commitHash, String repoBaseUri) {
+	private static boolean attemptUpdate(byte[] commitHash, byte[] downloadHash, String repoBaseUri) {
 		LOGGER.info(String.format("Fetching update from %s", repoBaseUri));
 		InputStream in = ApiRequest.fetchStream(repoBaseUri + "/raw/" + HashCode.fromBytes(commitHash).toString() + "/" + JAR_FILENAME);
 		if (in == null) {
@@ -126,9 +148,35 @@ public class AutoUpdate extends Thread {
 
 		Path newJar = Paths.get(NEW_JAR_FILENAME);
 		try {
+			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+
 			// Save input stream into new JAR
 			LOGGER.debug(String.format("Saving update from %s into %s", repoBaseUri, newJar.toString()));
-			Files.copy(in, newJar, StandardCopyOption.REPLACE_EXISTING);
+
+			OutputStream out = Files.newOutputStream(newJar);
+			byte[] buffer = new byte[1024 * 1024];
+			do {
+				int nread = in.read(buffer);
+				if (nread == -1)
+					break;
+
+				sha256.update(buffer, 0, nread);
+				out.write(buffer, 0, nread);
+			} while (true);
+
+			// Check hash
+			byte[] hash = sha256.digest();
+			if (!Arrays.equals(downloadHash, hash)) {
+				LOGGER.warn(String.format("Downloaded JAR's hash %s doesn't match %s", HashCode.fromBytes(hash).toString(), HashCode.fromBytes(downloadHash).toString()));
+
+				try {
+					Files.deleteIfExists(newJar);
+				} catch (IOException de) {
+					LOGGER.warn(String.format("Failed to delete download: %s", de.getMessage()));
+				}
+
+				return false;
+			}
 		} catch (IOException e) {
 			LOGGER.warn(String.format("Failed to save update from %s into %s", repoBaseUri, newJar.toString()));
 
@@ -139,6 +187,8 @@ public class AutoUpdate extends Thread {
 			}
 
 			return false; // failed - try another repo
+		} catch (NoSuchAlgorithmException e) {
+			return true; // not repo's fault
 		}
 
 		// Call ApplyUpdate to end this process (unlocking current JAR so it can be replaced)
