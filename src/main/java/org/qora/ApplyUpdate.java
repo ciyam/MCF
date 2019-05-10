@@ -54,6 +54,8 @@ public class ApplyUpdate {
 
 		// Restart node
 		restartNode();
+
+		LOGGER.info("Exiting...");
 	}
 
 	private static boolean shutdownNode() {
@@ -88,12 +90,25 @@ public class ApplyUpdate {
 		Path realJar = Paths.get(JAR_FILENAME);
 		Path newJar = Paths.get(NEW_JAR_FILENAME);
 
-		try {
-			Files.copy(newJar, realJar, StandardCopyOption.REPLACE_EXISTING);
-		} catch (IOException e) {
-			LOGGER.warn(String.format("Failed to copy %s to %s", newJar.toString(), realJar.toString()), e.getMessage());
-			// Fall-through to restarting node...
+		int attempt;
+		for (attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
+			LOGGER.debug(String.format("Attempt #%d out of %d to replace JAR", attempt + 1, MAX_ATTEMPTS));
+
+			try {
+				Files.copy(newJar, realJar, StandardCopyOption.REPLACE_EXISTING);
+				break;
+			} catch (IOException e) {
+				// Try again
+			}
+
+			try {
+				Thread.sleep(CHECK_INTERVAL);
+			} catch (InterruptedException e) {
+			}
 		}
+
+		if (attempt == MAX_ATTEMPTS)
+			LOGGER.error("Failed to replace JAR - giving up");
 	}
 
 	private static void restartNode() {
@@ -106,7 +121,7 @@ public class ApplyUpdate {
 		try {
 			List<String> javaCmd = Arrays.asList(javaBinary.toString(), "-jar", JAR_FILENAME);
 			LOGGER.info(String.format("Restarting node with: %s", String.join(" ", javaCmd)));
-			
+
 			new ProcessBuilder(javaCmd).start();
 		} catch (IOException e) {
 			LOGGER.error(String.format("Failed to restart node (BAD): %s", e.getMessage()));
