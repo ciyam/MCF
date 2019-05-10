@@ -69,6 +69,10 @@ public class Synchronizer {
 						this.ourHeight = this.repository.getBlockRepository().getBlockchainHeight();
 						final int peerHeight = peer.getPeerData().getLastHeight();
 
+						// If peer is at genesis block then peer has no blocks so ignore them for a while
+						if (peerHeight == 1)
+							return false;
+
 						LOGGER.info(String.format("Synchronizing with peer %s at height %d, our height %d", peer, peerHeight, this.ourHeight));
 
 						List<byte[]> signatures = findSignaturesFromCommonBlock(peer);
@@ -82,10 +86,6 @@ public class Synchronizer {
 						final int commonBlockHeight = commonBlockData.getHeight();
 						LOGGER.info(String.format("Common block with peer %s is at height %d", peer, commonBlockHeight));
 						signatures.remove(0);
-
-						// If common block is genesis block then peer has no blocks so ignore them for a while
-						if (commonBlockHeight == 1)
-							return false;
 
 						// If common block is peer's latest block then we simply have a longer chain to peer, so exit now
 						if (commonBlockHeight == peerHeight)
