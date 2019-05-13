@@ -24,6 +24,7 @@ import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.gui.GUI;
 import org.qora.network.Network;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
@@ -143,6 +144,9 @@ public class Controller extends Thread {
 	public static void main(String args[]) {
 		LOGGER.info("Starting up...");
 
+		// Potential GUI startup with splash screen, etc.
+		GUI.getInstance();
+
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
 		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
 
@@ -203,6 +207,9 @@ public class Controller extends Thread {
 		// Auto-update service
 		LOGGER.info("Starting auto-update");
 		AutoUpdate.getInstance().start();
+
+		// If GUI is enabled, we're no longer starting up but actually running now
+		GUI.getInstance().notifyRunning();
 	}
 
 	// Main thread
