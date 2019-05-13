@@ -57,7 +57,7 @@ public class SysTray {
 
 		this.popupMenu = createPopupMenu();
 
-		this.trayIcon = new TrayIcon(GUI.loadImage("icons/icon32.png"), "qora-core", popupMenu);
+		this.trayIcon = new TrayIcon(GUI.loadImage("icons/icon32.png"), "MCF", popupMenu);
 
 		this.trayIcon.setImageAutoSize(true);
 

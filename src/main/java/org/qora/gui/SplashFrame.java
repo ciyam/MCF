@@ -49,7 +49,7 @@ public class SplashFrame {
 		this.splashDialog.setIconImages(icons);
 
 		this.splashDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
-		this.splashDialog.setTitle("qora-core");
+		this.splashDialog.setTitle("MCF");
 		this.splashDialog.setContentPane(new SplashPanel());
 
 		this.splashDialog.setUndecorated(true);
