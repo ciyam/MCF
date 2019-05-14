@@ -152,6 +152,12 @@
 			{ "type": "GENESIS", "recipient": "QT79PhvBwE6vFzfZ4oh5wdKVsEazZuVJFy", "amount": "6360421.343" }
 		]
 	},
+	"rewardsByHeight": [
+		{ "height": 1, "reward": 0 }
+	],
+	"forgingTiers": [
+		{ "minBlocks": 0, "maxSubAccounts": 0 }
+	],
 	"featureTriggers": {
 		"messageHeight": 99000,
 		"atHeight": 99000,
@@ -159,6 +165,7 @@
 		"votingTimestamp": "1403715600000",
 		"arbitraryTimestamp": "1405702800000",
 		"powfixTimestamp": "1456426800000",
-		"v2Timestamp": "1559347200000"
+		"v2Timestamp": "1559347200000",
+		"newAssetPricingTimestamp": "2000000000000"
 	}
 }
