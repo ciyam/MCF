@@ -9,3 +9,5 @@
 /.classpath
 /.project
 /log4j2-test.properties
+/.mvn.classpath
+/notes*
