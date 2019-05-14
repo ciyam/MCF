@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qora.group.Group.ApprovalThreshold;
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -14,11 +15,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
-@Schema(
-	allOf = {
-		TransactionData.class
-	}
-)
+@Schema( allOf = { TransactionData.class } )
+// JAXB: use this subclass if XmlDiscriminatorNode matches XmlDiscriminatorValue below:
+@XmlDiscriminatorValue("UPDATE_GROUP")
 public class UpdateGroupTransactionData extends TransactionData {
 
 	// Properties
@@ -27,34 +26,42 @@ public class UpdateGroupTransactionData extends TransactionData {
 		example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP"
 	)
 	private byte[] ownerPublicKey;
-	@Schema(
-		description = "new owner's address",
-		example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v"
-	)
-	private String newOwner;
+
 	@Schema(
 		description = "which group to update",
 		example = "my-group"
 	)
 	private int groupId;
+
+	@Schema(
+		description = "new owner's address",
+		example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v"
+	)
+	private String newOwner;
+
 	@Schema(
 		description = "replacement group description",
 		example = "my group for accounts I like"
 	)
 	private String newDescription;
+
 	@Schema(
 		description = "new group join policy",
 		example = "true"
 	)
 	private boolean newIsOpen;
+
 	@Schema(
 		description = "new group member transaction approval threshold"
 	)
 	private ApprovalThreshold newApprovalThreshold;
+
 	@Schema(description = "new minimum block delay before approval takes effect")
 	private int newMinimumBlockDelay;
+
 	@Schema(description = "new maximum block delay before which transaction approval must be reached")
 	private int newMaximumBlockDelay;
+
 	/** Reference to CREATE_GROUP or UPDATE_GROUP transaction, used to rebuild group during orphaning. */
 	// For internal use when orphaning
 	@XmlTransient
