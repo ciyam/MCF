@@ -111,10 +111,10 @@ public class PeersResource {
 	@POST
 	@Operation(
 		summary = "Add new peer address",
-		description = "Specify a new peer using hostname, IPv4 address, IPv6 address and optional port number preceeded with colon (e.g. :9084)<br>"
+		description = "Specify a new peer using hostname, IPv4 address, IPv6 address and optional port number preceeded with colon (e.g. :9889)<br>"
 				+ "Note that IPv6 literal addresses must be surrounded with brackets.<br>" + "Examples:<br><ul>" + "<li>some-peer.example.com</li>"
-				+ "<li>some-peer.example.com:9084</li>" + "<li>10.1.2.3</li>" + "<li>10.1.2.3:9084</li>" + "<li>[2001:d8b::1]</li>"
-				+ "<li>[2001:d8b::1]:9084</li>" + "</ul>",
+				+ "<li>some-peer.example.com:9889</li>" + "<li>10.1.2.3</li>" + "<li>10.1.2.3:9889</li>" + "<li>[2001:d8b::1]</li>"
+				+ "<li>[2001:d8b::1]:9889</li>" + "</ul>",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -162,10 +162,10 @@ public class PeersResource {
 	@DELETE
 	@Operation(
 		summary = "Remove peer address from database",
-		description = "Specify peer to be removed using hostname, IPv4 address, IPv6 address and optional port number preceeded with colon (e.g. :9084)<br>"
+		description = "Specify peer to be removed using hostname, IPv4 address, IPv6 address and optional port number preceeded with colon (e.g. :9889)<br>"
 				+ "Note that IPv6 literal addresses must be surrounded with brackets.<br>" + "Examples:<br><ul>" + "<li>some-peer.example.com</li>"
-				+ "<li>some-peer.example.com:9084</li>" + "<li>10.1.2.3</li>" + "<li>10.1.2.3:9084</li>" + "<li>[2001:d8b::1]</li>"
-				+ "<li>[2001:d8b::1]:9084</li>" + "</ul>",
+				+ "<li>some-peer.example.com:9889</li>" + "<li>10.1.2.3</li>" + "<li>10.1.2.3:9889</li>" + "<li>[2001:d8b::1]</li>"
+				+ "<li>[2001:d8b::1]:9889</li>" + "</ul>",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
