@@ -1050,10 +1050,8 @@ public class Block {
 		for (Transaction transaction : transactions)
 			transaction.process();
 
-		// If fees are non-zero then add fees to generator's balance
-		BigDecimal blockFee = this.blockData.getTotalFees();
-		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
-			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFee));
+		// Give transaction fees to generator/proxy
+		rewardTransactionFees();
 
 		// Process AT fees and save AT states into repository
 		ATRepository atRepository = this.repository.getATRepository();
@@ -1102,7 +1100,7 @@ public class Block {
 		// Is generator public key actually a proxy forge key?
 		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
 		if (proxyForgerData != null) {
-			// Split reward to forger and recipient;
+			// Split reward between forger and recipient
 			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
 			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
 			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).add(recipientShare));
@@ -1115,6 +1113,31 @@ public class Block {
 
 		// Give block reward to generator
 		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(reward));
+	}
+
+	protected void rewardTransactionFees() throws DataException {
+		BigDecimal blockFees = this.blockData.getTotalFees();
+
+		// No transaction fees?
+		if (blockFees.compareTo(BigDecimal.ZERO) <= 0)
+			return;
+
+		// Is generator public key actually a proxy forge key?
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
+		if (proxyForgerData != null) {
+			// Split fees between forger and recipient
+			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
+			BigDecimal recipientShare = blockFees.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
+			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).add(recipientShare));
+
+			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
+			BigDecimal forgerShare = blockFees.subtract(recipientShare);
+			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).add(forgerShare));
+			return;
+		}
+
+		// Give transaction fees to generator
+		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFees));
 	}
 
 	/**
@@ -1145,10 +1168,8 @@ public class Block {
 		// Block rewards removed after transactions undone
 		orphanBlockRewards();
 
-		// If fees are non-zero then remove fees from generator's balance
-		BigDecimal blockFee = this.blockData.getTotalFees();
-		if (blockFee.compareTo(BigDecimal.ZERO) > 0)
-			this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(blockFee));
+		// Deduct any transaction fees from generator/proxy
+		deductTransactionFees();
 
 		// Return AT fees and delete AT states from repository
 		ATRepository atRepository = this.repository.getATRepository();
@@ -1175,7 +1196,7 @@ public class Block {
 		// Is generator public key actually a proxy forge key?
 		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
 		if (proxyForgerData != null) {
-			// Split reward from forger and recipient;
+			// Split reward between forger and recipient
 			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
 			BigDecimal recipientShare = reward.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
 			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).subtract(recipientShare));
@@ -1188,6 +1209,31 @@ public class Block {
 
 		// Take block reward from generator
 		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(reward));
+	}
+
+	protected void deductTransactionFees() throws DataException {
+		BigDecimal blockFees = this.blockData.getTotalFees();
+
+		// No transaction fees?
+		if (blockFees.compareTo(BigDecimal.ZERO) <= 0)
+			return;
+
+		// Is generator public key actually a proxy forge key?
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.blockData.getGeneratorPublicKey());
+		if (proxyForgerData != null) {
+			// Split fees between forger and recipient
+			Account recipient = new Account(this.repository, proxyForgerData.getRecipient());
+			BigDecimal recipientShare = blockFees.multiply(proxyForgerData.getShare().movePointLeft(2)).setScale(8, RoundingMode.DOWN);
+			recipient.setConfirmedBalance(Asset.QORA, recipient.getConfirmedBalance(Asset.QORA).subtract(recipientShare));
+
+			Account forger = new PublicKeyAccount(this.repository, proxyForgerData.getForgerPublicKey());
+			BigDecimal forgerShare = blockFees.subtract(recipientShare);
+			forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).subtract(forgerShare));
+			return;
+		}
+
+		// Deduct transaction fees to generator
+		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(blockFees));
 	}
 
 	protected BigDecimal getRewardAtHeight(int ourHeight) {

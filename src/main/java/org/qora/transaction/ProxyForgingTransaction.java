@@ -10,7 +10,6 @@ import org.qora.account.Forging;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
-import org.qora.data.account.AccountData;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -80,7 +79,7 @@ public class ProxyForgingTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		// Check reward share given to recipient
 		if (this.proxyForgingTransactionData.getShare().compareTo(BigDecimal.ZERO) <= 0
-				|| this.proxyForgingTransactionData.getShare().compareTo(MAX_SHARE) >= 0)
+				|| this.proxyForgingTransactionData.getShare().compareTo(MAX_SHARE) > 0)
 			return ValidationResult.INVALID_FORGE_SHARE;
 
 		PublicKeyAccount creator = getCreator();
@@ -97,10 +96,12 @@ public class ProxyForgingTransaction extends Transaction {
 		if (!Crypto.isValidAddress(recipient.getAddress()))
 			return ValidationResult.INVALID_ADDRESS;
 
+		/* Not needed?
 		// Check recipient has known public key
 		AccountData recipientData = this.repository.getAccountRepository().getAccount(recipient.getAddress());
 		if (recipientData == null || recipientData.getPublicKey() == null)
 			return ValidationResult.PUBLIC_KEY_UNKNOWN;
+		*/
 
 		// Check fee is positive
 		if (proxyForgingTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
@@ -140,6 +141,11 @@ public class ProxyForgingTransaction extends Transaction {
 
 		// Update forger's reference
 		forger.setLastReference(proxyForgingTransactionData.getSignature());
+
+		// If proxy recipient has no last-reference then use this transaction's signature as last-reference so they can spend their block rewards
+		Account recipient = new Account(this.repository, proxyForgingTransactionData.getRecipient());
+		if (recipient.getLastReference() == null)
+			recipient.setLastReference(proxyForgingTransactionData.getSignature());
 	}
 
 	@Override
@@ -166,6 +172,11 @@ public class ProxyForgingTransaction extends Transaction {
 
 		// Update forger's reference
 		forger.setLastReference(proxyForgingTransactionData.getReference());
+
+		// If recipient didn't have a last-reference prior to this transaction then remove it
+		Account recipient = new Account(this.repository, proxyForgingTransactionData.getRecipient());
+		if (Arrays.equals(recipient.getLastReference(), proxyForgingTransactionData.getSignature()))
+			recipient.setLastReference(null);
 	}
 
 }
