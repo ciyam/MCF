@@ -725,6 +725,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TABLE ForgingAccounts (forger_seed QoraKeySeed NOT NULL, PRIMARY KEY (forger_seed))");
 					break;
 
+				case 48:
+					// Add index to TransactionParticipants to speed up queries
+					stmt.execute("CREATE INDEX TransactionParticipantsAddressIndex on TransactionParticipants (participant)");
+					break;
+
 				default:
 					// nothing to do
 					return false;

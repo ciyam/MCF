@@ -16,8 +16,9 @@ public class ProxyForgingTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int TARGET_LENGTH = ADDRESS_LENGTH;
+	private static final int REWARD_SHARE_LENGTH = BIG_DECIMAL_LENGTH;
 
-	private static final int EXTRAS_LENGTH = TARGET_LENGTH;
+	private static final int EXTRAS_LENGTH = TARGET_LENGTH + PUBLIC_KEY_LENGTH + REWARD_SHARE_LENGTH;
 
 	protected static final TransactionLayout layout;
 

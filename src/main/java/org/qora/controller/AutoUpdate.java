@@ -1,5 +1,6 @@
 package org.qora.controller;
 
+import java.awt.TrayIcon.MessageType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -19,6 +20,7 @@ import org.qora.api.ApiRequest;
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.gui.SysTray;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -30,13 +32,15 @@ import org.qora.utils.NTP;
 
 import com.google.common.hash.HashCode;
 
+/* NOTE: It is CRITICAL that we use OpenJDK and not Java SE because our uber jar repacks BouncyCastle which, in turn, unsigns BC causing it to be rejected as a security provider by Java SE. */
+
 public class AutoUpdate extends Thread {
 
 	public static final String JAR_FILENAME = "MCF-core.jar";
 	public static final String NEW_JAR_FILENAME = "new-" + JAR_FILENAME;
 
 	private static final Logger LOGGER = LogManager.getLogger(AutoUpdate.class);
-	private static final long CHECK_INTERVAL = 5 * 1000; // ms
+	private static final long CHECK_INTERVAL = 5 * 60 * 1000; // ms
 
 	private static final int DEV_GROUP_ID = 1;
 	private static final int UPDATE_SERVICE = 1;
@@ -204,6 +208,8 @@ public class AutoUpdate extends Thread {
 		try {
 			List<String> javaCmd = Arrays.asList(javaBinary.toString(), "-cp", NEW_JAR_FILENAME, ApplyUpdate.class.getCanonicalName());
 			LOGGER.info(String.format("Applying update with: %s", String.join(" ", javaCmd)));
+
+			SysTray.getInstance().showMessage("Auto Update", "Applying automatic update and restarting...", MessageType.INFO);
 
 			new ProcessBuilder(javaCmd).start();
 
