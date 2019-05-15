@@ -460,7 +460,7 @@ public class Network extends Thread {
 					try {
 						InetAddress address = InetAddress.getByName(peerData.getAddress().getHost());
 
-						// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9084 to node4.qora.org
+						// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9889 to node4.qora.org
 						if (!peer.getIsLocal() && !Peer.isAddressLocal(address))
 							continue;
 
@@ -486,7 +486,7 @@ public class Network extends Thread {
 						if (address instanceof Inet6Address)
 							continue;
 
-						// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9084 to node4.qora.org
+						// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9889 to node4.qora.org
 						if (!peer.getIsLocal() && !Peer.isAddressLocal(address))
 							continue;
 

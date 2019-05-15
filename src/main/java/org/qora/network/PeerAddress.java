@@ -53,17 +53,17 @@ public class PeerAddress {
 	 * Examples:
 	 * <ul>
 	 * <li>peer.example.com
-	 * <li>peer.example.com:9084
+	 * <li>peer.example.com:9889
 	 * <li>192.0.2.1
-	 * <li>192.0.2.1:9084
+	 * <li>192.0.2.1:9889
 	 * <li>[2001:db8::1]
-	 * <li>[2001:db8::1]:9084
+	 * <li>[2001:db8::1]:9889
 	 * </ul>
 	 * <p>
 	 * Not allowed:
 	 * <ul>
 	 * <li>2001:db8::1
-	 * <li>2001:db8::1:9084
+	 * <li>2001:db8::1:9889
 	 * </ul>
 	 */
 	public static PeerAddress fromString(String addressString) throws IllegalArgumentException {
