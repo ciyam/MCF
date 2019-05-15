@@ -91,12 +91,16 @@ public class AccountFlagsTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		Account target = getTarget();
-		int previousFlags = target.getFlags();
+		Integer previousFlags = target.getFlags();
 
 		accountFlagsTransactionData.setPreviousFlags(previousFlags);
 
 		// Save this transaction with target account's previous flags value
 		this.repository.getTransactionRepository().save(accountFlagsTransactionData);
+
+		// If account doesn't have entry in database yet (e.g. genesis block) then flags are zero
+		if (previousFlags == null)
+			previousFlags = 0;
 
 		// Set account's new flags
 		int newFlags = previousFlags & accountFlagsTransactionData.getAndMask()
@@ -117,7 +121,13 @@ public class AccountFlagsTransaction extends Transaction {
 		// Revert
 		Account target = getTarget();
 
-		target.setFlags(accountFlagsTransactionData.getPreviousFlags());
+		Integer previousFlags = accountFlagsTransactionData.getPreviousFlags();
+
+		// If previousFlags are null then account didn't exist before this transaction
+		if (previousFlags == null)
+			this.repository.getAccountRepository().delete(target.getAddress());
+		else
+			target.setFlags(previousFlags);
 
 		// Delete this transaction itself
 		this.repository.getTransactionRepository().delete(accountFlagsTransactionData);

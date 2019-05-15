@@ -78,7 +78,6 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			if (resultSet == null)
 				return null;
 
-			// Column is NOT NULL so this should never implicitly convert to 0
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account's flags from repository", e);
