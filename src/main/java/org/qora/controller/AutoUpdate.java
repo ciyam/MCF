@@ -32,6 +32,8 @@ import org.qora.utils.NTP;
 
 import com.google.common.hash.HashCode;
 
+/* NOTE: It is CRITICAL that we use OpenJDK and not Java SE because our uber jar repacks BouncyCastle which, in turn, unsigns BC causing it to be rejected as a security provider by Java SE. */
+
 public class AutoUpdate extends Thread {
 
 	public static final String JAR_FILENAME = "MCF-core.jar";
