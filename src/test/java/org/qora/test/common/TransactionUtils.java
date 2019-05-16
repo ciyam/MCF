@@ -20,6 +20,12 @@ public class TransactionUtils {
 		// Add to unconfirmed
 		assertTrue("Transaction's signature should be valid", transaction.isSignatureValid());
 
+		// We might need to wait until transaction's timestamp is valid for the block we're about to generate
+		try {
+			Thread.sleep(1L);
+		} catch (InterruptedException e) {
+		}
+
 		ValidationResult result = transaction.isValidUnconfirmed();
 		assertEquals("Transaction invalid", ValidationResult.OK, result);
 
@@ -28,7 +34,8 @@ public class TransactionUtils {
 		repository.saveChanges();
 
 		// Generate block
-		BlockGenerator.generateTestingBlock(repository, signingAccount);
+		PrivateKeyAccount generatorAccount = Common.getTestAccount(repository, "alice");
+		BlockGenerator.generateTestingBlock(repository, generatorAccount);
 	}
 
 }
