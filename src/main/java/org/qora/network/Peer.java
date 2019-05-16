@@ -317,7 +317,7 @@ public class Peer implements Runnable {
 
 		// Close socket
 		if (!this.socket.isClosed()) {
-			LOGGER.debug(String.format("Disconnected peer %s", this));
+			LOGGER.debug(String.format("Disconnecting peer %s", this));
 
 			try {
 				this.socket.close();
