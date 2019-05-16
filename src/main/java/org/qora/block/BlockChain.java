@@ -25,6 +25,8 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qora.data.block.BlockData;
+import org.qora.data.network.BlockSummaryData;
+import org.qora.network.Network;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -339,6 +341,9 @@ public class BlockChain {
 			genesisBlock.process();
 
 			repository.saveChanges();
+
+			// Give Network a change to install initial seed peers
+			Network.installInitialPeers(repository);
 		}
 	}
 
