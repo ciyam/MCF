@@ -55,7 +55,7 @@ public class Network extends Thread {
 	/** Maximum time since last successful connection for peer info to be propagated, in milliseconds. */
 	private static final long RECENT_CONNECTION_THRESHOLD = 24 * 60 * 60 * 1000; // ms
 
-	private static final String[] INITIAL_PEERS = new String[] { "node1.qora.org", "node2.qora.org" };
+	private static final String[] INITIAL_PEERS = new String[] { "node1.mcfamily.io", "node2.mcfamily.io" };
 
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
 	public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
