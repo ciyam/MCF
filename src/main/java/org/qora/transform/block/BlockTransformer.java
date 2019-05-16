@@ -285,17 +285,17 @@ public class BlockTransformer extends Transformer {
 		byte[] generatorSignature = getReferenceGeneratorSignature(blockData.getReference());
 		PublicKeyAccount generator = new PublicKeyAccount(null, blockData.getGeneratorPublicKey());
 
-		return getBytesForGeneratorSignature(generatorSignature, blockData.getGeneratingBalance(), generator);
+		return getBytesForGeneratorSignature(generatorSignature, blockData.getTimestamp(), generator);
 	}
 
-	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, BigDecimal generatingBalance, PublicKeyAccount generator)
+	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, long timestamp, PublicKeyAccount generator)
 			throws TransformationException {
 		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + GENERATING_BALANCE_LENGTH + GENERATOR_LENGTH);
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + TIMESTAMP_LENGTH + GENERATOR_LENGTH);
 
 			bytes.write(generatorSignature);
 
-			bytes.write(Longs.toByteArray(generatingBalance.longValue()));
+			bytes.write(Longs.toByteArray(timestamp));
 
 			// We're padding here just in case the generator is the genesis account whose public key is only 8 bytes long.
 			bytes.write(Bytes.ensureCapacity(generator.getPublicKey(), GENERATOR_LENGTH, 0));

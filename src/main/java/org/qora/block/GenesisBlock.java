@@ -129,7 +129,7 @@ public class GenesisBlock extends Block {
 		int transactionCount = transactionsData.size();
 		BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
 		byte[] generatorPublicKey = GenesisAccount.PUBLIC_KEY;
-		byte[] bytesForSignature = getBytesForSignature(info.version, reference, info.generatingBalance, generatorPublicKey);
+		byte[] bytesForSignature = getBytesForSignature(info.version, reference, info.timestamp, generatorPublicKey);
 		byte[] generatorSignature = calcSignature(bytesForSignature);
 		byte[] transactionsSignature = generatorSignature;
 		int height = 1;
@@ -213,7 +213,7 @@ public class GenesisBlock extends Block {
 		return Bytes.concat(digest, digest);
 	}
 
-	private static byte[] getBytesForSignature(int version, byte[] reference, BigDecimal generatingBalance, byte[] generatorPublicKey) {
+	private static byte[] getBytesForSignature(int version, byte[] reference, long timestamp, byte[] generatorPublicKey) {
 		try {
 			// Passing expected size to ByteArrayOutputStream avoids reallocation when adding more bytes than default 32.
 			// See below for explanation of some of the values used to calculated expected size.
@@ -232,7 +232,7 @@ public class GenesisBlock extends Block {
 			 */
 			bytes.write(Bytes.ensureCapacity(reference, 64, 0));
 
-			bytes.write(Longs.toByteArray(generatingBalance.longValue()));
+			bytes.write(Longs.toByteArray(timestamp));
 
 			// NOTE: Genesis account's public key is only 8 bytes, not the usual 32, so we have to pad.
 			bytes.write(Bytes.ensureCapacity(generatorPublicKey, 32, 0));
@@ -245,7 +245,7 @@ public class GenesisBlock extends Block {
 
 	/** Convenience method for calculating genesis block signatures from block data */
 	private static byte[] calcSignature(BlockData blockData) {
-		byte[] bytes = getBytesForSignature(blockData.getVersion(), blockData.getReference(), blockData.getGeneratingBalance(),
+		byte[] bytes = getBytesForSignature(blockData.getVersion(), blockData.getReference(), blockData.getTimestamp(),
 				blockData.getGeneratorPublicKey());
 		return calcSignature(bytes);
 	}

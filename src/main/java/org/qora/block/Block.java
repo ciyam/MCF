@@ -208,8 +208,7 @@ public class Block {
 
 		byte[] generatorSignature;
 		try {
-			generatorSignature = generator
-					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator));
+			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), timestamp, generator));
 		} catch (TransformationException e) {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
@@ -252,9 +251,6 @@ public class Block {
 	 */
 	public Block regenerate(PrivateKeyAccount generator) throws DataException {
 		Block newBlock = new Block(this.repository, this.blockData);
-
-		BlockData parentBlockData = this.getParent();
-
 		newBlock.generator = generator;
 
 		// Copy AT state data
@@ -262,20 +258,18 @@ public class Block {
 		newBlock.atStates = newBlock.ourAtStates;
 		newBlock.ourAtFees = this.ourAtFees;
 
-		// Calculate new block timestamp
 		int version = this.blockData.getVersion();
 		byte[] reference = this.blockData.getReference();
 		BigDecimal generatingBalance = this.blockData.getGeneratingBalance();
+		long timestamp = this.blockData.getTimestamp();
+		byte[] parentGeneratorSignature = BlockTransformer.getReferenceGeneratorSignature(reference);
 
 		byte[] generatorSignature;
 		try {
-			generatorSignature = generator
-					.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), generatingBalance, generator));
+			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentGeneratorSignature, timestamp, generator));
 		} catch (TransformationException e) {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
-
-		long timestamp = this.blockData.getTimestamp();
 
 		newBlock.transactions = this.transactions;
 		int transactionCount = this.blockData.getTransactionCount();
