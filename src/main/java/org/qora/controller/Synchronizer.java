@@ -125,10 +125,10 @@ public class Synchronizer {
 								blockSummaries.addAll(moreBlockSummaries);
 							}
 
-							// Calculate total 'distance' of peer's blockchain
+							// Calculate total 'distance' of PEER'S blockchain from common block to highest block height we both have
 							BigInteger peerBlockchainValue = BlockChain.calcBlockchainDistance(new BlockSummaryData(commonBlockData), blockSummaries);
 
-							// Calculate total 'distance' of our blockchain for same blocks
+							// Calculate total 'distance' of OUR blockchain from common block to highest block height we both have
 							BigInteger ourBlockchainValue = BlockChain.calcBlockchainDistance(repository, commonBlockHeight + 1, highestMutualHeight);
 
 							// If our blockchain has a lower distance then don't synchronize with peer

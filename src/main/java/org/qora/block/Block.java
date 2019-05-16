@@ -766,8 +766,10 @@ public class Block {
 			return ValidationResult.FEATURE_NOT_YET_RELEASED;
 
 		// Check generating balance
+		/* Not for MCF
 		if (this.blockData.getGeneratingBalance().compareTo(parentBlock.calcNextBlockGeneratingBalance()) != 0)
 			return ValidationResult.GENERATING_BALANCE_INCORRECT;
+		*/
 
 		// Check generator is allowed to forge this block
 		if (!isGeneratorValidToForge(parentBlock))
