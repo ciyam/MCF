@@ -85,7 +85,7 @@ public class Synchronizer {
 						// First signature is common block
 						BlockData commonBlockData = this.repository.getBlockRepository().fromSignature(signatures.get(0));
 						final int commonBlockHeight = commonBlockData.getHeight();
-						LOGGER.info(String.format("Common block with peer %s is at height %d", peer, commonBlockHeight));
+						LOGGER.debug(String.format("Common block with peer %s is at height %d", peer, commonBlockHeight));
 						signatures.remove(0);
 
 						// If common block is peer's latest block then we simply have a longer chain to peer, so exit now
