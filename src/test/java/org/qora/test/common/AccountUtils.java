@@ -24,7 +24,7 @@ public class AccountUtils {
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
 
 		byte[] reference = sendingAccount.getLastReference();
-		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1000;
+		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
 		TransactionData transactionData = new PaymentTransactionData(timestamp, txGroupId, reference, sendingAccount.getPublicKey(), recipientAccount.getAddress(), amount, fee);
 
@@ -36,7 +36,7 @@ public class AccountUtils {
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
 
 		byte[] reference = forgingAccount.getLastReference();
-		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1000;
+		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
 		byte[] proxyPrivateKey = forgingAccount.getSharedSecret(recipientAccount.getPublicKey());
 		PrivateKeyAccount proxyAccount = new PrivateKeyAccount(null, proxyPrivateKey);
@@ -52,7 +52,7 @@ public class AccountUtils {
 		PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, forger);
 
 		byte[] reference = forgingAccount.getLastReference();
-		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1000;
+		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
 		return new EnableForgingTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), Crypto.toAddress(recipientPublicKey), fee);
 	}
