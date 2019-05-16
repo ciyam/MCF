@@ -263,7 +263,7 @@ public class Controller extends Thread {
 			Peer peer = peers.get(index);
 
 			if (!Synchronizer.getInstance().synchronize(peer)) {
-				LOGGER.debug(String.format("Failed to synchronize with peer %s", peer));
+				LOGGER.info(String.format("Failed to synchronize with peer %s", peer));
 
 				// Failure so don't use this peer again for a while
 				try (final Repository repository = RepositoryManager.getRepository()) {
@@ -276,9 +276,9 @@ public class Controller extends Thread {
 				}
 
 				return;
+			} else {
+				LOGGER.debug(String.format("Synchronized with peer %s", peer));
 			}
-
-			LOGGER.debug(String.format("Synchronized with peer %s", peer));
 
 			// Broadcast our new height (if changed)
 			int updatedHeight = getChainHeight();
