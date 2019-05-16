@@ -46,7 +46,7 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 				Timestamp lastMisbehavedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
 				Long lastMisbehaved = resultSet.wasNull() ? null : lastMisbehavedTimestamp.getTime();
 
-				peers.add(new PeerData(peerAddress, lastConnected, lastAttempted, lastHeight, lastMisbehaved));
+				peers.add(new PeerData(peerAddress, lastAttempted, lastConnected, lastHeight, lastMisbehaved));
 			} while (resultSet.next());
 
 			return peers;
