@@ -15,7 +15,7 @@
 		"generatingBalance": "10000000",
 		"transactions": [
 			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "MCF", "description": "MCF native coin", "data": "{}", "quantity": 10000000000, "isDivisible": true, "fee": 0, "reference": "3Verk6ZKBJc3WTTVfxFC9icSjKdM8b92eeJEpJP8qNizG4ZszNFq8wdDYdSjJXq2iogDFR1njyhsBdVpbvDfjzU7" },
-			{ "type": "GENESIS", "recipient": "QTMq4YGntt4EAgsgKqwLUmRcLXXThbxa59", "amount": "10000000", "fee": 0 },
+			{ "type": "GENESIS", "recipient": "QTMq4YGntt4EAgsgKqwLUmRcLXXThbxa59", "amount": "9400000", "fee": 0 },
 			{ "type": "GENESIS", "recipient": "QcatMeAtAG6WGEb615sTUtAUXpZJwux7n1", "amount": "1", "fee": 0 },
 			{ "type": "CREATE_GROUP", "creatorPublicKey": "EaD4y8Dox5FrADj22aGij4sKYCdKuPAtEhALK9ik7J66", "owner": "QcatMeAtAG6WGEb615sTUtAUXpZJwux7n1", "groupName": "dev-group", "description": "developer group", "isOpen": false, "approvalThreshold": "PCT60", "minimumBlockDelay": 0, "maximumBlockDelay": 1440 },
 			{ "type": "CREATE_GROUP", "creatorPublicKey": "GLDjqgghX9J2vRAyETKzXYceNYDfEU4ycBwoGjfAbMys", "owner": "QTMq4YGntt4EAgsgKqwLUmRcLXXThbxa59", "groupName": "MCF", "description": "MCF group", "isOpen": false, "approvalThreshold": "PCT80", "minimumBlockDelay": 120, "maximumBlockDelay": 2880 },
