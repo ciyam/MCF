@@ -80,9 +80,6 @@ public class RewardTests extends Common {
 		final BigDecimal share = new BigDecimal("12.8");
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Bob needs to make a transaction so his public key is known
-			AccountUtils.pay(repository, "bob", "chloe", new BigDecimal("1.4444").setScale(8));
-
 			byte[] proxyPrivateKey = AccountUtils.proxyForging(repository, "alice", "bob", share);
 			PrivateKeyAccount proxyAccount = new PrivateKeyAccount(repository, proxyPrivateKey);
 
