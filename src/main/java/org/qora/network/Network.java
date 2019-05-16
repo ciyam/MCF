@@ -55,6 +55,8 @@ public class Network extends Thread {
 	/** Maximum time since last successful connection for peer info to be propagated, in milliseconds. */
 	private static final long RECENT_CONNECTION_THRESHOLD = 24 * 60 * 60 * 1000; // ms
 
+	private static final String[] INITIAL_PEERS = new String[] { "node1.mcfamily.io", "node2.mcfamily.io" };
+
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
 	public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
 	public static final int PEER_ID_LENGTH = 128;
@@ -141,6 +143,19 @@ public class Network extends Thread {
 		synchronized (this.selfPeers) {
 			this.selfPeers.add(peer.getPeerData().getAddress());
 		}
+	}
+
+	// Initial setup
+
+	public static void installInitialPeers(Repository repository) throws DataException {
+		for (String address : INITIAL_PEERS) {
+			PeerAddress peerAddress = PeerAddress.fromString(address);
+
+			PeerData peerData = new PeerData(peerAddress);
+			repository.getNetworkRepository().save(peerData);
+		}
+
+		repository.saveChanges();
 	}
 
 	// Main thread
