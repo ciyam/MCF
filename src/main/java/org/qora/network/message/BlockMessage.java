@@ -6,6 +6,8 @@ import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qora.block.Block;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
@@ -17,6 +19,8 @@ import org.qora.utils.Triple;
 import com.google.common.primitives.Ints;
 
 public class BlockMessage extends Message {
+
+	private static final Logger LOGGER = LogManager.getLogger(BlockMessage.class);
 
 	private Block block = null;
 
@@ -66,6 +70,7 @@ public class BlockMessage extends Message {
 
 			return new BlockMessage(id, blockData, blockInfo.getB(), blockInfo.getC());
 		} catch (TransformationException e) {
+			LOGGER.info(String.format("Received garbled BLOCK message: %s", e.getMessage()));
 			return null;
 		}
 	}

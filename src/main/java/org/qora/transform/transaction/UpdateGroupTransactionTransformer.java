@@ -25,9 +25,11 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 	private static final int NEW_DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int NEW_IS_OPEN_LENGTH = BOOLEAN_LENGTH;
 	private static final int NEW_APPROVAL_THRESHOLD_LENGTH = BYTE_LENGTH;
+	private static final int NEW_MINIMUM_BLOCK_DELAY_LENGTH = INT_LENGTH;
+	private static final int NEW_MAXIMUM_BLOCK_DELAY_LENGTH = INT_LENGTH;
 
 	private static final int EXTRAS_LENGTH = GROUPID_LENGTH + NEW_OWNER_LENGTH + NEW_DESCRIPTION_SIZE_LENGTH + NEW_IS_OPEN_LENGTH
-			+ NEW_APPROVAL_THRESHOLD_LENGTH;
+			+ NEW_APPROVAL_THRESHOLD_LENGTH + NEW_MINIMUM_BLOCK_DELAY_LENGTH + NEW_MAXIMUM_BLOCK_DELAY_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -44,6 +46,8 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 		layout.add("group's new description", TransformationType.STRING);
 		layout.add("is group \"open\"?", TransformationType.BOOLEAN);
 		layout.add("new group transaction approval threshold", TransformationType.BYTE);
+		layout.add("new group approval minimum block delay", TransformationType.INT);
+		layout.add("new group approval maximum block delay", TransformationType.INT);
 		layout.add("fee", TransformationType.AMOUNT);
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
