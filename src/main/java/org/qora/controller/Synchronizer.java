@@ -85,7 +85,7 @@ public class Synchronizer {
 						int minHeight = ourHeight - MAXIMUM_HEIGHT_DELTA;
 						if (peerHeight < minHeight) {
 							LOGGER.info(String.format("Peer %s height %d is too far behind our height %d", peer, peerHeight, ourHeight));
-							return SynchronizationResult.TOO_DIVERGENT;
+							return SynchronizationResult.TOO_FAR_BEHIND;
 						}
 
 						LOGGER.info(String.format("Synchronizing with peer %s at height %d, our height %d", peer, peerHeight, ourHeight));
