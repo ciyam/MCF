@@ -20,6 +20,7 @@ import org.qora.api.ApiService;
 import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockGenerator;
+import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
 import org.qora.data.network.PeerData;
@@ -59,7 +60,7 @@ public class Controller extends Thread {
 	public static final String VERSION_PREFIX = "qora-core-";
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
-	private static final long MISBEHAVIOUR_COOLOFF = 24 * 60 * 60 * 1000; // ms
+	private static final long MISBEHAVIOUR_COOLOFF = 60 * 60 * 1000; // ms
 	private static final Object shutdownLock = new Object();
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true";
 
@@ -261,22 +262,38 @@ public class Controller extends Thread {
 			int index = new SecureRandom().nextInt(peers.size());
 			Peer peer = peers.get(index);
 
-			if (!Synchronizer.getInstance().synchronize(peer)) {
-				LOGGER.info(String.format("Failed to synchronize with peer %s", peer));
+			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer);
+			switch (syncResult) {
+				case GENESIS_ONLY:
+				case NO_COMMON_BLOCK:
+				case TOO_FAR_BEHIND:
+				case TOO_DIVERGENT:
+				case INVALID_DATA:
+					// These are more serious results that warrant a cool-off
+					LOGGER.info(String.format("Failed to synchronize with peer %s (%s) - cooling off", peer, syncResult.name()));
 
-				// Failure so don't use this peer again for a while
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					PeerData peerData = peer.getPeerData();
-					peerData.setLastMisbehaved(NTP.getTime());
-					repository.getNetworkRepository().save(peerData);
-					repository.saveChanges();
-				} catch (DataException e) {
-					LOGGER.warn("Repository issue while updating peer synchronization info", e);
-				}
+					// Don't use this peer again for a while
+					try (final Repository repository = RepositoryManager.getRepository()) {
+						PeerData peerData = peer.getPeerData();
+						peerData.setLastMisbehaved(NTP.getTime());
+						repository.getNetworkRepository().save(peerData);
+						repository.saveChanges();
+					} catch (DataException e) {
+						LOGGER.warn("Repository issue while updating peer synchronization info", e);
+					}
+					break;
 
-				return;
-			} else {
-				LOGGER.debug(String.format("Synchronized with peer %s", peer));
+				case NO_REPLY:
+				case INFERIOR_CHAIN:
+				case NO_BLOCKCHAIN_LOCK:
+				case REPOSITORY_ISSUE:
+					// These are minor failure results so fine to try again
+					LOGGER.info(String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
+					break;
+
+				case OK:
+					LOGGER.debug(String.format("Synchronized with peer %s", peer));
+					break;
 			}
 
 			// Broadcast our new height (if changed)
@@ -405,7 +422,7 @@ public class Controller extends Thread {
 
 					BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 					if (blockData == null) {
-						LOGGER.trace(String.format("Ignoring GET_BLOCK request from peer %s for unknown block %s", peer, Base58.encode(signature)));
+						LOGGER.debug(String.format("Ignoring GET_BLOCK request from peer %s for unknown block %s", peer, Base58.encode(signature)));
 						// Send no response at all???
 						break;
 					}

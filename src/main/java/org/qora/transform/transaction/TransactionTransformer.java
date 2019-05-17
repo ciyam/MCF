@@ -210,7 +210,7 @@ public abstract class TransactionTransformer extends Transformer {
 			return (TransactionData) method.invoke(null, byteBuffer);
 		} catch (InvocationTargetException e) {
 			if (e.getCause() instanceof BufferUnderflowException)
-				throw new TransformationException("Byte data too short for transaction type [" + type.value + "]");
+				throw new TransformationException("Byte data too short for " + type.name() + " transaction (type [" + type.value + "])");
 
 			if (e.getCause() instanceof TransformationException)
 				throw (TransformationException) e.getCause();
