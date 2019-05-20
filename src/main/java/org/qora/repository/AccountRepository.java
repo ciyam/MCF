@@ -89,6 +89,8 @@ public interface AccountRepository {
 
 	public ProxyForgerData getProxyForgeData(byte[] proxyPublicKey) throws DataException;
 
+	public boolean isProxyPublicKey(byte[] publicKey) throws DataException;
+
 	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public void save(ProxyForgerData proxyForgerData) throws DataException;
