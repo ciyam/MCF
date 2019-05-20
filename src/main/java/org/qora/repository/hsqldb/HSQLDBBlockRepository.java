@@ -156,7 +156,11 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int countForgedBlocks(byte[] publicKey) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT COUNT(*) FROM Blocks WHERE generator = ? LIMIT 1", publicKey)) {
+		String subquerySql = "SELECT proxy_public_key FROM ProxyForgers WHERE forger = ?";
+
+		String sql = "SELECT COUNT(*) FROM Blocks WHERE generator IN (?, (" + subquerySql + ")) LIMIT 1";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey, publicKey)) {
 			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch forged blocks count from repository", e);
