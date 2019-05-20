@@ -54,6 +54,10 @@ public class Network extends Thread {
 	private static final int BROADCAST_INTERVAL = 60 * 1000; // ms
 	/** Maximum time since last successful connection for peer info to be propagated, in milliseconds. */
 	private static final long RECENT_CONNECTION_THRESHOLD = 24 * 60 * 60 * 1000; // ms
+	/** Maximum time since last connection attempt before a peer is potentially considered "old", in milliseconds. */
+	private static final long OLD_PEER_ATTEMPTED_PERIOD = 24 * 60 * 60 * 1000; // ms
+	/** Maximum time since last successful connection before a peer is potentially considered "old", in milliseconds. */
+	private static final long OLD_PEER_CONNECTION_PERIOD = 7 * 24 * 60 * 60 * 1000; // ms
 
 	private static final String[] INITIAL_PEERS = new String[] { "node1.qora.org", "node2.qora.org" };
 
@@ -169,6 +173,8 @@ public class Network extends Thread {
 			while (true) {
 				acceptConnections();
 
+				pruneOldPeers();
+
 				createConnection();
 
 				if (System.currentTimeMillis() >= this.nextBroadcast) {
@@ -234,13 +240,35 @@ public class Network extends Thread {
 		} while (true);
 	}
 
-	private void createConnection() throws InterruptedException, DataException {
-		/*
-		synchronized (this.connectedPeers) {
-			if (connectedPeers.size() >= minPeers)
-				return;
+	private void pruneOldPeers() throws InterruptedException, DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Fetch all known peers
+			List<PeerData> peers = repository.getNetworkRepository().getAllPeers();
+
+			// "Old" peers:
+			// we have attempted to connect within the last day
+			// we last managed to connect over a week ago
+			final long now = NTP.getTime();
+			Predicate<PeerData> isNotOldPeer = peerData -> {
+				if (peerData.getLastAttempted() == null || peerData.getLastAttempted() > now - OLD_PEER_ATTEMPTED_PERIOD)
+					return true;
+
+				if (peerData.getLastConnected() == null || peerData.getLastConnected() > now - OLD_PEER_CONNECTION_PERIOD)
+					return true;
+
+				return false;
+			};
+
+			peers.removeIf(isNotOldPeer);
+
+			for (PeerData peerData : peers) {
+				LOGGER.debug(String.format("Deleting old peer %s from repository", peerData.getAddress().toString()));
+				repository.getNetworkRepository().delete(peerData);
+			}
 		}
-		*/
+	}
+
+	private void createConnection() throws InterruptedException, DataException {
 		if (this.getOutboundHandshakeCompletedPeers().size() >= minPeers)
 			return;
 
