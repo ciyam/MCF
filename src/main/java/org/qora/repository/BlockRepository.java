@@ -94,7 +94,7 @@ public interface BlockRepository {
 	}
 
 	/**
-	 * Returns number of blocks forged by account with given public key.
+	 * Returns number of blocks forged by account with given public key, including proxy-forged blocks.
 	 * 
 	 * @param publicKey
 	 * @return number of blocks
