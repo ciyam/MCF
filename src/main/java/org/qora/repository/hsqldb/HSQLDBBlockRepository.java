@@ -6,8 +6,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.qora.api.model.BlockForgeSummary;
-import org.qora.crypto.Crypto;
+import org.qora.api.model.BlockForgerSummary;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -165,14 +164,17 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public List<BlockForgeSummary> getBlockForgers(Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT generator, COUNT(signature) FROM Blocks GROUP BY generator ORDER BY COUNT(signature) ";
+	public List<BlockForgerSummary> getBlockForgers(Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String subquerySql = "SELECT generator, COUNT(signature) FROM Blocks GROUP BY generator ORDER BY COUNT(signature) ";
 		if (reverse != null && reverse)
-			sql += " DESC";
+			subquerySql += " DESC";
+
+		String sql = "SELECT generator, n_blocks, forger, recipient FROM (" + subquerySql + ") AS Forgers (generator, n_blocks) "
+			+ " LEFT OUTER JOIN ProxyForgers ON proxy_public_key = generator ";
 
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		List<BlockForgeSummary> summaries = new ArrayList<>();
+		List<BlockForgerSummary> summaries = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
@@ -180,9 +182,11 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 			do {
 				byte[] generator = resultSet.getBytes(1);
-				int count = resultSet.getInt(2);
+				int nBlocks = resultSet.getInt(2);
+				byte[] forger = resultSet.getBytes(3);
+				String recipient = resultSet.getString(4);
 
-				summaries.add(new BlockForgeSummary(Crypto.toAddress(generator), count));
+				summaries.add(new BlockForgerSummary(generator, nBlocks, forger, recipient));
 			} while (resultSet.next());
 
 			return summaries;

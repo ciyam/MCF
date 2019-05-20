@@ -27,7 +27,7 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
-import org.qora.api.model.BlockForgeSummary;
+import org.qora.api.model.BlockForgerSummary;
 import org.qora.block.Block;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
@@ -574,14 +574,14 @@ public class BlocksResource {
 				content = @Content(
 					array = @ArraySchema(
 						schema = @Schema(
-							implementation = BlockForgeSummary.class
+							implementation = BlockForgerSummary.class
 						)
 					)
 				)
 			)
 		}
 	)
-	public List<BlockForgeSummary> getBlockForgers(@Parameter(
+	public List<BlockForgerSummary> getBlockForgers(@Parameter(
 			ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
 				ref = "offset"
