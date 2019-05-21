@@ -78,11 +78,11 @@ public class Common {
 	}
 
 	public static TestAccount getTestAccount(Repository repository, String name) {
-		return new TestAccount(repository, name, testAccountsByName.get(name).getSeed());
+		return new TestAccount(repository, name, testAccountsByName.get(name).getPrivateKey());
 	}
 
 	public static List<TestAccount> getTestAccounts(Repository repository) {
-		return testAccountsByName.values().stream().map(account -> new TestAccount(repository, account.accountName, account.getSeed())).collect(Collectors.toList());
+		return testAccountsByName.values().stream().map(account -> new TestAccount(repository, account.accountName, account.getPrivateKey())).collect(Collectors.toList());
 	}
 
 	public static void useSettings(String settingsFilename) throws DataException {
