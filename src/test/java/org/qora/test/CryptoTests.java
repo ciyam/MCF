@@ -3,13 +3,13 @@ package org.qora.test;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.BlockChain;
+import org.qora.crypto.BouncyCastle25519;
 import org.qora.crypto.Crypto;
 import org.qora.test.common.Common;
 
 import static org.junit.Assert.*;
 
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
+import java.security.SecureRandom;
 
 import org.bitcoinj.core.Base58;
 import org.bouncycastle.crypto.agreement.X25519Agreement;
@@ -65,7 +65,7 @@ public class CryptoTests extends Common {
 	}
 
 	@Test
-	public void testBCseed() throws NoSuchAlgorithmException, NoSuchProviderException {
+	public void testBCseed() {
 		final String privateKey58 = "A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6";
 		final String publicKey58 = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP";
 
@@ -74,48 +74,140 @@ public class CryptoTests extends Common {
 
 		String expected58 = publicKey58;
 		String actual58 = Base58.encode(account.getPublicKey());
-		assertEquals("qora-core generated public key incorrect", expected58, actual58);
+		assertEquals("qora-core derived public key incorrect", expected58, actual58);
 
 		Ed25519PrivateKeyParameters privateKeyParams = new Ed25519PrivateKeyParameters(privateKey, 0);
 		Ed25519PublicKeyParameters publicKeyParams = privateKeyParams.generatePublicKey();
 
 		actual58 = Base58.encode(publicKeyParams.getEncoded());
-		assertEquals("BouncyCastle generated public key incorrect", expected58, actual58);
+		assertEquals("BouncyCastle derived public key incorrect", expected58, actual58);
+
+		final byte[] publicKey = Base58.decode(publicKey58);
+		publicKeyParams = new Ed25519PublicKeyParameters(publicKey, 0);
+
+		actual58 = Base58.encode(publicKeyParams.getEncoded());
+		assertEquals("BouncyCastle decoded public key incorrect", expected58, actual58);
 	}
 
-	@Test
-	public void testBCSharedSecret() throws NoSuchAlgorithmException, NoSuchProviderException {
-		final byte[] ourPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
-		final byte[] theirPublicKey = Base58.decode("2sbcMmVKke5inS4yrbeoG6Cyw2mZCptQNjyWgnY4YHaF");
-		final String expectedProxyPrivateKey = "EZhKy6wEh1ncQsvx6x3yV2sqjjsoU1bTTqrMcFLjLmp4";
+	private static byte[] calcBCSharedSecret(byte[] ed25519PrivateKey, byte[] ed25519PublicKey) {
+		byte[] x25519PrivateKey = BouncyCastle25519.toX25519PrivateKey(ed25519PrivateKey);
+		X25519PrivateKeyParameters privateKeyParams = new X25519PrivateKeyParameters(x25519PrivateKey, 0);
 
-		X25519PrivateKeyParameters ourPrivateKeyParams = new X25519PrivateKeyParameters(ourPrivateKey, 0);
-		X25519PublicKeyParameters theirPublicKeyParams = new X25519PublicKeyParameters(theirPublicKey, 0);
+		byte[] x25519PublicKey = BouncyCastle25519.toX25519PublicKey(ed25519PublicKey);
+		X25519PublicKeyParameters publicKeyParams = new X25519PublicKeyParameters(x25519PublicKey, 0);
 
 		byte[] sharedSecret = new byte[32];
 
 		X25519Agreement keyAgree = new X25519Agreement();
-		keyAgree.init(ourPrivateKeyParams);
-		keyAgree.calculateAgreement(theirPublicKeyParams, sharedSecret, 0);
+		keyAgree.init(privateKeyParams);
+		keyAgree.calculateAgreement(publicKeyParams, sharedSecret, 0);
 
-		String proxyPrivateKey = Base58.encode(Crypto.digest(sharedSecret));
-
-		assertEquals("proxy private key incorrect", expectedProxyPrivateKey, proxyPrivateKey);
+		return sharedSecret;
 	}
 
 	@Test
-	public void testSharedSecret() throws NoSuchAlgorithmException, NoSuchProviderException {
+	public void testBCSharedSecret() {
 		final byte[] ourPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
-		final byte[] theirPublicKey = Base58.decode("2sbcMmVKke5inS4yrbeoG6Cyw2mZCptQNjyWgnY4YHaF");
-		final String expectedProxyPrivateKey = "EZhKy6wEh1ncQsvx6x3yV2sqjjsoU1bTTqrMcFLjLmp4";
+		final byte[] theirPublicKey = Base58.decode("C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry");
+
+		final String expectedOurX25519PrivateKey = "HBPAUyWkrHt41s1a7yd6m7d1VswzLs4p9ob6AsqUQSCh";
+		final String expectedTheirX25519PublicKey = "ANjnZLRSzW9B1aVamiYGKP3XtBooU9tGGDjUiibUfzp2";
+		final String expectedSharedSecret = "DTMZYG96x8XZuGzDvHFByVLsXedimqtjiXHhXPVe58Ap";
+
+		byte[] ourX25519PrivateKey = BouncyCastle25519.toX25519PrivateKey(ourPrivateKey);
+		assertEquals("X25519 private key incorrect", expectedOurX25519PrivateKey, Base58.encode(ourX25519PrivateKey));
+
+		byte[] theirX25519PublicKey = BouncyCastle25519.toX25519PublicKey(theirPublicKey);
+		assertEquals("X25519 public key incorrect", expectedTheirX25519PublicKey, Base58.encode(theirX25519PublicKey));
+
+		byte[] sharedSecret = calcBCSharedSecret(ourPrivateKey, theirPublicKey);
+
+		assertEquals("shared secret incorrect", expectedSharedSecret, Base58.encode(sharedSecret));
+	}
+
+	@Test
+	public void testSharedSecret() {
+		final byte[] ourPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
+		final byte[] theirPublicKey = Base58.decode("C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry");
+		final String expectedSharedSecret = "DTMZYG96x8XZuGzDvHFByVLsXedimqtjiXHhXPVe58Ap";
 
 		PrivateKeyAccount generator = new PrivateKeyAccount(null, ourPrivateKey);
 
 		byte[] sharedSecret = generator.getSharedSecret(theirPublicKey);
 
-		String proxyPrivateKey = Base58.encode(Crypto.digest(sharedSecret));
+		assertEquals("shared secret incorrect", expectedSharedSecret, Base58.encode(sharedSecret));
+	}
 
-		assertEquals("proxy private key incorrect", expectedProxyPrivateKey, proxyPrivateKey);
+	@Test
+	public void testSharedSecretMatchesBC() {
+		final byte[] ourPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
+		final byte[] theirPublicKey = Base58.decode("C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry");
+		final String expectedSharedSecret = "DTMZYG96x8XZuGzDvHFByVLsXedimqtjiXHhXPVe58Ap";
+
+		PrivateKeyAccount generator = new PrivateKeyAccount(null, ourPrivateKey);
+
+		byte[] ourSharedSecret = generator.getSharedSecret(theirPublicKey);
+
+		assertEquals("shared secret incorrect", expectedSharedSecret, Base58.encode(ourSharedSecret));
+
+		byte[] bcSharedSecret = calcBCSharedSecret(ourPrivateKey, theirPublicKey);
+
+		assertEquals("shared secrets do not match", Base58.encode(ourSharedSecret), Base58.encode(bcSharedSecret));
+	}
+
+	@Test
+	public void testRandomBCSharedSecret2() {
+		// Check shared secret is the same generated from either set of private/public keys
+		SecureRandom random = new SecureRandom();
+
+		X25519PrivateKeyParameters ourPrivateKeyParams = new X25519PrivateKeyParameters(random);
+		X25519PrivateKeyParameters theirPrivateKeyParams = new X25519PrivateKeyParameters(random);
+
+		X25519PublicKeyParameters ourPublicKeyParams = ourPrivateKeyParams.generatePublicKey();
+		X25519PublicKeyParameters theirPublicKeyParams = theirPrivateKeyParams.generatePublicKey();
+
+		byte[] ourSharedSecret = new byte[32];
+
+		X25519Agreement keyAgree = new X25519Agreement();
+		keyAgree.init(ourPrivateKeyParams);
+		keyAgree.calculateAgreement(theirPublicKeyParams, ourSharedSecret, 0);
+
+		byte[] theirSharedSecret = new byte[32];
+
+		keyAgree = new X25519Agreement();
+		keyAgree.init(theirPrivateKeyParams);
+		keyAgree.calculateAgreement(ourPublicKeyParams, theirSharedSecret, 0);
+
+		assertEquals("shared secrets do not match", Base58.encode(ourSharedSecret), Base58.encode(theirSharedSecret));
+	}
+
+	@Test
+	public void testBCSharedSecret2() {
+		// Check shared secret is the same generated from either set of private/public keys
+		final byte[] ourPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
+		final byte[] ourPublicKey = Base58.decode("2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP");
+
+		final byte[] theirPrivateKey = Base58.decode("AdTd9SUEYSdTW8mgK3Gu72K97bCHGdUwi2VvLNjUohot");
+		final byte[] theirPublicKey = Base58.decode("C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry");
+
+		byte[] ourSharedSecret = calcBCSharedSecret(ourPrivateKey, theirPublicKey);
+
+		byte[] theirSharedSecret = calcBCSharedSecret(theirPrivateKey, ourPublicKey);
+
+		assertEquals("shared secrets do not match", Base58.encode(ourSharedSecret), Base58.encode(theirSharedSecret));
+	}
+
+	@Test
+	public void testProxyKeys() {
+		final byte[] ourPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
+		final byte[] theirPublicKey = Base58.decode("C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry");
+
+		final String expectedProxyPrivateKey = "CwBXkJRRaGzWRvdE9vewVUbcYNSVrcTpunNWm8zidArZ";
+
+		PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, ourPrivateKey);
+		byte[] proxyPrivateKey = mintingAccount.getProxyPrivateKey(theirPublicKey);
+
+		assertEquals(expectedProxyPrivateKey, Base58.encode(proxyPrivateKey));
 	}
 
 }

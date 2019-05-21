@@ -341,11 +341,9 @@ public class AddressesResource {
 
 			PrivateKeyAccount generator = new PrivateKeyAccount(null, generatorKey);
 
-			byte[] sharedSecret = generator.getSharedSecret(recipientKey);
+			byte[] proxyPrivateKey = generator.getProxyPrivateKey(recipientKey);
 
-			byte[] proxySeed = Crypto.digest(sharedSecret);
-
-			return Base58.encode(proxySeed);
+			return Base58.encode(proxyPrivateKey);
 		} catch (NumberFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
 		}
