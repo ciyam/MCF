@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+	<head>
+		<script src="Base58.js"></script>
+		<script src="nacl_factory.js"></script>
+		<script>
+			nacl_factory.instantiate(function (nacl) {
+				var mintingAccountPrk = Base58.decode('A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6');
+				var recipientAccountPuk = Base58.decode('2sbcMmVKke5inS4yrbeoG6Cyw2mZCptQNjyWgnY4YHaF');
+
+				// var mintingX25519KeyPair = nacl.crypto_box_keypair_from_raw_sk(mintingAccountPrk);
+				var mintingEd25519KeyPair = nacl.crypto_sign_seed_keypair(mintingAccountPrk);
+				var mintingX25519KeyPair = nacl.crypto_box_keypair_from_sign_sk(mintingEd25519KeyPair.signSk);
+
+				// Expecting: 2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP as we explicitly use Ed25519 ("sign") keypair here
+				var mintingAccountPuk = mintingEd25519KeyPair.signPk; 
+				console.log("minting public key for confirmation (Ed25519): " + Base58.encode(mintingAccountPuk));
+
+				recipientAccountPukX25519 = nacl.crypto_box_pk_from_sign_pk(recipientAccountPuk)
+				console.log("recipient public key (X25519): " + Base58.encode(recipientAccountPukX25519));
+
+				var sharedSecret = nacl.crypto_scalarmult(mintingX25519KeyPair.boxSk, recipientAccountPukX25519);
+				console.log("shared secret (for debugging): " + Base58.encode(sharedSecret));
+
+				// Data to be hashed: shared secret (32 bytes) + minting public key (32 bytes) + recipient public key (32 bytes)
+				// or, in general terms:  shared secret (32 bytes) + public key from private key (32 bytes) + other party's public key (32 bytes)
+				var proxyHashData = new Uint8Array(sharedSecret.length + mintingAccountPuk.length + recipientAccountPuk.length);
+				// copy shared secret into array, starting at index 0
+				proxyHashData.set(sharedSecret);
+				// copy minting account public key into array, starting at index 32
+				proxyHashData.set(mintingAccountPuk, sharedSecret.length);
+				// copy recipient account public key into array, starting at index 64 (32 + 32)
+				proxyHashData.set(recipientAccountPuk, sharedSecret.length + mintingAccountPuk.length);
+
+				// Proxy PRIVATE key is SHA256 of data above
+				var proxyPrivateKey = nacl.crypto_hash_sha256(proxyHashData)
+				console.log("proxy private key: " + Base58.encode(proxyPrivateKey));
+
+				var proxyKeyPair = nacl.crypto_sign_seed_keypair(proxyPrivateKey);
+				console.log("proxy public key: " + Base58.encode(proxyKeyPair.signPk));
+			});
+		</script>
+	</head>
+	<body>
+	</body>
+</html>
