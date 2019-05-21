@@ -78,7 +78,7 @@ public class ProxyForgingTransaction extends Transaction {
 	@Override
 	public ValidationResult isValid() throws DataException {
 		// Check reward share given to recipient
-		if (this.proxyForgingTransactionData.getShare().compareTo(BigDecimal.ZERO) <= 0
+		if (this.proxyForgingTransactionData.getShare().compareTo(BigDecimal.ZERO) < 0
 				|| this.proxyForgingTransactionData.getShare().compareTo(MAX_SHARE) > 0)
 			return ValidationResult.INVALID_FORGE_SHARE;
 
