@@ -37,6 +37,7 @@ import org.qora.transaction.GenesisTransaction;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
+import org.qora.transform.Transformer;
 import org.qora.transform.block.BlockTransformer;
 import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.utils.Base58;
@@ -134,6 +135,13 @@ public class Block {
 	// TODO push this out to blockchain config file
 	public static final int MAX_BLOCK_BYTES = 1048576;
 
+	private static final BigInteger MAX_DISTANCE;
+	static {
+		byte[] maxValue = new byte[Transformer.PUBLIC_KEY_LENGTH];
+		Arrays.fill(maxValue, (byte) 0xFF);
+		MAX_DISTANCE = new BigInteger(1, maxValue);
+	}
+
 	// Constructors
 
 	/**
@@ -190,11 +198,9 @@ public class Block {
 	 * Note that CIYAM ATs will be executed and AT-Transactions prepended to this block, along with AT state data and fees.
 	 * 
 	 * @param repository
-	 * @param version
-	 * @param reference
-	 * @param timestamp
-	 * @param generatingBalance
+	 * @param parentBlockData
 	 * @param generator
+	 * @param timestamp
 	 * @throws DataException
 	 */
 	public Block(Repository repository, BlockData parentBlockData, PrivateKeyAccount generator, long timestamp) throws DataException {
@@ -645,10 +651,41 @@ public class Block {
 		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), generatorPublicKey));
 	}
 
-	public BigInteger calcGeneratorDistance(BlockData parentBlockData) {
+	public static BigInteger calcGeneratorDistance(BlockData parentBlockData, byte[] generatorPublicKey) {
 		BigInteger idealGeneratorBI = new BigInteger(Block.calcIdealGeneratorPublicKey(parentBlockData.getHeight(), parentBlockData.getSignature()));
-		BigInteger ourGeneratorBI = new BigInteger(Block.calcHeightPerturbedGenerator(this.blockData.getHeight(), this.blockData.getGeneratorPublicKey()));
+		BigInteger ourGeneratorBI = new BigInteger(Block.calcHeightPerturbedGenerator(parentBlockData.getHeight() + 1, generatorPublicKey));
 		return idealGeneratorBI.subtract(ourGeneratorBI).abs();
+	}
+
+	public BigInteger calcGeneratorDistance(BlockData parentBlockData) {
+		return calcGeneratorDistance(parentBlockData, this.generator.getPublicKey());
+	}
+
+	/**
+	 * Returns timestamp based on previous block and this block's generator.
+	 * <p>
+	 * Uses same proportion of this block's generator from 'ideal' generator
+	 * with min to max target block periods, added to previous block's timestamp.
+	 * <p>
+	 * Example:<br>
+	 * This block's generator is 20% of max distance from 'ideal' generator.<br>
+	 * Min/Max block periods are 30s and 90s respectively.<br>
+	 * 20% of (90s - 30s) is 12s<br>
+	 * So this block's timestamp is previous block's timestamp + 30s + 12s.
+	 */
+	public static long calcMinimumTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
+		BigInteger distance = calcGeneratorDistance(parentBlockData, generatorPublicKey);
+
+		long minBlockTime = BlockChain.getInstance().getMinBlockTime(); // seconds
+		long maxBlockTime = BlockChain.getInstance().getMaxBlockTime(); // seconds
+
+		long timeOffset = distance.multiply(BigInteger.valueOf((maxBlockTime - minBlockTime) * 1000L)).divide(MAX_DISTANCE).longValue();
+
+		return parentBlockData.getTimestamp() + (minBlockTime * 1000L) + timeOffset;
+	}
+
+	public long calcMinimumTimestamp(BlockData parentBlockData) {
+		return calcMinimumTimestamp(parentBlockData, this.generator.getPublicKey());
 	}
 
 	/**
@@ -709,8 +746,8 @@ public class Block {
 		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
 			return ValidationResult.TIMESTAMP_IN_FUTURE;
 
-		// Too early to forge block?
-		if (this.blockData.getTimestamp() < parentBlockData.getTimestamp() + BlockChain.getInstance().getMinBlockTime() * 1000L)
+		// Check timestamp is at least minimum based on parent block
+		if (this.blockData.getTimestamp() < this.calcMinimumTimestamp(parentBlockData))
 			return ValidationResult.TIMESTAMP_TOO_SOON;
 
 		return ValidationResult.OK;
