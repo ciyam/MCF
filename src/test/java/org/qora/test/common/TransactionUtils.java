@@ -3,17 +3,21 @@ package org.qora.test.common;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.BlockGenerator;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transaction.Transaction.ValidationResult;
 
 public class TransactionUtils {
 
-	public static void signAndForge(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
+	public static void signAsUnconfirmed(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
 		Transaction transaction = Transaction.fromData(repository, transactionData);
 		transaction.sign(signingAccount);
 
@@ -32,10 +36,29 @@ public class TransactionUtils {
 		repository.getTransactionRepository().save(transactionData);
 		repository.getTransactionRepository().unconfirmTransaction(transactionData);
 		repository.saveChanges();
+	}
+
+	public static void signAndForge(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
+		signAsUnconfirmed(repository, transactionData, signingAccount);
 
 		// Generate block
 		PrivateKeyAccount generatorAccount = Common.getTestAccount(repository, "alice");
 		BlockGenerator.generateTestingBlock(repository, generatorAccount);
+	}
+
+	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, TransactionType txType, boolean wantValid) throws DataException {
+		try {
+			Class <?> clazz = Class.forName(String.join("", org.qora.test.common.transaction.Transaction.class.getPackage().getName(), ".", txType.className, "Transaction"));
+
+			try {
+				Method method = clazz.getDeclaredMethod("randomTransaction", Repository.class, PrivateKeyAccount.class, boolean.class);
+				return (TransactionData) method.invoke(null, repository, account, wantValid);
+			} catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+				throw new RuntimeException(String.format("Transaction subclass constructor not found for transaction type \"%s\"", txType.name()), e);
+			}
+		} catch (ClassNotFoundException e) {
+			throw new RuntimeException(String.format("Transaction subclass not found for transaction type \"%s\"", txType.name()), e);
+		}
 	}
 
 }

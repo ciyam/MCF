@@ -186,8 +186,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 		// Update creator's last reference
 		creator.setLastReference(createOrderTransactionData.getSignature());
 
-		// Save this transaction itself
-		this.repository.getTransactionRepository().save(createOrderTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Order Id is transaction's signature
 		byte[] orderId = createOrderTransactionData.getSignature();
@@ -217,8 +216,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 		OrderData orderData = this.repository.getAssetRepository().fromOrderId(orderId);
 		new Order(this.repository, orderData).orphan();
 
-		// Delete this transaction
-		this.repository.getTransactionRepository().delete(createOrderTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 	}
 
 }

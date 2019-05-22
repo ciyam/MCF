@@ -130,8 +130,7 @@ public class UpdateAssetTransaction extends Transaction {
 		Asset asset = new Asset(this.repository, updateAssetTransactionData.getAssetId());
 		asset.update(updateAssetTransactionData);
 
-		// Save this transaction, now with updated "name reference" to previous
-		// transaction that updated name
+		// Save this transaction, with updated "name reference" to previous transaction that updated name
 		this.repository.getTransactionRepository().save(updateAssetTransactionData);
 
 		// Update old owner's balance
@@ -149,8 +148,8 @@ public class UpdateAssetTransaction extends Transaction {
 		Asset asset = new Asset(this.repository, updateAssetTransactionData.getAssetId());
 		asset.revert(updateAssetTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(updateAssetTransactionData);
+		// Save this transaction, with removed "name reference" to previous transaction that updated name
+		this.repository.getTransactionRepository().save(updateAssetTransactionData);
 
 		// Update owner's balance
 		Account owner = getOwner();

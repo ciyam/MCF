@@ -101,8 +101,7 @@ public class CancelAssetOrderTransaction extends Transaction {
 	public void process() throws DataException {
 		Account creator = getCreator();
 
-		// Save this transaction itself
-		this.repository.getTransactionRepository().save(this.transactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update creator's balance regarding fee
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(cancelOrderTransactionData.getFee()));
@@ -120,8 +119,7 @@ public class CancelAssetOrderTransaction extends Transaction {
 	public void orphan() throws DataException {
 		Account creator = getCreator();
 
-		// Save this transaction itself
-		this.repository.getTransactionRepository().delete(this.transactionData);
+		// We would save transaction in orphaned form at this point, but it hasn't been modified
 
 		// Update creator's balance regarding fee
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(cancelOrderTransactionData.getFee()));

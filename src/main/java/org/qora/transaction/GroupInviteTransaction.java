@@ -141,8 +141,8 @@ public class GroupInviteTransaction extends Transaction {
 		Group group = new Group(this.repository, groupInviteTransactionData.getGroupId());
 		group.uninvite(groupInviteTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(groupInviteTransactionData);
+		// Save this transaction with removed member/admin references
+		this.repository.getTransactionRepository().save(groupInviteTransactionData);
 
 		// Update admin's balance
 		Account admin = getAdmin();

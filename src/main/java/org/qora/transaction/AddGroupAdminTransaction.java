@@ -121,8 +121,7 @@ public class AddGroupAdminTransaction extends Transaction {
 		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
 		group.promoteToAdmin(addGroupAdminTransactionData);
 
-		// Save this transaction
-		this.repository.getTransactionRepository().save(addGroupAdminTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update owner's balance
 		Account owner = getOwner();
@@ -138,8 +137,7 @@ public class AddGroupAdminTransaction extends Transaction {
 		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
 		group.unpromoteToAdmin(addGroupAdminTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(addGroupAdminTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update owner's balance
 		Account owner = getOwner();

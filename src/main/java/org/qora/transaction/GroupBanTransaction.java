@@ -135,8 +135,8 @@ public class GroupBanTransaction extends Transaction {
 		Group group = new Group(this.repository, groupBanTransactionData.getGroupId());
 		group.unban(groupBanTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(groupBanTransactionData);
+		// Save this transaction with removed member/admin references
+		this.repository.getTransactionRepository().save(groupBanTransactionData);
 
 		// Update admin's balance
 		Account admin = getAdmin();

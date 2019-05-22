@@ -127,7 +127,7 @@ public class BuyNameTransaction extends Transaction {
 		Name name = new Name(this.repository, buyNameTransactionData.getName());
 		name.buy(buyNameTransactionData);
 
-		// Save this transaction, now with updated "name reference" to previous transaction that updated name
+		// Save transaction with updated "name reference" pointing to previous transaction that updated name
 		this.repository.getTransactionRepository().save(buyNameTransactionData);
 
 		// Update buyer's balance
@@ -144,8 +144,8 @@ public class BuyNameTransaction extends Transaction {
 		Name name = new Name(this.repository, buyNameTransactionData.getName());
 		name.unbuy(buyNameTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(buyNameTransactionData);
+		// Save this transaction, with removed "name reference"
+		this.repository.getTransactionRepository().save(buyNameTransactionData);
 
 		// Update buyer's balance
 		Account buyer = getBuyer();

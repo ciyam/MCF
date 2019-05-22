@@ -134,8 +134,8 @@ public class CancelGroupInviteTransaction extends Transaction {
 		Group group = new Group(this.repository, cancelGroupInviteTransactionData.getGroupId());
 		group.uncancelInvite(cancelGroupInviteTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(cancelGroupInviteTransactionData);
+		// Save this transaction with removed member/admin references
+		this.repository.getTransactionRepository().save(cancelGroupInviteTransactionData);
 
 		// Update admin's balance
 		Account admin = getAdmin();

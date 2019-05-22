@@ -216,8 +216,7 @@ public class DeployAtTransaction extends Transaction {
 		AT at = new AT(this.repository, this.deployATTransactionData);
 		at.deploy();
 
-		// Save this transaction itself
-		this.repository.getTransactionRepository().save(this.transactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		long assetId = deployATTransactionData.getAssetId();
 
@@ -243,8 +242,7 @@ public class DeployAtTransaction extends Transaction {
 		AT at = new AT(this.repository, this.deployATTransactionData);
 		at.undeploy();
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(deployATTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		long assetId = deployATTransactionData.getAssetId();
 

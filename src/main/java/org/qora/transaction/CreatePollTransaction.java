@@ -153,8 +153,7 @@ public class CreatePollTransaction extends Transaction {
 		Poll poll = new Poll(this.repository, createPollTransactionData);
 		poll.publish();
 
-		// Save this transaction, now with corresponding pollId
-		this.repository.getTransactionRepository().save(createPollTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update creator's balance
 		Account creator = getCreator();
@@ -170,8 +169,7 @@ public class CreatePollTransaction extends Transaction {
 		Poll poll = new Poll(this.repository, createPollTransactionData.getPollName());
 		poll.unpublish();
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(createPollTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update creator's balance
 		Account creator = getCreator();

@@ -156,6 +156,9 @@ public class Asset {
 
 		// Save reverted asset
 		this.repository.getAssetRepository().save(this.assetData);
+
+		// Remove reference to previous asset-changing transaction
+		updateAssetTransactionData.setOrphanReference(null);
 	}
 
 }

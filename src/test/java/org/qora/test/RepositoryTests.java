@@ -1,5 +1,6 @@
 package org.qora.test;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.Account;
 import org.qora.asset.Asset;
@@ -18,6 +19,11 @@ import org.apache.logging.log4j.Logger;
 public class RepositoryTests extends Common {
 
 	private static final Logger LOGGER = LogManager.getLogger(RepositoryTests.class);
+
+	@Before
+	public void beforeTest() throws DataException {
+		Common.useDefaultSettings();
+	}
 
 	@Test
 	public void testGetRepository() throws DataException {
@@ -44,7 +50,7 @@ public class RepositoryTests extends Common {
 
 	@Test
 	public void testAccessAfterClose() throws DataException {
-		try (Repository repository = RepositoryManager.getRepository()) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
 			assertNotNull(repository);
 
 			repository.close();
@@ -61,17 +67,15 @@ public class RepositoryTests extends Common {
 
 	@Test
 	public void testDeadlock() throws DataException {
-		Common.useDefaultSettings();
-
 		// Open connection 1
-		try (Repository repository1 = RepositoryManager.getRepository()) {
+		try (final Repository repository1 = RepositoryManager.getRepository()) {
 
 			// Do a database 'read'
 			Account account1 = Common.getTestAccount(repository1, "alice");
 			account1.getLastReference();
 
 			// Open connection 2
-			try (Repository repository2 = RepositoryManager.getRepository()) {
+			try (final Repository repository2 = RepositoryManager.getRepository()) {
 				// Update account in 2
 				Account account2 = Common.getTestAccount(repository2, "alice");
 				account2.setConfirmedBalance(Asset.QORA, BigDecimal.valueOf(1234L));

@@ -99,14 +99,9 @@ public class Peer implements Runnable {
 		this.versionMessage = versionMessage;
 
 		if (this.versionMessage.getVersionString().startsWith(Controller.VERSION_PREFIX)) {
-			int index = Controller.VERSION_PREFIX.length();
-			try {
-				this.version = Integer.parseInt(this.versionMessage.getVersionString().substring(index, index + 1));
-			} catch (NumberFormatException e) {
-				this.version = 1;
-			}
+			this.version = 2; // enhanced protocol
 		} else {
-			this.version = 1;
+			this.version = 1; // legacy protocol
 		}
 	}
 

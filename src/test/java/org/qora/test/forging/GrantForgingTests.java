@@ -22,7 +22,6 @@ import org.qora.transaction.Transaction.ValidationResult;
 
 public class GrantForgingTests extends Common {
 
-
 	@Before
 	public void beforeTest() throws DataException {
 		Common.useDefaultSettings();

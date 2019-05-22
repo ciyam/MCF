@@ -120,8 +120,8 @@ public class LeaveGroupTransaction extends Transaction {
 		Group group = new Group(this.repository, leaveGroupTransactionData.getGroupId());
 		group.unleave(leaveGroupTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(leaveGroupTransactionData);
+		// Save this transaction with removed member/admin references
+		this.repository.getTransactionRepository().save(leaveGroupTransactionData);
 
 		// Update leaver's balance
 		Account leaver = getLeaver();
