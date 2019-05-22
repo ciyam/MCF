@@ -1,6 +1,8 @@
 package org.qora.controller;
 
 import java.math.BigInteger;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -148,6 +150,8 @@ public class Synchronizer {
 							// If our blockchain has a lower distance then don't synchronize with peer
 							if (ourBlockchainValue.compareTo(peerBlockchainValue) <= 0) {
 								LOGGER.info(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
+								NumberFormat formatter = new DecimalFormat("0.###E0");
+								LOGGER.debug(String.format("Our distance: %s, peer's distance: %s (lower is better)", formatter.format(ourBlockchainValue), formatter.format(peerBlockchainValue)));
 								return SynchronizationResult.INFERIOR_CHAIN;
 							}
 						}
