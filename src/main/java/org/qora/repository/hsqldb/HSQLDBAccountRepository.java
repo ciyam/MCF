@@ -353,6 +353,15 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public boolean isProxyPublicKey(byte[] publicKey) throws DataException {
+		try {
+			return this.repository.exists("ProxyForgers", "proxy_public_key = ?", publicKey);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for proxy public key in repository", e);
+		}
+	}
+
+	@Override
 	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		String sql = "SELECT forger, recipient, share, proxy_public_key FROM ProxyForgers ";
 		List<Object> args = new ArrayList<>();

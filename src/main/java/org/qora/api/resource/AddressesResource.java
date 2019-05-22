@@ -338,11 +338,10 @@ public class AddressesResource {
 			if (generatorKey.length != Transformer.PRIVATE_KEY_LENGTH || recipientKey.length != Transformer.PRIVATE_KEY_LENGTH)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 			PrivateKeyAccount generator = new PrivateKeyAccount(null, generatorKey);
-			byte[] sharedSecret = generator.getSharedSecret(recipientKey);
 
-			byte[] proxySeed = Crypto.digest(sharedSecret);
+			byte[] proxyPrivateKey = generator.getProxyPrivateKey(recipientKey);
 
-			return Base58.encode(proxySeed);
+			return Base58.encode(proxyPrivateKey);
 		} catch (NumberFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
 		}

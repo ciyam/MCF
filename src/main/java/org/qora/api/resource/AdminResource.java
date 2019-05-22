@@ -32,6 +32,7 @@ import javax.ws.rs.core.MediaType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
+import org.qora.account.Forging;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
@@ -238,8 +239,13 @@ public class AdminResource {
 	public String addForgingAccount(String seed58) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] seed = Base58.decode(seed58.trim());
+
 			// Check seed is valid
-			new PrivateKeyAccount(null, seed);
+			PrivateKeyAccount forgingAccount = new PrivateKeyAccount(repository, seed);
+
+			// Account must derive to known proxy forging public key or have minting flag set
+			if (!Forging.canForge(forgingAccount) && !repository.getAccountRepository().isProxyPublicKey(forgingAccount.getPublicKey()))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
 			ForgingAccountData forgingAccountData = new ForgingAccountData(seed);
 
