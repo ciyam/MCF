@@ -113,6 +113,9 @@ public class Name {
 
 		// Save reverted name data
 		this.repository.getNameRepository().save(this.nameData);
+
+		// Remove reference to previous name-changing transaction
+		updateNameTransactionData.setNameReference(null);
 	}
 
 	public void sell(SellNameTransactionData sellNameTransactionData) throws DataException {
@@ -133,7 +136,7 @@ public class Name {
 		this.repository.getNameRepository().save(this.nameData);
 	}
 
-	public void sell(CancelSellNameTransactionData cancelSellNameTransactionData) throws DataException {
+	public void cancelSell(CancelSellNameTransactionData cancelSellNameTransactionData) throws DataException {
 		// Mark not for-sale but leave price in case we want to orphan
 		this.nameData.setIsForSale(false);
 
@@ -141,7 +144,7 @@ public class Name {
 		this.repository.getNameRepository().save(this.nameData);
 	}
 
-	public void unsell(CancelSellNameTransactionData cancelSellNameTransactionData) throws DataException {
+	public void uncancelSell(CancelSellNameTransactionData cancelSellNameTransactionData) throws DataException {
 		// Mark as for-sale using existing price
 		this.nameData.setIsForSale(true);
 
@@ -179,6 +182,9 @@ public class Name {
 
 		// Previous name reference is taken from this transaction's cached copy
 		this.nameData.setReference(buyNameTransactionData.getNameReference());
+
+		// Remove reference in transaction data
+		buyNameTransactionData.setNameReference(null);
 
 		// Revert buyer's balance
 		Account buyer = new PublicKeyAccount(this.repository, buyNameTransactionData.getBuyerPublicKey());

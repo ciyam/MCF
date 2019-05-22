@@ -151,8 +151,8 @@ public class UpdateNameTransaction extends Transaction {
 		Name name = new Name(this.repository, updateNameTransactionData.getName());
 		name.revert(updateNameTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(updateNameTransactionData);
+		// Save this transaction, now with removed "name reference"
+		this.repository.getTransactionRepository().save(updateNameTransactionData);
 
 		// Update owner's balance
 		Account owner = getOwner();

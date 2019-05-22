@@ -318,6 +318,10 @@ public class GenesisBlock extends Block {
 			this.repository.rollbackToSavepoint();
 		}
 
+		// Save transactions into repository ready for processing
+		for (Transaction transaction : this.getTransactions())
+			this.repository.getTransactionRepository().save(transaction.getTransactionData());
+
 		super.process();
 	}
 

@@ -163,8 +163,9 @@ public class ProxyForgingTransaction extends Transaction {
 			this.repository.getAccountRepository().delete(forger.getPublicKey(), proxyForgingTransactionData.getRecipient());
 		}
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(proxyForgingTransactionData);
+		// Save this transaction, with removed previous share info
+		proxyForgingTransactionData.setPreviousShare(null);
+		this.repository.getTransactionRepository().save(proxyForgingTransactionData);
 
 		// Update forger's balance
 		forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).add(proxyForgingTransactionData.getFee()));

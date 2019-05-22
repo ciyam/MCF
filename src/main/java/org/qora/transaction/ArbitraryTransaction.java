@@ -115,14 +115,7 @@ public class ArbitraryTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		/*
-		 * Save the transaction.
-		 * 
-		 * We might have either raw data or only a hash of data, depending on content filtering.
-		 * If we have raw data then the repository save will store the raw data somewhere and save the data's hash in the repository.
-		 * This also modifies the passed transactionData.
-		 */
-		this.repository.getTransactionRepository().save(this.transactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Wrap and delegate payment processing to Payment class. Always update recipients' last references regardless of asset.
 		new Payment(this.repository).process(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
@@ -131,16 +124,11 @@ public class ArbitraryTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		/*
-		 * Delete the transaction.
-		 * 
-		 * The repository will also remove the stored raw data, if present.
-		 */
-		this.repository.getTransactionRepository().delete(this.transactionData);
-
 		// Wrap and delegate payment processing to Payment class. Always revert recipients' last references regardless of asset.
 		new Payment(this.repository).orphan(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
 				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference(), true);
+
+		// We would save transaction in orphaned form at this point, but it hasn't been modified
 	}
 
 	// Data access

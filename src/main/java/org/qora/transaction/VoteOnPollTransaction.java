@@ -177,8 +177,9 @@ public class VoteOnPollTransaction extends Transaction {
 			votingRepository.delete(voteOnPollTransactionData.getPollName(), voteOnPollTransactionData.getVoterPublicKey());
 		}
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(voteOnPollTransactionData);
+		// Save this transaction, with removed previous vote info
+		voteOnPollTransactionData.setPreviousOptionIndex(null);
+		this.repository.getTransactionRepository().save(voteOnPollTransactionData);
 	}
 
 }

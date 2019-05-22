@@ -159,8 +159,7 @@ public class AtTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// Save this transaction itself
-		this.repository.getTransactionRepository().save(this.transactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		if (this.atTransactionData.getAmount() != null) {
 			Account sender = getATAccount();
@@ -185,9 +184,6 @@ public class AtTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Delete this transaction
-		this.repository.getTransactionRepository().delete(this.transactionData);
-
 		if (this.atTransactionData.getAmount() != null) {
 			Account sender = getATAccount();
 			Account recipient = getRecipient();
@@ -208,6 +204,10 @@ public class AtTransaction extends Transaction {
 			if (assetId == Asset.QORA && Arrays.equals(recipient.getLastReference(), this.atTransactionData.getSignature()))
 				recipient.setLastReference(null);
 		}
+
+		// We would save updated transaction at this point, but it hasn't been modified
+
+		// As AT_TRANSACTIONs are really part of a block, the caller (Block) will probably delete this transaction after orphaning
 	}
 
 }

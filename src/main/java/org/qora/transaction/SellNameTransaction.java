@@ -118,12 +118,11 @@ public class SellNameTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// Update Name
+		// Sell Name
 		Name name = new Name(this.repository, sellNameTransactionData.getName());
 		name.sell(sellNameTransactionData);
 
-		// Save this transaction, now with updated "name reference" to previous transaction that updated name
-		this.repository.getTransactionRepository().save(sellNameTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update owner's balance
 		Account owner = getOwner();
@@ -139,8 +138,7 @@ public class SellNameTransaction extends Transaction {
 		Name name = new Name(this.repository, sellNameTransactionData.getName());
 		name.unsell(sellNameTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(sellNameTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update owner's balance
 		Account owner = getOwner();

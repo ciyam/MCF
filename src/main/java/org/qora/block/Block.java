@@ -34,6 +34,7 @@ import org.qora.repository.Repository;
 import org.qora.transaction.AtTransaction;
 import org.qora.transaction.GenesisTransaction;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.transform.block.BlockTransformer;
 import org.qora.transform.transaction.TransactionTransformer;
@@ -1045,10 +1046,15 @@ public class Block {
 		processBlockRewards();
 
 		// Process transactions (we'll link them to this block after saving the block itself)
-		// AT-generated transactions are already added to our transactions so no special handling is needed here.
+		// AT-generated transactions are already prepended to our transactions at this point.
 		List<Transaction> transactions = this.getTransactions();
-		for (Transaction transaction : transactions)
+		for (Transaction transaction : transactions) {
+			// AT_TRANSACTIONs are created locally and need saving into repository before processing
+			if (transaction.getTransactionData().getType() == TransactionType.AT)
+				this.repository.getTransactionRepository().save(transaction.getTransactionData());
+
 			transaction.process();
+		}
 
 		// Give transaction fees to generator/proxy
 		rewardTransactionFees();
@@ -1158,9 +1164,11 @@ public class Block {
 					transaction.getTransactionData().getSignature());
 			this.repository.getBlockRepository().delete(blockTransactionData);
 
-			// Add to unconfirmed pile
-			// XXX WE CAN'T ADD TO UNCONFIRMED AS TRANSACTION HAS BEEN DELETED BY transaction.orphan() ABOVE
-			// this.repository.getTransactionRepository().unconfirmTransaction(transaction.getTransactionData());
+			// Add to unconfirmed pile, or delete if AT_TRANSACTION
+			if (transaction.getTransactionData().getType() == TransactionType.AT)
+				this.repository.getTransactionRepository().delete(transaction.getTransactionData());
+			else
+				this.repository.getTransactionRepository().unconfirmTransaction(transaction.getTransactionData());
 
 			this.repository.getTransactionRepository().deleteParticipants(transaction.getTransactionData());
 		}

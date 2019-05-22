@@ -170,8 +170,11 @@ public class IssueAssetTransaction extends Transaction {
 		Asset asset = new Asset(this.repository, issueAssetTransactionData.getAssetId());
 		asset.deissue();
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(issueAssetTransactionData);
+		// Remove assigned asset ID from transaction info
+		issueAssetTransactionData.setAssetId(null);
+
+		// Save this transaction, with removed assetId
+		this.repository.getTransactionRepository().save(issueAssetTransactionData);
 
 		// Update issuer's balance
 		Account issuer = getIssuer();

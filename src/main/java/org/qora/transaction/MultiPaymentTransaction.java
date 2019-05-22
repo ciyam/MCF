@@ -116,8 +116,7 @@ public class MultiPaymentTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// Save this transaction itself
-		this.repository.getTransactionRepository().save(this.transactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Wrap and delegate payment processing to Payment class. Always update recipients' last references regardless of asset.
 		new Payment(this.repository).process(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
@@ -126,12 +125,11 @@ public class MultiPaymentTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(this.transactionData);
-
 		// Wrap and delegate payment processing to Payment class. Always revert recipients' last references regardless of asset.
 		new Payment(this.repository).orphan(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
 				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), multiPaymentTransactionData.getReference(), true);
+
+		// We would save updated transaction at this point, but it hasn't been modified
 	}
 
 }

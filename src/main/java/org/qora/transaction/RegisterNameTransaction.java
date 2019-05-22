@@ -125,8 +125,7 @@ public class RegisterNameTransaction extends Transaction {
 		Name name = new Name(this.repository, registerNameTransactionData);
 		name.register();
 
-		// Save this transaction
-		this.repository.getTransactionRepository().save(registerNameTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update registrant's balance
 		Account registrant = getRegistrant();
@@ -142,8 +141,7 @@ public class RegisterNameTransaction extends Transaction {
 		Name name = new Name(this.repository, registerNameTransactionData.getName());
 		name.unregister();
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(registerNameTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update registrant's balance
 		Account registrant = getRegistrant();

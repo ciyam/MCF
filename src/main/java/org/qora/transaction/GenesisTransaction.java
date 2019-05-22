@@ -136,8 +136,7 @@ public class GenesisTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// Save this transaction itself
-		this.repository.getTransactionRepository().save(this.transactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
 
@@ -150,8 +149,7 @@ public class GenesisTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Delete this transaction
-		this.repository.getTransactionRepository().delete(this.transactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Delete recipient's account (and balance)
 		this.repository.getAccountRepository().delete(genesisTransactionData.getRecipient());

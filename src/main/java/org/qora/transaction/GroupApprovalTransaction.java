@@ -115,10 +115,9 @@ public class GroupApprovalTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Revert?
-
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(groupApprovalTransactionData);
+		// Save this transaction with removed prior reference
+		groupApprovalTransactionData.setPriorReference(null);
+		this.repository.getTransactionRepository().save(groupApprovalTransactionData);
 
 		// Update admin's balance
 		Account admin = getAdmin();

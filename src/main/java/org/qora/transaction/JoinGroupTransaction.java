@@ -104,7 +104,7 @@ public class JoinGroupTransaction extends Transaction {
 		Group group = new Group(this.repository, joinGroupTransactionData.getGroupId());
 		group.join(joinGroupTransactionData);
 
-		// Save this transaction
+		// Save this transaction with cached references to transactions that can help restore state
 		this.repository.getTransactionRepository().save(joinGroupTransactionData);
 
 		// Update joiner's balance
@@ -122,8 +122,8 @@ public class JoinGroupTransaction extends Transaction {
 		Group group = new Group(this.repository, joinGroupTransactionData.getGroupId());
 		group.unjoin(joinGroupTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(joinGroupTransactionData);
+		// Save this transaction with removed references
+		this.repository.getTransactionRepository().save(joinGroupTransactionData);
 
 		// Update joiner's balance
 		Account joiner = getJoiner();

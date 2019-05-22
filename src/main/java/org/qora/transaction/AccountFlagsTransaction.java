@@ -129,8 +129,9 @@ public class AccountFlagsTransaction extends Transaction {
 		else
 			target.setFlags(previousFlags);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(accountFlagsTransactionData);
+		// Remove previous flags from transaction itself
+		accountFlagsTransactionData.setPreviousFlags(null);
+		this.repository.getTransactionRepository().save(accountFlagsTransactionData);
 
 		Account creator = getCreator();
 
