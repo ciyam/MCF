@@ -96,12 +96,11 @@ public class ProxyForgingTransaction extends Transaction {
 		if (!Crypto.isValidAddress(recipient.getAddress()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		/* Not needed?
-		// Check recipient has known public key
-		AccountData recipientData = this.repository.getAccountRepository().getAccount(recipient.getAddress());
-		if (recipientData == null || recipientData.getPublicKey() == null)
-			return ValidationResult.PUBLIC_KEY_UNKNOWN;
-		*/
+		// If proxy public key aleady exists in repository, then it must be for the same forger-recipient combo
+		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.proxyForgingTransactionData.getProxyPublicKey());
+		if (proxyForgerData != null)
+			if (!proxyForgerData.getRecipient().equals(recipient.getAddress()) || !Arrays.equals(proxyForgerData.getForgerPublicKey(), creator.getPublicKey()))
+				return ValidationResult.INVALID_PUBLIC_KEY;
 
 		// Check fee is positive
 		if (proxyForgingTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
