@@ -139,8 +139,11 @@ public class CreateGroupTransaction extends Transaction {
 		Group group = new Group(this.repository, createGroupTransactionData.getGroupId());
 		group.uncreate();
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(createGroupTransactionData);
+		// Remove assigned group ID from transaction record
+		createGroupTransactionData.setGroupId(null);
+
+		// Save this transaction with removed group ID
+		this.repository.getTransactionRepository().save(createGroupTransactionData);
 
 		// Update creator's balance
 		Account creator = getCreator();

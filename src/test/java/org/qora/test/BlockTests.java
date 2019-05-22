@@ -3,22 +3,36 @@ package org.qora.test;
 import java.math.BigDecimal;
 import java.util.List;
 
+import org.junit.Before;
 import org.junit.Test;
+import org.qora.account.PrivateKeyAccount;
 import org.qora.block.Block;
+import org.qora.block.BlockGenerator;
 import org.qora.block.GenesisBlock;
+import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.test.common.Common;
+import org.qora.test.common.TransactionUtils;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.transform.block.BlockTransformer;
+import org.qora.transform.transaction.TransactionTransformer;
+import org.qora.utils.Base58;
+import org.qora.utils.Triple;
 
 import static org.junit.Assert.*;
 
 public class BlockTests extends Common {
+
+	@Before
+	public void beforeTest() throws DataException {
+		Common.useDefaultSettings();
+	}
 
 	@Test
 	public void testGenesisBlockTransactions() throws DataException {
@@ -33,20 +47,24 @@ public class BlockTests extends Common {
 			List<Transaction> transactions = block.getTransactions();
 			assertNotNull(transactions);
 
+			byte[] lastGenesisSignature = null;
 			for (Transaction transaction : transactions) {
 				assertNotNull(transaction);
 
 				TransactionData transactionData = transaction.getTransactionData();
 
-				assertEquals(Transaction.TransactionType.GENESIS, transactionData.getType());
+				if (transactionData.getType() != Transaction.TransactionType.GENESIS)
+					continue;
+
 				assertTrue(transactionData.getFee().compareTo(BigDecimal.ZERO) == 0);
-				assertNull(transactionData.getReference());
 				assertTrue(transaction.isSignatureValid());
 				assertEquals(Transaction.ValidationResult.OK, transaction.isValid());
+
+				lastGenesisSignature = transactionData.getSignature();
 			}
 
-			// Attempt to load first transaction directly from database
-			TransactionData transactionData = repository.getTransactionRepository().fromSignature(transactions.get(0).getTransactionData().getSignature());
+			// Attempt to load last GENESIS transaction directly from database
+			TransactionData transactionData = repository.getTransactionRepository().fromSignature(lastGenesisSignature);
 			assertNotNull(transactionData);
 
 			assertEquals(Transaction.TransactionType.GENESIS, transactionData.getType());
@@ -62,60 +80,58 @@ public class BlockTests extends Common {
 	}
 
 	@Test
-	public void testBlockPaymentTransactions() throws DataException {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Block 949 has lots of varied transactions
-			// Blocks 390 & 754 have only payment transactions
-			BlockData blockData = repository.getBlockRepository().fromHeight(754);
-			assertNotNull("Block 754 is required for this test", blockData);
-
-			Block block = new Block(repository, blockData);
-			assertTrue(block.isSignatureValid());
-
-			List<Transaction> transactions = block.getTransactions();
-			assertNotNull(transactions);
-
-			for (Transaction transaction : transactions) {
-				assertNotNull(transaction);
-
-				TransactionData transactionData = transaction.getTransactionData();
-
-				assertEquals(Transaction.TransactionType.PAYMENT, transactionData.getType());
-				assertFalse(transactionData.getFee().compareTo(BigDecimal.ZERO) == 0);
-				assertNotNull(transactionData.getReference());
-
-				assertTrue(transaction.isSignatureValid());
-			}
-
-			// Attempt to load first transaction directly from database
-			TransactionData transactionData = repository.getTransactionRepository().fromSignature(transactions.get(0).getTransactionData().getSignature());
-			assertNotNull(transactionData);
-
-			assertEquals(Transaction.TransactionType.PAYMENT, transactionData.getType());
-			assertFalse(transactionData.getFee().compareTo(BigDecimal.ZERO) == 0);
-			assertNotNull(transactionData.getReference());
-
-			Transaction transaction = Transaction.fromData(repository, transactionData);
-			assertNotNull(transaction);
-
-			assertTrue(transaction.isSignatureValid());
-		}
-	}
-
-	@Test
 	public void testBlockSerialization() throws DataException, TransformationException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			// Block 949 has lots of varied transactions
-			// Blocks 390 & 754 have only payment transactions
-			BlockData blockData = repository.getBlockRepository().fromHeight(754);
-			assertNotNull("Block 754 is required for this test", blockData);
+			PrivateKeyAccount signingAccount = Common.getTestAccount(repository, "alice");
 
+			// TODO: Fill block with random, valid transactions of every type (except GENESIS or AT)
+			for (Transaction.TransactionType txType : Transaction.TransactionType.values()) {
+				if (txType == TransactionType.GENESIS || txType == TransactionType.AT)
+					continue;
+
+				TransactionData transactionData = TransactionUtils.randomTransaction(repository, signingAccount, txType, true);
+				Transaction transaction = Transaction.fromData(repository, transactionData);
+				transaction.sign(signingAccount);
+
+				repository.getTransactionRepository().save(transactionData);
+				repository.getTransactionRepository().unconfirmTransaction(transactionData);
+				repository.saveChanges();
+
+				// TODO: more transactions
+				break;
+			}
+
+			// We might need to wait until transactions' timestamps are valid for the block we're about to generate
+			try {
+				Thread.sleep(1L);
+			} catch (InterruptedException e) {
+			}
+
+			BlockGenerator.generateTestingBlock(repository, signingAccount);
+
+			BlockData blockData = repository.getBlockRepository().getLastBlock();
 			Block block = new Block(repository, blockData);
 			assertTrue(block.isSignatureValid());
 
 			byte[] bytes = BlockTransformer.toBytes(block);
 
 			assertEquals(BlockTransformer.getDataLength(block), bytes.length);
+
+			Triple<BlockData, List<TransactionData>, List<ATStateData>> blockInfo = BlockTransformer.fromBytes(bytes);
+
+			// Compare transactions
+			List<TransactionData> deserializedTransactions = blockInfo.getB();
+			assertEquals("Transaction count differs", blockData.getTransactionCount(), deserializedTransactions.size());
+
+			for (int i = 0; i < blockData.getTransactionCount(); ++i) {
+				TransactionData deserializedTransactionData = deserializedTransactions.get(i);
+				Transaction originalTransaction = block.getTransactions().get(i);
+				TransactionData originalTransactionData = originalTransaction.getTransactionData();
+
+				assertEquals("Transaction signature differs", Base58.encode(originalTransactionData.getSignature()), Base58.encode(deserializedTransactionData.getSignature()));
+				assertEquals("Transaction declared length differs", TransactionTransformer.getDataLength(originalTransactionData), TransactionTransformer.getDataLength(deserializedTransactionData));
+				assertEquals("Transaction serialized length differs", TransactionTransformer.toBytes(originalTransactionData).length, TransactionTransformer.toBytes(deserializedTransactionData).length);
+			}
 		}
 	}
 

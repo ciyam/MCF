@@ -149,8 +149,8 @@ public class UpdateGroupTransaction extends Transaction {
 		Group group = new Group(this.repository, updateGroupTransactionData.getGroupId());
 		group.unupdateGroup(updateGroupTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(updateGroupTransactionData);
+		// Save this transaction, now with removed "group reference"
+		this.repository.getTransactionRepository().save(updateGroupTransactionData);
 
 		// Update owner's balance
 		Account owner = getOwner();

@@ -65,7 +65,7 @@ public class SetGroupTransactionData extends TransactionData {
 		return this.previousDefaultGroupId;
 	}
 
-	public void setPreviousDefaultGroupId(int previousDefaultGroupId) {
+	public void setPreviousDefaultGroupId(Integer previousDefaultGroupId) {
 		this.previousDefaultGroupId = previousDefaultGroupId;
 	}
 

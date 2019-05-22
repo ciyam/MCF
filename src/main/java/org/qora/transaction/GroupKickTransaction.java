@@ -141,8 +141,8 @@ public class GroupKickTransaction extends Transaction {
 		Group group = new Group(this.repository, groupKickTransactionData.getGroupId());
 		group.unkick(groupKickTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(groupKickTransactionData);
+		// Save this transaction with removed member/admin references
+		this.repository.getTransactionRepository().save(groupKickTransactionData);
 
 		// Update admin's balance
 		Account admin = getAdmin();

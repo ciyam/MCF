@@ -117,7 +117,7 @@ public class RemoveGroupAdminTransaction extends Transaction {
 		Group group = new Group(this.repository, removeGroupAdminTransactionData.getGroupId());
 		group.demoteFromAdmin(removeGroupAdminTransactionData);
 
-		// Save this transaction
+		// Save this transaction with cached references to transactions that can help restore state
 		this.repository.getTransactionRepository().save(removeGroupAdminTransactionData);
 
 		// Update owner's balance
@@ -134,8 +134,8 @@ public class RemoveGroupAdminTransaction extends Transaction {
 		Group group = new Group(this.repository, removeGroupAdminTransactionData.getGroupId());
 		group.undemoteFromAdmin(removeGroupAdminTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(removeGroupAdminTransactionData);
+		// Save this transaction with removed group references
+		this.repository.getTransactionRepository().save(removeGroupAdminTransactionData);
 
 		// Update owner's balance
 		Account owner = getOwner();

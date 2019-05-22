@@ -88,8 +88,7 @@ public class PaymentTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// Save this transaction itself
-		this.repository.getTransactionRepository().save(this.transactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Wrap and delegate payment processing to Payment class. Only update recipient's last reference if transferring QORA.
 		new Payment(this.repository).process(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
@@ -98,12 +97,11 @@ public class PaymentTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Delete this transaction
-		this.repository.getTransactionRepository().delete(this.transactionData);
-
 		// Wrap and delegate payment processing to Payment class. Only revert recipient's last reference if transferring QORA.
 		new Payment(this.repository).orphan(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
 				paymentTransactionData.getSignature(), paymentTransactionData.getReference(), false);
+
+		// We would save updated transaction at this point, but it hasn't been modified
 	}
 
 }

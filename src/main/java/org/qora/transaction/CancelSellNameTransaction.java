@@ -112,9 +112,9 @@ public class CancelSellNameTransaction extends Transaction {
 	public void process() throws DataException {
 		// Update Name
 		Name name = new Name(this.repository, cancelSellNameTransactionData.getName());
-		name.sell(cancelSellNameTransactionData);
+		name.cancelSell(cancelSellNameTransactionData);
 
-		// Save this transaction, now with updated "name reference" to previous transaction that updated name
+		// Save this transaction, with updated "name reference" to previous transaction that updated name
 		this.repository.getTransactionRepository().save(cancelSellNameTransactionData);
 
 		// Update owner's balance
@@ -129,10 +129,10 @@ public class CancelSellNameTransaction extends Transaction {
 	public void orphan() throws DataException {
 		// Revert name
 		Name name = new Name(this.repository, cancelSellNameTransactionData.getName());
-		name.unsell(cancelSellNameTransactionData);
+		name.uncancelSell(cancelSellNameTransactionData);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(cancelSellNameTransactionData);
+		// Save this transaction, with removed "name reference"
+		this.repository.getTransactionRepository().save(cancelSellNameTransactionData);
 
 		// Update owner's balance
 		Account owner = getOwner();

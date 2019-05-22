@@ -34,6 +34,7 @@ import org.qora.network.message.GetBlockMessage;
 import org.qora.network.message.GetBlockSummariesMessage;
 import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.GetSignaturesMessage;
+import org.qora.network.message.GetSignaturesV2Message;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.Message;
 import org.qora.network.message.SignaturesMessage;
@@ -166,6 +167,7 @@ public class Controller extends Thread {
 		LOGGER.info("Validating blockchain");
 		try {
 			BlockChain.validate();
+			LOGGER.info(String.format("Our chain height at start-up: %d", getInstance().getChainHeight()));
 		} catch (DataException e) {
 			LOGGER.error("Couldn't validate blockchain", e);
 			System.exit(2);
@@ -406,6 +408,32 @@ public class Controller extends Thread {
 						parentSignature = blockData.getSignature();
 						signatures.add(parentSignature);
 					} while (signatures.size() < Network.MAX_SIGNATURES_PER_REPLY);
+
+					Message signaturesMessage = new SignaturesMessage(signatures);
+					signaturesMessage.setId(message.getId());
+					if (!peer.sendMessage(signaturesMessage))
+						peer.disconnect();
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while responding to %s from peer %s", message.getType().name(), peer), e);
+				}
+				break;
+
+			case GET_SIGNATURES_V2:
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					GetSignaturesV2Message getSignaturesMessage = (GetSignaturesV2Message) message;
+					byte[] parentSignature = getSignaturesMessage.getParentSignature();
+
+					List<byte[]> signatures = new ArrayList<>();
+
+					do {
+						BlockData blockData = repository.getBlockRepository().fromReference(parentSignature);
+
+						if (blockData == null)
+							break;
+
+						parentSignature = blockData.getSignature();
+						signatures.add(parentSignature);
+					} while (signatures.size() < getSignaturesMessage.getNumberRequested());
 
 					Message signaturesMessage = new SignaturesMessage(signatures);
 					signaturesMessage.setId(message.getId());

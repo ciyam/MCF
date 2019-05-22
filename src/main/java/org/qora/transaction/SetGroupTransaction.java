@@ -119,8 +119,9 @@ public class SetGroupTransaction extends Transaction {
 
 		creator.setDefaultGroupId(previousDefaultGroupId);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(setGroupTransactionData);
+		// Save this transaction with removed previous defaultGroupId value
+		setGroupTransactionData.setPreviousDefaultGroupId(null);
+		this.repository.getTransactionRepository().save(setGroupTransactionData);
 
 		// Update creator's balance
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(setGroupTransactionData.getFee()));

@@ -152,8 +152,7 @@ public class EnableForgingTransaction extends Transaction {
 		target.setFlags(targetFlags);
 		target.setForgingEnabler(creator.getAddress());
 
-		// Save this transaction
-		this.repository.getTransactionRepository().save(enableForgingTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update creator's balance
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(enableForgingTransactionData.getFee()));
@@ -182,8 +181,7 @@ public class EnableForgingTransaction extends Transaction {
 		target.setFlags(targetFlags);
 		target.setForgingEnabler(null);
 
-		// Delete this transaction itself
-		this.repository.getTransactionRepository().delete(enableForgingTransactionData);
+		// We would save updated transaction at this point, but it hasn't been modified
 
 		// Update creator's balance
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(enableForgingTransactionData.getFee()));

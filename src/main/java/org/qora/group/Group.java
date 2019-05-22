@@ -361,6 +361,9 @@ public class Group {
 			if (Arrays.equals(groupMemberData.getReference(), updateGroupTransactionData.getSignature()))
 				this.deleteMember(newOwner);
 		}
+
+		// Remove cached reference to previous group change from transaction data
+		updateGroupTransactionData.setGroupReference(null);
 	}
 
 	/** Reverts groupData using previous values stored in referenced transaction. */
@@ -485,27 +488,27 @@ public class Group {
 		if (joinReference != null) {
 			// Rebuild join-request
 			this.rebuildJoinRequest(member, joinReference);
+		} else {
+			// Rebuild member entry using stored transaction reference
+			this.rebuildMember(member, groupKickTransactionData.getMemberReference());
 
-			return;
+			// Revert member's defaultGroupId if necessary
+			Integer previousDefaultGroupId = groupKickTransactionData.getPreviousGroupId();
+			if (previousDefaultGroupId != null) {
+				Account memberAccount = new Account(this.repository, member);
+				memberAccount.setDefaultGroupId(previousDefaultGroupId);
+			}
+
+			if (groupKickTransactionData.getAdminReference() != null)
+				// Rebuild admin entry using stored transaction reference
+				this.rebuildAdmin(member, groupKickTransactionData.getAdminReference());
 		}
-
-		// Rebuild member entry using stored transaction reference
-		this.rebuildMember(member, groupKickTransactionData.getMemberReference());
-
-		// Revert member's defaultGroupId if necessary
-		Integer previousDefaultGroupId = groupKickTransactionData.getPreviousGroupId();
-		if (previousDefaultGroupId != null) {
-			Account memberAccount = new Account(this.repository, member);
-			memberAccount.setDefaultGroupId(previousDefaultGroupId);
-		}
-
-		if (groupKickTransactionData.getAdminReference() != null)
-			// Rebuild admin entry using stored transaction reference
-			this.rebuildAdmin(member, groupKickTransactionData.getAdminReference());
 
 		// Clean cached references to transactions used to rebuild member/admin info
 		groupKickTransactionData.setMemberReference(null);
 		groupKickTransactionData.setAdminReference(null);
+		groupKickTransactionData.setJoinReference(null);
+		groupKickTransactionData.setPreviousGroupId(null);
 	}
 
 	public void ban(GroupBanTransactionData groupBanTransactionData) throws DataException {
@@ -622,6 +625,12 @@ public class Group {
 				}
 			}
 		}
+
+		// Remove any group-related references from transaction data
+		groupBanTransactionData.setMemberReference(null);
+		groupBanTransactionData.setAdminReference(null);
+		groupBanTransactionData.setJoinInviteReference(null);
+		groupBanTransactionData.setPreviousGroupId(null);
 	}
 
 	public void cancelBan(CancelGroupBanTransactionData groupUnbanTransactionData) throws DataException {
@@ -697,6 +706,10 @@ public class Group {
 
 		// Delete invite
 		this.deleteInvite(invitee);
+
+		// Clear cached references
+		groupInviteTransactionData.setJoinReference(null);
+		groupInviteTransactionData.setPreviousGroupId(null);
 	}
 
 	public void cancelInvite(CancelGroupInviteTransactionData cancelGroupInviteTransactionData) throws DataException {
@@ -769,27 +782,29 @@ public class Group {
 		if (inviteReference == null && !groupData.getIsOpen()) {
 			// Delete join request
 			this.deleteJoinRequest(joiner.getAddress());
+		} else {
+			// Any invite to rebuild?
+			if (inviteReference != null) {
+				// Rebuild invite using cache reference to invite transaction
+				TransactionData transactionData = this.repository.getTransactionRepository().fromSignature(inviteReference);
+				this.addInvite((GroupInviteTransactionData) transactionData);
 
-			return;
+				// Clear cached reference to invite transaction
+				joinGroupTransactionData.setInviteReference(null);
+			}
+
+			// Delete member
+			this.deleteMember(joiner.getAddress());
+
+			// Revert joiner's defaultGroupId if necessary
+			Integer previousDefaultGroupId = joinGroupTransactionData.getPreviousGroupId();
+			if (previousDefaultGroupId != null)
+				joiner.setDefaultGroupId(previousDefaultGroupId);
 		}
 
-		// Any invite to rebuild?
-		if (inviteReference != null) {
-			// Rebuild invite using cache reference to invite transaction
-			TransactionData transactionData = this.repository.getTransactionRepository().fromSignature(inviteReference);
-			this.addInvite((GroupInviteTransactionData) transactionData);
-
-			// Clear cached reference to invite transaction
-			joinGroupTransactionData.setInviteReference(null);
-		}
-
-		// Delete member
-		this.deleteMember(joiner.getAddress());
-
-		// Revert joiner's defaultGroupId if necessary
-		Integer previousDefaultGroupId = joinGroupTransactionData.getPreviousGroupId();
-		if (previousDefaultGroupId != null)
-			joiner.setDefaultGroupId(previousDefaultGroupId);
+		// Clear cached references
+		joinGroupTransactionData.setInviteReference(null);
+		joinGroupTransactionData.setPreviousGroupId(null);
 	}
 
 	public void leave(LeaveGroupTransactionData leaveGroupTransactionData) throws DataException {
@@ -842,6 +857,11 @@ public class Group {
 		Integer previousDefaultGroupId = leaveGroupTransactionData.getPreviousGroupId();
 		if (previousDefaultGroupId != null)
 			leaver.setDefaultGroupId(previousDefaultGroupId);
+
+		// Clear cached references
+		leaveGroupTransactionData.setAdminReference(null);
+		leaveGroupTransactionData.setMemberReference(null);
+		leaveGroupTransactionData.setPreviousGroupId(null);
 	}
 
 }

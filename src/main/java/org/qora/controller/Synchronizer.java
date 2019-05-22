@@ -22,12 +22,14 @@ import org.qora.network.message.BlockSummariesMessage;
 import org.qora.network.message.GetBlockMessage;
 import org.qora.network.message.GetBlockSummariesMessage;
 import org.qora.network.message.GetSignaturesMessage;
+import org.qora.network.message.GetSignaturesV2Message;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
 import org.qora.network.message.SignaturesMessage;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.transaction.Transaction;
 
 public class Synchronizer {
 
@@ -175,10 +177,11 @@ public class Synchronizer {
 
 						// Fetch, and apply, blocks from peer
 						byte[] signature = commonBlockData.getSignature();
-						while (ourHeight < peerHeight && ourHeight < commonBlockHeight + SYNC_BATCH_SIZE) {
+						int maxBatchHeight = commonBlockHeight + SYNC_BATCH_SIZE;
+						while (ourHeight < peerHeight && ourHeight < maxBatchHeight) {
 							// Do we need more signatures?
 							if (signatures.isEmpty()) {
-								signatures = this.getBlockSignatures(peer, signature, MAXIMUM_BLOCK_STEP);
+								signatures = this.getBlockSignatures(peer, signature, maxBatchHeight - ourHeight);
 								if (signatures == null || signatures.isEmpty()) {
 									LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d", peer, ourHeight));
 									return SynchronizationResult.NO_REPLY;
@@ -206,6 +209,10 @@ public class Synchronizer {
 								LOGGER.info(String.format("Peer %s sent invalid block for height %d: %s", peer, ourHeight, blockResult.name()));
 								return SynchronizationResult.INVALID_DATA;
 							}
+
+							// Save transactions attached to this block
+							for (Transaction transaction : newBlock.getTransactions())
+								repository.getTransactionRepository().save(transaction.getTransactionData());
 
 							newBlock.process();
 
@@ -323,8 +330,9 @@ public class Synchronizer {
 	}
 
 	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) {
-		// TODO numberRequested is v2+ feature
-		Message getSignaturesMessage = new GetSignaturesMessage(parentSignature);
+		// numberRequested is v2+ feature
+		Message getSignaturesMessage = peer.getVersion() >= 2 ? new GetSignaturesV2Message(parentSignature, numberRequested) : new GetSignaturesMessage(parentSignature);
+		// Message getSignaturesMessage = new GetSignaturesMessage(parentSignature);
 
 		Message message = peer.getResponse(getSignaturesMessage);
 		if (message == null || message.getType() != MessageType.SIGNATURES)
