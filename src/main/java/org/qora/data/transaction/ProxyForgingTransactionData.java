@@ -16,10 +16,16 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(allOf = {TransactionData.class})
 public class ProxyForgingTransactionData extends TransactionData {
 
+	@Schema(example = "forger_public_key")
 	private byte[] forgerPublicKey;
+
 	private String recipient;
+
+	@Schema(example = "proxy_public_key")
 	private byte[] proxyPublicKey;
+
 	private BigDecimal share;
+
 	// No need to ever expose this via API
 	@XmlTransient
 	@Schema(hidden = true)

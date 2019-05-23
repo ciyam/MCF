@@ -49,7 +49,7 @@ public class UtilsResource {
 	HttpServletRequest request;
 
 	@POST
-	@Path("/fromBase64")
+	@Path("/frombase64")
 	@Operation(
 		summary = "Convert base64 data to hex",
 		requestBody = @RequestBody(
@@ -85,7 +85,7 @@ public class UtilsResource {
 	}
 
 	@POST
-	@Path("/fromBase58")
+	@Path("/frombase58")
 	@Operation(
 		summary = "Convert base58 data to hex",
 		requestBody = @RequestBody(
@@ -121,7 +121,7 @@ public class UtilsResource {
 	}
 
 	@GET
-	@Path("/toBase64/{hex}")
+	@Path("/tobase64/{hex}")
 	@Operation(
 		summary = "Convert hex to base64",
 		responses = {
@@ -144,7 +144,7 @@ public class UtilsResource {
 	}
 
 	@GET
-	@Path("/toBase58/{hex}")
+	@Path("/tobase58/{hex}")
 	@Operation(
 		summary = "Convert hex to base58",
 		responses = {
@@ -313,10 +313,19 @@ public class UtilsResource {
 		return Base58.encode(entropy);
 	}
 
-	@GET
-	@Path("/privateKey/{entropy}")
+	@POST
+	@Path("/privatekey")
 	@Operation(
 		summary = "Calculate private key from supplied 16-byte entropy",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string"
+				)
+			)
+		),
 		responses = {
 			@ApiResponse(
 				description = "private key in base58",
@@ -330,7 +339,7 @@ public class UtilsResource {
 		}
 	)
 	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
-	public String privateKey(@PathParam("entropy") String entropy58) {
+	public String privateKey(String entropy58) {
 		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
@@ -349,10 +358,19 @@ public class UtilsResource {
 		return Base58.encode(privateKey);
 	}
 
-	@GET
-	@Path("/publicKey/{privateKey}")
+	@POST
+	@Path("/publickey")
 	@Operation(
 		summary = "Calculate public key from supplied 32-byte private key",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string"
+				)
+			)
+		),
 		responses = {
 			@ApiResponse(
 				description = "public key in base58",
@@ -365,8 +383,8 @@ public class UtilsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA})
-	public String publicKey(@PathParam("privateKey") String privateKey58) {
+	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA, ApiError.INVALID_PRIVATE_KEY})
+	public String publicKey(String privateKey58) {
 		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
 
