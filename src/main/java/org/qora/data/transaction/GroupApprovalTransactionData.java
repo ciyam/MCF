@@ -27,7 +27,8 @@ public class GroupApprovalTransactionData extends TransactionData {
 	)
 	private byte[] adminPublicKey;
 	@Schema(
-		description = "transaction pending approval"
+		description = "transaction pending approval",
+		example = "transaction_signature"
 	)
 	private byte[] pendingSignature;
 	@Schema(

@@ -27,6 +27,7 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
+import org.qora.api.model.ProxyKeyRequest;
 import org.qora.api.resource.TransactionsResource;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
@@ -301,7 +302,7 @@ public class AddressesResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	public List<ProxyForgerData> getProxying(@QueryParam("proxiedFor") List<String> recipients,
 			@QueryParam("proxiedBy") List<String> forgers,
 			@Parameter(
@@ -321,30 +322,42 @@ public class AddressesResource {
 		}
 	}
 
-	@GET
-	@Path("/proxykey/{generatorprivatekey}/{recipientpublickey}")
+	@POST
+	@Path("/proxykey")
 	@Operation(
 		summary = "Calculate proxy private key",
+		description = "Calculates proxy private key using passed generator's private key and recipient's public key",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = ProxyKeyRequest.class
+				)
+			)
+		),
 		responses = {
 			@ApiResponse(
 				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
 			)
 		}
 	)
-	public String calculateProxyKey(@PathParam("generatorprivatekey") String generatorKey58, @PathParam("recipientpublickey") String recipientKey58) {
-		try {
-			byte[] generatorKey = Base58.decode(generatorKey58);
-			byte[] recipientKey = Base58.decode(recipientKey58);
-			if (generatorKey.length != Transformer.PRIVATE_KEY_LENGTH || recipientKey.length != Transformer.PRIVATE_KEY_LENGTH)
-				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
-			PrivateKeyAccount generator = new PrivateKeyAccount(null, generatorKey);
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.INVALID_PUBLIC_KEY, ApiError.REPOSITORY_ISSUE})
+	public String calculateProxyKey(ProxyKeyRequest proxyKeyRequest) {
+		byte[] generatorKey = proxyKeyRequest.generatorPrivateKey;
+		byte[] recipientKey = proxyKeyRequest.recipientPublicKey;
 
-			byte[] proxyPrivateKey = generator.getProxyPrivateKey(recipientKey);
+		if (generatorKey == null || generatorKey.length != Transformer.PRIVATE_KEY_LENGTH)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY);
 
-			return Base58.encode(proxyPrivateKey);
-		} catch (NumberFormatException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
-		}
+		if (recipientKey == null || recipientKey.length != Transformer.PUBLIC_KEY_LENGTH)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PUBLIC_KEY);
+
+		PrivateKeyAccount generator = new PrivateKeyAccount(null, generatorKey);
+
+		byte[] proxyPrivateKey = generator.getProxyPrivateKey(recipientKey);
+
+		return Base58.encode(proxyPrivateKey);
 	}
 
 	@POST

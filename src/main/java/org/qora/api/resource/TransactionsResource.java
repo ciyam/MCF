@@ -391,7 +391,7 @@ public class TransactionsResource {
 				schema = @Schema(
 					type = "string",
 					description = "raw, signed transaction in base58 encoding",
-					example = "base58"
+					example = "raw transaction base58"
 				)
 			)
 		),
@@ -447,7 +447,7 @@ public class TransactionsResource {
 	@POST
 	@Path("/decode")
 	@Operation(
-		summary = "Decode a raw, signed transaction",
+		summary = "Decode a raw, signed/unsigned transaction",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -455,7 +455,7 @@ public class TransactionsResource {
 				schema = @Schema(
 					type = "string",
 					description = "raw, unsigned/signed transaction in base58 encoding",
-					example = "base58"
+					example = "raw transaction base58"
 				)
 			)
 		),
