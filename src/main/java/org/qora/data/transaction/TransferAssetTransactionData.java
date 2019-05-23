@@ -17,7 +17,9 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 public class TransferAssetTransactionData extends TransactionData {
 
 	// Properties
+	@Schema(example = "sender_public_key")
 	private byte[] senderPublicKey;
+
 	private String recipient;
 	private BigDecimal amount;
 	private long assetId;

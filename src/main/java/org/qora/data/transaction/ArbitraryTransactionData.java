@@ -30,8 +30,13 @@ public class ArbitraryTransactionData extends TransactionData {
 
 	// Properties
 	private int version;
+
+	@Schema(example = "sender_public_key")
 	private byte[] senderPublicKey;
+
 	private int service;
+
+	@Schema(example = "raw_data_in_base58")
 	private byte[] data;
 	private DataType dataType;
 	private List<PaymentData> payments;
