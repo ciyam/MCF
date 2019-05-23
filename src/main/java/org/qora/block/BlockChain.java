@@ -223,10 +223,12 @@ public class BlockChain {
 		return this.blockDifficultyInterval;
 	}
 
+	/** Returns minimum target time between blocks, in seconds. */
 	public long getMinBlockTime() {
 		return this.minBlockTime;
 	}
 
+	/** Returns maximum target time between blocks, in seconds. */
 	public long getMaxBlockTime() {
 		return this.maxBlockTime;
 	}

@@ -85,7 +85,7 @@ public class BlockGenerator extends Thread {
 					newBlocks.clear();
 				}
 
-				// Too early to generate new blocks?
+				// Too early to generate any new blocks?
 				boolean tooEarlyToForge = NTP.getTime() < lastBlockData.getTimestamp() + BlockChain.getInstance().getMinBlockTime() * 1000L;
 				if (newBlocks.isEmpty() && tooEarlyToForge)
 					continue;
@@ -98,6 +98,10 @@ public class BlockGenerator extends Thread {
 				forgingAccounts.removeIf(account -> newBlocks.stream().anyMatch(newBlock -> newBlock.getGenerator().getAddress().equals(account.getAddress())));
 
 				for (PrivateKeyAccount generator : forgingAccounts) {
+					// Too early for this generator to generate a new block?
+					if (NTP.getTime() < Block.calcMinimumTimestamp(previousBlock.getBlockData(), generator.getPublicKey()))
+						continue;
+
 					// First block does the AT heavy-lifting
 					if (newBlocks.isEmpty()) {
 						Block newBlock = new Block(repository, previousBlock.getBlockData(), generator, NTP.getTime());
