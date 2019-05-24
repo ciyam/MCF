@@ -9,8 +9,6 @@ import org.qora.crypto.BouncyCastle25519;
 import org.qora.crypto.Crypto;
 import org.qora.repository.Repository;
 
-import com.google.common.primitives.Bytes;
-
 public class PrivateKeyAccount extends PublicKeyAccount {
 
 	private static final int SIGNATURE_LENGTH = 64;
