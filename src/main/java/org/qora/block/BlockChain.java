@@ -9,6 +9,8 @@ import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -24,6 +26,8 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
+import org.qora.controller.Controller;
+import org.qora.crypto.Crypto;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
 import org.qora.network.Network;
@@ -345,6 +349,29 @@ public class BlockChain {
 			// Give Network a change to install initial seed peers
 			Network.installInitialPeers(repository);
 		}
+	}
+
+	public static boolean orphan(int targetHeight) throws DataException {
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		if (blockchainLock.tryLock())
+			try {
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					for (int height = repository.getBlockRepository().getBlockchainHeight(); height > targetHeight; --height) {
+						LOGGER.info(String.format("Forcably orphaning block %d", height));
+
+						BlockData blockData = repository.getBlockRepository().fromHeight(height);
+						Block block = new Block(repository, blockData);
+						block.orphan();
+						repository.saveChanges();
+					}
+
+					return true;
+				}
+			} finally {
+				blockchainLock.unlock();
+			}
+
+		return false;
 	}
 
 }

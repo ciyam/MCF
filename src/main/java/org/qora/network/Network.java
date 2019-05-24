@@ -31,10 +31,12 @@ import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
+import org.qora.network.message.PeerVerifyMessage;
 import org.qora.network.message.PeersMessage;
 import org.qora.network.message.PeersV2Message;
 import org.qora.network.message.PingMessage;
 import org.qora.network.message.TransactionMessage;
+import org.qora.network.message.VerificationCodesMessage;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -69,7 +71,7 @@ public class Network extends Thread {
 	private List<Peer> connectedPeers;
 	private List<PeerAddress> selfPeers;
 	private ServerSocket listenSocket;
-	private int minPeers;
+	private int minOutboundPeers;
 	private int maxPeers;
 	private ExecutorService peerExecutor;
 	private ExecutorService mergePeersExecutor;
@@ -106,7 +108,7 @@ public class Network extends Thread {
 		ourPeerId = new byte[PEER_ID_LENGTH];
 		new SecureRandom().nextBytes(ourPeerId);
 
-		minPeers = Settings.getInstance().getMinPeers();
+		minOutboundPeers = Settings.getInstance().getMinOutboundPeers();
 		maxPeers = Settings.getInstance().getMaxPeers();
 
 		peerExecutor = Executors.newCachedThreadPool();
@@ -269,7 +271,7 @@ public class Network extends Thread {
 	}
 
 	private void createConnection() throws InterruptedException, DataException {
-		if (this.getOutboundHandshakeCompletedPeers().size() >= minPeers)
+		if (this.getOutboundHandshakedPeers().size() >= minOutboundPeers)
 			return;
 
 		Peer newPeer;
@@ -389,6 +391,21 @@ public class Network extends Thread {
 		// Should be non-handshaking messages from now on
 
 		switch (message.getType()) {
+			case PEER_VERIFY:
+				// Remote peer wants extra verification
+				possibleVerificationResponse(peer);
+				break;
+
+			case VERIFICATION_CODES:
+				VerificationCodesMessage verificationCodesMessage = (VerificationCodesMessage) message;
+
+				// Remote peer is sending the code it wants to receive back via our outbound connection to it
+				Peer ourUnverifiedPeer = Network.getInstance().getInboundPeerWithId(Network.getInstance().getOurPeerId());
+				ourUnverifiedPeer.setVerificationCodes(verificationCodesMessage.getVerificationCodeSent(), verificationCodesMessage.getVerificationCodeExpected());
+
+				possibleVerificationResponse(ourUnverifiedPeer);
+				break;
+
 			case VERSION:
 			case PEER_ID:
 			case PROOF:
@@ -447,7 +464,30 @@ public class Network extends Thread {
 		}
 	}
 
+	private void possibleVerificationResponse(Peer peer) {
+		// Can't respond if we don't have the codes (yet?)
+		if (peer.getVerificationCodeExpected() == null)
+			return;
+
+		PeerVerifyMessage peerVerifyMessage = new PeerVerifyMessage(peer.getVerificationCodeExpected());
+		if (!peer.sendMessage(peerVerifyMessage)) {
+			peer.disconnect();
+			return;
+		}
+
+		peer.setVerificationCodes(null, null);
+		peer.setHandshakeStatus(Handshake.COMPLETED);
+		this.onHandshakeCompleted(peer);
+	}
+
 	private void onHandshakeCompleted(Peer peer) {
+		// Do we need extra handshaking because of peer dopplegangers?
+		if (peer.getPendingPeerId() != null) {
+			peer.setHandshakeStatus(Handshake.PEER_VERIFY);
+			peer.getHandshakeStatus().action(peer);
+			return;
+		}
+
 		// Make a note that we've successfully completed handshake (and when)
 		peer.getPeerData().setLastConnected(NTP.getTime());
 
@@ -551,7 +591,7 @@ public class Network extends Thread {
 	// Network-wide calls
 
 	/** Returns list of connected peers that have completed handshaking. */
-	public List<Peer> getHandshakeCompletedPeers() {
+	public List<Peer> getHandshakedPeers() {
 		List<Peer> peers = new ArrayList<>();
 
 		synchronized (this.connectedPeers) {
@@ -561,8 +601,31 @@ public class Network extends Thread {
 		return peers;
 	}
 
+	/** Returns list of connected peers that have completed handshaking, with unbound duplicates removed. */
+	public List<Peer> getUniqueHandshakedPeers() {
+		final List<Peer> peers;
+
+		synchronized (this.connectedPeers) {
+			peers = this.connectedPeers.stream().filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED).collect(Collectors.toList());
+		}
+
+		// Returns true if this [inbound] peer has corresponding outbound peer with same ID
+		Predicate<Peer> hasOutboundWithSameId = peer -> {
+			// Peer is outbound so return fast
+			if (peer.isOutbound())
+				return false;
+
+			return peers.stream().anyMatch(otherPeer -> otherPeer.isOutbound() && Arrays.equals(otherPeer.getPeerId(), peer.getPeerId()));
+		};
+
+		// Filter out [inbound] peers that have corresponding outbound peer with the same ID
+		peers.removeIf(hasOutboundWithSameId);
+
+		return peers;
+	}
+
 	/** Returns list of peers we connected to that have completed handshaking. */
-	public List<Peer> getOutboundHandshakeCompletedPeers() {
+	public List<Peer> getOutboundHandshakedPeers() {
 		List<Peer> peers = new ArrayList<>();
 
 		synchronized (this.connectedPeers) {
@@ -573,10 +636,17 @@ public class Network extends Thread {
 		return peers;
 	}
 
-	/** Returns Peer with outbound connection and passed ID, or null if none found. */
-	public Peer getOutboundPeerWithId(byte[] peerId) {
+	/** Returns Peer with inbound connection and matching ID, or null if none found. */
+	public Peer getInboundPeerWithId(byte[] peerId) {
 		synchronized (this.connectedPeers) {
-			return this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
+			return this.connectedPeers.stream().filter(peer -> !peer.isOutbound() && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
+		}
+	}
+
+	/** Returns handshake-completed Peer with outbound connection and matching ID, or null if none found. */
+	public Peer getOutboundHandshakedPeerWithId(byte[] peerId) {
+		synchronized (this.connectedPeers) {
+			return this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
 		}
 	}
 
@@ -647,7 +717,7 @@ public class Network extends Thread {
 		}
 
 		try {
-			peerExecutor.execute(new Broadcaster(this.getHandshakeCompletedPeers(), peerMessage));
+			peerExecutor.execute(new Broadcaster(this.getUniqueHandshakedPeers(), peerMessage));
 		} catch (RejectedExecutionException e) {
 			// Can't execute - probably because we're shutting down, so ignore
 		}

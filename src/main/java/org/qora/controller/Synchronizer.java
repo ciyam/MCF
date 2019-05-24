@@ -105,8 +105,10 @@ public class Synchronizer {
 						signatures.remove(0);
 
 						// If common block is peer's latest block then we simply have a longer chain to peer, so exit now
-						if (commonBlockHeight == peerHeight)
+						if (commonBlockHeight == peerHeight) {
+							LOGGER.info(String.format("We have the same blockchain as peer %s, but longer", peer));
 							return SynchronizationResult.OK;
+						}
 
 						// If common block is too far behind us then we're on massively different forks so give up.
 						int minCommonHeight = ourHeight - MAXIMUM_COMMON_DELTA;

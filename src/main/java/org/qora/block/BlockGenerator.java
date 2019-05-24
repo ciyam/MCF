@@ -15,6 +15,7 @@ import org.qora.controller.Controller;
 import org.qora.data.account.ForgingAccountData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.network.Network;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -81,6 +82,10 @@ public class BlockGenerator extends Thread {
 					previousBlock = new Block(repository, lastBlockData);
 					newBlocks.clear();
 				}
+
+				// Don't generate if we don't have enough connected peers as where would the transactions/consensus come from?
+				if (Network.getInstance().getUniqueHandshakedPeers().size() < Settings.getInstance().getMinBlockchainPeers())
+					continue;
 
 				// Do we need to build any potential new blocks?
 				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();

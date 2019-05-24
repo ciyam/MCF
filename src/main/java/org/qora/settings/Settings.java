@@ -57,7 +57,11 @@ public class Settings {
 	// Peer-to-peer related
 	private int listenPort = DEFAULT_LISTEN_PORT;
 	private String bindAddress = null; // listen on all local addresses
-	private int minPeers = 3;
+	/** Minimum number of peers to allow block generation / synchronization. */
+	private int minBlockchainPeers = 3;
+	/** Target number of outbound connections to peers we should make. */
+	private int minOutboundPeers = 3;
+	/** Maximum number of peer connections we allow. */
 	private int maxPeers = 10;
 
 	// Which blockchains this node is running
@@ -223,8 +227,12 @@ public class Settings {
 		return this.bindAddress;
 	}
 
-	public int getMinPeers() {
-		return this.minPeers;
+	public int getMinBlockchainPeers() {
+		return this.minBlockchainPeers;
+	}
+
+	public int getMinOutboundPeers() {
+		return this.minOutboundPeers;
 	}
 
 	public int getMaxPeers() {
