@@ -108,9 +108,12 @@ public class Synchronizer {
 						LOGGER.debug(String.format("Common block with peer %s is at height %d", peer, commonBlockHeight));
 						signatures.remove(0);
 
-						// If common block is peer's latest block then we simply have a longer chain to peer, so exit now
+						// If common block is peer's latest block then we simply have the same, or longer, chain to peer, so exit now
 						if (commonBlockHeight == peerHeight) {
-							LOGGER.info(String.format("We have the same blockchain as peer %s, but longer", peer));
+							if (peerHeight == ourHeight)
+								LOGGER.info(String.format("We have the same blockchain as peer %s", peer));
+							else
+								LOGGER.info(String.format("We have the same blockchain as peer %s, but longer", peer));
 							return SynchronizationResult.OK;
 						}
 
