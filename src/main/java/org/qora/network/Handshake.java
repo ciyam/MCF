@@ -8,7 +8,9 @@ import org.qora.controller.Controller;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
 import org.qora.network.message.PeerIdMessage;
+import org.qora.network.message.PeerVerifyMessage;
 import org.qora.network.message.ProofMessage;
+import org.qora.network.message.VerificationCodesMessage;
 import org.qora.network.message.VersionMessage;
 
 public enum Handshake {
@@ -41,14 +43,30 @@ public enum Handshake {
 				return null;
 			}
 
-			// Set peer's ID
-			peer.setPeerId(peerId);
+			// Is this ID already connected inbound or outbound?
+			Peer otherInboundPeer = Network.getInstance().getInboundPeerWithId(peerId);
 
-			// Is this ID already connected? We don't want both inbound and outbound so discard inbound if possible
-			Peer similarPeer = Network.getInstance().getOutboundPeerWithId(peerId);
-			if (similarPeer != null && similarPeer != peer) {
-				LOGGER.trace(String.format("Discarding inbound peer %s with existing ID", peer));
-				return null;
+			// Extra checks on inbound peers with known IDs, to prevent ID stealing
+			if (!peer.isOutbound() && otherInboundPeer != null) {
+				Peer otherOutboundPeer = Network.getInstance().getOutboundHandshakedPeerWithId(peerId);
+
+				if (otherOutboundPeer == null) {
+					// We already have an inbound peer with this ID, but no outgoing peer with which to request verification
+					LOGGER.trace(String.format("Discarding inbound peer %s with existing ID", peer));
+					return null;
+				} else {
+					// Use corresponding outbound peer to verify inbound
+					LOGGER.trace(String.format("We will be using outbound peer %s to verify inbound peer %s with same ID", otherOutboundPeer, peer));
+
+					// Discard peer's ID
+					// peer.setPeerId(peerId);
+
+					// Generate verification codes for later
+					peer.generateVerificationCodes();
+				}
+			} else {
+				// Set peer's ID
+				peer.setPeerId(peerId);
 			}
 
 			return VERSION;
@@ -117,6 +135,40 @@ public enum Handshake {
 		public void action(Peer peer) {
 			// Note: this is only called when we've made outbound connection
 		}
+	},
+	PEER_VERIFY(null) {
+		@Override
+		public Handshake onMessage(Peer peer, Message message) {
+			// We only accept PEER_VERIFY messages
+			if (message.getType() != Message.MessageType.PEER_VERIFY)
+				return PEER_VERIFY;
+
+			// Check returned code against expected
+			PeerVerifyMessage peerVerifyMessage = (PeerVerifyMessage) message;
+
+			if (!Arrays.equals(peerVerifyMessage.getVerificationCode(), peer.getVerificationCodeExpected()))
+				return null;
+
+			// Drop other inbound peers with the same ID
+			for (Peer otherPeer : Network.getInstance().getConnectedPeers())
+				if (!otherPeer.isOutbound() && otherPeer.getPeerId() != null && Arrays.equals(otherPeer.getPeerId(), peer.getPendingPeerId()))
+					otherPeer.disconnect();
+
+			// Tidy up
+			peer.setVerificationCodes(null, null);
+			peer.setPeerId(peer.getPendingPeerId());
+			peer.setPendingPeerId(null);
+
+			// Completed for real this time
+			return COMPLETED;
+		}
+
+		@Override
+		public void action(Peer peer) {
+			// Send VERIFICATION_CODE to other peer (that we connected to)
+			// Send PEER_VERIFY to peer
+			sendVerificationCodes(peer);
+		}
 	};
 
 	private static final Logger LOGGER = LogManager.getLogger(Handshake.class);
@@ -158,6 +210,22 @@ public enum Handshake {
 			if (!peer.sendMessage(proofMessage))
 				peer.disconnect();
 		}
+	}
+
+	private static void sendVerificationCodes(Peer peer) {
+		Peer otherOutboundPeer = Network.getInstance().getOutboundHandshakedPeerWithId(peer.getPendingPeerId());
+
+		// Send VERIFICATION_CODES to peer
+		Message verificationCodesMessage = new VerificationCodesMessage(peer.getVerificationCodeSent(), peer.getVerificationCodeExpected());
+		if (!otherOutboundPeer.sendMessage(verificationCodesMessage)) {
+			peer.disconnect(); // give up with this peer instead
+			return;
+		}
+
+		// Send PEER_VERIFY to peer
+		Message peerVerifyMessage = new PeerVerifyMessage(peer.getVerificationCodeSent());
+		if (!peer.sendMessage(peerVerifyMessage))
+			peer.disconnect();
 	}
 
 }

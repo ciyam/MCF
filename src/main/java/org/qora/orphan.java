@@ -2,12 +2,9 @@ package org.qora;
 import java.security.Security;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.controller.Controller;
-import org.qora.data.block.BlockData;
 import org.qora.repository.DataException;
-import org.qora.repository.Repository;
 import org.qora.repository.RepositoryFactory;
 import org.qora.repository.RepositoryManager;
 import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
@@ -43,15 +40,8 @@ public class orphan {
 			System.exit(2);
 		}
 
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			for (int height = repository.getBlockRepository().getBlockchainHeight(); height > targetHeight; --height) {
-				System.out.println("Orphaning block " + height);
-
-				BlockData blockData = repository.getBlockRepository().fromHeight(height);
-				Block block = new Block(repository, blockData);
-				block.orphan();
-				repository.saveChanges();
-			}
+		try {
+			BlockChain.orphan(targetHeight);
 		} catch (DataException e) {
 			e.printStackTrace();
 		}

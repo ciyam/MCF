@@ -241,8 +241,8 @@ public class Controller extends Thread {
 			return;
 
 		// If we have enough peers, potentially synchronize
-		List<Peer> peers = Network.getInstance().getHandshakeCompletedPeers();
-		if (peers.size() < Settings.getInstance().getMinPeers())
+		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
+		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 			return;
 
 		for(Peer peer : peers)

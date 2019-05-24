@@ -36,10 +36,12 @@ import org.qora.account.Forging;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
+import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.Security;
 import org.qora.api.model.ActivitySummary;
 import org.qora.api.model.NodeInfo;
+import org.qora.block.BlockChain;
 import org.qora.controller.Controller;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -235,7 +237,7 @@ public class AdminResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
 	public String addForgingAccount(String seed58) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] seed = Base58.decode(seed58.trim());
@@ -279,6 +281,7 @@ public class AdminResource {
 			)
 		}
 	)
+	@ApiErrors({ApiError.INVALID_PRIVATE_KEY, ApiError.REPOSITORY_ISSUE})
 	public String deleteForgingAccount(String seed58) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] seed = Base58.decode(seed58.trim());
@@ -352,6 +355,49 @@ public class AdminResource {
 			return String.join("\n", logLines);
 		} catch (IOException e) {
 			return "";
+		}
+	}
+
+	@POST
+	@Path("/orphan")
+	@Operation(
+		summary = "Discard blocks back to given height.",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string", example = "0"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_HEIGHT, ApiError.REPOSITORY_ISSUE})
+	public String orphan(String targetHeightString) {
+		Security.checkApiCallAllowed(request);
+
+		try {
+			int targetHeight = Integer.parseUnsignedInt(targetHeightString);
+
+			if (targetHeight <= 0 || targetHeight > Controller.getInstance().getChainHeight())
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
+
+			if (BlockChain.orphan(targetHeight))
+				return "true";
+			else
+				return "false";
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
+		} catch (ApiException e) {
+			throw e;
 		}
 	}
 

@@ -43,7 +43,9 @@ public abstract class Message {
 		PEERS_V2(13),
 		GET_BLOCK_SUMMARIES(14),
 		BLOCK_SUMMARIES(15),
-		GET_SIGNATURES_V2(16);
+		GET_SIGNATURES_V2(16),
+		PEER_VERIFY(17),
+		VERIFICATION_CODES(18);
 
 		public final int value;
 		public final Method fromByteBuffer;

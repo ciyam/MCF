@@ -25,18 +25,8 @@
 				var sharedSecret = nacl.crypto_scalarmult(mintingX25519Prk, recipientAccountX25519Puk);
 				console.log("shared secret (for debugging): " + Base58.encode(sharedSecret));
 
-				// Data to be hashed: shared secret (32 bytes) + minting public key (32 bytes) + recipient public key (32 bytes)
-				// or, in general terms:  shared secret (32 bytes) + public key from private key (32 bytes) + other party's public key (32 bytes)
-				var proxyHashData = new Uint8Array(sharedSecret.length + mintingAccountPuk.length + recipientAccountPuk.length);
-				// copy shared secret into array, starting at index 0
-				proxyHashData.set(sharedSecret);
-				// copy minting account public key into array, starting at index 32
-				proxyHashData.set(mintingAccountPuk, sharedSecret.length);
-				// copy recipient account public key into array, starting at index 64 (32 + 32)
-				proxyHashData.set(recipientAccountPuk, sharedSecret.length + mintingAccountPuk.length);
-
-				// Proxy PRIVATE key is SHA256 of data above
-				var proxyPrivateKey = nacl.crypto_hash_sha256(proxyHashData)
+				// Proxy PRIVATE key is SHA256 of shared secret
+				var proxyPrivateKey = nacl.crypto_hash_sha256(sharedSecret)
 				console.log("proxy private key: " + Base58.encode(proxyPrivateKey));
 
 				var proxyKeyPair = nacl.crypto_sign_seed_keypair(proxyPrivateKey);

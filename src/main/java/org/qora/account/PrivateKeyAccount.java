@@ -9,8 +9,6 @@ import org.qora.crypto.BouncyCastle25519;
 import org.qora.crypto.Crypto;
 import org.qora.repository.Repository;
 
-import com.google.common.primitives.Bytes;
-
 public class PrivateKeyAccount extends PublicKeyAccount {
 
 	private static final int SIGNATURE_LENGTH = 64;
@@ -70,8 +68,7 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 	public byte[] getProxyPrivateKey(byte[] publicKey) {
 		byte[] sharedSecret = this.getSharedSecret(publicKey);
 
-		byte[] proxyHashData = Bytes.concat(sharedSecret, this.getPublicKey(), publicKey);
-		return Crypto.digest(proxyHashData);
+		return Crypto.digest(sharedSecret);
 	}
 
 }
