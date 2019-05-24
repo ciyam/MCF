@@ -3,6 +3,7 @@ package org.qora.api.model;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
+import org.qora.network.Handshake;
 import org.qora.network.Peer;
 
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -16,8 +17,9 @@ public class ConnectedPeer {
 		INBOUND,
 		OUTBOUND;
 	}
-
 	public Direction direction;
+
+	public Handshake handshakeStatus;
 
 	protected ConnectedPeer() {
 	}
@@ -27,6 +29,7 @@ public class ConnectedPeer {
 		this.lastPing = peer.getLastPing();
 		this.direction = peer.isOutbound() ? Direction.OUTBOUND : Direction.INBOUND;
 		this.lastHeight = peer.getPeerData() == null ? null : peer.getPeerData().getLastHeight();
+		this.handshakeStatus = peer.getHandshakeStatus();
 	}
 
 }

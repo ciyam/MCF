@@ -70,8 +70,7 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 	public byte[] getProxyPrivateKey(byte[] publicKey) {
 		byte[] sharedSecret = this.getSharedSecret(publicKey);
 
-		byte[] proxyHashData = Bytes.concat(sharedSecret, this.getPublicKey(), publicKey);
-		return Crypto.digest(proxyHashData);
+		return Crypto.digest(sharedSecret);
 	}
 
 }

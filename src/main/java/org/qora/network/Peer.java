@@ -56,6 +56,10 @@ public class Peer implements Runnable {
 	private boolean isLocal;
 	private byte[] peerId;
 
+	private byte[] pendingPeerId;
+	private byte[] verificationCodeSent;
+	private byte[] verificationCodeExpected;
+
 	/** Construct unconnected outbound Peer using socket address in peer data */
 	public Peer(PeerData peerData) {
 		this.isOutbound = true;
@@ -133,6 +137,27 @@ public class Peer implements Runnable {
 		this.peerId = peerId;
 	}
 
+	public byte[] getPendingPeerId() {
+		return this.pendingPeerId;
+	}
+
+	public void setPendingPeerId(byte[] peerId) {
+		this.pendingPeerId = peerId;
+	}
+
+	public byte[] getVerificationCodeSent() {
+		return this.verificationCodeSent;
+	}
+
+	public byte[] getVerificationCodeExpected() {
+		return this.verificationCodeExpected;
+	}
+
+	public void setVerificationCodes(byte[] sent, byte[] expected) {
+		this.verificationCodeSent = sent;
+		this.verificationCodeExpected = expected;
+	}
+
 	// Easier, and nicer output, than peer.getRemoteSocketAddress()
 
 	@Override
@@ -141,6 +166,14 @@ public class Peer implements Runnable {
 	}
 
 	// Processing
+
+	public void generateVerificationCodes() {
+		verificationCodeSent = new byte[Network.PEER_ID_LENGTH];
+		new SecureRandom().nextBytes(verificationCodeSent);
+
+		verificationCodeExpected = new byte[Network.PEER_ID_LENGTH];
+		new SecureRandom().nextBytes(verificationCodeExpected);
+	}
 
 	private void setup() throws IOException {
 		this.socket.setSoTimeout(INACTIVITY_TIMEOUT);
