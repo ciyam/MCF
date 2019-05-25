@@ -26,7 +26,7 @@ public class SplashFrame {
 		private BufferedImage image;
 
 		public SplashPanel() {
-			image = GUI.loadImage("splash.png");
+			image = Gui.loadImage("splash.png");
 			this.setPreferredSize(new Dimension(image.getWidth(), image.getHeight()));
 			this.setLayout(new BorderLayout());
 		}
@@ -42,10 +42,10 @@ public class SplashFrame {
 		this.splashDialog = new JDialog();
 
 		List<Image> icons = new ArrayList<Image>();
-		icons.add(GUI.loadImage("icons/icon16.png"));
-		icons.add(GUI.loadImage("icons/icon32.png"));
-		icons.add(GUI.loadImage("icons/icon64.png"));
-		icons.add(GUI.loadImage("icons/icon128.png"));
+		icons.add(Gui.loadImage("icons/icon16.png"));
+		icons.add(Gui.loadImage("icons/icon32.png"));
+		icons.add(Gui.loadImage("icons/icon64.png"));
+		icons.add(Gui.loadImage("icons/icon128.png"));
 		this.splashDialog.setIconImages(icons);
 
 		this.splashDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
