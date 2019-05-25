@@ -36,6 +36,13 @@ public class Settings {
 	// Settings, and other config files
 	private String userPath;
 
+	// Bundled UI related
+	private boolean uiEnabled = true;
+	private int uiPort = 9080;
+	private String[] uiWhitelist = new String[] {
+		"::1", "127.0.0.1"
+	};
+
 	// API-related
 	private boolean apiEnabled = true;
 	private int apiPort = 9085;
@@ -180,6 +187,18 @@ public class Settings {
 
 	public String getUserPath() {
 		return this.userPath;
+	}
+
+	public boolean isUiEnabled() {
+		return this.uiEnabled;
+	}
+
+	public int getUiPort() {
+		return this.uiPort;
+	}
+
+	public String[] getUiWhitelist() {
+		return this.uiWhitelist;
 	}
 
 	public boolean isApiEnabled() {

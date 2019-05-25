@@ -27,7 +27,7 @@ import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.TransactionData;
-import org.qora.gui.GUI;
+import org.qora.gui.Gui;
 import org.qora.network.Network;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
@@ -50,6 +50,7 @@ import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qora.settings.Settings;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
+import org.qora.ui.UiService;
 import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 
@@ -159,7 +160,7 @@ public class Controller extends Thread {
 		LOGGER.info("Starting up...");
 
 		// Potential GUI startup with splash screen, etc.
-		GUI.getInstance();
+		Gui.getInstance();
 
 		Security.insertProviderAt(new BouncyCastleProvider(), 0);
 		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
@@ -223,8 +224,17 @@ public class Controller extends Thread {
 		LOGGER.info("Starting auto-update");
 		AutoUpdate.getInstance().start();
 
+		LOGGER.info("Starting bundled UI on port " + Settings.getInstance().getUiPort());
+		try {
+			UiService uiService = UiService.getInstance();
+			uiService.start();
+		} catch (Exception e) {
+			LOGGER.error("Unable to start bundled UI", e);
+			System.exit(1);
+		}
+
 		// If GUI is enabled, we're no longer starting up but actually running now
-		GUI.getInstance().notifyRunning();
+		Gui.getInstance().notifyRunning();
 	}
 
 	// Main thread
@@ -318,6 +328,9 @@ public class Controller extends Thread {
 		synchronized (shutdownLock) {
 			if (!isStopping) {
 				isStopping = true;
+
+				LOGGER.info("Shutting down bundled UI");
+				UiService.getInstance().stop();
 
 				LOGGER.info("Shutting down auto-update");
 				AutoUpdate.getInstance().shutdown();
