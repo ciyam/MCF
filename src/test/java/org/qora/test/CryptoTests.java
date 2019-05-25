@@ -65,6 +65,29 @@ public class CryptoTests extends Common {
 	}
 
 	@Test
+	public void testMassEd25519ToX25519() {
+		// Lots of random tests just in case of leading sign bit issues
+		SecureRandom random = new SecureRandom();
+
+		for (int i = 0; i < 1000; ++i) {
+			byte[] ed25519PrivateKey = new byte[32];
+			random.nextBytes(ed25519PrivateKey);
+			PrivateKeyAccount account = new PrivateKeyAccount(null, ed25519PrivateKey);
+
+			byte[] x25519PrivateKey = BouncyCastle25519.toX25519PrivateKey(account.getPrivateKey());
+			X25519PrivateKeyParameters x25519PrivateKeyParams = new X25519PrivateKeyParameters(x25519PrivateKey, 0);
+
+			// Derive X25519 public key from X25519 private key
+			byte[] x25519PublicKeyFromPrivate = x25519PrivateKeyParams.generatePublicKey().getEncoded();
+
+			// Derive X25519 public key from Ed25519 public key
+			byte[] x25519PublicKeyFromEd25519 = BouncyCastle25519.toX25519PublicKey(account.getPublicKey());
+
+			assertEquals(String.format("Public keys do not match, from private key %s", Base58.encode(ed25519PrivateKey)), Base58.encode(x25519PublicKeyFromPrivate), Base58.encode(x25519PublicKeyFromEd25519));
+		}
+	}
+
+	@Test
 	public void testBCseed() {
 		final String privateKey58 = "A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6";
 		final String publicKey58 = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP";
@@ -198,11 +221,33 @@ public class CryptoTests extends Common {
 	}
 
 	@Test
+	public void testMassRandomBCSharedSecrets() {
+		// Lots of random shared secret tests just in case of leading sign bit issues
+		SecureRandom random = new SecureRandom();
+
+		for (int i = 0; i < 1000; ++i) {
+			byte[] ourPrivateKey = new byte[32];
+			random.nextBytes(ourPrivateKey);
+			PrivateKeyAccount ourAccount = new PrivateKeyAccount(null, ourPrivateKey);
+
+			byte[] theirPrivateKey = new byte[32];
+			random.nextBytes(theirPrivateKey);
+			PrivateKeyAccount theirAccount = new PrivateKeyAccount(null, theirPrivateKey);
+
+			byte[] ourSharedSecret = calcBCSharedSecret(ourPrivateKey, theirAccount.getPublicKey());
+
+			byte[] theirSharedSecret = calcBCSharedSecret(theirPrivateKey, ourAccount.getPublicKey());
+
+			assertEquals("#" + i + " shared secrets do not match", Base58.encode(ourSharedSecret), Base58.encode(theirSharedSecret));
+		}
+	}
+
+	@Test
 	public void testProxyKeys() {
 		final byte[] ourPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
 		final byte[] theirPublicKey = Base58.decode("C6wuddsBV3HzRrXUtezE7P5MoRXp5m3mEDokRDGZB6ry");
 
-		final String expectedProxyPrivateKey = "CwBXkJRRaGzWRvdE9vewVUbcYNSVrcTpunNWm8zidArZ";
+		final String expectedProxyPrivateKey = "6KszntmNuXmpUkzLfuttgMPeownctxrnyZUG9rErKJJx";
 
 		PrivateKeyAccount mintingAccount = new PrivateKeyAccount(null, ourPrivateKey);
 		byte[] proxyPrivateKey = mintingAccount.getProxyPrivateKey(theirPublicKey);
