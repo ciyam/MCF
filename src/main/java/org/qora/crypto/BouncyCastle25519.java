@@ -71,6 +71,8 @@ public class BouncyCastle25519 {
 		int[] u = new int[X25519Field.SIZE];
 		X25519Field.mul(onePlusY, oneMinusYInverted, u);
 
+		X25519Field.normalize(u);
+
 		byte[] x25519PublicKey = new byte[X25519.SCALAR_SIZE];
 		X25519Field.encode(u, x25519PublicKey, 0);
 
