@@ -717,7 +717,7 @@ public class Network extends Thread {
 		}
 
 		try {
-			peerExecutor.execute(new Broadcaster(this.getUniqueHandshakedPeers(), peerMessage));
+			peerExecutor.execute(new Broadcaster(this.getHandshakedPeers(), peerMessage));
 		} catch (RejectedExecutionException e) {
 			// Can't execute - probably because we're shutting down, so ignore
 		}
