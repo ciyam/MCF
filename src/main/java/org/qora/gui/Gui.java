@@ -6,24 +6,34 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import javax.imageio.ImageIO;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class GUI {
+public class Gui {
 
-	private static final Logger LOGGER = LogManager.getLogger(GUI.class);
-	private static GUI instance;
+	private static final Logger LOGGER = LogManager.getLogger(Gui.class);
+	private static Gui instance;
 
 	private boolean isHeadless;
 	private SplashFrame splash = null;
 	private SysTray sysTray = null;
 
-	private GUI() {
+	private Gui() {
 		this.isHeadless = GraphicsEnvironment.isHeadless();
 
-		if (!this.isHeadless)
+		if (!this.isHeadless) {
+			try {
+				UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+			} catch (ClassNotFoundException | InstantiationException | IllegalAccessException
+					| UnsupportedLookAndFeelException e) {
+				// Use whatever look-and-feel comes by default then
+			}
+
 			showSplash();
+		}
 	}
 
 	private void showSplash() {
@@ -40,9 +50,9 @@ public class GUI {
 		}
 	}
 
-	public static GUI getInstance() {
+	public static Gui getInstance() {
 		if (instance == null)
-			instance = new GUI();
+			instance = new Gui();
 
 		return instance;
 	}
