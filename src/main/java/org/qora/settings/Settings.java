@@ -56,13 +56,13 @@ public class Settings {
 
 	// Peer-to-peer related
 	private int listenPort = DEFAULT_LISTEN_PORT;
-	private String bindAddress = null; // listen on all local addresses
+	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
 	/** Minimum number of peers to allow block generation / synchronization. */
 	private int minBlockchainPeers = 3;
 	/** Target number of outbound connections to peers we should make. */
-	private int minOutboundPeers = 3;
+	private int minOutboundPeers = 10;
 	/** Maximum number of peer connections we allow. */
-	private int maxPeers = 10;
+	private int maxPeers = 30;
 
 	// Which blockchains this node is running
 	private String blockchainConfig = "blockchain.json";
