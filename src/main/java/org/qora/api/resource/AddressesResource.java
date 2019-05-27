@@ -294,8 +294,8 @@ public class AddressesResource {
 	@GET
 	@Path("/proxying")
 	@Operation(
-		summary = "List accounts involved in proxy forging, with reward percentage",
-		description = "Returns list of accounts. At least one of \"proxiedFor\" or \"proxiedBy\" needs to be supplied.",
+		summary = "List proxy forging relationships",
+		description = "Returns list of accounts, with reward share percentage and proxy public key.",
 		responses = {
 			@ApiResponse(
 				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = ProxyForgerData.class)))
@@ -312,9 +312,6 @@ public class AddressesResource {
 			) @QueryParam("offset") Integer offset, @Parameter(
 				ref = "reverse"
 			) @QueryParam("reverse") Boolean reverse) {
-		if (recipients.isEmpty() && forgers.isEmpty())
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return repository.getAccountRepository().findProxyAccounts(recipients, forgers, limit, offset, reverse);
 		} catch (DataException e) {

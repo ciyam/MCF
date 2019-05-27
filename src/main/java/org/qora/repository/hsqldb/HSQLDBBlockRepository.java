@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.qora.api.model.BlockForgerSummary;
@@ -168,19 +169,28 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public List<BlockForgerSummary> getBlockForgers(Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<BlockForgerSummary> getBlockForgers(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		String subquerySql = "SELECT generator, COUNT(signature) FROM Blocks GROUP BY generator ORDER BY COUNT(signature) ";
 		if (reverse != null && reverse)
 			subquerySql += " DESC";
 
-		String sql = "SELECT generator, n_blocks, forger, recipient FROM (" + subquerySql + ") AS Forgers (generator, n_blocks) "
+		String sql = "SELECT DISTINCT generator, n_blocks, forger, recipient FROM (" + subquerySql + ") AS Forgers (generator, n_blocks) "
 			+ " LEFT OUTER JOIN ProxyForgers ON proxy_public_key = generator ";
+
+		if (addresses != null && !addresses.isEmpty()) {
+			sql += " LEFT OUTER JOIN Accounts AS GeneratorAccounts ON GeneratorAccounts.public_key = generator "
+				+ " LEFT OUTER JOIN Accounts AS ForgerAccounts ON ForgerAccounts.public_key = forger "
+				+ " JOIN (VALUES " + String.join(", ", Collections.nCopies(addresses.size(), "(?)")) + ") AS FilterAccounts (account) "
+				+ " ON FilterAccounts.account IN (recipient, GeneratorAccounts.account, ForgerAccounts.account) ";
+		} else {
+			addresses = Collections.emptyList();
+		}
 
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
 		List<BlockForgerSummary> summaries = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, addresses.toArray())) {
 			if (resultSet == null)
 				return summaries;
 

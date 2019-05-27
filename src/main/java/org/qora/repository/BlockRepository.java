@@ -103,9 +103,9 @@ public interface BlockRepository {
 	public int countForgedBlocks(byte[] publicKey) throws DataException;
 
 	/**
-	 * Returns summaries of block forgers.
+	 * Returns summaries of block forgers, optionally limited to passed addresses.
 	 */
-	public List<BlockForgerSummary> getBlockForgers(Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<BlockForgerSummary> getBlockForgers(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Returns blocks with passed generator public key.
