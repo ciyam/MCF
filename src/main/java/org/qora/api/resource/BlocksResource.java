@@ -569,6 +569,7 @@ public class BlocksResource {
 	@Path("/forgers")
 	@Operation(
 		summary = "Show summary of block forgers",
+		description = "Returns count of blocks forged, optionally limited to generators/recipients in passed address(es).",
 		responses = {
 			@ApiResponse(
 				content = @Content(
@@ -581,15 +582,20 @@ public class BlocksResource {
 			)
 		}
 	)
-	public List<BlockForgerSummary> getBlockForgers(@Parameter(
-			ref = "limit"
+	public List<BlockForgerSummary> getBlockForgers(@QueryParam("address") List<String> addresses,
+			@Parameter(
+				ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
 				ref = "offset"
 			) @QueryParam("offset") Integer offset, @Parameter(
 				ref = "reverse"
 			) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getBlockRepository().getBlockForgers(limit, offset, reverse);
+			for (String address : addresses)
+				if (!Crypto.isValidAddress(address))
+					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+			return repository.getBlockRepository().getBlockForgers(addresses, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
