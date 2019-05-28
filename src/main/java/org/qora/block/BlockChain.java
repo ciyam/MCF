@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -323,6 +324,27 @@ public class BlockChain {
 		// Check first block is Genesis Block
 		if (!isGenesisBlockValid())
 			rebuildBlockchain();
+
+		// TODO: walk through blocks
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Block parentBlock = GenesisBlock.getInstance(repository);
+			BlockData parentBlockData = parentBlock.getBlockData();
+
+			while (true) {
+				BlockData childBlockData = parentBlock.getChild();
+				if (childBlockData == null)
+					break;
+
+				if (!Arrays.equals(childBlockData.getReference(), parentBlock.getSignature())) {
+					LOGGER.error(String.format("Block %d's reference does not match block %d's signature", childBlockData.getHeight(), parentBlockData.getHeight()));
+					rebuildBlockchain();
+					return;
+				}
+
+				parentBlock = new Block(repository, childBlockData);
+				parentBlockData = childBlockData;
+			}
+		}
 	}
 
 	private static boolean isGenesisBlockValid() throws DataException {
