@@ -77,7 +77,7 @@ public class Settings {
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
 		"https://github.com/ciyam/MCF",
-		"https://gitmirror.mcfamily.io/ciyam/MCF"
+		"https://gitmirror.mcfamily.io/MCF"
 	};
 
 	// Constructors
