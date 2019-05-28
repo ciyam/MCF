@@ -212,17 +212,18 @@ public class Block {
 		int version = parentBlock.getNextBlockVersion();
 		byte[] reference = parentBlockData.getSignature();
 		BigDecimal generatingBalance = parentBlock.calcNextBlockGeneratingBalance();
+		int height = parentBlockData.getHeight() + 1;
 
 		byte[] generatorSignature;
 		try {
-			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), timestamp, generator));
+			Integer signatureHeight = version >= 4 ? height : null;
+			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentBlockData.getGeneratorSignature(), timestamp, signatureHeight, generator));
 		} catch (TransformationException e) {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
 
 		int transactionCount = 0;
 		byte[] transactionsSignature = null;
-		int height = parentBlockData.getHeight() + 1;
 
 		this.transactions = new ArrayList<Transaction>();
 
@@ -269,11 +270,13 @@ public class Block {
 		byte[] reference = this.blockData.getReference();
 		BigDecimal generatingBalance = this.blockData.getGeneratingBalance();
 		long timestamp = this.blockData.getTimestamp();
-		byte[] parentGeneratorSignature = BlockTransformer.getReferenceGeneratorSignature(reference);
+		byte[] parentGeneratorSignature = BlockTransformer.getGeneratorSignatureFromReference(reference);
+		int height = this.blockData.getHeight();
 
 		byte[] generatorSignature;
 		try {
-			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentGeneratorSignature, timestamp, generator));
+			Integer signatureHeight = version >= 4 ? height : null;
+			generatorSignature = generator.sign(BlockTransformer.getBytesForGeneratorSignature(parentGeneratorSignature, timestamp, signatureHeight, generator));
 		} catch (TransformationException e) {
 			throw new DataException("Unable to calculate next block generator signature", e);
 		}
@@ -282,7 +285,6 @@ public class Block {
 		int transactionCount = this.blockData.getTransactionCount();
 		BigDecimal totalFees = this.blockData.getTotalFees();
 		byte[] transactionsSignature = null; // We'll calculate this later
-		Integer height = this.blockData.getHeight();
 
 		int atCount = newBlock.ourAtStates.size();
 		BigDecimal atFees = newBlock.ourAtFees;
