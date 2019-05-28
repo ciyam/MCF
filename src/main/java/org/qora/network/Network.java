@@ -25,10 +25,12 @@ import java.util.stream.Collectors;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.controller.Controller;
+import org.qora.data.block.BlockData;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.HeightMessage;
+import org.qora.network.message.HeightV2Message;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
 import org.qora.network.message.PeerVerifyMessage;
@@ -316,6 +318,7 @@ public class Network extends Thread {
 			newPeer = new Peer(peerData);
 
 			// Update connection attempt info
+			repository.discardChanges();
 			peerData.setLastAttempted(NTP.getTime());
 			repository.getNetworkRepository().save(peerData);
 			repository.saveChanges();
@@ -360,7 +363,7 @@ public class Network extends Thread {
 					return;
 
 				LOGGER.debug(String.format("Unexpected %s message from %s, expected %s", message.getType().name(), peer, handshakeStatus.expectedMessageType));
-				peer.disconnect();
+				peer.disconnect("unexpected message");
 				return;
 			}
 
@@ -369,7 +372,7 @@ public class Network extends Thread {
 			if (newHandshakeStatus == null) {
 				// Handshake failure
 				LOGGER.debug(String.format("Handshake failure with peer %s message %s", peer, message.getType().name()));
-				peer.disconnect();
+				peer.disconnect("handshake failure");
 				return;
 			}
 
@@ -410,7 +413,7 @@ public class Network extends Thread {
 			case PEER_ID:
 			case PROOF:
 				LOGGER.debug(String.format("Unexpected handshaking message %s from peer %s", message.getType().name(), peer));
-				peer.disconnect();
+				peer.disconnect("unexpected handshaking message");
 				return;
 
 			case PING:
@@ -421,7 +424,7 @@ public class Network extends Thread {
 				pongMessage.setId(pingMessage.getId());
 
 				if (!peer.sendMessage(pongMessage))
-					peer.disconnect();
+					peer.disconnect("failed to send ping reply");
 
 				break;
 
@@ -471,7 +474,7 @@ public class Network extends Thread {
 
 		PeerVerifyMessage peerVerifyMessage = new PeerVerifyMessage(peer.getVerificationCodeExpected());
 		if (!peer.sendMessage(peerVerifyMessage)) {
-			peer.disconnect();
+			peer.disconnect("failed to send verification code");
 			return;
 		}
 
@@ -481,12 +484,14 @@ public class Network extends Thread {
 	}
 
 	private void onHandshakeCompleted(Peer peer) {
-		// Do we need extra handshaking because of peer dopplegangers?
+		// Do we need extra handshaking because of peer doppelgangers?
 		if (peer.getPendingPeerId() != null) {
 			peer.setHandshakeStatus(Handshake.PEER_VERIFY);
 			peer.getHandshakeStatus().action(peer);
 			return;
 		}
+
+		LOGGER.debug(String.format("Handshake completed with peer %s", peer));
 
 		// Make a note that we've successfully completed handshake (and when)
 		peer.getPeerData().setLastConnected(NTP.getTime());
@@ -495,16 +500,16 @@ public class Network extends Thread {
 		peer.startPings();
 
 		// Send our height
-		Message heightMessage = new HeightMessage(Controller.getInstance().getChainHeight());
+		Message heightMessage = buildHeightMessage(peer, Controller.getInstance().getChainTip());
 		if (!peer.sendMessage(heightMessage)) {
-			peer.disconnect();
+			peer.disconnect("failed to send height/info");
 			return;
 		}
 
 		// Send our peers list
 		Message peersMessage = this.buildPeersMessage(peer);
 		if (!peer.sendMessage(peersMessage))
-			peer.disconnect();
+			peer.disconnect("failed to send peers list");
 
 		// Send our unconfirmed transactions
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -513,7 +518,7 @@ public class Network extends Thread {
 			for (TransactionData transactionData : transactions) {
 				Message transactionMessage = new TransactionMessage(transactionData);
 				if (!peer.sendMessage(transactionMessage)) {
-					peer.disconnect();
+					peer.disconnect("failed to send unconfirmed transaction");
 					return;
 				}
 			}
@@ -524,7 +529,7 @@ public class Network extends Thread {
 		// Request their peers list
 		Message getPeersMessage = new GetPeersMessage();
 		if (!peer.sendMessage(getPeersMessage))
-			peer.disconnect();
+			peer.disconnect("failed to request peers list");
 	}
 
 	/** Returns PEERS message made from peers we've connected to recently, and this node's details */
@@ -586,6 +591,16 @@ public class Network extends Thread {
 			LOGGER.error("Repository issue while building PEERS message", e);
 			return new PeersMessage(Collections.emptyList());
 		}
+	}
+
+	public Message buildHeightMessage(Peer peer, BlockData blockData) {
+		if (peer.getVersion() < 2) {
+			// Legacy height message
+			return new HeightMessage(blockData.getHeight());
+		}
+
+		// HEIGHT_V2 contains way more useful info
+		return new HeightV2Message(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getGeneratorPublicKey());
 	}
 
 	// Network-wide calls
@@ -712,7 +727,7 @@ public class Network extends Thread {
 			public void run() {
 				for (Peer peer : targetPeers)
 					if (!peer.sendMessage(peerMessage.apply(peer)))
-						peer.disconnect();
+						peer.disconnect("failed to broadcast message");
 			}
 		}
 

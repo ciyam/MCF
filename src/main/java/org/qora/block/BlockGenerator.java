@@ -70,11 +70,19 @@ public class BlockGenerator extends Thread {
 				// Sleep for a while
 				try {
 					repository.discardChanges(); // Free repository locks, if any
-					Thread.sleep(1000); // No point sleeping less than this as block timestamp millisecond values must be the same
+					Thread.sleep(1000);
 				} catch (InterruptedException e) {
 					// We've been interrupted - time to exit
 					return;
 				}
+
+				// Don't generate if we don't have enough connected peers as where would the transactions/consensus come from?
+				if (Network.getInstance().getUniqueHandshakedPeers().size() < Settings.getInstance().getMinBlockchainPeers())
+					continue;
+
+				// Don't generate if it looks like we're behind
+				if (!Controller.getInstance().isUpToDate())
+					continue;
 
 				// Check blockchain hasn't changed
 				BlockData lastBlockData = blockRepository.getLastBlock();
@@ -82,10 +90,6 @@ public class BlockGenerator extends Thread {
 					previousBlock = new Block(repository, lastBlockData);
 					newBlocks.clear();
 				}
-
-				// Don't generate if we don't have enough connected peers as where would the transactions/consensus come from?
-				if (Network.getInstance().getUniqueHandshakedPeers().size() < Settings.getInstance().getMinBlockchainPeers())
-					continue;
 
 				// Do we need to build any potential new blocks?
 				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();
@@ -108,7 +112,9 @@ public class BlockGenerator extends Thread {
 
 				// Make sure we're the only thread modifying the blockchain
 				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-				if (blockchainLock.tryLock())
+				if (blockchainLock.tryLock()) {
+					boolean newBlockGenerated = false;
+
 					generation: try {
 						// Clear repository's "in transaction" state so we don't cause a repository deadlock
 						repository.discardChanges();
@@ -160,7 +166,7 @@ public class BlockGenerator extends Thread {
 							repository.saveChanges();
 
 							// Notify controller
-							Controller.getInstance().onGeneratedBlock(newBlock.getBlockData());
+							newBlockGenerated = true;
 						} catch (DataException e) {
 							// Unable to process block - report and discard
 							LOGGER.error("Unable to process newly generated block?", e);
@@ -169,6 +175,10 @@ public class BlockGenerator extends Thread {
 					} finally {
 						blockchainLock.unlock();
 					}
+
+					if (newBlockGenerated)
+						Controller.getInstance().onGeneratedBlock();
+				}
 			}
 		} catch (DataException e) {
 			LOGGER.warn("Repository issue while running block generator", e);

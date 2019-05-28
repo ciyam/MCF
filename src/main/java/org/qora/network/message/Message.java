@@ -27,6 +27,24 @@ public abstract class Message {
 
 	private static final int MAX_DATA_SIZE = 1024 * 1024; // 1MB
 
+	@SuppressWarnings("serial")
+	public static class MessageException extends Exception {
+		public MessageException() {
+		}
+
+		public MessageException(String message) {
+			super(message);
+		}
+
+		public MessageException(String message, Throwable cause) {
+			super(message, cause);
+		}
+
+		public MessageException(Throwable cause) {
+			super(cause);
+		}
+	}
+
 	public enum MessageType {
 		GET_PEERS(1),
 		PEERS(2),
@@ -45,7 +63,8 @@ public abstract class Message {
 		BLOCK_SUMMARIES(15),
 		GET_SIGNATURES_V2(16),
 		PEER_VERIFY(17),
-		VERIFICATION_CODES(18);
+		VERIFICATION_CODES(18),
+		HEIGHT_V2(19);
 
 		public final int value;
 		public final Method fromByteBuffer;
@@ -119,7 +138,7 @@ public abstract class Message {
 		return this.type;
 	}
 
-	public static Message fromStream(DataInputStream in) throws SocketTimeoutException {
+	public static Message fromStream(DataInputStream in) throws MessageException, IOException {
 		try {
 			// Read only enough bytes to cover Message "magic" preamble
 			byte[] messageMagic = new byte[MAGIC_LENGTH];
@@ -127,13 +146,13 @@ public abstract class Message {
 
 			if (!Arrays.equals(messageMagic, Controller.getInstance().getMessageMagic()))
 				// Didn't receive correct Message "magic"
-				return null;
+				throw new MessageException("Received incorrect message 'magic'");
 
 			int typeValue = in.readInt();
 			MessageType messageType = MessageType.valueOf(typeValue);
 			if (messageType == null)
 				// Unrecognised message type
-				return null;
+				throw new MessageException(String.format("Received unknown message type [%d]", typeValue));
 
 			// Find supporting object
 
@@ -144,14 +163,14 @@ public abstract class Message {
 
 				if (id <= 0)
 					// Invalid ID
-					return null;
+					throw new MessageException("Invalid negative ID");
 			}
 
 			int dataSize = in.readInt();
 
 			if (dataSize > MAX_DATA_SIZE)
 				// Too large
-				return null;
+				throw new MessageException(String.format("Declared data length %d larger than max allowed %d", dataSize, MAX_DATA_SIZE));
 
 			byte[] data = null;
 			if (dataSize > 0) {
@@ -164,14 +183,14 @@ public abstract class Message {
 				// Test checksum
 				byte[] actualChecksum = generateChecksum(data);
 				if (!Arrays.equals(expectedChecksum, actualChecksum))
-					return null;
+					throw new MessageException("Message checksum incorrect");
 			}
 
 			return messageType.fromBytes(id, data);
 		} catch (SocketTimeoutException e) {
 			throw e;
 		} catch (IOException e) {
-			return null;
+			throw e;
 		}
 	}
 
@@ -179,7 +198,7 @@ public abstract class Message {
 		return Arrays.copyOfRange(Crypto.digest(data), 0, CHECKSUM_LENGTH);
 	}
 
-	public byte[] toBytes() {
+	public byte[] toBytes() throws MessageException {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
@@ -198,7 +217,7 @@ public abstract class Message {
 
 			byte[] data = this.toData();
 			if (data == null)
-				return null;
+				throw new MessageException("Missing data payload");
 
 			bytes.write(Ints.toByteArray(data.length));
 
@@ -207,9 +226,12 @@ public abstract class Message {
 				bytes.write(data);
 			}
 
+			if (bytes.size() > MAX_DATA_SIZE)
+				throw new MessageException(String.format("About to send message with length %d larger than allowed %d", bytes.size(), MAX_DATA_SIZE));
+
 			return bytes.toByteArray();
 		} catch (IOException e) {
-			return null;
+			throw new MessageException("Failed to serialize message", e);
 		}
 	}
 

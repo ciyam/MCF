@@ -9,6 +9,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.block.Block;
 import org.qora.block.Block.ValidationResult;
+import org.qora.block.BlockChain;
 import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
@@ -26,6 +27,7 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.transaction.Transaction;
+import org.qora.utils.NTP;
 
 public class Synchronizer {
 
@@ -35,6 +37,8 @@ public class Synchronizer {
 	private static final int MAXIMUM_BLOCK_STEP = 500;
 	private static final int MAXIMUM_HEIGHT_DELTA = 300; // XXX move to blockchain config?
 	private static final int MAXIMUM_COMMON_DELTA = 60; // XXX move to blockchain config?
+	/** Maximum age for our latest block before we consider ditching our fork. */
+	private static final long MAXIMUM_TIP_AGE = BlockChain.getInstance().getMaxBlockTime() * 1000L * 10; // XXX move to blockchain config?
 	private static final int SYNC_BATCH_SIZE = 200;
 
 	private static Synchronizer instance;
@@ -42,7 +46,7 @@ public class Synchronizer {
 	private Repository repository;
 
 	public enum SynchronizationResult {
-		OK, GENESIS_ONLY, NO_COMMON_BLOCK, TOO_FAR_BEHIND, TOO_DIVERGENT, NO_REPLY, INFERIOR_CHAIN, INVALID_DATA, NO_BLOCKCHAIN_LOCK, REPOSITORY_ISSUE;
+		OK, NOTHING_TO_DO, GENESIS_ONLY, NO_COMMON_BLOCK, TOO_FAR_BEHIND, TOO_DIVERGENT, NO_REPLY, INFERIOR_CHAIN, INVALID_DATA, NO_BLOCKCHAIN_LOCK, REPOSITORY_ISSUE;
 	}
 
 	// Constructors
@@ -75,14 +79,16 @@ public class Synchronizer {
 				try (final Repository repository = RepositoryManager.getRepository()) {
 					try {
 						this.repository = repository;
-						final int ourInitialHeight = this.repository.getBlockRepository().getBlockchainHeight();
+						final BlockData ourLatestBlockData = this.repository.getBlockRepository().getLastBlock();
+						final int ourInitialHeight = ourLatestBlockData.getHeight();
 						int ourHeight = ourInitialHeight;
-						final int peerHeight = peer.getPeerData().getLastHeight();
+						int peerHeight = peer.getPeerData().getLastHeight();
 
 						// If peer is at genesis block then peer has no blocks so ignore them for a while
 						if (peerHeight == 1)
 							return SynchronizationResult.GENESIS_ONLY;
 
+						// XXX this may well be obsolete now
 						// If peer is too far behind us then don't them.
 						int minHeight = ourHeight - MAXIMUM_HEIGHT_DELTA;
 						if (peerHeight < minHeight) {
@@ -90,7 +96,12 @@ public class Synchronizer {
 							return SynchronizationResult.TOO_FAR_BEHIND;
 						}
 
-						LOGGER.info(String.format("Synchronizing with peer %s at height %d, our height %d", peer, peerHeight, ourHeight));
+						byte[] peersLastBlockSignature = peer.getPeerData().getLastBlockSignature();
+						byte[] ourLastBlockSignature = ourLatestBlockData.getSignature();
+						if (peerHeight == ourHeight && (peersLastBlockSignature == null || !Arrays.equals(peersLastBlockSignature, ourLastBlockSignature)))
+							LOGGER.info(String.format("Synchronizing with peer %s at height %d, our height %d, signatures differ", peer, peerHeight, ourHeight));
+						else
+							LOGGER.info(String.format("Synchronizing with peer %s at height %d, our height %d", peer, peerHeight, ourHeight));
 
 						List<byte[]> signatures = findSignaturesFromCommonBlock(peer, ourHeight);
 						if (signatures == null) {
@@ -104,13 +115,22 @@ public class Synchronizer {
 						LOGGER.debug(String.format("Common block with peer %s is at height %d", peer, commonBlockHeight));
 						signatures.remove(0);
 
+						// If common block height is higher than peer's last reported height
+						// then peer must have a very recent sync. Update our idea of peer's height.
+						if (commonBlockHeight > peerHeight) {
+							LOGGER.debug(String.format("Peer height %d was lower than common block height %d - using higher value", peerHeight, commonBlockHeight));
+							peerHeight = commonBlockHeight;
+						}
+
+						// XXX This may well be obsolete now
 						// If common block is peer's latest block then we simply have the same, or longer, chain to peer, so exit now
 						if (commonBlockHeight == peerHeight) {
 							if (peerHeight == ourHeight)
 								LOGGER.info(String.format("We have the same blockchain as peer %s", peer));
 							else
 								LOGGER.info(String.format("We have the same blockchain as peer %s, but longer", peer));
-							return SynchronizationResult.OK;
+
+							return SynchronizationResult.NOTHING_TO_DO;
 						}
 
 						// If common block is too far behind us then we're on massively different forks so give up.
@@ -121,7 +141,15 @@ public class Synchronizer {
 						}
 
 						// If we have blocks after common block then decide whether we want to sync (lowest block signature wins)
-						for (int height = commonBlockHeight + 1; height <= peerHeight && height <= ourHeight; ++height) {
+						int highestMutualHeight = Math.min(peerHeight, ourHeight);
+
+						// If our latest block is very old, we're very behind and should ditch our fork.
+						if (ourLatestBlockData.getTimestamp() < NTP.getTime() - MAXIMUM_TIP_AGE) {
+							LOGGER.info(String.format("Ditching our chain after height %d as our latest block is very old", commonBlockHeight));
+							highestMutualHeight = commonBlockHeight;
+						}
+
+						for (int height = commonBlockHeight + 1; height <= highestMutualHeight; ++height) {
 							int sigIndex = height - commonBlockHeight - 1;
 
 							// Do we need more signatures?
@@ -268,7 +296,7 @@ public class Synchronizer {
 			testSignature = testBlockData.getSignature();
 
 			// Ask for block signatures since test block's signature
-			LOGGER.trace(String.format("Requesting %d signature%s after our height %d", step, (step != 1 ? "s": ""), testHeight));
+			LOGGER.trace(String.format("Requesting %d signature%s after height %d", step, (step != 1 ? "s": ""), testHeight));
 			blockSignatures = this.getBlockSignatures(peer, testSignature, step);
 
 			if (blockSignatures == null)
