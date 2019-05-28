@@ -277,12 +277,12 @@ public class BlockTransformer extends Transformer {
 		}
 	}
 
-	public static byte[] getReferenceGeneratorSignature(byte[] blockReference) {
+	public static byte[] getGeneratorSignatureFromReference(byte[] blockReference) {
 		return Arrays.copyOf(blockReference, GENERATOR_SIGNATURE_LENGTH);
 	}
 
 	public static byte[] getBytesForGeneratorSignature(BlockData blockData) throws TransformationException {
-		byte[] generatorSignature = getReferenceGeneratorSignature(blockData.getReference());
+		byte[] generatorSignature = getGeneratorSignatureFromReference(blockData.getReference());
 		PublicKeyAccount generator = new PublicKeyAccount(null, blockData.getGeneratorPublicKey());
 
 		return getBytesForGeneratorSignature(generatorSignature, blockData.getGeneratingBalance(), generator);
