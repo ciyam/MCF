@@ -2,9 +2,7 @@ package org.qora.repository.hsqldb;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 import org.qora.data.network.PeerData;
@@ -22,9 +20,11 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 
 	@Override
 	public List<PeerData> getAllPeers() throws DataException {
+		String sql = "SELECT address, last_connected, last_attempted, last_height, last_block_signature, last_block_timestamp, last_block_generator, last_misbehaved FROM Peers";
+
 		List<PeerData> peers = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT address, last_connected, last_attempted, last_height, last_misbehaved FROM Peers")) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return peers;
 
@@ -33,20 +33,23 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 				String address = resultSet.getString(1);
 				PeerAddress peerAddress = PeerAddress.fromString(address);
 
-				Timestamp lastConnectedTimestamp = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long lastConnected = resultSet.wasNull() ? null : lastConnectedTimestamp.getTime();
+				Long lastConnected = HSQLDBRepository.getZonedTimestampMilli(resultSet, 2);
 
-				Timestamp lastAttemptedTimestamp = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long lastAttempted = resultSet.wasNull() ? null : lastAttemptedTimestamp.getTime();
+				Long lastAttempted = HSQLDBRepository.getZonedTimestampMilli(resultSet, 3);
 
 				Integer lastHeight = resultSet.getInt(4);
 				if (resultSet.wasNull())
 					lastHeight = null;
 
-				Timestamp lastMisbehavedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long lastMisbehaved = resultSet.wasNull() ? null : lastMisbehavedTimestamp.getTime();
+				byte[] lastBlockSignature = resultSet.getBytes(5);
 
-				peers.add(new PeerData(peerAddress, lastAttempted, lastConnected, lastHeight, lastMisbehaved));
+				Long lastBlockTimestamp = HSQLDBRepository.getZonedTimestampMilli(resultSet, 6);
+
+				byte[] lastBlockGenerator = resultSet.getBytes(7);
+
+				Long lastMisbehaved = HSQLDBRepository.getZonedTimestampMilli(resultSet, 8);
+
+				peers.add(new PeerData(peerAddress, lastAttempted, lastConnected, lastHeight, lastBlockSignature, lastBlockTimestamp, lastBlockGenerator, lastMisbehaved));
 			} while (resultSet.next());
 
 			return peers;
@@ -61,12 +64,12 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 	public void save(PeerData peerData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Peers");
 
-		Timestamp lastConnected = peerData.getLastConnected() == null ? null : new Timestamp(peerData.getLastConnected());
-		Timestamp lastAttempted = peerData.getLastAttempted() == null ? null : new Timestamp(peerData.getLastAttempted());
-		Timestamp lastMisbehaved = peerData.getLastMisbehaved() == null ? null : new Timestamp(peerData.getLastMisbehaved());
-
-		saveHelper.bind("address", peerData.getAddress().toString()).bind("last_connected", lastConnected).bind("last_attempted", lastAttempted)
-				.bind("last_height", peerData.getLastHeight()).bind("last_misbehaved", lastMisbehaved);
+		saveHelper.bind("address", peerData.getAddress().toString()).bind("last_connected", HSQLDBRepository.toOffsetDateTime(peerData.getLastConnected()))
+				.bind("last_attempted", HSQLDBRepository.toOffsetDateTime(peerData.getLastAttempted()))
+				.bind("last_height", peerData.getLastHeight()).bind("last_block_signature", peerData.getLastBlockSignature())
+				.bind("last_block_timestamp", HSQLDBRepository.toOffsetDateTime(peerData.getLastBlockTimestamp()))
+				.bind("last_block_generator", peerData.getLastBlockGenerator())
+				.bind("last_misbehaved", HSQLDBRepository.toOffsetDateTime(peerData.getLastMisbehaved()));
 
 		try {
 			saveHelper.execute(this.repository);
@@ -92,4 +95,5 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 			throw new DataException("Unable to delete peers from repository", e);
 		}
 	}
+
 }

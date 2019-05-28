@@ -730,6 +730,13 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX TransactionParticipantsAddressIndex on TransactionParticipants (participant)");
 					break;
 
+				case 49:
+					// Additional peer information
+					stmt.execute("ALTER TABLE Peers ADD COLUMN last_block_signature BlockSignature BEFORE last_misbehaved");
+					stmt.execute("ALTER TABLE Peers ADD COLUMN last_block_timestamp TIMESTAMP WITH TIME ZONE BEFORE last_misbehaved");
+					stmt.execute("ALTER TABLE Peers ADD COLUMN last_block_generator QoraPublicKey BEFORE last_misbehaved");
+					break;
+
 				default:
 					// nothing to do
 					return false;

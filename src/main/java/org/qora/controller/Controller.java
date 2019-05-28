@@ -8,9 +8,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Predicate;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,6 +38,7 @@ import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.GetSignaturesV2Message;
 import org.qora.network.message.HeightMessage;
+import org.qora.network.message.HeightV2Message;
 import org.qora.network.message.Message;
 import org.qora.network.message.SignaturesMessage;
 import org.qora.network.message.TransactionMessage;
@@ -137,6 +140,16 @@ public class Controller extends Thread {
 		}
 	}
 
+	/** Returns highest block, or null if there's a repository issue */
+	public BlockData getChainTip() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getBlockRepository().getLastBlock();
+		} catch (DataException e) {
+			LOGGER.error("Repository issue when fetching blockchain tip", e);
+			return null;
+		}
+	}
+
 	public ReentrantLock getBlockchainLock() {
 		return this.blockchainLock;
 	}
@@ -223,7 +236,7 @@ public class Controller extends Thread {
 
 		try {
 			while (!isStopping) {
-				Thread.sleep(60 * 1000);
+				Thread.sleep(14 * 1000);
 
 				potentiallySynchronize();
 
@@ -236,31 +249,24 @@ public class Controller extends Thread {
 	}
 
 	private void potentiallySynchronize() {
-		int ourHeight = getChainHeight();
-		if (ourHeight == 0)
-			return;
-
-		// If we have enough peers, potentially synchronize
 		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
+
+		// Check we have enough peers to potentially synchronize
 		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 			return;
 
 		for(Peer peer : peers)
 			LOGGER.trace(String.format("Peer %s is at height %d", peer, peer.getPeerData().getLastHeight()));
 
-		// Remove peers with unknown, or same, height
-		peers.removeIf(peer -> {
-			Integer peerHeight = peer.getPeerData().getLastHeight();
-			return peerHeight == null;
-		});
+		// Remove peers with unknown height, lower height or same height and same block signature (unless we don't have their block signature)
+		peers.removeIf(hasShorterBlockchain());
 
 		// Remove peers that have "misbehaved" recently
-		peers.removeIf(peer -> {
-			Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
-			return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
-		});
+		peers.removeIf(hasPeerMisbehaved);
 
 		if (!peers.isEmpty()) {
+			int ourHeight = getChainHeight();
+
 			// Pick random peer to sync with
 			int index = new SecureRandom().nextInt(peers.size());
 			Peer peer = peers.get(index);
@@ -295,14 +301,15 @@ public class Controller extends Thread {
 					break;
 
 				case OK:
-					LOGGER.debug(String.format("Synchronized with peer %s", peer));
+				case NOTHING_TO_DO:
+					LOGGER.debug(String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
 					break;
 			}
 
 			// Broadcast our new height (if changed)
-			int updatedHeight = getChainHeight();
-			if (updatedHeight != ourHeight)
-				Network.getInstance().broadcast(recipientPeer -> new HeightMessage(updatedHeight));
+			BlockData latestBlockData = getChainTip();
+			if (latestBlockData.getHeight() != ourHeight)
+				Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, latestBlockData));
 		}
 	}
 
@@ -366,18 +373,24 @@ public class Controller extends Thread {
 		network.broadcast(peer -> network.buildPeersMessage(peer));
 
 		// Send our current height
-		network.broadcast(peer -> new HeightMessage(this.getChainHeight()));
+		BlockData latestBlockData = getChainTip();
+		network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
 
 		// Request peers lists
 		network.broadcast(peer -> new GetPeersMessage());
 	}
 
-	public void onGeneratedBlock(BlockData newBlockData) {
-		// XXX we should really be broadcasting the new block sig, not height
-		// Could even broadcast top two block sigs so that remote peers can see new block references current network-wide last block
+	public void onGeneratedBlock() {
+		// Broadcast our new height info
+		BlockData latestBlockData = getChainTip();
 
-		// Broadcast our new height
-		Network.getInstance().broadcast(peer -> new HeightMessage(newBlockData.getHeight()));
+		Network network = Network.getInstance();
+		network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
+	}
+
+	public void onNewTransaction(TransactionData transactionData) {
+		// Send round to all peers
+		Network.getInstance().broadcast(peer -> new TransactionMessage(transactionData));
 	}
 
 	public void onNetworkMessage(Peer peer, Message message) {
@@ -388,15 +401,44 @@ public class Controller extends Thread {
 				HeightMessage heightMessage = (HeightMessage) message;
 
 				// Update our record of peer's height
-				peer.getPeerData().setLastHeight(heightMessage.getHeight());
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					PeerData peerData = peer.getPeerData();
+
+					peer.getPeerData().setLastHeight(heightMessage.getHeight());
+
+					repository.getNetworkRepository().save(peerData);
+					repository.saveChanges();
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while updating height of peer %s", peer), e);
+				}
 
 				break;
 
-			case GET_SIGNATURES:
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					GetSignaturesMessage getSignaturesMessage = (GetSignaturesMessage) message;
-					byte[] parentSignature = getSignaturesMessage.getParentSignature();
+			case HEIGHT_V2:
+				HeightV2Message heightV2Message = (HeightV2Message) message;
 
+				// Update our record for peer's blockchain info
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					PeerData peerData = peer.getPeerData();
+
+					peerData.setLastHeight(heightV2Message.getHeight());
+					peerData.setLastBlockSignature(heightV2Message.getSignature());
+					peerData.setLastBlockTimestamp(heightV2Message.getTimestamp());
+					peerData.setLastBlockGenerator(heightV2Message.getGenerator());
+
+					repository.getNetworkRepository().save(peerData);
+					repository.saveChanges();
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while updating info of peer %s", peer), e);
+				}
+
+				break;
+
+			case GET_SIGNATURES: {
+				GetSignaturesMessage getSignaturesMessage = (GetSignaturesMessage) message;
+				byte[] parentSignature = getSignaturesMessage.getParentSignature();
+
+				try (final Repository repository = RepositoryManager.getRepository()) {
 					List<byte[]> signatures = new ArrayList<>();
 
 					do {
@@ -412,17 +454,18 @@ public class Controller extends Thread {
 					Message signaturesMessage = new SignaturesMessage(signatures);
 					signaturesMessage.setId(message.getId());
 					if (!peer.sendMessage(signaturesMessage))
-						peer.disconnect();
+						peer.disconnect("failed to send signatures");
 				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while responding to %s from peer %s", message.getType().name(), peer), e);
+					LOGGER.error(String.format("Repository issue while sending signatures after %s to peer %s", Base58.encode(parentSignature), peer), e);
 				}
 				break;
+			}
 
-			case GET_SIGNATURES_V2:
+			case GET_SIGNATURES_V2: {
+				GetSignaturesV2Message getSignaturesMessage = (GetSignaturesV2Message) message;
+				byte[] parentSignature = getSignaturesMessage.getParentSignature();
+
 				try (final Repository repository = RepositoryManager.getRepository()) {
-					GetSignaturesV2Message getSignaturesMessage = (GetSignaturesV2Message) message;
-					byte[] parentSignature = getSignaturesMessage.getParentSignature();
-
 					List<byte[]> signatures = new ArrayList<>();
 
 					do {
@@ -438,17 +481,18 @@ public class Controller extends Thread {
 					Message signaturesMessage = new SignaturesMessage(signatures);
 					signaturesMessage.setId(message.getId());
 					if (!peer.sendMessage(signaturesMessage))
-						peer.disconnect();
+						peer.disconnect("failed to send signatures (v2)");
 				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while responding to %s from peer %s", message.getType().name(), peer), e);
+					LOGGER.error(String.format("Repository issue while sending V2 signatures after %s to peer %s", Base58.encode(parentSignature), peer), e);
 				}
 				break;
+			}
 
 			case GET_BLOCK:
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					GetBlockMessage getBlockMessage = (GetBlockMessage) message;
-					byte[] signature = getBlockMessage.getSignature();
+				GetBlockMessage getBlockMessage = (GetBlockMessage) message;
+				byte[] signature = getBlockMessage.getSignature();
 
+				try (final Repository repository = RepositoryManager.getRepository()) {
 					BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 					if (blockData == null) {
 						LOGGER.debug(String.format("Ignoring GET_BLOCK request from peer %s for unknown block %s", peer, Base58.encode(signature)));
@@ -461,17 +505,17 @@ public class Controller extends Thread {
 					Message blockMessage = new BlockMessage(block);
 					blockMessage.setId(message.getId());
 					if (!peer.sendMessage(blockMessage))
-						peer.disconnect();
+						peer.disconnect("failed to send block");
 				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while responding to %s from peer %s", message.getType().name(), peer), e);
+					LOGGER.error(String.format("Repository issue while send block %s to peer %s", Base58.encode(signature), peer), e);
 				}
 				break;
 
 			case TRANSACTION:
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					TransactionMessage transactionMessage = (TransactionMessage) message;
+				TransactionMessage transactionMessage = (TransactionMessage) message;
+				TransactionData transactionData = transactionMessage.getTransactionData();
 
-					TransactionData transactionData = transactionMessage.getTransactionData();
+				try (final Repository repository = RepositoryManager.getRepository()) {
 					Transaction transaction = Transaction.fromData(repository, transactionData);
 
 					// Check signature
@@ -480,33 +524,40 @@ public class Controller extends Thread {
 						break;
 					}
 
-					// Do we have it already?
-					if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
-						LOGGER.trace(String.format("Ignoring existing TRANSACTION %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-						break;
-					}
+					// Blockchain lock required to prevent multiple threads trying to save the same transaction simultaneously
+					ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+					blockchainLock.lock();
+					try {
+						// Do we have it already?
+						if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
+							LOGGER.trace(String.format("Ignoring existing TRANSACTION %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+							break;
+						}
 
-					// Is it valid?
-					ValidationResult validationResult = transaction.isValidUnconfirmed();
-					if (validationResult != ValidationResult.OK) {
-						LOGGER.trace(String.format("Ignoring invalid (%s) TRANSACTION %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
-						break;
-					}
+						// Is it valid?
+						ValidationResult validationResult = transaction.isValidUnconfirmed();
+						if (validationResult != ValidationResult.OK) {
+							LOGGER.trace(String.format("Ignoring invalid (%s) TRANSACTION %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
+							break;
+						}
 
-					// Seems ok - add to unconfirmed pile
-					repository.getTransactionRepository().save(transactionData);
-					repository.getTransactionRepository().unconfirmTransaction(transactionData);
-					repository.saveChanges();
+						// Seems ok - add to unconfirmed pile
+						repository.getTransactionRepository().save(transactionData);
+						repository.getTransactionRepository().unconfirmTransaction(transactionData);
+						repository.saveChanges();
+					} finally {
+						blockchainLock.unlock();
+					}
 				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while responding to %s from peer %s", message.getType().name(), peer), e);
+					LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
 				}
 				break;
 
 			case GET_BLOCK_SUMMARIES:
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					GetBlockSummariesMessage getBlockSummariesMessage = (GetBlockSummariesMessage) message;
-					byte[] parentSignature = getBlockSummariesMessage.getParentSignature();
+				GetBlockSummariesMessage getBlockSummariesMessage = (GetBlockSummariesMessage) message;
+				byte[] parentSignature = getBlockSummariesMessage.getParentSignature();
 
+				try (final Repository repository = RepositoryManager.getRepository()) {
 					List<BlockSummaryData> blockSummaries = new ArrayList<>();
 
 					int numberRequested = Math.min(Network.MAX_BLOCK_SUMMARIES_PER_REPLY, getBlockSummariesMessage.getNumberRequested());
@@ -525,20 +576,67 @@ public class Controller extends Thread {
 					Message blockSummariesMessage = new BlockSummariesMessage(blockSummaries);
 					blockSummariesMessage.setId(message.getId());
 					if (!peer.sendMessage(blockSummariesMessage))
-						peer.disconnect();
+						peer.disconnect("failed to send block summaries");
 				} catch (DataException e) {
-					LOGGER.error(String.format("Repository issue while responding to %s from peer %s", message.getType().name(), peer), e);
+					LOGGER.error(String.format("Repository issue while sending block summaries after %s to peer %s", Base58.encode(parentSignature), peer), e);
 				}
 				break;
 
+			case GET_PEERS:
+				// Send our known peers
+				if (!peer.sendMessage(Network.getInstance().buildPeersMessage(peer)))
+					peer.disconnect("failed to send peers list");
+				break;
+
 			default:
+				LOGGER.debug(String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
 		}
 	}
 
-	public void onNewTransaction(TransactionData transactionData) {
-		// Send round to all peers
-		Network.getInstance().broadcast(peer -> new TransactionMessage(transactionData));
+	// Utilities
+
+	public static final Predicate<Peer> hasPeerMisbehaved = peer -> {
+		Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
+		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
+	};
+
+	/** True if peer has unknown height, lower height or same height and same block signature (unless we don't have their block signature). */
+	public static Predicate<Peer> hasShorterBlockchain() {
+		BlockData highestBlockData = getInstance().getChainTip();
+		int ourHeight = highestBlockData.getHeight();
+
+		return peer -> {
+			PeerData peerData = peer.getPeerData();
+
+			Integer peerHeight = peerData.getLastHeight();
+			if (peerHeight == null || peerHeight < ourHeight)
+				return true;
+
+			if (peerHeight > ourHeight || peerData.getLastBlockSignature() == null)
+				return false;
+
+			// Remove if signatures match
+			return Arrays.equals(peerData.getLastBlockSignature(), highestBlockData.getSignature());
+		};
+	}
+
+	/** Returns whether we think our node has up-to-date blockchain based on our height info about other peers. */
+	public boolean isUpToDate() {
+		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
+
+		// Check we have enough peers to potentially synchronize/generator
+		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
+			return false;
+
+		// Remove peers with unknown height, lower height or same height and same block signature (unless we don't have their block signature)
+		peers.removeIf(hasShorterBlockchain());
+
+		// Remove peers that have "misbehaved" recently
+		peers.removeIf(hasPeerMisbehaved);
+
+		// If we have any peers left, then they would be candidates for synchronization therefore we're not up to date.
+		return peers.isEmpty();
 	}
 
 }
