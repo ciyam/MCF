@@ -62,7 +62,7 @@ public class Group {
 			if (!this.isPercentage)
 				return currentApprovals >= this.value;
 
-			return currentApprovals >= (totalAdmins * 100 / this.value);
+			return currentApprovals >= (totalAdmins * this.value / 100);
 		}
 
 		/**
