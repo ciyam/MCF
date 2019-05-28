@@ -508,7 +508,10 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	/** Converts milliseconds from epoch to OffsetDateTime needed for TIMESTAMP WITH TIME ZONE columns. */
-	/* package */ static OffsetDateTime toOffsetDateTime(long timestamp) {
+	/* package */ static OffsetDateTime toOffsetDateTime(Long timestamp) {
+		if (timestamp == null)
+			return null;
+
 		return OffsetDateTime.ofInstant(Instant.ofEpochMilli(timestamp), ZoneOffset.UTC);
 	}
 
