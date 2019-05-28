@@ -22,6 +22,9 @@ public class PeerData {
 	private Long lastAttempted;
 	private Long lastConnected;
 	private Integer lastHeight;
+	private byte[] lastBlockSignature;
+	private Long lastBlockTimestamp;
+	private byte[] lastBlockGenerator;
 	private Long lastMisbehaved;
 
 	// Constructors
@@ -30,16 +33,19 @@ public class PeerData {
 	protected PeerData() {
 	}
 
-	public PeerData(PeerAddress peerAddress, Long lastAttempted, Long lastConnected, Integer lastHeight, Long lastMisbehaved) {
+	public PeerData(PeerAddress peerAddress, Long lastAttempted, Long lastConnected, Integer lastHeight, byte[] lastBlockSignature, Long lastBlockTimestamp, byte[] lastBlockGenerator, Long lastMisbehaved) {
 		this.peerAddress = peerAddress;
 		this.lastAttempted = lastAttempted;
 		this.lastConnected = lastConnected;
 		this.lastHeight = lastHeight;
+		this.lastBlockSignature = lastBlockSignature;
+		this.lastBlockTimestamp = lastBlockTimestamp;
+		this.lastBlockGenerator = lastBlockGenerator;
 		this.lastMisbehaved = lastMisbehaved;
 	}
 
 	public PeerData(PeerAddress peerAddress) {
-		this(peerAddress, null, null, null, null);
+		this(peerAddress, null, null, null, null, null, null, null);
 	}
 
 	// Getters / setters
@@ -73,6 +79,30 @@ public class PeerData {
 
 	public void setLastHeight(Integer lastHeight) {
 		this.lastHeight = lastHeight;
+	}
+
+	public byte[] getLastBlockSignature() {
+		return lastBlockSignature;
+	}
+
+	public void setLastBlockSignature(byte[] lastBlockSignature) {
+		this.lastBlockSignature = lastBlockSignature;
+	}
+
+	public Long getLastBlockTimestamp() {
+		return lastBlockTimestamp;
+	}
+
+	public void setLastBlockTimestamp(Long lastBlockTimestamp) {
+		this.lastBlockTimestamp = lastBlockTimestamp;
+	}
+
+	public byte[] getLastBlockGenerator() {
+		return lastBlockGenerator;
+	}
+
+	public void setLastBlockGenerator(byte[] lastBlockGenerator) {
+		this.lastBlockGenerator = lastBlockGenerator;
 	}
 
 	public Long getLastMisbehaved() {

@@ -12,6 +12,7 @@ import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
@@ -23,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.qora.controller.Controller;
 import org.qora.data.network.PeerData;
 import org.qora.network.message.Message;
+import org.qora.network.message.Message.MessageException;
 import org.qora.network.message.Message.MessageType;
 import org.qora.settings.Settings;
 import org.qora.network.message.PingMessage;
@@ -236,10 +238,14 @@ public class Peer implements Runnable {
 					Network.getInstance().onMessage(this, message);
 				}
 			}
+		} catch (MessageException e) {
+			LOGGER.debug(String.format("%s, from peer %s", e.getMessage(), this));
+			this.disconnect(e.getMessage());
+		} catch (SocketTimeoutException e) {
+			this.disconnect("timeout");
 		} catch (IOException e) {
-			// Fall-through
+			this.disconnect("I/O error");
 		} finally {
-			this.disconnect();
 			Thread.currentThread().setName("disconnected peer");
 		}
 	}
@@ -262,6 +268,8 @@ public class Peer implements Runnable {
 				this.out.write(message.toBytes());
 				this.out.flush();
 			}
+		} catch (MessageException e) {
+			LOGGER.warn(String.format("Failed to send %s message with ID %d to peer %s: %s", message.getType().name(), message.getId(), this, e.getMessage()));
 		} catch (IOException e) {
 			// Send failure
 			return false;
@@ -329,23 +337,24 @@ public class Peer implements Runnable {
 				long after = System.currentTimeMillis();
 
 				if (message == null || message.getType() != MessageType.PING)
-					peer.disconnect();
+					peer.disconnect("no ping received");
 
 				peer.setLastPing(after - before);
 			}
 		}
-		;
 
-		this.executor.scheduleWithFixedDelay(new Pinger(this), 0, PING_INTERVAL, TimeUnit.MILLISECONDS);
+		Random random = new Random();
+		long initialDelay = random.nextInt(PING_INTERVAL);
+		this.executor.scheduleWithFixedDelay(new Pinger(this), initialDelay, PING_INTERVAL, TimeUnit.MILLISECONDS);
 	}
 
-	public void disconnect() {
+	public void disconnect(String reason) {
 		// Shut down pinger
 		this.executor.shutdownNow();
 
 		// Close socket
 		if (!this.socket.isClosed()) {
-			LOGGER.debug(String.format("Disconnecting peer %s", this));
+			LOGGER.debug(String.format("Disconnecting peer %s: %s", this, reason));
 
 			try {
 				this.socket.close();

@@ -152,7 +152,7 @@ public enum Handshake {
 			// Drop other inbound peers with the same ID
 			for (Peer otherPeer : Network.getInstance().getConnectedPeers())
 				if (!otherPeer.isOutbound() && otherPeer.getPeerId() != null && Arrays.equals(otherPeer.getPeerId(), peer.getPendingPeerId()))
-					otherPeer.disconnect();
+					otherPeer.disconnect("doppelganger");
 
 			// Tidy up
 			peer.setVerificationCodes(null, null);
@@ -191,13 +191,13 @@ public enum Handshake {
 
 		Message versionMessage = new VersionMessage(buildTimestamp, versionString);
 		if (!peer.sendMessage(versionMessage))
-			peer.disconnect();
+			peer.disconnect("failed to send version");
 	}
 
 	private static void sendMyId(Peer peer) {
 		Message peerIdMessage = new PeerIdMessage(Network.getInstance().getOurPeerId());
 		if (!peer.sendMessage(peerIdMessage))
-			peer.disconnect();
+			peer.disconnect("failed to send peer ID");
 	}
 
 	private static void sendProof(Peer peer) {
@@ -208,7 +208,7 @@ public enum Handshake {
 			// For incoming connections we only need to send a fake proof message as confirmation
 			Message proofMessage = new ProofMessage(peer.getConnectionTimestamp(), 0, 0);
 			if (!peer.sendMessage(proofMessage))
-				peer.disconnect();
+				peer.disconnect("failed to send proof");
 		}
 	}
 
@@ -218,14 +218,14 @@ public enum Handshake {
 		// Send VERIFICATION_CODES to peer
 		Message verificationCodesMessage = new VerificationCodesMessage(peer.getVerificationCodeSent(), peer.getVerificationCodeExpected());
 		if (!otherOutboundPeer.sendMessage(verificationCodesMessage)) {
-			peer.disconnect(); // give up with this peer instead
+			peer.disconnect("failed to send verification codes"); // give up with this peer instead
 			return;
 		}
 
 		// Send PEER_VERIFY to peer
 		Message peerVerifyMessage = new PeerVerifyMessage(peer.getVerificationCodeSent());
 		if (!peer.sendMessage(peerVerifyMessage))
-			peer.disconnect();
+			peer.disconnect("failed to send verification code");
 	}
 
 }
