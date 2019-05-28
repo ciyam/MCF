@@ -7,10 +7,10 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
@@ -27,9 +27,7 @@ import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qora.controller.Controller;
-import org.qora.crypto.Crypto;
 import org.qora.data.block.BlockData;
-import org.qora.data.network.BlockSummaryData;
 import org.qora.network.Network;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
@@ -316,6 +314,27 @@ public class BlockChain {
 		// Check first block is Genesis Block
 		if (!isGenesisBlockValid())
 			rebuildBlockchain();
+
+		// TODO: walk through blocks
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Block parentBlock = GenesisBlock.getInstance(repository);
+			BlockData parentBlockData = parentBlock.getBlockData();
+
+			while (true) {
+				BlockData childBlockData = parentBlock.getChild();
+				if (childBlockData == null)
+					break;
+
+				if (!Arrays.equals(childBlockData.getReference(), parentBlock.getSignature())) {
+					LOGGER.error(String.format("Block %d's reference does not match block %d's signature", childBlockData.getHeight(), parentBlockData.getHeight()));
+					rebuildBlockchain();
+					return;
+				}
+
+				parentBlock = new Block(repository, childBlockData);
+				parentBlockData = childBlockData;
+			}
+		}
 	}
 
 	private static boolean isGenesisBlockValid() throws DataException {
