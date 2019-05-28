@@ -284,11 +284,12 @@ public class BlockTransformer extends Transformer {
 	public static byte[] getBytesForGeneratorSignature(BlockData blockData) throws TransformationException {
 		byte[] generatorSignature = getGeneratorSignatureFromReference(blockData.getReference());
 		PublicKeyAccount generator = new PublicKeyAccount(null, blockData.getGeneratorPublicKey());
+		Integer signatureHeight = blockData.getVersion() >= 4 ? blockData.getHeight() : null;
 
-		return getBytesForGeneratorSignature(generatorSignature, blockData.getTimestamp(), generator);
+		return getBytesForGeneratorSignature(generatorSignature, blockData.getTimestamp(), signatureHeight, generator);
 	}
 
-	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, long timestamp, PublicKeyAccount generator)
+	public static byte[] getBytesForGeneratorSignature(byte[] generatorSignature, long timestamp, Integer height, PublicKeyAccount generator)
 			throws TransformationException {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream(GENERATOR_SIGNATURE_LENGTH + TIMESTAMP_LENGTH + GENERATOR_LENGTH);
@@ -296,6 +297,10 @@ public class BlockTransformer extends Transformer {
 			bytes.write(generatorSignature);
 
 			bytes.write(Longs.toByteArray(timestamp));
+
+			// Height is used in v4+ blocks only
+			if (height != null)
+				bytes.write(Ints.toByteArray(height));
 
 			// We're padding here just in case the generator is the genesis account whose public key is only 8 bytes long.
 			bytes.write(Bytes.ensureCapacity(generator.getPublicKey(), GENERATOR_LENGTH, 0));
