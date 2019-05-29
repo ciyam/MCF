@@ -86,7 +86,8 @@ public class ApiService {
 		swaggerUIServlet.setInitParameter("pathInfoOnly", "true");
 		context.addServlet(swaggerUIServlet, "/api-documentation/*");
 
-		rewriteHandler.addRule(new RedirectPatternRule("/api-documentation", "/api-documentation/index.html")); // redirect to swagger ui start page
+		rewriteHandler.addRule(new RedirectPatternRule("", "/api-documentation/")); // redirect to Swagger UI start page
+		rewriteHandler.addRule(new RedirectPatternRule("/api-documentation", "/api-documentation/")); // redirect to Swagger UI start page
 	}
 
 	// XXX: replace singleton pattern by dependency injection?
