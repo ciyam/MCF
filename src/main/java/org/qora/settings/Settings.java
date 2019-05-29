@@ -36,7 +36,7 @@ public class Settings {
 	// Settings, and other config files
 	private String userPath;
 
-	// Bundled UI related
+	// Node management UI
 	private boolean uiEnabled = true;
 	private int uiPort = 9080;
 	private String[] uiWhitelist = new String[] {

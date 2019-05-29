@@ -16,7 +16,7 @@ public class UiService {
 	private final Server server;
 
 	public UiService() {
-		// Create bundled UI server
+		// Create node management UI server
 		this.server = new Server(Settings.getInstance().getUiPort());
 
 		// IP address based access control
@@ -42,15 +42,15 @@ public class UiService {
 		corsFilterHolder.setInitParameter(CrossOriginFilter.CHAIN_PREFLIGHT_PARAM, "false");
 		context.addFilter(corsFilterHolder, "/*", null);
 
-		// Bundled-UI static content servlet
-		ServletHolder uiServlet = new ServletHolder("bundled-ui", DefaultServlet.class);
+		// Node management UI static content servlet
+		ServletHolder uiServlet = new ServletHolder("node-management-ui", DefaultServlet.class);
 		ClassLoader loader = this.getClass().getClassLoader();
-		uiServlet.setInitParameter("resourceBase", loader.getResource("bundled-ui/").toString());
+		uiServlet.setInitParameter("resourceBase", loader.getResource("node-management-ui/").toString());
 		uiServlet.setInitParameter("dirAllowed", "true");
 		uiServlet.setInitParameter("pathInfoOnly", "true");
 		context.addServlet(uiServlet, "/*");
 
-		rewriteHandler.addRule(new RedirectPatternRule("", "/home.html")); // redirect to bundled UI start page
+		rewriteHandler.addRule(new RedirectPatternRule("", "/peer.html")); // node management UI start page
 	}
 
 	private static UiService instance;
@@ -69,7 +69,7 @@ public class UiService {
 			server.start();
 		} catch (Exception e) {
 			// Failed to start
-			throw new RuntimeException("Failed to start bundled UI", e);
+			throw new RuntimeException("Failed to start node management UI", e);
 		}
 	}
 

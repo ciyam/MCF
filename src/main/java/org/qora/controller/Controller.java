@@ -224,12 +224,12 @@ public class Controller extends Thread {
 		LOGGER.info("Starting auto-update");
 		AutoUpdate.getInstance().start();
 
-		LOGGER.info("Starting bundled UI on port " + Settings.getInstance().getUiPort());
+		LOGGER.info("Starting node management UI on port " + Settings.getInstance().getUiPort());
 		try {
 			UiService uiService = UiService.getInstance();
 			uiService.start();
 		} catch (Exception e) {
-			LOGGER.error("Unable to start bundled UI", e);
+			LOGGER.error("Unable to start node management UI", e);
 			System.exit(1);
 		}
 
@@ -329,7 +329,7 @@ public class Controller extends Thread {
 			if (!isStopping) {
 				isStopping = true;
 
-				LOGGER.info("Shutting down bundled UI");
+				LOGGER.info("Shutting down node management UI");
 				UiService.getInstance().stop();
 
 				LOGGER.info("Shutting down auto-update");
