@@ -72,7 +72,7 @@ public class Settings {
 	private int maxPeers = 30;
 
 	// Which blockchains this node is running
-	private String blockchainConfig = "blockchain.json";
+	private String blockchainConfig = null; // use default from resources
 	private boolean useBitcoinTestNet = false;
 
 	// Repository related
@@ -177,7 +177,7 @@ public class Settings {
 		instance = settings;
 
 		// Now read blockchain config
-		BlockChain.fileInstance(settings.getUserPath() + settings.getBlockchainConfig());
+		BlockChain.fileInstance(settings.getUserPath(), settings.getBlockchainConfig());
 	}
 
 	private void validate() {
