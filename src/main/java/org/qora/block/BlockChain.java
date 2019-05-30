@@ -1,9 +1,7 @@
 package org.qora.block;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
+import java.io.File;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.sql.SQLException;
@@ -122,7 +120,8 @@ public class BlockChain {
 		return instance;
 	}
 
-	public static void fileInstance(String filename) {
+	/** Use blockchain config read from <tt>path</tt> + <tt>filename</tt>, or use resources-based default if <tt>filename</tt> is <tt>null</tt>. */
+	public static void fileInstance(String path, String filename) {
 		JAXBContext jc;
 		Unmarshaller unmarshaller;
 
@@ -147,15 +146,30 @@ public class BlockChain {
 		}
 
 		BlockChain blockchain = null;
+		StreamSource jsonSource;
 
-		LOGGER.info("Using blockchain config file: " + filename);
+		if (filename != null) {
+			LOGGER.info("Using blockchain config file: " + path + filename);
 
-		// Create the StreamSource by creating Reader to the JSON input
-		try (Reader settingsReader = new FileReader(filename)) {
-			StreamSource json = new StreamSource(settingsReader);
+			File jsonFile = new File(path + filename);
 
+			if (!jsonFile.exists()) {
+				LOGGER.error("Blockchain config file not found: " + path + filename);
+				throw new RuntimeException("Blockchain config file not found: " + path + filename);
+			}
+
+			jsonSource = new StreamSource(jsonFile);
+		} else {
+			LOGGER.info("Using default, resources-based blockchain config");
+
+			ClassLoader classLoader = BlockChain.class.getClassLoader();
+			InputStream in = classLoader.getResourceAsStream("blockchain.json");
+			jsonSource = new StreamSource(in);
+		}
+
+		try  {
 			// Attempt to unmarshal JSON stream to BlockChain config
-			blockchain = unmarshaller.unmarshal(json, BlockChain.class).getValue();
+			blockchain = unmarshaller.unmarshal(jsonSource, BlockChain.class).getValue();
 		} catch (UnmarshalException e) {
 			Throwable linkedException = e.getLinkedException();
 			if (linkedException instanceof XMLMarshalException) {
@@ -166,13 +180,7 @@ public class BlockChain {
 
 			LOGGER.error("Unable to process blockchain config file", e);
 			throw new RuntimeException("Unable to process blockchain config file", e);
-		} catch (FileNotFoundException e) {
-			LOGGER.error("Blockchain config file not found: " + filename);
-			throw new RuntimeException("Blockchain config file not found: " + filename);
 		} catch (JAXBException e) {
-			LOGGER.error("Unable to process blockchain config file", e);
-			throw new RuntimeException("Unable to process blockchain config file", e);
-		} catch (IOException e) {
 			LOGGER.error("Unable to process blockchain config file", e);
 			throw new RuntimeException("Unable to process blockchain config file", e);
 		}
