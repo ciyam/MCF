@@ -144,7 +144,7 @@ public class Synchronizer {
 						int highestMutualHeight = Math.min(peerHeight, ourHeight);
 
 						// If our latest block is very old, we're very behind and should ditch our fork.
-						if (ourLatestBlockData.getTimestamp() < NTP.getTime() - MAXIMUM_TIP_AGE) {
+						if (ourInitialHeight > commonBlockHeight && ourLatestBlockData.getTimestamp() < NTP.getTime() - MAXIMUM_TIP_AGE) {
 							LOGGER.info(String.format("Ditching our chain after height %d as our latest block is very old", commonBlockHeight));
 							highestMutualHeight = commonBlockHeight;
 						}
@@ -207,11 +207,17 @@ public class Synchronizer {
 						while (ourHeight < peerHeight && ourHeight < maxBatchHeight) {
 							// Do we need more signatures?
 							if (signatures.isEmpty()) {
-								signatures = this.getBlockSignatures(peer, signature, maxBatchHeight - ourHeight);
+								int numberRequested = maxBatchHeight - ourHeight;
+								LOGGER.trace(String.format("Requesting %d signature%s after height %d", numberRequested, (numberRequested != 1 ? "s": ""), ourHeight));
+
+								signatures = this.getBlockSignatures(peer, signature, numberRequested);
+
 								if (signatures == null || signatures.isEmpty()) {
 									LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d", peer, ourHeight));
 									return SynchronizationResult.NO_REPLY;
 								}
+
+								LOGGER.trace(String.format("Received %s signature%s", signatures.size(), (signatures.size() != 1 ? "s" : "")));
 							}
 
 							signature = signatures.get(0);
@@ -358,7 +364,6 @@ public class Synchronizer {
 	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) {
 		// numberRequested is v2+ feature
 		Message getSignaturesMessage = peer.getVersion() >= 2 ? new GetSignaturesV2Message(parentSignature, numberRequested) : new GetSignaturesMessage(parentSignature);
-		// Message getSignaturesMessage = new GetSignaturesMessage(parentSignature);
 
 		Message message = peer.getResponse(getSignaturesMessage);
 		if (message == null || message.getType() != MessageType.SIGNATURES)
