@@ -16,6 +16,8 @@ import org.qora.block.BlockChain;
 import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
+import org.qora.data.transaction.GroupApprovalTransactionData;
+import org.qora.data.transaction.TransactionData;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
 import org.qora.network.message.BlockSummariesMessage;
@@ -23,13 +25,17 @@ import org.qora.network.message.GetBlockMessage;
 import org.qora.network.message.GetBlockSummariesMessage;
 import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.GetSignaturesV2Message;
+import org.qora.network.message.GetTransactionMessage;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
 import org.qora.network.message.SignaturesMessage;
+import org.qora.network.message.TransactionMessage;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.TransactionType;
+import org.qora.utils.Base58;
 import org.qora.utils.NTP;
 
 public class Synchronizer {
@@ -147,7 +153,7 @@ public class Synchronizer {
 						int highestMutualHeight = Math.min(peerHeight, ourHeight);
 
 						// If our latest block is very old, we're very behind and should ditch our fork.
-						if (ourLatestBlockData.getTimestamp() < NTP.getTime() - MAXIMUM_TIP_AGE) {
+						if (ourInitialHeight > commonBlockHeight && ourLatestBlockData.getTimestamp() < NTP.getTime() - MAXIMUM_TIP_AGE) {
 							LOGGER.info(String.format("Ditching our chain after height %d as our latest block is very old", commonBlockHeight));
 							highestMutualHeight = commonBlockHeight;
 						}
@@ -212,11 +218,17 @@ public class Synchronizer {
 						while (ourHeight < peerHeight && ourHeight < maxBatchHeight) {
 							// Do we need more signatures?
 							if (signatures.isEmpty()) {
-								signatures = this.getBlockSignatures(peer, signature, maxBatchHeight - ourHeight);
+								int numberRequested = maxBatchHeight - ourHeight;
+								LOGGER.trace(String.format("Requesting %d signature%s after height %d", numberRequested, (numberRequested != 1 ? "s": ""), ourHeight));
+
+								signatures = this.getBlockSignatures(peer, signature, numberRequested);
+
 								if (signatures == null || signatures.isEmpty()) {
 									LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d", peer, ourHeight));
 									return SynchronizationResult.NO_REPLY;
 								}
+
+								LOGGER.trace(String.format("Received %s signature%s", signatures.size(), (signatures.size() != 1 ? "s" : "")));
 							}
 
 							signature = signatures.get(0);
@@ -228,6 +240,46 @@ public class Synchronizer {
 							if (newBlock == null) {
 								LOGGER.info(String.format("Peer %s failed to respond with block for height %d", peer, ourHeight));
 								return SynchronizationResult.NO_REPLY;
+							}
+
+							// If block contains GROUP_APPROVAL transactions then we need to make sure we have the relevant pending transactions too
+							for (Transaction transaction : newBlock.getTransactions()) {
+								TransactionData transactionData = transaction.getTransactionData();
+
+								if (transactionData.getType() != TransactionType.GROUP_APPROVAL)
+									continue;
+
+								GroupApprovalTransactionData groupApprovalTransactionData = (GroupApprovalTransactionData) transactionData;
+
+								byte[] pendingSignature = groupApprovalTransactionData.getPendingSignature();
+
+								if (repository.getTransactionRepository().exists(pendingSignature))
+									continue;
+
+								LOGGER.debug(String.format("Fetching unknown approval-pending transaction %s from peer %s, needed for block at height %d", Base58.encode(pendingSignature), peer, ourHeight));
+
+								TransactionData pendingTransactionData = this.fetchTransaction(peer, pendingSignature);
+								if (pendingTransactionData == null) {
+									LOGGER.info(String.format("Peer %s failed to respond with pending transaction %s", peer, Base58.encode(pendingSignature)));
+									return SynchronizationResult.NO_REPLY;
+								}
+
+								// Check the signature is valid at least!
+								Transaction pendingTransaction = Transaction.fromData(repository, pendingTransactionData);
+								if (!pendingTransaction.isSignatureValid()) {
+									LOGGER.info(String.format("Peer %s sent pending transaction %s with invalid signature", peer, Base58.encode(pendingSignature)));
+									return SynchronizationResult.INVALID_DATA;
+								}
+
+								Transaction.ValidationResult transactionResult = pendingTransaction.isValidUnconfirmed();
+								if (transactionResult != Transaction.ValidationResult.OK) {
+									LOGGER.info(String.format("Peer %s sent invalid (%s) pending transaction %s", peer, transactionResult.name(), Base58.encode(pendingSignature)));
+									return SynchronizationResult.INVALID_DATA;
+								}
+
+								// Add to our unconfirmed pile
+								this.repository.getTransactionRepository().save(pendingTransactionData);
+								this.repository.getTransactionRepository().unconfirmTransaction(pendingTransactionData);
 							}
 
 							if (!newBlock.isSignatureValid()) {
@@ -363,7 +415,6 @@ public class Synchronizer {
 	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) {
 		// numberRequested is v2+ feature
 		Message getSignaturesMessage = peer.getVersion() >= 2 ? new GetSignaturesV2Message(parentSignature, numberRequested) : new GetSignaturesMessage(parentSignature);
-		// Message getSignaturesMessage = new GetSignaturesMessage(parentSignature);
 
 		Message message = peer.getResponse(getSignaturesMessage);
 		if (message == null || message.getType() != MessageType.SIGNATURES)
@@ -389,6 +440,18 @@ public class Synchronizer {
 			LOGGER.debug("Failed to create block", e);
 			return null;
 		}
+	}
+
+	private TransactionData fetchTransaction(Peer peer, byte[] signature) {
+		Message getTransactionMessage = new GetTransactionMessage(signature);
+
+		Message message = peer.getResponse(getTransactionMessage);
+		if (message == null || message.getType() != MessageType.TRANSACTION)
+			return null;
+
+		TransactionMessage transactionMessage = (TransactionMessage) message;
+
+		return transactionMessage.getTransactionData();
 	}
 
 }

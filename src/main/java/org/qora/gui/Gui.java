@@ -42,9 +42,9 @@ public class Gui {
 	}
 
 	protected static BufferedImage loadImage(String resourceName) {
-		try (InputStream in = ClassLoader.getSystemResourceAsStream("images/" + resourceName)) {
+		try (InputStream in = Gui.class.getResourceAsStream("/images/" + resourceName)) {
 			return ImageIO.read(in);
-		} catch (IOException e) {
+		} catch (IllegalArgumentException | IOException e) {
 			LOGGER.warn(String.format("Couldn't locate image resource \"images/%s\"", resourceName));
 			return null;
 		}
