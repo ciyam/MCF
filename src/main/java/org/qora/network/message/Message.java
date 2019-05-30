@@ -64,7 +64,8 @@ public abstract class Message {
 		GET_SIGNATURES_V2(16),
 		PEER_VERIFY(17),
 		VERIFICATION_CODES(18),
-		HEIGHT_V2(19);
+		HEIGHT_V2(19),
+		GET_TRANSACTION(20);
 
 		public final int value;
 		public final Method fromByteBuffer;

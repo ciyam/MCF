@@ -37,6 +37,7 @@ import org.qora.network.message.GetBlockSummariesMessage;
 import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.GetSignaturesV2Message;
+import org.qora.network.message.GetTransactionMessage;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.HeightV2Message;
 import org.qora.network.message.Message;
@@ -501,7 +502,7 @@ public class Controller extends Thread {
 				break;
 			}
 
-			case GET_BLOCK:
+			case GET_BLOCK: {
 				GetBlockMessage getBlockMessage = (GetBlockMessage) message;
 				byte[] signature = getBlockMessage.getSignature();
 
@@ -523,6 +524,29 @@ public class Controller extends Thread {
 					LOGGER.error(String.format("Repository issue while send block %s to peer %s", Base58.encode(signature), peer), e);
 				}
 				break;
+			}
+
+			case GET_TRANSACTION: {
+				GetTransactionMessage getTransactionMessage = (GetTransactionMessage) message;
+				byte[] signature = getTransactionMessage.getSignature();
+
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+					if (transactionData == null) {
+						LOGGER.debug(String.format("Ignoring GET_TRANSACTION request from peer %s for unknown transaction %s", peer, Base58.encode(signature)));
+						// Send no response at all???
+						break;
+					}
+
+					Message transactionMessage = new TransactionMessage(transactionData);
+					transactionMessage.setId(message.getId());
+					if (!peer.sendMessage(transactionMessage))
+						peer.disconnect("failed to send transaction");
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while send transaction %s to peer %s", Base58.encode(signature), peer), e);
+				}
+				break;
+			}
 
 			case TRANSACTION:
 				TransactionMessage transactionMessage = (TransactionMessage) message;
