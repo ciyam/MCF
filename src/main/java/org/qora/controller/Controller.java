@@ -80,7 +80,7 @@ public class Controller extends Thread {
 
 	private Controller() {
 		Properties properties = new Properties();
-		try (InputStream in = ClassLoader.getSystemResourceAsStream("build.properties")) {
+		try (InputStream in = this.getClass().getResourceAsStream("/build.properties")) {
 			properties.load(in);
 		} catch (IOException e) {
 			throw new RuntimeException("Can't read build.properties resource", e);
