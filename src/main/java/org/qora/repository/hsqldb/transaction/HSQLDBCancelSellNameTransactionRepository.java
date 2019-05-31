@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBCancelSellNameTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,14 +17,14 @@ public class HSQLDBCancelSellNameTransactionRepository extends HSQLDBTransaction
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT name FROM CancelSellNameTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
 			String name = resultSet.getString(1);
 
-			return new CancelSellNameTransactionData(timestamp, txGroupId, reference, creatorPublicKey, name, fee, signature);
+			return new CancelSellNameTransactionData(timestamp, txGroupId, reference, creatorPublicKey, name, fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch cancel sell name transaction from repository", e);
 		}

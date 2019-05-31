@@ -12,6 +12,7 @@ import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorNode;
 import org.qora.crypto.Crypto;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -62,8 +63,10 @@ public abstract class TransactionData {
 	protected byte[] signature;
 	@Schema(description = "groupID for this transaction")
 	protected int txGroupId;
+	@Schema(description = "group-approval status")
+	protected ApprovalStatus approvalStatus;
 
-	// For JAX-RS use
+	// Not always present
 	@Schema(accessMode = AccessMode.READ_ONLY, hidden = true, description = "height of block containing transaction")
 	protected Integer blockHeight;
 
@@ -78,18 +81,20 @@ public abstract class TransactionData {
 		this.type = type;
 	}
 
-	public TransactionData(TransactionType type, long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) {
+	public TransactionData(TransactionType type, long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer blockHeight, byte[] signature) {
 		this.type = type;
 		this.timestamp = timestamp;
 		this.txGroupId = txGroupId;
 		this.reference = reference;
 		this.creatorPublicKey = creatorPublicKey;
 		this.fee = fee;
+		this.approvalStatus = approvalStatus;
+		this.blockHeight = blockHeight;
 		this.signature = signature;
 	}
 
 	public TransactionData(TransactionType type, long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee) {
-		this(type, timestamp, txGroupId, reference, creatorPublicKey, fee, null);
+		this(type, timestamp, txGroupId, reference, creatorPublicKey, fee, null, null, null);
 	}
 
 	// Getters/setters
@@ -135,6 +140,14 @@ public abstract class TransactionData {
 		this.fee = fee;
 	}
 
+	public ApprovalStatus getApprovalStatus() {
+		return approvalStatus;
+	}
+
+	public void setApprovalStatus(ApprovalStatus approvalStatus) {
+		this.approvalStatus = approvalStatus;
+	}
+
 	public byte[] getSignature() {
 		return this.signature;
 	}
@@ -143,16 +156,20 @@ public abstract class TransactionData {
 		this.signature = signature;
 	}
 
+	public Integer getBlockHeight() {
+		return this.blockHeight;
+	}
+
+	@XmlTransient
+	public void setBlockHeight(Integer blockHeight) {
+		this.blockHeight = blockHeight;
+	}
+
 	// JAXB special
 
 	@XmlElement(name = "creatorAddress")
 	protected String getCreatorAddress() {
 		return Crypto.toAddress(this.creatorPublicKey);
-	}
-
-	@XmlTransient
-	public void setBlockHeight(int blockHeight) {
-		this.blockHeight = blockHeight;
 	}
 
 	// Comparison

@@ -240,13 +240,6 @@ public class BlockGenerator extends Thread {
 				--i;
 				continue;
 			}
-
-			// Ignore transactions that have not met group-admin approval threshold
-			if (transaction.needsGroupApproval() && !transaction.meetsGroupApprovalThreshold()) {
-				unconfirmedTransactions.remove(i);
-				--i;
-				continue;
-			}
 		}
 
 		// Attempt to add transactions until block is full, or we run out

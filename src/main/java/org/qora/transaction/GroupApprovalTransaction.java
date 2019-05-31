@@ -97,10 +97,10 @@ public class GroupApprovalTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Find previous approval decision (if any) by this admin for pending transaction
-		List<GroupApprovalTransactionData> approvals = this.repository.getTransactionRepository().getLatestApprovals(groupApprovalTransactionData.getPendingSignature(), groupApprovalTransactionData.getAdminPublicKey());
+		GroupApprovalTransactionData previousApproval = this.repository.getTransactionRepository().getLatestApproval(groupApprovalTransactionData.getPendingSignature(), groupApprovalTransactionData.getAdminPublicKey());
 		
-		if (!approvals.isEmpty())
-			groupApprovalTransactionData.setPriorReference(approvals.get(0).getSignature());
+		if (previousApproval != null)
+			groupApprovalTransactionData.setPriorReference(previousApproval.getSignature());
 
 		// Save this transaction with updated prior reference to transaction that can help restore state
 		this.repository.getTransactionRepository().save(groupApprovalTransactionData);

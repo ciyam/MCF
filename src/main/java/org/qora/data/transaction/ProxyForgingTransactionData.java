@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -42,9 +43,11 @@ public class ProxyForgingTransactionData extends TransactionData {
 		this.creatorPublicKey = this.forgerPublicKey;
 	}
 
-
-	public ProxyForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] forgerPublicKey, String recipient, byte[] proxyPublicKey, BigDecimal share, BigDecimal previousShare, BigDecimal fee, byte[] signature) {
-		super(TransactionType.PROXY_FORGING, timestamp, groupId, reference, forgerPublicKey, fee, signature);
+	/** From repository */
+	public ProxyForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] forgerPublicKey, String recipient,
+			byte[] proxyPublicKey, BigDecimal share, BigDecimal previousShare,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.PROXY_FORGING, timestamp, groupId, reference, forgerPublicKey, fee, approvalStatus, height, signature);
  
 		this.forgerPublicKey = forgerPublicKey;
 		this.recipient = recipient;
@@ -53,13 +56,14 @@ public class ProxyForgingTransactionData extends TransactionData {
 		this.previousShare = previousShare;
 	}
 
-	public ProxyForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] forgerPublicKey, String recipient, byte[] proxyPublicKey, BigDecimal share, BigDecimal fee) {
-		this(timestamp, groupId, reference, forgerPublicKey, recipient, proxyPublicKey, share, fee, null);
+	/** From network/API */
+	public ProxyForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] forgerPublicKey, String recipient, byte[] proxyPublicKey, BigDecimal share, BigDecimal fee, byte[] signature) {
+		this(timestamp, groupId, reference, forgerPublicKey, recipient, proxyPublicKey, share, null, fee, null, null, signature);
 	}
 
-	// Used in deserialization context
-	public ProxyForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] forgerPublicKey, String recipient, byte[] proxyPublicKey, BigDecimal share, BigDecimal fee, byte[] signature) {
-		this(timestamp, groupId, reference, forgerPublicKey, recipient, proxyPublicKey, share, null, fee, signature);
+	/** New, unsigned */
+	public ProxyForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] forgerPublicKey, String recipient, byte[] proxyPublicKey, BigDecimal share, BigDecimal fee) {
+		this(timestamp, groupId, reference, forgerPublicKey, recipient, proxyPublicKey, share, fee, null);
 	}
 
 	// Getters / setters

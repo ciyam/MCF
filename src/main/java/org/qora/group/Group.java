@@ -58,33 +58,11 @@ public class Group {
 			return map.get(value);
 		}
 
-		private boolean meetsTheshold(int currentApprovals, int totalAdmins) {
+		public boolean meetsTheshold(int currentApprovals, int totalAdmins) {
 			if (!this.isPercentage)
 				return currentApprovals >= this.value;
 
 			return currentApprovals >= (totalAdmins * this.value / 100);
-		}
-
-		/**
-		 * Returns whether transaction meets approval threshold.
-		 * 
-		 * @param repository
-		 * @param txGroupId
-		 *            transaction's groupID
-		 * @param signature
-		 *            transaction's signature
-		 * @return true if approval still needed, false if transaction can be included in block
-		 * @throws DataException
-		 */
-		public boolean meetsApprovalThreshold(Repository repository, int txGroupId, byte[] signature) throws DataException {
-			// Fetch total number of admins in group
-			final int totalAdmins = repository.getGroupRepository().countGroupAdmins(txGroupId);
-
-			// Fetch total number of approvals for signature
-			// NOT simply number of GROUP_APPROVE transactions as some may be rejecting transaction, or changed opinions
-			final int currentApprovals = repository.getTransactionRepository().countTransactionApprovals(txGroupId, signature);
-
-			return meetsTheshold(currentApprovals, totalAdmins);
 		}
 	}
 

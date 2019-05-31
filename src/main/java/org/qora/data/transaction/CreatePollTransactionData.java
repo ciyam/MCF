@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.qora.data.voting.PollOptionData;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -30,9 +31,11 @@ public class CreatePollTransactionData extends TransactionData {
 		super(TransactionType.CREATE_POLL);
 	}
 
+	/** From repository */
 	public CreatePollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner,
-			String pollName, String description, List<PollOptionData> pollOptions, BigDecimal fee, byte[] signature) {
-		super(Transaction.TransactionType.CREATE_POLL, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+			String pollName, String description, List<PollOptionData> pollOptions,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(Transaction.TransactionType.CREATE_POLL, timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
 
 		this.owner = owner;
 		this.pollName = pollName;
@@ -40,6 +43,13 @@ public class CreatePollTransactionData extends TransactionData {
 		this.pollOptions = pollOptions;
 	}
 
+	/** From network/API */
+	public CreatePollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner,
+			String pollName, String description, List<PollOptionData> pollOptions, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, owner, pollName, description, pollOptions, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
 	public CreatePollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner,
 			String pollName, String description, List<PollOptionData> pollOptions, BigDecimal fee) {
 		this(timestamp, txGroupId, reference, creatorPublicKey, owner, pollName, description, pollOptions, fee, null);

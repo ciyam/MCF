@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBAccountFlagsTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBAccountFlagsTransactionRepository extends HSQLDBTransactionRe
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT target, and_mask, or_mask, xor_mask, previous_flags FROM AccountFlagsTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -31,8 +32,8 @@ public class HSQLDBAccountFlagsTransactionRepository extends HSQLDBTransactionRe
 			if (resultSet.wasNull())
 				previousFlags = null;
 
-			return new AccountFlagsTransactionData(timestamp, txGroupId, reference, creatorPublicKey, target, andMask, orMask, xorMask, previousFlags, fee,
-					signature);
+			return new AccountFlagsTransactionData(timestamp, txGroupId, reference, creatorPublicKey, target, andMask, orMask, xorMask, previousFlags,
+					fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account flags transaction from repository", e);
 		}

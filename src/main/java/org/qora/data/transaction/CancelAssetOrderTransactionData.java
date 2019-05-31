@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -27,12 +28,19 @@ public class CancelAssetOrderTransactionData extends TransactionData {
 		super(TransactionType.CANCEL_ASSET_ORDER);
 	}
 
-	public CancelAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, byte[] signature) {
-		super(Transaction.TransactionType.CANCEL_ASSET_ORDER, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+	/** From network/API */
+	public CancelAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(Transaction.TransactionType.CANCEL_ASSET_ORDER, timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
 
 		this.orderId = orderId;
 	}
 
+	/** From network/API */
+	public CancelAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, orderId, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
 	public CancelAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, byte[] orderId, BigDecimal fee) {
 		this(timestamp, txGroupId, reference, creatorPublicKey, orderId, fee, null);
 	}

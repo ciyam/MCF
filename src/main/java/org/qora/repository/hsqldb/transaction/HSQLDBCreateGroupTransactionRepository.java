@@ -10,6 +10,7 @@ import org.qora.group.Group.ApprovalThreshold;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -17,7 +18,7 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
 				"SELECT owner, group_name, description, is_open, approval_threshold, min_block_delay, max_block_delay, group_id FROM CreateGroupTransactions WHERE signature = ?",
 				signature)) {
@@ -39,7 +40,7 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 				groupId = null;
 
 			return new CreateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description, isOpen, approvalThreshold,
-					minBlockDelay, maxBlockDelay, groupId, fee, signature);
+					minBlockDelay, maxBlockDelay, groupId, fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create group transaction from repository", e);
 		}

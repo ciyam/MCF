@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -48,9 +49,10 @@ public class LeaveGroupTransactionData extends TransactionData {
 		this.creatorPublicKey = this.leaverPublicKey;
 	}
 
+	/** From repository */
 	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, byte[] memberReference, byte[] adminReference, Integer previousGroupId, 
-			BigDecimal fee, byte[] signature) {
-		super(TransactionType.LEAVE_GROUP, timestamp, txGroupId, reference, leaverPublicKey, fee, signature);
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.LEAVE_GROUP, timestamp, txGroupId, reference, leaverPublicKey, fee, approvalStatus, height, signature);
 
 		this.leaverPublicKey = leaverPublicKey;
 		this.groupId = groupId;
@@ -59,9 +61,14 @@ public class LeaveGroupTransactionData extends TransactionData {
 		this.previousGroupId = previousGroupId;
 	}
 
-	/** Constructor typically used after deserialization */
+	/** From network/API */
 	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, leaverPublicKey, groupId, null, null, null, fee, signature);
+		this(timestamp, txGroupId, reference, leaverPublicKey, groupId, null, null, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, leaverPublicKey, groupId, fee, null);
 	}
 
 	// Getters / setters

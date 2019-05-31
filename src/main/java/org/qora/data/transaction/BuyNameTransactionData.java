@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -46,9 +47,10 @@ public class BuyNameTransactionData extends TransactionData {
 		this.creatorPublicKey = this.buyerPublicKey;
 	}
 
+	/** From repository */
 	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller,
-			byte[] nameReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.BUY_NAME, timestamp, txGroupId, reference, buyerPublicKey, fee, signature);
+			byte[] nameReference, BigDecimal fee,  ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.BUY_NAME, timestamp, txGroupId, reference, buyerPublicKey, fee, approvalStatus, height, signature);
 
 		this.buyerPublicKey = buyerPublicKey;
 		this.name = name;
@@ -57,18 +59,15 @@ public class BuyNameTransactionData extends TransactionData {
 		this.nameReference = nameReference;
 	}
 
+	/** From network/API */
 	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller,
 			BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, null, fee, signature);
+		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, null, fee, null, null, signature);
 	}
 
-	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller,
-			byte[] nameReference, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, nameReference, fee, null);
-	}
-
+	/** New, unsigned */
 	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, null, fee, null);
+		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, fee, null);
 	}
 
 	// Getters / setters

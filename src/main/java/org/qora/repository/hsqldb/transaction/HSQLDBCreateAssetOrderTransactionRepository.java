@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		String sql = "SELECT have_asset_id, amount, want_asset_id, price, HaveAsset.asset_name, WantAsset.asset_name "
 				+ "FROM CreateAssetOrderTransactions "
 				+ "JOIN Assets AS HaveAsset ON HaveAsset.asset_id = have_asset_id "
@@ -34,7 +35,8 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 			String haveAssetName = resultSet.getString(5);
 			String wantAssetName = resultSet.getString(6);
 
-			return new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, haveAssetName, wantAssetName, signature);
+			return new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, 
+					haveAssetName, wantAssetName, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create order transaction from repository", e);
 		}

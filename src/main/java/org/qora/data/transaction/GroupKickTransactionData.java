@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -72,9 +73,11 @@ public class GroupKickTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
+	/** From repository */
 	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member,
-			String reason, byte[] memberReference, byte[] adminReference, byte[] joinReference, Integer previousGroupId, BigDecimal fee, byte[] signature) {
-		super(TransactionType.GROUP_KICK, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+			String reason, byte[] memberReference, byte[] adminReference, byte[] joinReference, Integer previousGroupId,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.GROUP_KICK, timestamp, txGroupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
 
 		this.adminPublicKey = adminPublicKey;
 		this.groupId = groupId;
@@ -86,10 +89,15 @@ public class GroupKickTransactionData extends TransactionData {
 		this.previousGroupId = previousGroupId;
 	}
 
-	/** Constructor typically used after deserialization */
+	/** From network/API */
 	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, String reason,
 			BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, reason, null, null, null, null, fee, signature);
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, reason, null, null, null, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, String reason, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, reason, fee, null);
 	}
 
 	// Getters / setters

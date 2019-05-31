@@ -9,6 +9,7 @@ import org.qora.data.transaction.UpdateNameTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBUpdateNameTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBUpdateNameTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT new_owner, name, new_data, name_reference FROM UpdateNameTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -27,7 +28,7 @@ public class HSQLDBUpdateNameTransactionRepository extends HSQLDBTransactionRepo
 			String newData = resultSet.getString(3);
 			byte[] nameReference = resultSet.getBytes(4);
 
-			return new UpdateNameTransactionData(timestamp, txGroupId, reference, creatorPublicKey, newOwner, name, newData, nameReference, fee, signature);
+			return new UpdateNameTransactionData(timestamp, txGroupId, reference, creatorPublicKey, newOwner, name, newData, nameReference, fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch update name transaction from repository", e);
 		}

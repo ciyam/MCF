@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,8 +41,10 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, byte[] adminReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.REMOVE_GROUP_ADMIN, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+	/** From repository */
+	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, byte[] adminReference,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.REMOVE_GROUP_ADMIN, timestamp, txGroupId, reference, ownerPublicKey, fee, approvalStatus, height, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
 		this.groupId = groupId;
@@ -49,9 +52,14 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 		this.adminReference = adminReference;
 	}
 
-	/** Constructor typically used after deserialization */
+	/** From network/API */
 	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, admin, null, fee, signature);
+		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, admin, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, admin, fee, null);
 	}
 
 	// Getters / setters

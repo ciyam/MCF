@@ -6,6 +6,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -24,12 +25,20 @@ public class EnableForgingTransactionData extends TransactionData {
 		super(TransactionType.ENABLE_FORGING);
 	}
 
-	public EnableForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, BigDecimal fee, byte[] signature) {
-		super(TransactionType.ENABLE_FORGING, timestamp, groupId, reference, creatorPublicKey, fee, signature);
+	/** From repository */
+	public EnableForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.ENABLE_FORGING, timestamp, groupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
  
 		this.target = target;
 	}
 
+	/** From network/API */
+	public EnableForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, BigDecimal fee, byte[] signature) {
+		this(timestamp, groupId, reference, creatorPublicKey, target, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
 	public EnableForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, BigDecimal fee) {
 		this(timestamp, groupId, reference, creatorPublicKey, target, fee, null);
 	}

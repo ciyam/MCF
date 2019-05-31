@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -41,18 +42,23 @@ public class SetGroupTransactionData extends TransactionData {
 		super(TransactionType.SET_GROUP);
 	}
 
+	/** From repository */
 	public SetGroupTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, int defaultGroupId, Integer previousDefaultGroupId,
-			BigDecimal fee, byte[] signature) {
-		super(TransactionType.SET_GROUP, timestamp, groupId, reference, creatorPublicKey, fee, signature);
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.SET_GROUP, timestamp, groupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
 
 		this.defaultGroupId = defaultGroupId;
 		this.previousDefaultGroupId = previousDefaultGroupId;
 	}
 
-	/** Constructor typically used after deserialization */
-	public SetGroupTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, int defaultGroupId, BigDecimal fee,
-			byte[] signature) {
-		this(timestamp, groupId, reference, creatorPublicKey, defaultGroupId, null, fee, signature);
+	/** From network/API */
+	public SetGroupTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, int defaultGroupId, BigDecimal fee, byte[] signature) {
+		this(timestamp, groupId, reference, creatorPublicKey, defaultGroupId, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public SetGroupTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, int defaultGroupId, BigDecimal fee) {
+		this(timestamp, groupId, reference, creatorPublicKey, defaultGroupId, fee, null);
 	}
 
 	// Getters / setters

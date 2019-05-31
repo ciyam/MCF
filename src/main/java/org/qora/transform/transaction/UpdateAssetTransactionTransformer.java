@@ -72,7 +72,7 @@ public class UpdateAssetTransactionTransformer extends TransactionTransformer {
 		byteBuffer.get(signature);
 
 		return new UpdateAssetTransactionData(timestamp, txGroupId, reference, ownerPublicKey, assetId, newOwner,
-				newDescription, newData, fee, null, signature);
+				newDescription, newData, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

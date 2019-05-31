@@ -12,6 +12,7 @@ import org.qora.data.voting.PollOptionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -19,7 +20,7 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT owner, poll_name, description FROM CreatePollTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
@@ -43,7 +44,8 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 					pollOptions.add(new PollOptionData(optionName));
 				} while (optionsResultSet.next());
 
-				return new CreatePollTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, pollName, description, pollOptions, fee, signature);
+				return new CreatePollTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, pollName, description, pollOptions, 
+						fee, approvalStatus, height, signature);
 			}
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create poll transaction from repository", e);

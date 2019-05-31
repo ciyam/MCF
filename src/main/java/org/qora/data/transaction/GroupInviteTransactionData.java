@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -50,9 +51,10 @@ public class GroupInviteTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
+	/** From repository */
 	public GroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, int timeToLive, byte[] joinReference, Integer previousGroupId,
-			BigDecimal fee, byte[] signature) {
-		super(TransactionType.GROUP_INVITE, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.GROUP_INVITE, timestamp, txGroupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
 
 		this.adminPublicKey = adminPublicKey;
 		this.groupId = groupId;
@@ -62,9 +64,14 @@ public class GroupInviteTransactionData extends TransactionData {
 		this.previousGroupId = previousGroupId;
 	}
 
-	/** Constructor typically used after deserialization */
+	/** From network/API */
 	public GroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, int timeToLive, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, timeToLive, null, null, fee, signature);
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, timeToLive, null, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public GroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, int timeToLive, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, timeToLive, fee, null);
 	}
 
 	// Getters / setters

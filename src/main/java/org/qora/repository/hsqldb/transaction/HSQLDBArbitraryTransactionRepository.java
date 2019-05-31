@@ -12,6 +12,7 @@ import org.qora.data.transaction.ArbitraryTransactionData.DataType;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -19,7 +20,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT version, service, data_hash from ArbitraryTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
@@ -32,7 +33,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 			List<PaymentData> payments = this.getPaymentsFromSignature(signature);
 
 			return new ArbitraryTransactionData(timestamp, txGroupId, reference, creatorPublicKey, version, service, dataHash, DataType.DATA_HASH, payments,
-					fee, signature);
+					fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch arbitrary transaction from repository", e);
 		}

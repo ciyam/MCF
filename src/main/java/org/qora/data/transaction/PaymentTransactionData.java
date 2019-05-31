@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -39,15 +40,22 @@ public class PaymentTransactionData extends TransactionData {
 		this.creatorPublicKey = this.senderPublicKey;
 	}
 
+	/** From repository */
 	public PaymentTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
-			BigDecimal fee, byte[] signature) {
-		super(TransactionType.PAYMENT, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.PAYMENT, timestamp, txGroupId, reference, senderPublicKey, fee, approvalStatus, height, signature);
 
 		this.senderPublicKey = senderPublicKey;
 		this.recipient = recipient;
 		this.amount = amount;
 	}
 
+	/** From network/API */
+	public PaymentTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
 	public PaymentTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount, BigDecimal fee) {
 		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, fee, null);
 	}

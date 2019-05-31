@@ -578,9 +578,7 @@ public class Controller extends Thread {
 						}
 
 						// Seems ok - add to unconfirmed pile
-						repository.getTransactionRepository().save(transactionData);
-						repository.getTransactionRepository().unconfirmTransaction(transactionData);
-						repository.saveChanges();
+						transaction.importAsUnconfirmed();
 					} finally {
 						blockchainLock.unlock();
 					}

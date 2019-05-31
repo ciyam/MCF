@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -46,8 +47,10 @@ public class JoinGroupTransactionData extends TransactionData {
 		this.creatorPublicKey = this.joinerPublicKey;
 	}
 
-	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, byte[] inviteReference, Integer previousGroupId, BigDecimal fee, byte[] signature) {
-		super(TransactionType.JOIN_GROUP, timestamp, txGroupId, reference, joinerPublicKey, fee, signature);
+	/** From repository */
+	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, byte[] inviteReference, Integer previousGroupId,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.JOIN_GROUP, timestamp, txGroupId, reference, joinerPublicKey, fee, approvalStatus, height, signature);
 
 		this.joinerPublicKey = joinerPublicKey;
 		this.groupId = groupId;
@@ -55,9 +58,14 @@ public class JoinGroupTransactionData extends TransactionData {
 		this.previousGroupId = previousGroupId;
 	}
 
-	/** Constructor typically used after deserialization */
+	/** From network/API */
 	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, joinerPublicKey, groupId, null, null, fee, signature);
+		this(timestamp, txGroupId, reference, joinerPublicKey, groupId, null, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, joinerPublicKey, groupId, fee, null);
 	}
 
 	// Getters / setters

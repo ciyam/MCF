@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBGroupKickTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBGroupKickTransactionRepository extends HSQLDBTransactionRepos
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
 				"SELECT group_id, address, reason, member_reference, admin_reference, join_reference, previous_group_id FROM GroupKickTransactions WHERE signature = ?",
 				signature)) {
@@ -35,7 +36,7 @@ public class HSQLDBGroupKickTransactionRepository extends HSQLDBTransactionRepos
 				previousGroupId = null;
 
 			return new GroupKickTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, member, reason, memberReference, adminReference,
-					joinReference, previousGroupId, fee, signature);
+					joinReference, previousGroupId, fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group kick transaction from repository", e);
 		}

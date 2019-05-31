@@ -81,7 +81,7 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 		byteBuffer.get(signature);
 
 		return new CreateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description, isOpen, approvalThreshold,
-				minBlockDelay, maxBlockDelay, null, fee, signature);
+				minBlockDelay, maxBlockDelay, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

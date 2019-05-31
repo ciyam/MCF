@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -39,14 +40,22 @@ public class SellNameTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public SellNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String name, BigDecimal amount, BigDecimal fee, byte[] signature) {
-		super(TransactionType.SELL_NAME, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+	/** From repository */
+	public SellNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String name, BigDecimal amount,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.SELL_NAME, timestamp, txGroupId, reference, ownerPublicKey, fee, approvalStatus, height, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
 		this.name = name;
 		this.amount = amount;
 	}
 
+	/** From network/API */
+	public SellNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String name, BigDecimal amount, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, name, amount, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
 	public SellNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String name, BigDecimal amount, BigDecimal fee) {
 		this(timestamp, txGroupId, reference, ownerPublicKey, name, amount, fee, null);
 	}

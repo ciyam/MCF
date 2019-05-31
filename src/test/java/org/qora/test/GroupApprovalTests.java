@@ -65,12 +65,10 @@ public class GroupApprovalTests extends Common {
 		ApprovalThreshold approvalThreshold = ApprovalThreshold.ONE;
 		int minimumBlockDelay = 0;
 		int maximumBlockDelay = 1440;
-		Integer groupId = null;
 		BigDecimal fee = BigDecimal.ONE.setScale(8);
-		byte[] signature = null;
 
 		TransactionData transactionData = new CreateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description,
-				isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay, groupId, fee, signature);
+				isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay, fee);
 		Transaction transaction = new CreateGroupTransaction(repository, transactionData);
 
 		// Sign transaction

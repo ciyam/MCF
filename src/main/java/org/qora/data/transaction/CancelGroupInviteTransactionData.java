@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,8 +41,10 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public CancelGroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, byte[] inviteReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.CANCEL_GROUP_INVITE, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+	/** From repository */
+	public CancelGroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, byte[] inviteReference,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.CANCEL_GROUP_INVITE, timestamp, txGroupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
 
 		this.adminPublicKey = adminPublicKey;
 		this.groupId = groupId;
@@ -49,9 +52,14 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 		this.inviteReference = inviteReference;
 	}
 
-	/** Constructor typically used after deserialization */
+	/** From network/API */
 	public CancelGroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, null, fee, signature);
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public CancelGroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, fee, null);
 	}
 
 	// Getters / setters
