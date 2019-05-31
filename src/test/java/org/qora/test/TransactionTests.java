@@ -257,12 +257,11 @@ public class TransactionTests extends Common {
 		// Update name's owner and data
 		Account newOwner = new PublicKeyAccount(repository, recipientSeed);
 		String newData = "{\"newKey\":\"newValue\"}";
-		byte[] nameReference = reference;
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		UpdateNameTransactionData updateNameTransactionData = new UpdateNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-				newOwner.getAddress(), name, newData, nameReference, fee);
+				newOwner.getAddress(), name, newData, fee);
 
 		Transaction updateNameTransaction = new UpdateNameTransaction(repository, updateNameTransactionData);
 		updateNameTransaction.sign(sender);
@@ -402,7 +401,6 @@ public class TransactionTests extends Common {
 
 		// Buyer
 		PrivateKeyAccount buyer = new PrivateKeyAccount(repository, recipientSeed);
-		byte[] nameReference = reference;
 
 		// Send buyer some funds so they have a reference
 		Transaction somePaymentTransaction = createPayment(sender, buyer.getAddress());
@@ -418,7 +416,7 @@ public class TransactionTests extends Common {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		BuyNameTransactionData buyNameTransactionData = new BuyNameTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(), name,
-				originalNameData.getSalePrice(), seller, nameReference, fee);
+				originalNameData.getSalePrice(), seller, fee);
 
 		Transaction buyNameTransaction = new BuyNameTransaction(repository, buyNameTransactionData);
 		buyNameTransaction.sign(buyer);

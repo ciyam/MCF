@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -42,9 +43,10 @@ public class UpdateAssetTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
+	/** From repository */
 	public UpdateAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, long assetId, String newOwner,
-			String newDescription, String newData, BigDecimal fee, byte[] orphanReference, byte[] signature) {
-		super(TransactionType.UPDATE_ASSET, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+			String newDescription, String newData, BigDecimal fee, byte[] orphanReference, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.UPDATE_ASSET, timestamp, txGroupId, reference, ownerPublicKey, fee, approvalStatus, height, signature);
 
 		this.assetId = assetId;
 		this.ownerPublicKey = ownerPublicKey;
@@ -54,9 +56,16 @@ public class UpdateAssetTransactionData extends TransactionData {
 		this.orphanReference = orphanReference;
 	}
 
+	/** From network/API */
 	public UpdateAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, long assetId, String newOwner,
-			String newDescription, String newData, BigDecimal fee, byte[] orphanReference) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, assetId, newOwner, newDescription, newData, fee, orphanReference, null);
+			String newDescription, String newData, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, assetId, newOwner, newDescription, newData, fee, null, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public UpdateAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, long assetId, String newOwner,
+			String newDescription, String newData, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, assetId, newOwner, newDescription, newData, fee, null);
 	}
 
 	// Getters/Setters

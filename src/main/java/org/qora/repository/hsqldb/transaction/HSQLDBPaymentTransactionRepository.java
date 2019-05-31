@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBPaymentTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBPaymentTransactionRepository extends HSQLDBTransactionReposit
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT recipient, amount FROM PaymentTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
@@ -24,7 +25,7 @@ public class HSQLDBPaymentTransactionRepository extends HSQLDBTransactionReposit
 			String recipient = resultSet.getString(1);
 			BigDecimal amount = resultSet.getBigDecimal(2);
 
-			return new PaymentTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, fee, signature);
+			return new PaymentTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch payment transaction from repository", e);
 		}

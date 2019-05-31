@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRep
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT group_id, invitee, time_to_live, join_reference, previous_group_id FROM GroupInviteTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -31,7 +32,8 @@ public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRep
 			if (resultSet.wasNull())
 				previousGroupId = null;
 
-			return new GroupInviteTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, invitee, timeToLive, joinReference, previousGroupId, fee, signature);
+			return new GroupInviteTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, invitee, timeToLive, joinReference, previousGroupId,
+					fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group invite transaction from repository", e);
 		}

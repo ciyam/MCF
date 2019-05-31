@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -41,9 +42,10 @@ public class UpdateNameTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
+	/** From repository */
 	public UpdateNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String newOwner, String name, String newData,
-			byte[] nameReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.UPDATE_NAME, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+			byte[] nameReference, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.UPDATE_NAME, timestamp, txGroupId, reference, ownerPublicKey, fee, approvalStatus, height, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
 		this.newOwner = newOwner;
@@ -52,14 +54,16 @@ public class UpdateNameTransactionData extends TransactionData {
 		this.nameReference = nameReference;
 	}
 
+	/** From network/API */
 	public UpdateNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String newOwner, String name, String newData,
 			BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, newOwner, name, newData, null, fee, signature);
+		this(timestamp, txGroupId, reference, ownerPublicKey, newOwner, name, newData, null, fee, null, null, signature);
 	}
 
+	/** New, unsigned */
 	public UpdateNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String newOwner, String name, String newData,
-			byte[] nameReference, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, newOwner, name, newData, nameReference, fee, null);
+			BigDecimal fee) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, newOwner, name, newData, fee, null);
 	}
 
 	// Getters / setters

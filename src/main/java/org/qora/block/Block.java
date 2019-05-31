@@ -35,6 +35,7 @@ import org.qora.repository.Repository;
 import org.qora.transaction.AtTransaction;
 import org.qora.transaction.GenesisTransaction;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.transform.Transformer;
@@ -866,10 +867,6 @@ public class Block {
 				if (this.repository.getTransactionRepository().isConfirmed(transaction.getTransactionData().getSignature()))
 					return ValidationResult.TRANSACTION_ALREADY_PROCESSED;
 
-				// Check transaction doesn't still need approval
-				if (transaction.needsGroupApproval() && !transaction.meetsGroupApprovalThreshold())
-					return ValidationResult.TRANSACTION_NEEDS_APPROVAL;
-
 				// Check transaction is even valid
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
 				Transaction.ValidationResult validationResult = transaction.isValid();
@@ -1004,8 +1001,17 @@ public class Block {
 			if (transaction.getTransactionData().getType() == TransactionType.AT)
 				this.repository.getTransactionRepository().save(transaction.getTransactionData());
 
-			transaction.process();
+			// Only process transactions that don't require group-approval.
+			// Group-approval transactions are dealt with later.
+			if (transaction.getTransactionData().getApprovalStatus() == ApprovalStatus.NOT_REQUIRED)
+				transaction.process();
+
+			// Regardless of group-approval, update relevant info for creator (e.g. lastReference)
+			transaction.processCreatorUpdates();
 		}
+
+		// Group-approval transactions
+		processGroupApprovalTransactions();
 
 		// Give transaction fees to generator/proxy
 		rewardTransactionFees();
@@ -1038,12 +1044,58 @@ public class Block {
 					transaction.getTransactionData().getSignature());
 			this.repository.getBlockRepository().save(blockTransactionData);
 
+			// Update transaction's height in repository
+			this.repository.getTransactionRepository().updateHeight(transaction.getTransactionData().getSignature(), this.blockData.getHeight());
+			// Update local transactionData's height too
+			transaction.getTransactionData().setBlockHeight(this.blockData.getHeight());
+
 			// No longer unconfirmed
 			this.repository.getTransactionRepository().confirmTransaction(transaction.getTransactionData().getSignature());
 
 			List<Account> participants = transaction.getInvolvedAccounts();
 			List<String> participantAddresses = participants.stream().map(account -> account.getAddress()).collect(Collectors.toList());
 			this.repository.getTransactionRepository().saveParticipants(transaction.getTransactionData(), participantAddresses);
+		}
+	}
+
+	protected void processGroupApprovalTransactions() throws DataException {
+		// Search for pending transactions that have now expired
+		List<TransactionData> approvalExpiringTransactions = this.repository.getTransactionRepository().getApprovalExpiringTransactions(this.blockData.getHeight());
+		for (TransactionData transactionData : approvalExpiringTransactions) {
+			transactionData.setApprovalStatus(ApprovalStatus.EXPIRED);
+			this.repository.getTransactionRepository().save(transactionData);
+		}
+
+		// Search for pending transactions within min/max block delay range
+		List<TransactionData> approvalPendingTransactions = this.repository.getTransactionRepository().getApprovalPendingTransactions(this.blockData.getHeight());
+		for (TransactionData transactionData : approvalPendingTransactions) {
+			Transaction transaction = Transaction.fromData(this.repository, transactionData);
+
+			// something like:
+			Boolean isApproved = transaction.getApprovalDecision();
+
+			if (isApproved == null)
+				continue; // approve/reject threshold not yet met
+
+			if (!isApproved) {
+				// REJECT
+				transactionData.setApprovalStatus(ApprovalStatus.REJECTED);
+				this.repository.getTransactionRepository().save(transactionData);
+				continue;
+			}
+
+			// Approved, but check transaction is still valid
+			if (transaction.isValid() != Transaction.ValidationResult.OK) {
+				transactionData.setApprovalStatus(ApprovalStatus.INVALID);
+				this.repository.getTransactionRepository().save(transactionData);
+				continue;
+			}
+
+			// APPROVED, in which case do transaction.process();
+			transactionData.setApprovalStatus(ApprovalStatus.INVALID);
+			this.repository.getTransactionRepository().save(transactionData);
+
+			transaction.process();
 		}
 	}
 

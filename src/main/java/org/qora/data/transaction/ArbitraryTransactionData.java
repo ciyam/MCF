@@ -9,6 +9,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qora.data.PaymentData;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -52,10 +53,10 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.creatorPublicKey = this.senderPublicKey;
 	}
 
-	/** Reconstructing a V3 arbitrary transaction with signature */
+	/** From repository */
 	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service,
-			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee, byte[] signature) {
-		super(TransactionType.ARBITRARY, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.ARBITRARY, timestamp, txGroupId, reference, senderPublicKey, fee, approvalStatus, height, signature);
 
 		this.senderPublicKey = senderPublicKey;
 		this.version = version;
@@ -65,19 +66,25 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.payments = payments;
 	}
 
-	/** Constructing a new V3 arbitrary transaction without signature */
+	/** From network/API (V3) */
 	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service,
-			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee) {
+			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, payments, fee, null, null, signature);
+	}
+
+	/** From network/API (V1) */
+	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
+			DataType dataType, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned (V3) */
+	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
+			DataType dataType, List<PaymentData> payments, BigDecimal fee) {
 		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, payments, fee, null);
 	}
 
-	/** Reconstructing a V1 arbitrary transaction with signature */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
-			DataType dataType, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, null, fee, signature);
-	}
-
-	/** Constructing a new V1 arbitrary transaction without signature */
+	/** New, unsigned (V1) */
 	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
 			DataType dataType, BigDecimal fee) {
 		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, null, fee, null);

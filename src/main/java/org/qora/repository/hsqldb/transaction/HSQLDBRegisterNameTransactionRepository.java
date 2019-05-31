@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBRegisterNameTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBRegisterNameTransactionRepository extends HSQLDBTransactionRe
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT owner, name, data FROM RegisterNameTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
@@ -25,7 +26,7 @@ public class HSQLDBRegisterNameTransactionRepository extends HSQLDBTransactionRe
 			String name = resultSet.getString(2);
 			String data = resultSet.getString(3);
 
-			return new RegisterNameTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, name, data, fee, signature);
+			return new RegisterNameTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, name, data, fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch register name transaction from repository", e);
 		}

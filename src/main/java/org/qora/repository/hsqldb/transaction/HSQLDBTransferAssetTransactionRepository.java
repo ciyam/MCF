@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionR
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		String sql = "SELECT recipient, asset_id, amount, asset_name FROM TransferAssetTransactions JOIN Assets USING (asset_id) WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
@@ -28,7 +29,7 @@ public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionR
 			BigDecimal amount = resultSet.getBigDecimal(3);
 			String assetName = resultSet.getString(4);
 
-			return new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, assetName, signature);
+			return new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, assetName, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transfer asset transaction from repository", e);
 		}

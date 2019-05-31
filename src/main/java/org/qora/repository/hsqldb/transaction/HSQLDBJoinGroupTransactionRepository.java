@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBJoinGroupTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBJoinGroupTransactionRepository extends HSQLDBTransactionRepos
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, invite_reference, previous_group_id FROM JoinGroupTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
@@ -29,7 +30,7 @@ public class HSQLDBJoinGroupTransactionRepository extends HSQLDBTransactionRepos
 			if (resultSet.wasNull())
 				previousGroupId = null;
 
-			return new JoinGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, inviteReference, previousGroupId, fee, signature);
+			return new JoinGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, inviteReference, previousGroupId, fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch join group transaction from repository", e);
 		}

@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -39,12 +40,23 @@ public class AddGroupAdminTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public AddGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String member, BigDecimal fee, byte[] signature) {
-		super(TransactionType.ADD_GROUP_ADMIN, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+	/** From repository */
+	public AddGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String member, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.ADD_GROUP_ADMIN, timestamp, txGroupId, reference, ownerPublicKey, fee, approvalStatus, height, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
 		this.groupId = groupId;
 		this.member = member;
+	}
+
+	/** From network/API */
+	public AddGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String member, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, member, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public AddGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String member, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, member, fee, null);
 	}
 
 	// Getters / setters

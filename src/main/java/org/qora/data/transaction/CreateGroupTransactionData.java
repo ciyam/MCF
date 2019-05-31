@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlElement;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qora.group.Group.ApprovalThreshold;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -67,9 +68,11 @@ public class CreateGroupTransactionData extends TransactionData {
 		super(TransactionType.CREATE_GROUP);
 	}
 
+	/** From repository */
 	public CreateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner, String groupName, String description,
-			boolean isOpen, ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay, Integer groupId, BigDecimal fee, byte[] signature) {
-		super(TransactionType.CREATE_GROUP, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+			boolean isOpen, ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay, Integer groupId,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.CREATE_GROUP, timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
 
 		this.creatorPublicKey = creatorPublicKey;
 		this.owner = owner;
@@ -80,6 +83,18 @@ public class CreateGroupTransactionData extends TransactionData {
 		this.minimumBlockDelay = minimumBlockDelay;
 		this.maximumBlockDelay = maximumBlockDelay;
 		this.groupId = groupId;
+	}
+
+	/** From network/API */
+	public CreateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner, String groupName, String description,
+			boolean isOpen, ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public CreateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner, String groupName, String description,
+			boolean isOpen, ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay, fee, null);
 	}
 
 	// Getters / setters

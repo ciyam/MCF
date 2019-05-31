@@ -6,6 +6,7 @@ import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -41,8 +42,8 @@ public class TransferAssetTransactionData extends TransactionData {
 
 	/** Constructs using data from repository, including optional assetName. */
 	public TransferAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
-			long assetId, BigDecimal fee, String assetName, byte[] signature) {
-		super(TransactionType.TRANSFER_ASSET, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+			long assetId, BigDecimal fee, String assetName, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.TRANSFER_ASSET, timestamp, txGroupId, reference, senderPublicKey, fee, approvalStatus, height, signature);
 
 		this.senderPublicKey = senderPublicKey;
 		this.recipient = recipient;
@@ -53,11 +54,17 @@ public class TransferAssetTransactionData extends TransactionData {
 
 	/** Constructs using data from repository, excluding optional assetName. */
 	public TransferAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
-			long assetId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, assetId, fee, null, signature);
+			long assetId, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, assetId, fee, null, null, null, signature);
 	}
 
-	/** Constructs using data typically received over network. */
+	/** From network/API */
+	public TransferAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
+			long assetId, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, assetId, fee, null, null, null, signature);
+	}
+
+	/** New, unsigned */
 	public TransferAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
 			long assetId, BigDecimal fee) {
 		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, assetId, fee, null);

@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
+import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -16,7 +17,7 @@ public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT group_id, member_reference, admin_reference, previous_group_id FROM LeaveGroupTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -30,7 +31,8 @@ public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepo
 			if (resultSet.wasNull())
 				previousGroupId = null;
 
-			return new LeaveGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, memberReference, adminReference, previousGroupId, fee, signature);
+			return new LeaveGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, memberReference, adminReference, previousGroupId,
+					fee, approvalStatus, height, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch leave group transaction from repository", e);
 		}

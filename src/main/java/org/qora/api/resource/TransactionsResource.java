@@ -249,7 +249,7 @@ public class TransactionsResource {
 		ref = "reverse"
 	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getTransactionRepository().getPendingTransactions(txGroupId, limit, offset, reverse);
+			return repository.getTransactionRepository().getApprovalPendingTransactions(txGroupId, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -413,11 +413,14 @@ public class TransactionsResource {
 	public String processTransaction(String rawBytes58) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] rawBytes = Base58.decode(rawBytes58);
+
 			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+
 			if (transactionData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 			Transaction transaction = Transaction.fromData(repository, transactionData);
+
 			if (!transaction.isSignatureValid())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE);
 
@@ -425,9 +428,7 @@ public class TransactionsResource {
 			if (result != ValidationResult.OK)
 				throw createTransactionInvalidException(request, result);
 
-			repository.getTransactionRepository().save(transactionData);
-			repository.getTransactionRepository().unconfirmTransaction(transactionData);
-			repository.saveChanges();
+			transaction.importAsUnconfirmed();
 
 			// Notify controller of new transaction
 			Controller.getInstance().onNewTransaction(transactionData);

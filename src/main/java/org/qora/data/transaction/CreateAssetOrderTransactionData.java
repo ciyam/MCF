@@ -8,6 +8,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
 import org.qora.block.BlockChain;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -80,8 +81,8 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 
 	/** Constructs using data from repository, including optional asset names. */
 	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
-			BigDecimal amount, BigDecimal price, BigDecimal fee, String haveAssetName, String wantAssetName, byte[] signature) {
-		super(TransactionType.CREATE_ASSET_ORDER, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+			BigDecimal amount, BigDecimal price, BigDecimal fee, String haveAssetName, String wantAssetName, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.CREATE_ASSET_ORDER, timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
 
 		this.haveAssetId = haveAssetId;
 		this.wantAssetId = wantAssetId;
@@ -94,11 +95,17 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 
 	/** Constructs using data from repository, excluding optional asset names. */
 	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
+			BigDecimal amount, BigDecimal price, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, null, null, approvalStatus, height, signature);
+	}
+
+	/** From network/API */
+	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
 			BigDecimal amount, BigDecimal price, BigDecimal fee, byte[] signature) {
 		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, null, null, signature);
 	}
 
-	/** Constructor typically used with data from network. */
+	/** New, unsigned */
 	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
 			BigDecimal amount, BigDecimal price, BigDecimal fee) {
 		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, null);

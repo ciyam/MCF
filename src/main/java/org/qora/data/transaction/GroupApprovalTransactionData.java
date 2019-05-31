@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -55,9 +56,10 @@ public class GroupApprovalTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
+	/** From repository */
 	public GroupApprovalTransactionData(long timestamp, int groupId, byte[] reference, byte[] adminPublicKey, byte[] pendingSignature, boolean approval,
-			byte[] priorReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.GROUP_APPROVAL, timestamp, groupId, reference, adminPublicKey, fee, signature);
+			byte[] priorReference, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.GROUP_APPROVAL, timestamp, groupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
 
 		this.adminPublicKey = adminPublicKey;
 		this.pendingSignature = pendingSignature;
@@ -65,10 +67,16 @@ public class GroupApprovalTransactionData extends TransactionData {
 		this.priorReference = priorReference;
 	}
 
-	/** Constructor typically used after deserialization */
+	/** From network/API */
 	public GroupApprovalTransactionData(long timestamp, int groupId, byte[] reference, byte[] adminPublicKey, byte[] pendingSignature, boolean approval,
 			BigDecimal fee, byte[] signature) {
-		this(timestamp, groupId, reference, adminPublicKey, pendingSignature, approval, null, fee, signature);
+		this(timestamp, groupId, reference, adminPublicKey, pendingSignature, approval, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public GroupApprovalTransactionData(long timestamp, int groupId, byte[] reference, byte[] adminPublicKey, byte[] pendingSignature, boolean approval,
+			BigDecimal fee) {
+		this(timestamp, groupId, reference, adminPublicKey, pendingSignature, approval, fee, null);
 	}
 
 	// Getters / setters

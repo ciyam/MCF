@@ -737,6 +737,23 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE Peers ADD COLUMN last_block_generator QoraPublicKey BEFORE last_misbehaved");
 					break;
 
+				case 50:
+					// Cached block height in Transactions to save loads of JOINs
+					stmt.execute("ALTER TABLE Transactions ADD COLUMN height INT");
+					// Add height-based index
+					stmt.execute("CREATE INDEX TransactionHeightIndex on Transactions (height)");
+					break;
+
+				case 51:
+					// Transaction group-approval rework
+					// Add index to GroupApprovalTransactions
+					stmt.execute("CREATE INDEX GroupApprovalLatestIndex on GroupApprovalTransactions (pending_signature, admin)");
+					// Transaction's approval status (Java enum) stored as tiny integer for efficiency
+					stmt.execute("ALTER TABLE Transactions ADD COLUMN approval_status TINYINT NOT NULL");
+					// For search transactions based on approval status
+					stmt.execute("CREATE INDEX TransactionApprovalStatusIndex on Transactions (approval_status, height)");
+					break;
+
 				default:
 					// nothing to do
 					return false;

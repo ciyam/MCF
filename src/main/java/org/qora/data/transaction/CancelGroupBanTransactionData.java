@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -40,8 +41,10 @@ public class CancelGroupBanTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, byte[] banReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.CANCEL_GROUP_BAN, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+	/** From repository */
+	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, byte[] banReference,
+			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
+		super(TransactionType.CANCEL_GROUP_BAN, timestamp, txGroupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
 
 		this.adminPublicKey = adminPublicKey;
 		this.groupId = groupId;
@@ -49,9 +52,14 @@ public class CancelGroupBanTransactionData extends TransactionData {
 		this.banReference = banReference;
 	}
 
-	/** Constructor typically used after deserialization */
+	/** From network/API */
 	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, null, fee, signature);
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, null, fee, null, null, signature);
+	}
+
+	/** New, unsigned */
+	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, fee, null);
 	}
 
 	// Getters / setters

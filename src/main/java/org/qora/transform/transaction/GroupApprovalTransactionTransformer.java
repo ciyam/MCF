@@ -57,7 +57,7 @@ public class GroupApprovalTransactionTransformer extends TransactionTransformer 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new GroupApprovalTransactionData(timestamp, txGroupId, reference, adminPublicKey, pendingSignature, approval, null, fee, signature);
+		return new GroupApprovalTransactionData(timestamp, txGroupId, reference, adminPublicKey, pendingSignature, approval, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
