@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
@@ -59,7 +60,9 @@ public class ProxyForgingTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new ProxyForgingTransactionData(timestamp, txGroupId, reference, forgerPublicKey, recipient, proxyPublicKey, share, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, forgerPublicKey, fee, signature);
+
+		return new ProxyForgingTransactionData(baseTransactionData, recipient, proxyPublicKey, share);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

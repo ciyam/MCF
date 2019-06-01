@@ -1,15 +1,14 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.GroupInviteTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
-import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -17,9 +16,10 @@ public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRep
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_id, invitee, time_to_live, join_reference, previous_group_id FROM GroupInviteTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT group_id, invitee, time_to_live, join_reference, previous_group_id FROM GroupInviteTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -29,11 +29,10 @@ public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRep
 			byte[] joinReference = resultSet.getBytes(4);
 
 			Integer previousGroupId = resultSet.getInt(5);
-			if (resultSet.wasNull())
+			if (previousGroupId == 0 && resultSet.wasNull())
 				previousGroupId = null;
 
-			return new GroupInviteTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, invitee, timeToLive, joinReference, previousGroupId,
-					fee, approvalStatus, height, signature);
+			return new GroupInviteTransactionData(baseTransactionData, groupId, invitee, timeToLive, joinReference, previousGroupId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group invite transaction from repository", e);
 		}

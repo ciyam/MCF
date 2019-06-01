@@ -1,16 +1,15 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.CreateGroupTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group.ApprovalThreshold;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
-import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -18,10 +17,10 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT owner, group_name, description, is_open, approval_threshold, min_block_delay, max_block_delay, group_id FROM CreateGroupTransactions WHERE signature = ?",
-				signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT owner, group_name, description, is_open, approval_threshold, min_block_delay, max_block_delay, group_id FROM CreateGroupTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -36,11 +35,11 @@ public class HSQLDBCreateGroupTransactionRepository extends HSQLDBTransactionRep
 			int maxBlockDelay = resultSet.getInt(7);
 
 			Integer groupId = resultSet.getInt(8);
-			if (resultSet.wasNull())
+			if (groupId == 0 && resultSet.wasNull())
 				groupId = null;
 
-			return new CreateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description, isOpen, approvalThreshold,
-					minBlockDelay, maxBlockDelay, groupId, fee, approvalStatus, height, signature);
+			return new CreateGroupTransactionData(baseTransactionData, owner, groupName, description, isOpen, approvalThreshold,
+					minBlockDelay, maxBlockDelay, groupId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create group transaction from repository", e);
 		}

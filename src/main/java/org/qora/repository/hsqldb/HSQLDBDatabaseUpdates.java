@@ -739,9 +739,9 @@ public class HSQLDBDatabaseUpdates {
 
 				case 50:
 					// Cached block height in Transactions to save loads of JOINs
-					stmt.execute("ALTER TABLE Transactions ADD COLUMN height INT");
+					stmt.execute("ALTER TABLE Transactions ADD COLUMN block_height INT");
 					// Add height-based index
-					stmt.execute("CREATE INDEX TransactionHeightIndex on Transactions (height)");
+					stmt.execute("CREATE INDEX TransactionHeightIndex on Transactions (block_height)");
 					break;
 
 				case 51:
@@ -750,8 +750,12 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX GroupApprovalLatestIndex on GroupApprovalTransactions (pending_signature, admin)");
 					// Transaction's approval status (Java enum) stored as tiny integer for efficiency
 					stmt.execute("ALTER TABLE Transactions ADD COLUMN approval_status TINYINT NOT NULL");
-					// For search transactions based on approval status
-					stmt.execute("CREATE INDEX TransactionApprovalStatusIndex on Transactions (approval_status, height)");
+					// For searching transactions based on approval status
+					stmt.execute("CREATE INDEX TransactionApprovalStatusIndex on Transactions (approval_status, block_height)");
+					// Height when/if transaction is finally approved
+					stmt.execute("ALTER TABLE Transactions ADD COLUMN approval_height INT");
+					// For searching transactions based on approval height
+					stmt.execute("CREATE INDEX TransactionApprovalHeightIndex on Transactions (approval_height)");
 					break;
 
 				default:

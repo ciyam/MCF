@@ -1,17 +1,16 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.MultiPaymentTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
-import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBMultiPaymentTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -19,14 +18,16 @@ public class HSQLDBMultiPaymentTransactionRepository extends HSQLDBTransactionRe
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT TRUE from MultiPaymentTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT TRUE from MultiPaymentTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
-			List<PaymentData> payments = this.getPaymentsFromSignature(signature);
+			List<PaymentData> payments = this.getPaymentsFromSignature(baseTransactionData.getSignature());
 
-			return new MultiPaymentTransactionData(timestamp, txGroupId, reference, creatorPublicKey, payments, fee, approvalStatus, height, signature);
+			return new MultiPaymentTransactionData(baseTransactionData, payments);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch multi-payment transaction from repository", e);
 		}
