@@ -12,6 +12,9 @@ public interface ATRepository {
 	/** Returns ATData using AT's address or null if none found */
 	public ATData fromATAddress(String atAddress) throws DataException;
 
+	/** Returns where AT with passed address exists in repository */
+	public boolean exists(String atAddress) throws DataException;
+
 	/** Returns list of executable ATs, empty if none found */
 	public List<ATData> getAllExecutableATs() throws DataException;
 

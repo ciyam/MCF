@@ -106,10 +106,6 @@ public class ProxyForgingTransaction extends Transaction {
 		if (proxyForgingTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(creator.getLastReference(), proxyForgingTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (creator.getConfirmedBalance(Asset.QORA).compareTo(proxyForgingTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -134,12 +130,11 @@ public class ProxyForgingTransaction extends Transaction {
 		// Save proxy forging info
 		proxyForgerData = new ProxyForgerData(forger.getPublicKey(), proxyForgingTransactionData.getRecipient(), proxyForgingTransactionData.getProxyPublicKey(), proxyForgingTransactionData.getShare());
 		this.repository.getAccountRepository().save(proxyForgerData);
+	}
 
-		// Update forger's balance
-		forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).subtract(proxyForgingTransactionData.getFee()));
-
-		// Update forger's reference
-		forger.setLastReference(proxyForgingTransactionData.getSignature());
+	@Override
+	public void processReferencesAndFees() throws DataException {
+		super.processReferencesAndFees();
 
 		// If proxy recipient has no last-reference then use this transaction's signature as last-reference so they can spend their block rewards
 		Account recipient = new Account(this.repository, proxyForgingTransactionData.getRecipient());

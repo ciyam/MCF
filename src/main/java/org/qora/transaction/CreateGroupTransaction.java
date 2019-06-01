@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -92,23 +91,24 @@ public class CreateGroupTransaction extends Transaction {
 		if (!createGroupTransactionData.getGroupName().equals(createGroupTransactionData.getGroupName().toLowerCase()))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
-		// Check the group name isn't already taken
-		if (this.repository.getGroupRepository().groupExists(createGroupTransactionData.getGroupName()))
-			return ValidationResult.GROUP_ALREADY_EXISTS;
-
 		// Check fee is positive
 		if (createGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
 		Account creator = getCreator();
 
-		// Check reference is correct
-		if (!Arrays.equals(creator.getLastReference(), createGroupTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (creator.getConfirmedBalance(Asset.QORA).compareTo(createGroupTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
+
+		return ValidationResult.OK;
+	}
+
+	@Override
+	public ValidationResult isProcessable() throws DataException {
+		// Check the group name isn't already taken
+		if (this.repository.getGroupRepository().groupExists(createGroupTransactionData.getGroupName()))
+			return ValidationResult.GROUP_ALREADY_EXISTS;
 
 		return ValidationResult.OK;
 	}
@@ -124,13 +124,6 @@ public class CreateGroupTransaction extends Transaction {
 
 		// Save this transaction
 		this.repository.getTransactionRepository().save(createGroupTransactionData);
-
-		// Update creator's balance
-		Account creator = getCreator();
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(createGroupTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(createGroupTransactionData.getSignature());
 	}
 
 	@Override

@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -86,10 +85,6 @@ public class LeaveGroupTransaction extends Transaction {
 		if (leaveGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(leaver.getLastReference(), leaveGroupTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (leaver.getConfirmedBalance(Asset.QORA).compareTo(leaveGroupTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -105,13 +100,6 @@ public class LeaveGroupTransaction extends Transaction {
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
 		this.repository.getTransactionRepository().save(leaveGroupTransactionData);
-
-		// Update leaver's balance
-		Account leaver = getLeaver();
-		leaver.setConfirmedBalance(Asset.QORA, leaver.getConfirmedBalance(Asset.QORA).subtract(leaveGroupTransactionData.getFee()));
-
-		// Update leaver's reference
-		leaver.setLastReference(leaveGroupTransactionData.getSignature());
 	}
 
 	@Override

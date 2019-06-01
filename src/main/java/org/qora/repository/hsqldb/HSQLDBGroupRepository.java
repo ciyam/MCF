@@ -289,6 +289,22 @@ public class HSQLDBGroupRepository implements GroupRepository {
 		}
 	}
 
+	// Group Owner
+
+	@Override
+	public String getOwner(int groupId) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT owner FROM Groups WHERE group_id = ?", groupId)) {
+			if (resultSet == null)
+				return null;
+
+			String owner = resultSet.getString(1);
+
+			return owner;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group owner from repository", e);
+		}
+	}
+
 	// Group Admins
 
 	@Override

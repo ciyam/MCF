@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -89,14 +88,14 @@ public class TransferAssetTransaction extends Transaction {
 		if (this.transferAssetTransactionData.getTimestamp() < BlockChain.getInstance().getAssetsReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
-		// Check reference is correct
-		Account sender = getSender();
-
-		if (!Arrays.equals(sender.getLastReference(), transferAssetTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Wrap asset transfer as a payment and delegate final payment checks to Payment class
 		return new Payment(this.repository).isValid(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee());
+	}
+
+	@Override
+	public ValidationResult isProcessable() throws DataException {
+		// Wrap asset transfer as a payment and delegate final processable checks to Payment class
+		return new Payment(this.repository).isProcessable(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee());
 	}
 
 	@Override
@@ -105,6 +104,13 @@ public class TransferAssetTransaction extends Transaction {
 
 		// Wrap asset transfer as a payment and delegate processing to Payment class. Only update recipient's last reference if transferring QORA.
 		new Payment(this.repository).process(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee(),
+				transferAssetTransactionData.getSignature());
+	}
+
+	@Override
+	public void processReferencesAndFees() throws DataException {
+		// Wrap asset transfer as a payment and delegate processing to Payment class. Only update recipient's last reference if transferring QORA.
+		new Payment(this.repository).processReferencesAndFees(transferAssetTransactionData.getSenderPublicKey(), getPaymentData(), transferAssetTransactionData.getFee(),
 				transferAssetTransactionData.getSignature(), false);
 	}
 

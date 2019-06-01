@@ -657,7 +657,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, ApprovalStatus.PENDING, blockHeight)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, ApprovalStatus.PENDING.value, blockHeight)) {
 			if (resultSet == null)
 				return transactions;
 
@@ -688,7 +688,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, ApprovalStatus.PENDING, blockHeight)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, ApprovalStatus.PENDING.value, blockHeight)) {
 			if (resultSet == null)
 				return transactions;
 
@@ -861,7 +861,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		saver.bind("signature", transactionData.getSignature()).bind("reference", transactionData.getReference())
 			.bind("type", transactionData.getType().value)
 			.bind("creator", transactionData.getCreatorPublicKey()).bind("creation", new Timestamp(transactionData.getTimestamp()))
-			.bind("fee", transactionData.getFee()).bind("milestone_block", null).bind("tx_group_id", transactionData.getTxGroupId());
+			.bind("fee", transactionData.getFee()).bind("milestone_block", null).bind("tx_group_id", transactionData.getTxGroupId())
+			.bind("approval_status", transactionData.getApprovalStatus().value);
 
 		try {
 			saver.execute(this.repository);

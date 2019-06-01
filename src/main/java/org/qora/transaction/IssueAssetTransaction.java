@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -118,16 +117,17 @@ public class IssueAssetTransaction extends Transaction {
 		if (issueAssetTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference is correct
 		Account issuer = getIssuer();
-
-		if (!Arrays.equals(issuer.getLastReference(), issueAssetTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
 
 		// Check issuer has enough funds
 		if (issuer.getConfirmedBalance(Asset.QORA).compareTo(issueAssetTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
+		return ValidationResult.OK;
+	}
+
+	@Override
+	public ValidationResult isProcessable() throws DataException {
 		// Check the asset name isn't already taken. This check is not present in gen1.
 		if (issueAssetTransactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
 			if (this.repository.getAssetRepository().assetExists(issueAssetTransactionData.getAssetName()))
@@ -147,13 +147,6 @@ public class IssueAssetTransaction extends Transaction {
 
 		// Save this transaction, now with corresponding assetId
 		this.repository.getTransactionRepository().save(issueAssetTransactionData);
-
-		// Update issuer's balance
-		Account issuer = getIssuer();
-		issuer.setConfirmedBalance(Asset.QORA, issuer.getConfirmedBalance(Asset.QORA).subtract(issueAssetTransactionData.getFee()));
-
-		// Update issuer's reference
-		issuer.setLastReference(issueAssetTransactionData.getSignature());
 
 		// Add asset to owner
 		Account owner = getOwner();

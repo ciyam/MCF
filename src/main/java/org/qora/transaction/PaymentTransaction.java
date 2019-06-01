@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -77,21 +76,29 @@ public class PaymentTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Check reference is correct
-		Account sender = getSender();
-		if (!Arrays.equals(sender.getLastReference(), paymentTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Wrap and delegate final payment checks to Payment class
 		return new Payment(this.repository).isValid(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee());
+	}
+
+	@Override
+	public ValidationResult isProcessable() throws DataException {
+		// Wrap and delegate final processable checks to Payment class
+		return new Payment(this.repository).isProcessable(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee());
 	}
 
 	@Override
 	public void process() throws DataException {
 		// We would save updated transaction at this point, but it hasn't been modified
 
-		// Wrap and delegate payment processing to Payment class. Only update recipient's last reference if transferring QORA.
+		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
+				paymentTransactionData.getSignature());
+	}
+
+	@Override
+	public void processReferencesAndFees() throws DataException {
+		// Wrap and delegate references processing to Payment class. Only update recipient's last reference if transferring QORA.
+		new Payment(this.repository).processReferencesAndFees(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
 				paymentTransactionData.getSignature(), false);
 	}
 

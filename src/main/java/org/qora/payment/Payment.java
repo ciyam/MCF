@@ -33,7 +33,7 @@ public class Payment {
 
 	// Processing
 
-	// Validate multiple payments
+	/** Are payments valid? */
 	public ValidationResult isValid(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
 		AssetRepository assetRepository = this.repository.getAssetRepository();
 
@@ -100,20 +100,70 @@ public class Payment {
 		return ValidationResult.OK;
 	}
 
+	/** Are payments valid? */
 	public ValidationResult isValid(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee) throws DataException {
 		return isValid(senderPublicKey, payments, fee, false);
 	}
 
-	// Single payment forms
+	/** Is single payment valid? */
 	public ValidationResult isValid(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
 		return isValid(senderPublicKey, Collections.singletonList(paymentData), fee, isZeroAmountValid);
 	}
 
+	/** Is single payment valid? */
 	public ValidationResult isValid(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee) throws DataException {
 		return isValid(senderPublicKey, paymentData, fee, false);
 	}
 
-	public void process(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, boolean alwaysInitializeRecipientReference)
+	/** Are multiple payments processable? */
+	public ValidationResult isProcessable(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
+		// Essentially the same as isValid...
+		return isValid(senderPublicKey, payments, fee, isZeroAmountValid);
+	}
+
+	/** Are multiple payments processable? */
+	public ValidationResult isProcessable(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee) throws DataException {
+		return isProcessable(senderPublicKey, payments, fee, false);
+	}
+
+	/** Is single payment processable? */
+	public ValidationResult isProcessable(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
+		return isProcessable(senderPublicKey, Collections.singletonList(paymentData), fee, isZeroAmountValid);
+	}
+
+	/** Is single payment processable? */
+	public ValidationResult isProcessable(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee) throws DataException {
+		return isProcessable(senderPublicKey, paymentData, fee, false);
+	}
+
+	/** Multiple payment processing */
+	public void process(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature)
+			throws DataException {
+		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
+
+		// Process all payments
+		for (PaymentData paymentData : payments) {
+			Account recipient = new Account(this.repository, paymentData.getRecipient());
+
+			long assetId = paymentData.getAssetId();
+			BigDecimal amount = paymentData.getAmount();
+
+			// Update sender's balance due to amount
+			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId).subtract(amount));
+
+			// Update recipient's balance
+			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId).add(amount));
+		}
+	}
+
+	/** Single payment processing */
+	public void process(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature)
+			throws DataException {
+		process(senderPublicKey, Collections.singletonList(paymentData), fee, signature);
+	}
+
+	/** Multiple payment reference processing */
+	public void processReferencesAndFees(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, boolean alwaysInitializeRecipientReference)
 			throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
 
@@ -128,13 +178,6 @@ public class Payment {
 			Account recipient = new Account(this.repository, paymentData.getRecipient());
 
 			long assetId = paymentData.getAssetId();
-			BigDecimal amount = paymentData.getAmount();
-
-			// Update sender's balance due to amount
-			sender.setConfirmedBalance(assetId, sender.getConfirmedBalance(assetId).subtract(amount));
-
-			// Update recipient's balance
-			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId).add(amount));
 
 			// For QORA amounts only: if recipient has no reference yet, then this is their starting reference
 			if ((alwaysInitializeRecipientReference || assetId == Asset.QORA) && recipient.getLastReference() == null)
@@ -142,9 +185,10 @@ public class Payment {
 		}
 	}
 
-	public void process(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature, boolean alwaysInitializeRecipientReference)
+	/** Multiple payment reference processing */
+	public void processReferencesAndFees(byte[] senderPublicKey, PaymentData payment, BigDecimal fee, byte[] signature, boolean alwaysInitializeRecipientReference)
 			throws DataException {
-		process(senderPublicKey, Collections.singletonList(paymentData), fee, signature, alwaysInitializeRecipientReference);
+		processReferencesAndFees(senderPublicKey, Collections.singletonList(payment), fee, signature, alwaysInitializeRecipientReference);
 	}
 
 	public void orphan(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, byte[] reference,

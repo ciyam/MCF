@@ -45,6 +45,10 @@ public interface GroupRepository {
 
 	public void delete(String groupName) throws DataException;
 
+	// Group Owner
+
+	public String getOwner(int groupId) throws DataException;
+
 	// Group Admins
 
 	public GroupAdminData getAdmin(int groupId, String address) throws DataException;

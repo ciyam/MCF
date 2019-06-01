@@ -277,14 +277,14 @@ public class BlockGenerator extends Thread {
 			}
 		}
 
+		// Sign to create block's signature, needed by Block.isValid()
+		newBlock.sign();
+
 		// Attempt to add transactions until block is full, or we run out
 		// If a transaction makes the block invalid then skip it and it'll either expire or be in next block.
 		for (TransactionData transactionData : unconfirmedTransactions) {
 			if (!newBlock.addTransaction(transactionData))
 				break;
-
-			// Sign to create block's signature
-			newBlock.sign();
 
 			// If newBlock is no longer valid then we can't use transaction
 			ValidationResult validationResult = newBlock.isValid();

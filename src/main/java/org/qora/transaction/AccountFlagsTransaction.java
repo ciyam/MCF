@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -77,10 +76,6 @@ public class AccountFlagsTransaction extends Transaction {
 		if (accountFlagsTransactionData.getFee().compareTo(BigDecimal.ZERO) < 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(creator.getLastReference(), accountFlagsTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (creator.getConfirmedBalance(Asset.QORA).compareTo(accountFlagsTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -107,13 +102,6 @@ public class AccountFlagsTransaction extends Transaction {
 				| accountFlagsTransactionData.getOrMask() ^ accountFlagsTransactionData.getXorMask();
 
 		target.setFlags(newFlags);
-
-		// Update creator's balance
-		Account creator = getCreator();
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(accountFlagsTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(accountFlagsTransactionData.getSignature());
 	}
 
 	@Override

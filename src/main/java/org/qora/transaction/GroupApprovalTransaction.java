@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -83,10 +82,6 @@ public class GroupApprovalTransaction extends Transaction {
 		if (groupApprovalTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(admin.getLastReference(), groupApprovalTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupApprovalTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -104,13 +99,6 @@ public class GroupApprovalTransaction extends Transaction {
 
 		// Save this transaction with updated prior reference to transaction that can help restore state
 		this.repository.getTransactionRepository().save(groupApprovalTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).subtract(groupApprovalTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupApprovalTransactionData.getSignature());
 	}
 
 	@Override

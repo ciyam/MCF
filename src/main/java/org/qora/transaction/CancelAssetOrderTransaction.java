@@ -2,7 +2,6 @@ package org.qora.transaction;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.qora.account.Account;
@@ -90,24 +89,12 @@ public class CancelAssetOrderTransaction extends Transaction {
 		if (creator.getConfirmedBalance(Asset.QORA).compareTo(cancelOrderTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
-		// Check reference is correct
-		if (!Arrays.equals(creator.getLastReference(), cancelOrderTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		return ValidationResult.OK;
 	}
 
 	@Override
 	public void process() throws DataException {
-		Account creator = getCreator();
-
 		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update creator's balance regarding fee
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(cancelOrderTransactionData.getFee()));
-
-		// Update creator's last reference
-		creator.setLastReference(cancelOrderTransactionData.getSignature());
 
 		// Mark Order as completed so no more trades can happen
 		OrderData orderData = this.repository.getAssetRepository().fromOrderId(cancelOrderTransactionData.getOrderId());
