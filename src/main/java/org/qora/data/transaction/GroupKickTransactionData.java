@@ -1,13 +1,10 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -74,12 +71,11 @@ public class GroupKickTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member,
-			String reason, byte[] memberReference, byte[] adminReference, byte[] joinReference, Integer previousGroupId,
-			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.GROUP_KICK, timestamp, txGroupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
+	public GroupKickTransactionData(BaseTransactionData baseTransactionData,
+			int groupId, String member, String reason, byte[] memberReference, byte[] adminReference, byte[] joinReference, Integer previousGroupId) {
+		super(TransactionType.GROUP_KICK, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.member = member;
 		this.reason = reason;
@@ -90,14 +86,8 @@ public class GroupKickTransactionData extends TransactionData {
 	}
 
 	/** From network/API */
-	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, String reason,
-			BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, reason, null, null, null, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, String reason, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, reason, fee, null);
+	public GroupKickTransactionData(BaseTransactionData baseTransactionData, int groupId, String member, String reason) {
+		this(baseTransactionData, groupId, member, reason, null, null, null, null);
 	}
 
 	// Getters / setters

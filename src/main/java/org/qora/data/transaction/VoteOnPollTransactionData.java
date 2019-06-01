@@ -1,12 +1,9 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,25 +31,18 @@ public class VoteOnPollTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public VoteOnPollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] voterPublicKey, String pollName, int optionIndex,
-			Integer previousOptionIndex, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.VOTE_ON_POLL, timestamp, txGroupId, reference, voterPublicKey, fee, approvalStatus, height, signature);
+	public VoteOnPollTransactionData(BaseTransactionData baseTransactionData, String pollName, int optionIndex, Integer previousOptionIndex) {
+		super(TransactionType.VOTE_ON_POLL, baseTransactionData);
 
-		this.voterPublicKey = voterPublicKey;
+		this.voterPublicKey = baseTransactionData.creatorPublicKey;
 		this.pollName = pollName;
 		this.optionIndex = optionIndex;
 		this.previousOptionIndex = previousOptionIndex;
 	}
 
 	/** From network/API */
-	public VoteOnPollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] voterPublicKey, String pollName, int optionIndex,
-			BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, voterPublicKey, pollName, optionIndex, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public VoteOnPollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] voterPublicKey, String pollName, int optionIndex, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, voterPublicKey, pollName, optionIndex, fee, null);
+	public VoteOnPollTransactionData(BaseTransactionData baseTransactionData, String pollName, int optionIndex) {
+		this(baseTransactionData, pollName, optionIndex, null);
 	}
 
 	// Getters / setters

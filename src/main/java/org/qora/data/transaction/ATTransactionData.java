@@ -7,7 +7,6 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.qora.account.GenesisAccount;
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -36,23 +35,15 @@ public class ATTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public ATTransactionData(long timestamp, int txGroupId, byte[] reference, String atAddress, String recipient, BigDecimal amount, Long assetId,
-			byte[] message, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.AT, timestamp, txGroupId, reference, GenesisAccount.PUBLIC_KEY, fee, approvalStatus, height, signature);
+	public ATTransactionData(BaseTransactionData baseTransactionData, String atAddress, String recipient, BigDecimal amount, Long assetId, byte[] message) {
+		super(TransactionType.AT, baseTransactionData);
 
+		this.creatorPublicKey = GenesisAccount.PUBLIC_KEY;
 		this.atAddress = atAddress;
 		this.recipient = recipient;
 		this.amount = amount;
 		this.assetId = assetId;
 		this.message = message;
-	}
-
-	// Never from network/API!
-
-	/** New, unsigned */
-	public ATTransactionData(long timestamp, int txGroupId, byte[] reference, String atAddress, String recipient, BigDecimal amount, Long assetId,
-			byte[] message, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, atAddress, recipient, amount, assetId, message, fee, null, null, null);
 	}
 
 	// Getters/Setters

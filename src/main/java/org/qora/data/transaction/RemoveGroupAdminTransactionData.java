@@ -1,13 +1,10 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -42,24 +39,18 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, byte[] adminReference,
-			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.REMOVE_GROUP_ADMIN, timestamp, txGroupId, reference, ownerPublicKey, fee, approvalStatus, height, signature);
+	public RemoveGroupAdminTransactionData(BaseTransactionData baseTransactionData, int groupId, String admin, byte[] adminReference) {
+		super(TransactionType.REMOVE_GROUP_ADMIN, baseTransactionData);
 
-		this.ownerPublicKey = ownerPublicKey;
+		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.admin = admin;
 		this.adminReference = adminReference;
 	}
 
 	/** From network/API */
-	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, admin, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, admin, fee, null);
+	public RemoveGroupAdminTransactionData(BaseTransactionData baseTransactionData, int groupId, String admin) {
+		this(baseTransactionData, groupId, admin, null);
 	}
 
 	// Getters / setters

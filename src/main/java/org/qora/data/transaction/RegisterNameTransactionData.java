@@ -1,12 +1,9 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -38,24 +35,13 @@ public class RegisterNameTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public RegisterNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] registrantPublicKey, String owner, String name, String data,
-			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.REGISTER_NAME, timestamp, txGroupId, reference, registrantPublicKey, fee, approvalStatus, height, signature);
+	public RegisterNameTransactionData(BaseTransactionData baseTransactionData, String owner, String name, String data) {
+		super(TransactionType.REGISTER_NAME, baseTransactionData);
 
-		this.registrantPublicKey = registrantPublicKey;
+		this.registrantPublicKey = baseTransactionData.creatorPublicKey;
 		this.owner = owner;
 		this.name = name;
 		this.data = data;
-	}
-
-	/** From network/API */
-	public RegisterNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] registrantPublicKey, String owner, String name, String data, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, registrantPublicKey, owner, name, data, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public RegisterNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] registrantPublicKey, String owner, String name, String data, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, registrantPublicKey, owner, name, data, fee, null);
 	}
 
 	// Getters / setters

@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -9,7 +7,6 @@ import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qora.group.Group.ApprovalThreshold;
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -83,13 +80,12 @@ public class UpdateGroupTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public UpdateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId,
-			String newOwner, String newDescription, boolean newIsOpen, ApprovalThreshold newApprovalThreshold,
-			int newMinimumBlockDelay, int newMaximumBlockDelay, byte[] groupReference,
-			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.UPDATE_GROUP, timestamp, txGroupId, reference, ownerPublicKey, fee, approvalStatus, height, signature);
+	public UpdateGroupTransactionData(BaseTransactionData baseTransactionData,
+			int groupId, String newOwner, String newDescription, boolean newIsOpen, ApprovalThreshold newApprovalThreshold,
+			int newMinimumBlockDelay, int newMaximumBlockDelay, byte[] groupReference) {
+		super(TransactionType.UPDATE_GROUP, baseTransactionData);
 
-		this.ownerPublicKey = ownerPublicKey;
+		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
 		this.newOwner = newOwner;
 		this.groupId = groupId;
 		this.newDescription = newDescription;
@@ -101,19 +97,10 @@ public class UpdateGroupTransactionData extends TransactionData {
 	}
 
 	/** From network/API */
-	public UpdateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId,
-			String newOwner, String newDescription, boolean newIsOpen, ApprovalThreshold newApprovalThreshold,
-			int newMinimumBlockDelay, int newMaximumBlockDelay, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, newOwner, newDescription, newIsOpen, newApprovalThreshold,
-				newMinimumBlockDelay, newMaximumBlockDelay, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public UpdateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId,
-			String newOwner, String newDescription, boolean newIsOpen, ApprovalThreshold newApprovalThreshold,
-			int newMinimumBlockDelay, int newMaximumBlockDelay, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, newOwner, newDescription, newIsOpen, newApprovalThreshold,
-				newMinimumBlockDelay, newMaximumBlockDelay, fee, null);
+	public UpdateGroupTransactionData(BaseTransactionData baseTransactionData,
+			int groupId, String newOwner, String newDescription, boolean newIsOpen, ApprovalThreshold newApprovalThreshold,
+			int newMinimumBlockDelay, int newMaximumBlockDelay) {
+		this(baseTransactionData, groupId, newOwner, newDescription, newIsOpen, newApprovalThreshold, newMinimumBlockDelay, newMaximumBlockDelay, null);
 	}
 
 	// Getters / setters

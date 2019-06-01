@@ -1,13 +1,10 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -44,12 +41,12 @@ public class UpdateAssetTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public UpdateAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, long assetId, String newOwner,
-			String newDescription, String newData, BigDecimal fee, byte[] orphanReference, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.UPDATE_ASSET, timestamp, txGroupId, reference, ownerPublicKey, fee, approvalStatus, height, signature);
+	public UpdateAssetTransactionData(BaseTransactionData baseTransactionData,
+			long assetId, String newOwner, String newDescription, String newData, byte[] orphanReference) {
+		super(TransactionType.UPDATE_ASSET, baseTransactionData);
 
 		this.assetId = assetId;
-		this.ownerPublicKey = ownerPublicKey;
+		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
 		this.newOwner = newOwner;
 		this.newDescription = newDescription;
 		this.newData = newData;
@@ -57,15 +54,8 @@ public class UpdateAssetTransactionData extends TransactionData {
 	}
 
 	/** From network/API */
-	public UpdateAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, long assetId, String newOwner,
-			String newDescription, String newData, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, assetId, newOwner, newDescription, newData, fee, null, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public UpdateAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, long assetId, String newOwner,
-			String newDescription, String newData, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, assetId, newOwner, newDescription, newData, fee, null);
+	public UpdateAssetTransactionData(BaseTransactionData baseTransactionData, long assetId, String newOwner, String newDescription, String newData) {
+		this(baseTransactionData, assetId, newOwner, newDescription, newData, null);
 	}
 
 	// Getters/Setters

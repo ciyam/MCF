@@ -6,10 +6,7 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
-import org.qora.account.GenesisAccount;
 import org.qora.asset.Asset;
-import org.qora.group.Group;
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -38,9 +35,10 @@ public class GenesisTransactionData extends TransactionData {
 	}
 
 	/** From repository (V2) */
-	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount, long assetId, byte[] signature) {
+	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount, long assetId) {
 		// No groupID, null reference, zero fee, no approval required, height always 1
-		super(TransactionType.GENESIS, timestamp, Group.NO_GROUP, null, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, ApprovalStatus.NOT_REQUIRED, 1, signature);
+		// super(TransactionType.GENESIS, timestamp, Group.NO_GROUP, null, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, ApprovalStatus.NOT_REQUIRED, 1, signature);
+		super(TransactionType.GENESIS, baseTransactionData);
 
 		this.recipient = recipient;
 		this.amount = amount;
@@ -48,20 +46,8 @@ public class GenesisTransactionData extends TransactionData {
 	}
 
 	/** From repository (V1, where asset locked to QORA) */
-	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount, byte[] signature) {
-		this(timestamp, recipient, amount, Asset.QORA, signature);
-	}
-
-	// Never from network/API!
-
-	/** New, unsigned (V2) */
-	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount, long assetId) {
-		this(timestamp, recipient, amount, assetId, null);
-	}
-
-	/** New, unsigned (V1) */
-	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount) {
-		this(timestamp, recipient, amount, Asset.QORA, null);
+	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount) {
+		this(baseTransactionData, recipient, amount, Asset.QORA);
 	}
 
 	// Getters/Setters

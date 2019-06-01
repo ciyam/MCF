@@ -1,6 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import javax.xml.bind.Unmarshaller;
@@ -9,7 +8,6 @@ import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qora.data.PaymentData;
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -53,12 +51,12 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.creatorPublicKey = this.senderPublicKey;
 	}
 
-	/** From repository */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service,
-			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.ARBITRARY, timestamp, txGroupId, reference, senderPublicKey, fee, approvalStatus, height, signature);
+	/** V3 */
+	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
+			int version, int service, byte[] data, DataType dataType, List<PaymentData> payments) {
+		super(TransactionType.ARBITRARY, baseTransactionData);
 
-		this.senderPublicKey = senderPublicKey;
+		this.senderPublicKey = baseTransactionData.creatorPublicKey;
 		this.version = version;
 		this.service = service;
 		this.data = data;
@@ -66,28 +64,10 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.payments = payments;
 	}
 
-	/** From network/API (V3) */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service,
-			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, payments, fee, null, null, signature);
-	}
-
-	/** From network/API (V1) */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
-			DataType dataType, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned (V3) */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
-			DataType dataType, List<PaymentData> payments, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, payments, fee, null);
-	}
-
-	/** New, unsigned (V1) */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
-			DataType dataType, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, null, fee, null);
+	/** V1 */
+	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
+			int version, int service, byte[] data, DataType dataType) {
+		this(baseTransactionData, version, service, data, dataType, null);
 	}
 
 	// Getters/Setters

@@ -7,7 +7,6 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.qora.asset.Asset;
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -38,12 +37,11 @@ public class MessageTransactionData extends TransactionData {
 		this.creatorPublicKey = this.senderPublicKey;
 	}
 
-	/** From repository */
-	public MessageTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, String recipient, Long assetId,
-			BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.MESSAGE, timestamp, txGroupId, reference, senderPublicKey, fee, approvalStatus, height, signature);
+	public MessageTransactionData(BaseTransactionData baseTransactionData,
+			int version, String recipient, Long assetId, BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted) {
+		super(TransactionType.MESSAGE, baseTransactionData);
 
-		this.senderPublicKey = senderPublicKey;
+		this.senderPublicKey = baseTransactionData.creatorPublicKey;
 		this.version = version;
 		this.recipient = recipient;
 
@@ -56,18 +54,6 @@ public class MessageTransactionData extends TransactionData {
 		this.data = data;
 		this.isText = isText;
 		this.isEncrypted = isEncrypted;
-	}
-
-	/** From network/API */
-	public MessageTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, String recipient, Long assetId,
-			BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, recipient, assetId, amount, data, isText, isEncrypted, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public MessageTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, String recipient, Long assetId,
-			BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, recipient, assetId, amount, data, isText, isEncrypted, fee, null);
 	}
 
 	// Getters/Setters
