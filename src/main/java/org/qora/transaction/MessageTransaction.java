@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -101,11 +100,6 @@ public class MessageTransaction extends Transaction {
 		if (messageTransactionData.getData().length < 1 || messageTransactionData.getData().length > MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
-		// Check reference is correct
-		Account sender = getSender();
-		if (!Arrays.equals(sender.getLastReference(), messageTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Zero-amount payments (i.e. message-only) only valid for versions later than 1
 		boolean isZeroAmountValid = messageTransactionData.getVersion() > 1;
 
@@ -115,11 +109,28 @@ public class MessageTransaction extends Transaction {
 	}
 
 	@Override
+	public ValidationResult isProcessable() throws DataException {
+		// Zero-amount payments (i.e. message-only) only valid for versions later than 1
+		boolean isZeroAmountValid = messageTransactionData.getVersion() > 1;
+
+		// Wrap and delegate final processable checks to Payment class
+		return new Payment(this.repository).isProcessable(messageTransactionData.getSenderPublicKey(), getPaymentData(), messageTransactionData.getFee(),
+				isZeroAmountValid);
+	}
+
+	@Override
 	public void process() throws DataException {
 		// We would save updated transaction at this point, but it hasn't been modified
 
-		// Wrap and delegate payment processing to Payment class. Only update recipient's last reference if transferring QORA.
+		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(messageTransactionData.getSenderPublicKey(), getPaymentData(), messageTransactionData.getFee(),
+				messageTransactionData.getSignature());
+	}
+
+	@Override
+	public void processReferencesAndFees() throws DataException {
+		// Wrap and delegate references processing to Payment class. Only update recipient's last reference if transferring QORA.
+		new Payment(this.repository).processReferencesAndFees(messageTransactionData.getSenderPublicKey(), getPaymentData(), messageTransactionData.getFee(),
 				messageTransactionData.getSignature(), false);
 	}
 

@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -107,10 +106,6 @@ public class GroupKickTransaction extends Transaction {
 		if (groupKickTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(admin.getLastReference(), groupKickTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupKickTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -126,13 +121,6 @@ public class GroupKickTransaction extends Transaction {
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
 		this.repository.getTransactionRepository().save(groupKickTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).subtract(groupKickTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupKickTransactionData.getSignature());
 	}
 
 	@Override

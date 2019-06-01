@@ -26,6 +26,7 @@ import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
@@ -300,8 +301,11 @@ public class GenesisBlock extends Block {
 				TransactionData transactionData = transaction.getTransactionData();
 				Account creator = new PublicKeyAccount(this.repository, transactionData.getCreatorPublicKey());
 
+				// Missing reference?
 				if (transactionData.getReference() == null)
 					transactionData.setReference(creator.getLastReference());
+
+				// Missing signature?
 				if (transactionData.getSignature() == null) {
 					byte[] digest = Crypto.digest(TransactionTransformer.toBytesForSigning(transactionData));
 					byte[] signature = Bytes.concat(digest, digest);
@@ -309,7 +313,12 @@ public class GenesisBlock extends Block {
 					transactionData.setSignature(signature);
 				}
 
-				transaction.process();
+				// Missing approval status (not used in V1)
+				transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
+
+				// Ask transaction to update references, etc.
+				transaction.processReferencesAndFees();
+
 				creator.setLastReference(transactionData.getSignature());
 			}
 		} catch (TransformationException e) {

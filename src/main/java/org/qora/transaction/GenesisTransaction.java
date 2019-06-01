@@ -140,11 +140,18 @@ public class GenesisTransaction extends Transaction {
 
 		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
 
-		// Set recipient's starting reference (also creates account)
-		recipient.setLastReference(genesisTransactionData.getSignature());
-
 		// Update recipient's balance
 		recipient.setConfirmedBalance(Asset.QORA, genesisTransactionData.getAmount());
+	}
+
+	@Override
+	public void processReferencesAndFees() throws DataException {
+		// Do not attempt to update non-existent genesis account's reference!
+
+		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
+
+		// Set recipient's starting reference (also creates account)
+		recipient.setLastReference(genesisTransactionData.getSignature());
 	}
 
 	@Override

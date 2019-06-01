@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -100,10 +99,6 @@ public class CancelGroupBanTransaction extends Transaction {
 		if (groupUnbanTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(admin.getLastReference(), groupUnbanTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupUnbanTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -119,13 +114,6 @@ public class CancelGroupBanTransaction extends Transaction {
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
 		this.repository.getTransactionRepository().save(groupUnbanTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).subtract(groupUnbanTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupUnbanTransactionData.getSignature());
 	}
 
 	@Override

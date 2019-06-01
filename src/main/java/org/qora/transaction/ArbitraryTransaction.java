@@ -2,7 +2,6 @@ package org.qora.transaction;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.qora.account.Account;
@@ -103,13 +102,15 @@ public class ArbitraryTransaction extends Transaction {
 		if (arbitraryTransactionData.getData().length < 1 || arbitraryTransactionData.getData().length > MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
-		// Check reference is correct
-		Account sender = getSender();
-		if (!Arrays.equals(sender.getLastReference(), arbitraryTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
-		// Wrap and delegate final payment checks to Payment class
+		// Wrap and delegate final payment validity checks to Payment class
 		return new Payment(this.repository).isValid(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
+				arbitraryTransactionData.getFee());
+	}
+
+	@Override
+	public ValidationResult isProcessable() throws DataException {
+		// Wrap and delegate final payment processable checks to Payment class
+		return new Payment(this.repository).isProcessable(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
 				arbitraryTransactionData.getFee());
 	}
 
@@ -117,8 +118,15 @@ public class ArbitraryTransaction extends Transaction {
 	public void process() throws DataException {
 		// We would save updated transaction at this point, but it hasn't been modified
 
-		// Wrap and delegate payment processing to Payment class. Always update recipients' last references regardless of asset.
+		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
+				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature());
+	}
+
+	@Override
+	public void processReferencesAndFees() throws DataException {
+		// Wrap and delegate reference and fee processing to Payment class. Always update recipients' last references regardless of asset.
+		new Payment(this.repository).processReferencesAndFees(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
 				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), true);
 	}
 

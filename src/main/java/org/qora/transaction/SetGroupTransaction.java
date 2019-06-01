@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -74,10 +73,6 @@ public class SetGroupTransaction extends Transaction {
 		if (setGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(creator.getLastReference(), setGroupTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (creator.getConfirmedBalance(Asset.QORA).compareTo(setGroupTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -100,12 +95,6 @@ public class SetGroupTransaction extends Transaction {
 
 		// Set account's new default groupID
 		creator.setDefaultGroupId(setGroupTransactionData.getDefaultGroupId());
-
-		// Update creator's balance
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(setGroupTransactionData.getFee()));
-
-		// Update admin's reference
-		creator.setLastReference(setGroupTransactionData.getSignature());
 	}
 
 	@Override

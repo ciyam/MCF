@@ -229,6 +229,7 @@ public abstract class Transaction {
 		PUBLIC_KEY_UNKNOWN(78),
 		INVALID_PUBLIC_KEY(79),
 		AT_UNKNOWN(80),
+		AT_ALREADY_EXISTS(81),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -832,6 +833,33 @@ public abstract class Transaction {
 	public abstract ValidationResult isValid() throws DataException;
 
 	/**
+	 * Returns whether transaction's reference is valid.
+	 * 
+	 * @throws DataException
+	 */
+	public boolean hasValidReference() throws DataException {
+		Account creator = getCreator();
+
+		return Arrays.equals(transactionData.getReference(), creator.getLastReference());
+	}
+
+	/**
+	 * Returns whether transaction can be processed.
+	 * <p>
+	 * With group-approval, even if a transaction had valid values
+	 * when submitted, by the time it is approved dependency might
+	 * have changed.
+	 * <p>
+	 * For example, with UPDATE_ASSET, the asset owner might have
+	 * changed between submission and approval.
+	 * 
+	 * @throws DataException
+	 */
+	public ValidationResult isProcessable() throws DataException {
+		return ValidationResult.OK;
+	};
+
+	/**
 	 * Actually process a transaction, updating the blockchain.
 	 * <p>
 	 * Processes transaction, updating balances, references, assets, etc. as appropriate.
@@ -841,13 +869,14 @@ public abstract class Transaction {
 	public abstract void process() throws DataException;
 
 	/**
-	 * Update creator's last reference, subtract transaction fee, etc.
+	 * Update last references, subtract transaction fees, etc.
 	 * 
 	 * @throws DataException
 	 */
-	public void processCreatorUpdates() throws DataException {
-		// Update transaction creator's balance
+	public void processReferencesAndFees() throws DataException {
 		Account creator = getCreator();
+
+		// Update transaction creator's balance
 		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(transactionData.getFee()));
 
 		// Update transaction creator's reference

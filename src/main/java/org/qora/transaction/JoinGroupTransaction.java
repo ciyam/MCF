@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -87,10 +86,6 @@ public class JoinGroupTransaction extends Transaction {
 		// Check fee is positive
 		if (joinGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
-
-		if (!Arrays.equals(joiner.getLastReference(), joinGroupTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (joiner.getConfirmedBalance(Asset.QORA).compareTo(joinGroupTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -106,14 +101,6 @@ public class JoinGroupTransaction extends Transaction {
 
 		// Save this transaction with cached references to transactions that can help restore state
 		this.repository.getTransactionRepository().save(joinGroupTransactionData);
-
-		// Update joiner's balance
-		Account joiner = getJoiner();
-		joiner.setConfirmedBalance(Asset.QORA, joiner.getConfirmedBalance(Asset.QORA).subtract(joinGroupTransactionData.getFee()));
-
-		// Update joiner's reference
-		joiner.setLastReference(joinGroupTransactionData.getSignature());
-
 	}
 
 	@Override

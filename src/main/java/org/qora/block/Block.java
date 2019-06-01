@@ -32,7 +32,6 @@ import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.transaction.AtTransaction;
-import org.qora.transaction.GenesisTransaction;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
@@ -896,33 +895,55 @@ public class Block {
 			repository.setSavepoint();
 
 			for (Transaction transaction : this.getTransactions()) {
+				TransactionData transactionData = transaction.getTransactionData();
+
 				// GenesisTransactions are not allowed (GenesisBlock overrides isValid() to allow them)
-				if (transaction instanceof GenesisTransaction)
+				if (transactionData.getType() == TransactionType.GENESIS || transactionData.getType() == TransactionType.ACCOUNT_FLAGS)
 					return ValidationResult.GENESIS_TRANSACTIONS_INVALID;
 
 				// Check timestamp and deadline
-				if (transaction.getTransactionData().getTimestamp() > this.blockData.getTimestamp()
+				if (transactionData.getTimestamp() > this.blockData.getTimestamp()
 						|| transaction.getDeadline() <= this.blockData.getTimestamp())
 					return ValidationResult.TRANSACTION_TIMESTAMP_INVALID;
 
 				// Check transaction isn't already included in a block
-				if (this.repository.getTransactionRepository().isConfirmed(transaction.getTransactionData().getSignature()))
+				if (this.repository.getTransactionRepository().isConfirmed(transactionData.getSignature()))
 					return ValidationResult.TRANSACTION_ALREADY_PROCESSED;
+
+				// Check transaction has correct reference, etc.
+				if (!transaction.hasValidReference()) {
+					LOGGER.debug("Error during transaction validation, tx " + Base58.encode(transactionData.getSignature()) + ": INVALID_REFERENCE");
+					return ValidationResult.TRANSACTION_INVALID;
+				}
 
 				// Check transaction is even valid
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
 				Transaction.ValidationResult validationResult = transaction.isValid();
 				if (validationResult != Transaction.ValidationResult.OK) {
-					LOGGER.debug("Error during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
+					LOGGER.debug("Error during transaction validation, tx " + Base58.encode(transactionData.getSignature()) + ": "
+							+ validationResult.name());
+					return ValidationResult.TRANSACTION_INVALID;
+				}
+
+				// Check transaction can even be processed
+				validationResult = transaction.isProcessable();
+				if (validationResult != Transaction.ValidationResult.OK) {
+					LOGGER.debug("Error during transaction validation, tx " + Base58.encode(transactionData.getSignature()) + ": "
 							+ validationResult.name());
 					return ValidationResult.TRANSACTION_INVALID;
 				}
 
 				// Process transaction to make sure other transactions validate properly
 				try {
-					transaction.process();
+					// Only process transactions that don't require group-approval.
+					// Group-approval transactions are dealt with later.
+					if (transactionData.getApprovalStatus() == ApprovalStatus.NOT_REQUIRED)
+						transaction.process();
+
+					// Regardless of group-approval, update relevant info for creator (e.g. lastReference)
+					transaction.processReferencesAndFees();
 				} catch (Exception e) {
-					LOGGER.error("Exception during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()), e);
+					LOGGER.error("Exception during transaction validation, tx " + Base58.encode(transactionData.getSignature()), e);
 					e.printStackTrace();
 					return ValidationResult.TRANSACTION_PROCESSING_FAILED;
 				}
@@ -1056,7 +1077,7 @@ public class Block {
 				transaction.process();
 
 			// Regardless of group-approval, update relevant info for creator (e.g. lastReference)
-			transaction.processCreatorUpdates();
+			transaction.processReferencesAndFees();
 		}
 
 		// Group-approval transactions
@@ -1133,15 +1154,15 @@ public class Block {
 				continue;
 			}
 
-			// Approved, but check transaction is still valid
-			if (transaction.isValid() != Transaction.ValidationResult.OK) {
+			// Approved, but check transaction can still be processed
+			if (transaction.isProcessable() != Transaction.ValidationResult.OK) {
 				transactionData.setApprovalStatus(ApprovalStatus.INVALID);
 				this.repository.getTransactionRepository().save(transactionData);
 				continue;
 			}
 
 			// APPROVED, in which case do transaction.process();
-			transactionData.setApprovalStatus(ApprovalStatus.INVALID);
+			transactionData.setApprovalStatus(ApprovalStatus.APPROVED);
 			this.repository.getTransactionRepository().save(transactionData);
 
 			transaction.process();

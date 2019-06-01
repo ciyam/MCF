@@ -58,6 +58,15 @@ public class HSQLDBATRepository implements ATRepository {
 	}
 
 	@Override
+	public boolean exists(String atAddress) throws DataException {
+		try {
+			return this.repository.exists("ATs", "AT_address = ?", atAddress);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for AT in repository", e);
+		}
+	}
+
+	@Override
 	public List<ATData> getAllExecutableATs() throws DataException {
 		List<ATData> executableATs = new ArrayList<ATData>();
 
