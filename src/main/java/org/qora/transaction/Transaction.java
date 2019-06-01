@@ -548,7 +548,17 @@ public abstract class Transaction {
 				if (unconfirmedLastReference != null)
 					creator.setLastReference(unconfirmedLastReference);
 
+				// Check transaction is valid
 				ValidationResult result = this.isValid();
+				if (result != ValidationResult.OK)
+					return result;
+
+				// Check transaction references
+				if (!this.hasValidReference())
+					return ValidationResult.INVALID_REFERENCE;
+
+				// Check transction is processable
+				result = this.isProcessable();
 
 				return result;
 			} finally {
@@ -807,7 +817,13 @@ public abstract class Transaction {
 		return null;
 	}
 
-	/** Import into our repository as a new, unconfirmed transaction. */
+	/**
+	 * Import into our repository as a new, unconfirmed transaction.
+	 * <p>
+	 * Calls <tt>repository.saveChanges()</tt>
+	 * 
+	 * @throws DataException
+	 */
 	public void importAsUnconfirmed() throws DataException {
 		// Fix up approval status
 		if (this.needsGroupApproval()) {
@@ -829,6 +845,7 @@ public abstract class Transaction {
 	 * Transactions that have already been processed will return false.
 	 * 
 	 * @return true if transaction can be processed, false otherwise
+	 * @throws DataException
 	 */
 	public abstract ValidationResult isValid() throws DataException;
 

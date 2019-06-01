@@ -33,9 +33,7 @@ public class TransactionUtils {
 		ValidationResult result = transaction.isValidUnconfirmed();
 		assertEquals("Transaction invalid", ValidationResult.OK, result);
 
-		repository.getTransactionRepository().save(transactionData);
-		repository.getTransactionRepository().unconfirmTransaction(transactionData);
-		repository.saveChanges();
+		transaction.importAsUnconfirmed();
 	}
 
 	public static void signAndForge(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
