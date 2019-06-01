@@ -1,13 +1,11 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
 
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -42,24 +40,18 @@ public class CancelGroupBanTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, byte[] banReference,
-			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.CANCEL_GROUP_BAN, timestamp, txGroupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
+	public CancelGroupBanTransactionData(BaseTransactionData baseTransactionData, int groupId, String member, byte[] banReference) {
+		super(TransactionType.CANCEL_GROUP_BAN, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.member = member;
 		this.banReference = banReference;
 	}
 
 	/** From network/API */
-	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, fee, null);
+	public CancelGroupBanTransactionData(BaseTransactionData baseTransactionData, int groupId, String member) {
+		this(baseTransactionData, groupId, member, null);
 	}
 
 	// Getters / setters

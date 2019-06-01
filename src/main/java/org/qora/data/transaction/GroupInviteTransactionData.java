@@ -1,14 +1,11 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -52,11 +49,11 @@ public class GroupInviteTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public GroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, int timeToLive, byte[] joinReference, Integer previousGroupId,
-			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.GROUP_INVITE, timestamp, txGroupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
+	public GroupInviteTransactionData(BaseTransactionData baseTransactionData,
+			int groupId, String invitee, int timeToLive, byte[] joinReference, Integer previousGroupId) {
+		super(TransactionType.GROUP_INVITE, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.invitee = invitee;
 		this.timeToLive = timeToLive;
@@ -65,13 +62,8 @@ public class GroupInviteTransactionData extends TransactionData {
 	}
 
 	/** From network/API */
-	public GroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, int timeToLive, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, timeToLive, null, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public GroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, int timeToLive, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, timeToLive, fee, null);
+	public GroupInviteTransactionData(BaseTransactionData baseTransactionData, int groupId, String invitee, int timeToLive) {
+		this(baseTransactionData, groupId, invitee, timeToLive, null, null);
 	}
 
 	// Getters / setters

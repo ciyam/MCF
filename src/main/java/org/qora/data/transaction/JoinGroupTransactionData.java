@@ -1,14 +1,11 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -48,24 +45,18 @@ public class JoinGroupTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, byte[] inviteReference, Integer previousGroupId,
-			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.JOIN_GROUP, timestamp, txGroupId, reference, joinerPublicKey, fee, approvalStatus, height, signature);
+	public JoinGroupTransactionData(BaseTransactionData baseTransactionData, int groupId, byte[] inviteReference, Integer previousGroupId) {
+		super(TransactionType.JOIN_GROUP, baseTransactionData);
 
-		this.joinerPublicKey = joinerPublicKey;
+		this.joinerPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.inviteReference = inviteReference;
 		this.previousGroupId = previousGroupId;
 	}
 
 	/** From network/API */
-	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, joinerPublicKey, groupId, null, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, joinerPublicKey, groupId, fee, null);
+	public JoinGroupTransactionData(BaseTransactionData baseTransactionData, int groupId) {
+		this(baseTransactionData, groupId, null, null);
 	}
 
 	// Getters / setters

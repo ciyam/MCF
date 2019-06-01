@@ -1,13 +1,10 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -57,26 +54,18 @@ public class GroupApprovalTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public GroupApprovalTransactionData(long timestamp, int groupId, byte[] reference, byte[] adminPublicKey, byte[] pendingSignature, boolean approval,
-			byte[] priorReference, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.GROUP_APPROVAL, timestamp, groupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
+	public GroupApprovalTransactionData(BaseTransactionData baseTransactionData, byte[] pendingSignature, boolean approval, byte[] priorReference) {
+		super(TransactionType.GROUP_APPROVAL, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.pendingSignature = pendingSignature;
 		this.approval = approval;
 		this.priorReference = priorReference;
 	}
 
 	/** From network/API */
-	public GroupApprovalTransactionData(long timestamp, int groupId, byte[] reference, byte[] adminPublicKey, byte[] pendingSignature, boolean approval,
-			BigDecimal fee, byte[] signature) {
-		this(timestamp, groupId, reference, adminPublicKey, pendingSignature, approval, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public GroupApprovalTransactionData(long timestamp, int groupId, byte[] reference, byte[] adminPublicKey, byte[] pendingSignature, boolean approval,
-			BigDecimal fee) {
-		this(timestamp, groupId, reference, adminPublicKey, pendingSignature, approval, fee, null);
+	public GroupApprovalTransactionData(BaseTransactionData baseTransactionData, byte[] pendingSignature, boolean approval) {
+		this(baseTransactionData, pendingSignature, approval, null);
 	}
 
 	// Getters / setters

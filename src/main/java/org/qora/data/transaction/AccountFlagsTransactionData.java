@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -10,7 +8,6 @@ import javax.xml.bind.annotation.XmlElement;
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qora.account.GenesisAccount;
 import org.qora.block.GenesisBlock;
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -46,9 +43,9 @@ public class AccountFlagsTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public AccountFlagsTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, int andMask, int orMask,
-			int xorMask, Integer previousFlags, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.ACCOUNT_FLAGS, timestamp, groupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
+	public AccountFlagsTransactionData(BaseTransactionData baseTransactionData,
+			String target, int andMask, int orMask, int xorMask, Integer previousFlags) {
+		super(TransactionType.ACCOUNT_FLAGS, baseTransactionData);
 
 		this.target = target;
 		this.andMask = andMask;
@@ -58,15 +55,9 @@ public class AccountFlagsTransactionData extends TransactionData {
 	}
 
 	/** From network/API */
-	public AccountFlagsTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, int andMask, int orMask,
-			int xorMask, BigDecimal fee, byte[] signature) {
-		this(timestamp, groupId, reference, creatorPublicKey, target, andMask, orMask, xorMask, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public AccountFlagsTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, int andMask, int orMask,
-			int xorMask, BigDecimal fee) {
-		this(timestamp, groupId, reference, creatorPublicKey, target, andMask, orMask, xorMask, fee, null);
+	public AccountFlagsTransactionData(BaseTransactionData baseTransactionData,
+			String target, int andMask, int orMask, int xorMask) {
+		this(baseTransactionData, target, andMask, orMask, xorMask, null);
 	}
 
 	// Getters / setters

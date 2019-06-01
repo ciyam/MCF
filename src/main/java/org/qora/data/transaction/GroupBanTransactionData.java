@@ -1,13 +1,10 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -77,12 +74,12 @@ public class GroupBanTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public GroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member,
-			String reason, int timeToLive, byte[] memberReference, byte[] adminReference, byte[] joinInviteReference, Integer previousGroupId,
-			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.GROUP_BAN, timestamp, txGroupId, reference, adminPublicKey, fee, approvalStatus, height, signature);
+	public GroupBanTransactionData(BaseTransactionData baseTransactionData,
+			int groupId, String member, String reason, int timeToLive,
+			byte[] memberReference, byte[] adminReference, byte[] joinInviteReference, Integer previousGroupId) {
+		super(TransactionType.GROUP_BAN, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.offender = member;
 		this.reason = reason;
@@ -94,15 +91,8 @@ public class GroupBanTransactionData extends TransactionData {
 	}
 
 	/** From network/API */
-	public GroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String offender, String reason,
-			int timeToLive, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, offender, reason, timeToLive, null, null, null, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public GroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String offender, String reason,
-			int timeToLive, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, offender, reason, timeToLive, fee, null);
+	public GroupBanTransactionData(BaseTransactionData baseTransactionData, int groupId, String member, String reason, int timeToLive) {
+		this(baseTransactionData, groupId, member, reason, timeToLive, null, null, null, null);
 	}
 
 	// Getters / setters

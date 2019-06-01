@@ -1,13 +1,10 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -50,11 +47,11 @@ public class LeaveGroupTransactionData extends TransactionData {
 	}
 
 	/** From repository */
-	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, byte[] memberReference, byte[] adminReference, Integer previousGroupId, 
-			BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.LEAVE_GROUP, timestamp, txGroupId, reference, leaverPublicKey, fee, approvalStatus, height, signature);
+	public LeaveGroupTransactionData(BaseTransactionData baseTransactionData,
+			int groupId, byte[] memberReference, byte[] adminReference, Integer previousGroupId) {
+		super(TransactionType.LEAVE_GROUP, baseTransactionData);
 
-		this.leaverPublicKey = leaverPublicKey;
+		this.leaverPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.memberReference = memberReference;
 		this.adminReference = adminReference;
@@ -62,13 +59,8 @@ public class LeaveGroupTransactionData extends TransactionData {
 	}
 
 	/** From network/API */
-	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, leaverPublicKey, groupId, null, null, null, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, leaverPublicKey, groupId, fee, null);
+	public LeaveGroupTransactionData(BaseTransactionData baseTransactionData, int groupId) {
+		this(baseTransactionData, groupId, null, null, null);
 	}
 
 	// Getters / setters

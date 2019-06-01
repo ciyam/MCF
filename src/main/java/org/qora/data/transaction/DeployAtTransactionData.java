@@ -5,7 +5,6 @@ import java.math.BigDecimal;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
-import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -32,10 +31,9 @@ public class DeployAtTransactionData extends TransactionData {
 		super(TransactionType.DEPLOY_AT);
 	}
 
-	/** From repository */
-	public DeployAtTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String aTAddress, String name, String description,
-			String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) {
-		super(TransactionType.DEPLOY_AT, timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
+	public DeployAtTransactionData(BaseTransactionData baseTransactionData,
+			String aTAddress, String name, String description, String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId) {
+		super(TransactionType.DEPLOY_AT, baseTransactionData);
 
 		this.aTAddress = aTAddress;
 		this.name = name;
@@ -45,18 +43,6 @@ public class DeployAtTransactionData extends TransactionData {
 		this.creationBytes = creationBytes;
 		this.amount = amount;
 		this.assetId = assetId;
-	}
-
-	/** From network/API */
-	public DeployAtTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String name, String description,
-			String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, creatorPublicKey, null, name, description, aTType, tags, creationBytes, amount, assetId, fee, null, null, signature);
-	}
-
-	/** New, unsigned */
-	public DeployAtTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String name, String description,
-			String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, creatorPublicKey, name, description, aTType, tags, creationBytes, amount, assetId, fee, null);
 	}
 
 	// Getters/Setters
