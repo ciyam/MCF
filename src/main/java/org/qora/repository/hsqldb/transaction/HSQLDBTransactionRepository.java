@@ -20,6 +20,7 @@ import org.apache.logging.log4j.Logger;
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.PaymentData;
 import org.qora.data.group.GroupApprovalData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.TransferAssetTransactionData;
@@ -67,8 +68,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			}
 
 			try {
-				// params: long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature
-				subclassInfo.fromBaseMethod = subclassInfo.clazz.getDeclaredMethod("fromBase", long.class, int.class, byte[].class, byte[].class, BigDecimal.class, ApprovalStatus.class, Integer.class, byte[].class);
+				subclassInfo.fromBaseMethod = subclassInfo.clazz.getDeclaredMethod("fromBase", BaseTransactionData.class);
 			} catch (IllegalArgumentException | SecurityException | NoSuchMethodException e) {
 				LOGGER.debug(String.format("HSQLDBTransactionRepository subclass's \"fromBase\" method not found for transaction type \"%s\"", txType.name()));
 			}
@@ -128,24 +128,32 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromSignature(byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT type, reference, creator, creation, fee, tx_group_id, approval_status, height FROM Transactions WHERE signature = ?",
-				signature)) {
+		final String sql = "SELECT type, reference, creator, creation, fee, tx_group_id, block_height, approval_status, approval_height FROM Transactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			if (resultSet == null)
 				return null;
 
 			TransactionType type = TransactionType.valueOf(resultSet.getInt(1));
+
 			byte[] reference = resultSet.getBytes(2);
 			byte[] creatorPublicKey = resultSet.getBytes(3);
 			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
 			int txGroupId = resultSet.getInt(6);
-			ApprovalStatus approvalStatus = ApprovalStatus.valueOf(resultSet.getInt(7));
 
-			Integer height = resultSet.getInt(8);
-			if (resultSet.wasNull())
-				height = null;
+			Integer blockHeight = resultSet.getInt(7);
+			if (blockHeight == 0 && resultSet.wasNull())
+				blockHeight = null;
 
-			TransactionData transactionData = this.fromBase(type, timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
+			ApprovalStatus approvalStatus = ApprovalStatus.valueOf(resultSet.getInt(8));
+			Integer approvalHeight = resultSet.getInt(9);
+			if (approvalHeight == 0 && resultSet.wasNull())
+				approvalHeight = null;
+
+			BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, blockHeight, approvalHeight, signature);
+			TransactionData transactionData = this.fromBase(type, baseTransactionData);
+
 			return transactionData;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
@@ -154,24 +162,32 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromReference(byte[] reference) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT type, signature, creator, creation, fee, tx_group_id, approval_status, height FROM Transactions WHERE reference = ?",
-				reference)) {
+		final String sql = "SELECT type, signature, creator, creation, fee, tx_group_id, block_height, approval_status, approval_height FROM Transactions WHERE reference = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, reference)) {
 			if (resultSet == null)
 				return null;
 
 			TransactionType type = TransactionType.valueOf(resultSet.getInt(1));
+
 			byte[] signature = resultSet.getBytes(2);
 			byte[] creatorPublicKey = resultSet.getBytes(3);
 			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
 			int txGroupId = resultSet.getInt(6);
-			ApprovalStatus approvalStatus = ApprovalStatus.valueOf(resultSet.getInt(7));
 
-			Integer height = resultSet.getInt(8);
-			if (resultSet.wasNull())
-				height = null;
+			Integer blockHeight = resultSet.getInt(7);
+			if (blockHeight == 0 && resultSet.wasNull())
+				blockHeight = null;
 
-			TransactionData transactionData = this.fromBase(type, timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, height, signature);
+			ApprovalStatus approvalStatus = ApprovalStatus.valueOf(resultSet.getInt(8));
+			Integer approvalHeight = resultSet.getInt(9);
+			if (approvalHeight == 0 && resultSet.wasNull())
+				approvalHeight = null;
+
+			BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, blockHeight, approvalHeight, signature);
+			TransactionData transactionData = this.fromBase(type, baseTransactionData);
+
 			return transactionData;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
@@ -180,7 +196,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromHeightAndSequence(int height, int sequence) throws DataException {
-		String sql = "SELECT transaction_signature FROM BlockTransactions JOIN Blocks ON signature = block_signature WHERE height = ? AND sequence = ?";
+		final String sql = "SELECT transaction_signature FROM BlockTransactions JOIN Blocks ON signature = block_signature WHERE height = ? AND sequence = ?";
 		
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, height, sequence)) {
 			if (resultSet == null)
@@ -194,15 +210,14 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
-	private TransactionData fromBase(TransactionType type, long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer blockHeight, byte[] signature)
-			throws DataException {
+	private TransactionData fromBase(TransactionType type, BaseTransactionData baseTransactionData) throws DataException {
 		HSQLDBTransactionRepository txRepository = repositoryByTxType[type.value];
+
 		if (txRepository == null)
 			throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
 
 		try {
-			// params: long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer blockHeight, byte[] signature
-			return (TransactionData) subclassInfos[type.value].fromBaseMethod.invoke(txRepository, timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, blockHeight, signature);
+			return (TransactionData) subclassInfos[type.value].fromBaseMethod.invoke(txRepository, baseTransactionData);
 		} catch (InvocationTargetException e) {
 			if (e.getCause() instanceof DataException)
 				throw (DataException) e.getCause();
@@ -223,10 +238,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	 * @throws DataException
 	 */
 	protected List<PaymentData> getPaymentsFromSignature(byte[] signature) throws DataException {
+		final String sql = "SELECT recipient, amount, asset_id FROM SharedTransactionPayments WHERE signature = ?";
+
 		List<PaymentData> payments = new ArrayList<PaymentData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT recipient, amount, asset_id FROM SharedTransactionPayments WHERE signature = ?",
-				signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			if (resultSet == null)
 				return payments;
 
@@ -265,19 +281,17 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		if (signature == null)
 			return 0;
 
-		String sql = "SELECT height from Transactions WHERE signature = ? LIMIT 1";
-		
-		// Fetch height using join via block's transactions
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
+		final String sql = "SELECT block_height from Transactions WHERE signature = ? LIMIT 1";
 
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			if (resultSet == null)
 				return 0;
 
-			Integer height = resultSet.getInt(1);
-			if (resultSet.wasNull())
+			Integer blockHeight = resultSet.getInt(1);
+			if (blockHeight == 0 && resultSet.wasNull())
 				return 0;
 
-			return height;
+			return blockHeight;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction's height from repository", e);
 		}
@@ -296,9 +310,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException {
+		final String sql = "SELECT signature FROM TransactionRecipients WHERE participant = ?";
+
 		List<byte[]> signatures = new ArrayList<byte[]>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT signature FROM TransactionRecipients WHERE participant = ?", address)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
 				return signatures;
 
@@ -345,7 +361,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	@Override
 	public Map<TransactionType, Integer> getTransactionSummary(int startHeight, int endHeight) throws DataException {
 		String sql = "SELECT type, COUNT(signature) FROM Transactions "
-			+ "WHERE height BETWEEN ? AND ? "
+			+ "WHERE block_height BETWEEN ? AND ? "
 			+ "GROUP BY type";
 
 		Map<TransactionType, Integer> transactionCounts = new HashMap<>();
@@ -407,20 +423,20 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				break;
 
 			case CONFIRMED:
-				whereClauses.add("Transactions.height IS NOT NULL");
+				whereClauses.add("Transactions.block_height IS NOT NULL");
 				break;
 
 			case UNCONFIRMED:
-				whereClauses.add("Transactions.height IS NULL");
+				whereClauses.add("Transactions.block_height IS NULL");
 				break;
 		}
 
 		// Height range
 		if (hasHeightRange) {
-			whereClauses.add("Transactions.height >= " + startBlock);
+			whereClauses.add("Transactions.block_height >= " + startBlock);
 
 			if (blockLimit != null)
-				whereClauses.add("Transactions.height < " + (startBlock + blockLimit));
+				whereClauses.add("Transactions.block_height < " + (startBlock + blockLimit));
 		}
 
 		if (txGroupId != null) {
@@ -480,6 +496,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		TransactionType[] transactionTypes = new TransactionType[] {
 			ISSUE_ASSET, TRANSFER_ASSET, CREATE_ASSET_ORDER, CANCEL_ASSET_ORDER
 		};
+
 		List<String> typeValueStrings = Arrays.asList(transactionTypes).stream().map(type -> String.valueOf(type.value)).collect(Collectors.toList());
 
 		String sql = "SELECT Transactions.signature FROM Transactions";
@@ -498,11 +515,11 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				break;
 
 			case CONFIRMED:
-				sql += " AND Transactions.height IS NOT NULL";
+				sql += " AND Transactions.block_height IS NOT NULL";
 				break;
 
 			case UNCONFIRMED:
-				sql += " AND Transactions.height IS NULL";
+				sql += " AND Transactions.block_height IS NULL";
 				break;
 		}
 
@@ -552,7 +569,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			throws DataException {
 		List<Object> bindParams = new ArrayList<>(3);
 
-		String sql = "SELECT creation, tx_group_id, reference, fee, signature, sender, recipient, amount, asset_name, approval_status, height "
+		String sql = "SELECT creation, tx_group_id, reference, fee, signature, sender, block_height, approval_status, approval_height, recipient, amount, asset_name "
 				+ "FROM TransferAssetTransactions JOIN Transactions USING (signature) ";
 
 		if (address != null)
@@ -584,15 +601,24 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				BigDecimal fee = resultSet.getBigDecimal(4).setScale(8);
 				byte[] signature = resultSet.getBytes(5);
 				byte[] creatorPublicKey = resultSet.getBytes(6);
-				String recipient = resultSet.getString(7);
-				BigDecimal amount = resultSet.getBigDecimal(8);
-				String assetName = resultSet.getString(9);
-				ApprovalStatus approvalStatus = ApprovalStatus.valueOf(resultSet.getInt(10));
-				Integer height = resultSet.getInt(11);
-				if (resultSet.wasNull())
-					height = null;
 
-				assetTransfers.add(new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, assetName, approvalStatus, height, signature));
+				Integer blockHeight = resultSet.getInt(7);
+				if (blockHeight == 0 && resultSet.wasNull())
+					blockHeight = null;
+
+				ApprovalStatus approvalStatus = ApprovalStatus.valueOf(resultSet.getInt(8));
+
+				Integer approvalHeight = resultSet.getInt(9);
+				if (approvalHeight == 0 && resultSet.wasNull())
+					approvalHeight = null;
+
+				BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, approvalStatus, blockHeight, approvalHeight, signature);
+
+				String recipient = resultSet.getString(10);
+				BigDecimal amount = resultSet.getBigDecimal(11);
+				String assetName = resultSet.getString(12);
+
+				assetTransfers.add(new TransferAssetTransactionData(baseTransactionData, recipient, amount, assetId, assetName));
 			} while (resultSet.next());
 
 			return assetTransfers;
@@ -653,7 +679,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		String sql = "SELECT signature FROM Transactions "
 			+ "JOIN Groups on Groups.group_id = Transactions.tx_group_id "
 			+ "WHERE Transactions.approval_status = ? "
-			+ "AND Transactions.height >= ? - Groups.min_block_delay";
+			+ "AND Transactions.block_height >= ? - Groups.min_block_delay";
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
@@ -684,7 +710,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		String sql = "SELECT signature FROM Transactions "
 			+ "JOIN Groups on Groups.group_id = Transactions.tx_group_id "
 			+ "WHERE Transactions.approval_status = ? "
-			+ "AND Transactions.height < ? - Groups.max_block_delay";
+			+ "AND Transactions.block_height < ? - Groups.max_block_delay";
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
@@ -714,7 +740,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	public GroupApprovalTransactionData getLatestApproval(byte[] pendingSignature, byte[] adminPublicKey) throws DataException {
 		String sql = "SELECT signature FROM GroupApprovalTransactions "
 			+ "NATURAL JOIN Transactions "
-			+ "WHERE pending_signature = ? AND admin = ? AND height IS NOT NULL "
+			+ "WHERE pending_signature = ? AND admin = ? AND block_height IS NOT NULL "
 			+ "ORDER BY creation DESC, signature DESC LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, pendingSignature, adminPublicKey)) {
@@ -737,7 +763,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		// Sub-query SQL to find latest GroupApprovalTransaction relating to passed pending signature
 		String latestApprovalSql = "SELECT pending_signature, admin, approval, creation, signature FROM GroupApprovalTransactions "
-				+ "NATURAL JOIN Transactions WHERE pending_signature = ? AND height IS NOT NULL";
+				+ "NATURAL JOIN Transactions WHERE pending_signature = ? AND block_height IS NOT NULL";
 
 		String sql = "SELECT GAT.admin, GAT.approval FROM "
 				+ "(" + latestApprovalSql + ") AS GAT "
@@ -828,15 +854,28 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public void updateHeight(byte[] signature, Integer height) throws DataException {
+	public void updateBlockHeight(byte[] signature, Integer blockHeight) throws DataException {
 		HSQLDBSaver saver = new HSQLDBSaver("Transactions");
 
-		saver.bind("signature", signature).bind("height", height);
+		saver.bind("signature", signature).bind("block_height", blockHeight);
 
 		try {
 			saver.execute(repository);
 		} catch (SQLException e) {
-			throw new DataException("Unable to update transaction's height in repository", e);
+			throw new DataException("Unable to update transaction's block height in repository", e);
+		}
+	}
+
+	@Override
+	public void updateApprovalHeight(byte[] signature, Integer approvalHeight) throws DataException {
+		HSQLDBSaver saver = new HSQLDBSaver("Transactions");
+
+		saver.bind("signature", signature).bind("approval_height", approvalHeight);
+
+		try {
+			saver.execute(repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to update transaction's approval height in repository", e);
 		}
 	}
 
@@ -857,7 +896,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	public void save(TransactionData transactionData) throws DataException {
 		HSQLDBSaver saver = new HSQLDBSaver("Transactions");
 
-		// Do not include "height" as that is modified a different way
+		// Do not include "block_height" or "approval_height" as they are modified a different way
+
 		saver.bind("signature", transactionData.getSignature()).bind("reference", transactionData.getReference())
 			.bind("type", transactionData.getType().value)
 			.bind("creator", transactionData.getCreatorPublicKey()).bind("creation", new Timestamp(transactionData.getTimestamp()))

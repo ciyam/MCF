@@ -5,11 +5,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.ATTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
-import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBAtTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -17,9 +17,10 @@ public class HSQLDBAtTransactionRepository extends HSQLDBTransactionRepository {
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT AT_address, recipient, amount, asset_id, message FROM ATTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT AT_address, recipient, amount, asset_id, message FROM ATTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -27,18 +28,14 @@ public class HSQLDBAtTransactionRepository extends HSQLDBTransactionRepository {
 			String recipient = resultSet.getString(2);
 
 			BigDecimal amount = resultSet.getBigDecimal(3);
-			if (resultSet.wasNull())
-				amount = null;
 
 			Long assetId = resultSet.getLong(4);
-			if (resultSet.wasNull())
+			if (assetId == 0 && resultSet.wasNull())
 				assetId = null;
 
 			byte[] message = resultSet.getBytes(5);
-			if (resultSet.wasNull())
-				message = null;
 
-			return new ATTransactionData(timestamp, txGroupId, reference, atAddress, recipient, amount, assetId, message, fee, approvalStatus, height, signature);
+			return new ATTransactionData(baseTransactionData, atAddress, recipient, amount, assetId, message);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT transaction from repository", e);
 		}

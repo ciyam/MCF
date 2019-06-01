@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.qora.account.PrivateKeyAccount;
 import org.qora.crypto.Crypto;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.EnableForgingTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
@@ -41,7 +42,8 @@ public class AccountUtils {
 		byte[] proxyPrivateKey = forgingAccount.getSharedSecret(recipientAccount.getPublicKey());
 		PrivateKeyAccount proxyAccount = new PrivateKeyAccount(null, proxyPrivateKey);
 
-		TransactionData transactionData = new ProxyForgingTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), recipientAccount.getAddress(), proxyAccount.getPublicKey(), share, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), fee, null);
+		TransactionData transactionData = new ProxyForgingTransactionData(baseTransactionData, recipientAccount.getAddress(), proxyAccount.getPublicKey(), share);
 
 		TransactionUtils.signAndForge(repository, transactionData, forgingAccount);
 

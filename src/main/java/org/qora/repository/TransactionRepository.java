@@ -164,7 +164,9 @@ public interface TransactionRepository {
 	 */
 	public void confirmTransaction(byte[] signature) throws DataException;
 
-	public void updateHeight(byte[] signature, Integer height) throws DataException;
+	public void updateBlockHeight(byte[] signature, Integer height) throws DataException;
+
+	public void updateApprovalHeight(byte[] signature, Integer approvalHeight) throws DataException;
 
 	/**
 	 * Add transaction to unconfirmed transactions pile.

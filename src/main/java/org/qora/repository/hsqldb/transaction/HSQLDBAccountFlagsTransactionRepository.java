@@ -1,15 +1,14 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.AccountFlagsTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
-import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class HSQLDBAccountFlagsTransactionRepository extends HSQLDBTransactionRepository {
 
@@ -17,9 +16,10 @@ public class HSQLDBAccountFlagsTransactionRepository extends HSQLDBTransactionRe
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, ApprovalStatus approvalStatus, Integer height, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT target, and_mask, or_mask, xor_mask, previous_flags FROM AccountFlagsTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT target, and_mask, or_mask, xor_mask, previous_flags FROM AccountFlagsTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -29,11 +29,10 @@ public class HSQLDBAccountFlagsTransactionRepository extends HSQLDBTransactionRe
 			int xorMask = resultSet.getInt(4);
 
 			Integer previousFlags = resultSet.getInt(5);
-			if (resultSet.wasNull())
+			if (previousFlags == 0 && resultSet.wasNull())
 				previousFlags = null;
 
-			return new AccountFlagsTransactionData(timestamp, txGroupId, reference, creatorPublicKey, target, andMask, orMask, xorMask, previousFlags,
-					fee, approvalStatus, height, signature);
+			return new AccountFlagsTransactionData(baseTransactionData, target, andMask, orMask, xorMask, previousFlags);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account flags transaction from repository", e);
 		}

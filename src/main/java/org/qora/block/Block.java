@@ -1060,7 +1060,7 @@ public class Block {
 			this.repository.getBlockRepository().save(blockTransactionData);
 
 			// Update transaction's height in repository
-			this.repository.getTransactionRepository().updateHeight(transaction.getTransactionData().getSignature(), this.blockData.getHeight());
+			this.repository.getTransactionRepository().updateBlockHeight(transaction.getTransactionData().getSignature(), this.blockData.getHeight());
 			// Update local transactionData's height too
 			transaction.getTransactionData().setBlockHeight(this.blockData.getHeight());
 
