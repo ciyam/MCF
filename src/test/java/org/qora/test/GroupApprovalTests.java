@@ -4,6 +4,7 @@ import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockGenerator;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.CreateGroupTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -50,7 +51,8 @@ public class GroupApprovalTests extends Common {
 		BigDecimal amount = BigDecimal.ONE.setScale(8);
 		BigDecimal fee = BigDecimal.ONE.setScale(8);
 
-		return new PaymentTransactionData(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, null);
+		return new PaymentTransactionData(baseTransactionData, recipient, amount);
 	}
 
 	private int createGroup(Repository repository) throws DataException {
@@ -67,8 +69,9 @@ public class GroupApprovalTests extends Common {
 		int maximumBlockDelay = 1440;
 		BigDecimal fee = BigDecimal.ONE.setScale(8);
 
-		TransactionData transactionData = new CreateGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, groupName, description,
-				isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, null);
+		TransactionData transactionData = new CreateGroupTransactionData(baseTransactionData, owner, groupName, description,
+				isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay);
 		Transaction transaction = new CreateGroupTransaction(repository, transactionData);
 
 		// Sign transaction

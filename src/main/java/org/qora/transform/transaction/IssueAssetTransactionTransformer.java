@@ -8,6 +8,7 @@ import java.util.Arrays;
 
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
@@ -91,8 +92,9 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new IssueAssetTransactionData(timestamp, txGroupId, reference, issuerPublicKey, owner, assetName,
-				description, quantity, isDivisible, data, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, issuerPublicKey, fee, signature);
+
+		return new IssueAssetTransactionData(baseTransactionData, owner, assetName, description, quantity, isDivisible, data);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.VoteOnPollTransactionData;
 import org.qora.transaction.Transaction.TransactionType;
@@ -63,7 +64,9 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new VoteOnPollTransactionData(timestamp, txGroupId, reference, voterPublicKey, pollName, optionIndex, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, voterPublicKey, fee, signature);
+
+		return new VoteOnPollTransactionData(baseTransactionData, pollName, optionIndex);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

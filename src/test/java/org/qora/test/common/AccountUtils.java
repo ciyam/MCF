@@ -27,7 +27,8 @@ public class AccountUtils {
 		byte[] reference = sendingAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		TransactionData transactionData = new PaymentTransactionData(timestamp, txGroupId, reference, sendingAccount.getPublicKey(), recipientAccount.getAddress(), amount, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, sendingAccount.getPublicKey(), fee, null);
+		TransactionData transactionData = new PaymentTransactionData(baseTransactionData, recipientAccount.getAddress(), amount);
 
 		TransactionUtils.signAndForge(repository, transactionData, sendingAccount);
 	}
@@ -56,7 +57,8 @@ public class AccountUtils {
 		byte[] reference = forgingAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		return new EnableForgingTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), Crypto.toAddress(recipientPublicKey), fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), fee, null);
+		return new EnableForgingTransactionData(baseTransactionData, Crypto.toAddress(recipientPublicKey));
 	}
 
 	public static TransactionData createEnableForging(Repository repository, String forger, String recipient) throws DataException {

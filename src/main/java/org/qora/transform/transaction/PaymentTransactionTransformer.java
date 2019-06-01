@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
@@ -56,7 +57,9 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new PaymentTransactionData(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+
+		return new PaymentTransactionData(baseTransactionData, recipient, amount);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
 import org.qora.data.transaction.UpdateGroupTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.group.Group.ApprovalThreshold;
@@ -83,8 +84,10 @@ public class UpdateGroupTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new UpdateGroupTransactionData(timestamp, txGroupId, reference, ownerPublicKey, groupId, newOwner, newDescription, newIsOpen,
-				newApprovalThreshold, newMinBlockDelay, newMaxBlockDelay, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+
+		return new UpdateGroupTransactionData(baseTransactionData, groupId, newOwner, newDescription, newIsOpen,
+				newApprovalThreshold, newMinBlockDelay, newMaxBlockDelay);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

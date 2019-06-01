@@ -31,6 +31,7 @@ public class DeployAtTransactionData extends TransactionData {
 		super(TransactionType.DEPLOY_AT);
 	}
 
+	/** From repository */
 	public DeployAtTransactionData(BaseTransactionData baseTransactionData,
 			String aTAddress, String name, String description, String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId) {
 		super(TransactionType.DEPLOY_AT, baseTransactionData);
@@ -43,6 +44,12 @@ public class DeployAtTransactionData extends TransactionData {
 		this.creationBytes = creationBytes;
 		this.amount = amount;
 		this.assetId = assetId;
+	}
+
+	/** From network/API */
+	public DeployAtTransactionData(BaseTransactionData baseTransactionData,
+			String name, String description, String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId) {
+		this(baseTransactionData, null, name, description, aTType, tags, creationBytes, amount, assetId);
 	}
 
 	// Getters/Setters

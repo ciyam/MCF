@@ -12,6 +12,7 @@ import org.qora.block.BlockChain;
 import org.qora.crypto.Crypto;
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.ArbitraryTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.ArbitraryTransactionData.DataType;
 import org.qora.transaction.ArbitraryTransaction;
@@ -90,8 +91,9 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new ArbitraryTransactionData(timestamp, txGroupId, reference, senderPublicKey, version, service, data, DataType.RAW_DATA, payments, fee,
-				signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+
+		return new ArbitraryTransactionData(baseTransactionData, version, service, data, DataType.RAW_DATA, payments);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

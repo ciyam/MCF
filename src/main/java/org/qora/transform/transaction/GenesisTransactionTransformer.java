@@ -5,10 +5,13 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
+import org.qora.account.GenesisAccount;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.GenesisTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.group.Group;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
@@ -48,7 +51,9 @@ public class GenesisTransactionTransformer extends TransactionTransformer {
 		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
 			assetId = byteBuffer.getLong();
 
-		return new GenesisTransactionData(timestamp, recipient, amount, assetId);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, null, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+
+		return new GenesisTransactionData(baseTransactionData, recipient, amount, assetId);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
