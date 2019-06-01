@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.CancelGroupInviteTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
@@ -58,7 +59,9 @@ public class CancelGroupInviteTransactionTransformer extends TransactionTransfor
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new CancelGroupInviteTransactionData(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+
+		return new CancelGroupInviteTransactionData(baseTransactionData, groupId, invitee);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
