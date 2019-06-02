@@ -32,6 +32,9 @@ public class GroupApprovalTests extends Common {
 
 	private static final BigDecimal amount = BigDecimal.valueOf(5000L).setScale(8);
 	private static final BigDecimal fee = BigDecimal.ONE.setScale(8);
+	private static final int minBlockDelay = 5;
+	private static final int maxBlockDelay = 10;
+
 
 	@Before
 	public void beforeTest() throws DataException {
@@ -58,11 +61,25 @@ public class GroupApprovalTests extends Common {
 	}
 
 	@Test
+	/** Check that a transaction type that does need approval, auto-approves if created by group admin */
+	public void testAutoApprove() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
+
+			int groupId = GroupUtils.createGroup(repository, "alice", "test", true, ApprovalThreshold.ONE, minBlockDelay, maxBlockDelay);
+
+			Transaction transaction = buildIssueAssetTransaction(repository, "alice", groupId);
+			TransactionUtils.signAndForge(repository, transaction.getTransactionData(), aliceAccount);
+
+			// Confirm transaction doesn't need approval
+			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, transaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.NOT_REQUIRED, approvalStatus);
+		}
+	}
+
+	@Test
 	/** Check that a transaction, that requires approval, updates references and fees properly. */
 	public void testReferencesAndFees() throws DataException {
-		final int minBlockDelay = 5;
-		final int maxBlockDelay = 20;
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
 
@@ -98,8 +115,7 @@ public class GroupApprovalTests extends Common {
 
 			// Have Bob do a non-approval transaction to change his last-reference
 			Transaction bobPaymentTransaction = buildPaymentTransaction(repository, "bob", "chloe", amount, Group.NO_GROUP);
-			TransactionUtils.signAsUnconfirmed(repository, bobPaymentTransaction.getTransactionData(), bobAccount);
-			BlockGenerator.generateTestingBlock(repository, aliceAccount);
+			TransactionUtils.signAndForge(repository, bobPaymentTransaction.getTransactionData(), bobAccount);
 
 			byte[] bobPostPaymentReference = bobAccount.getLastReference();
 			assertFalse("reference should have changed", Arrays.equals(bobPostAssetReference, bobPostPaymentReference));
@@ -153,6 +169,252 @@ public class GroupApprovalTests extends Common {
 			// Also check Bob's balance is back to original value
 			BigDecimal bobBalance = bobAccount.getConfirmedBalance(Asset.QORA);
 			Common.assertEqualBigDecimals("reverted balance doesn't match original", bobOriginalBalance, bobBalance);
+		}
+	}
+
+	@Test
+	/** Test generic approval. */
+	public void testApproval() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
+			int groupId = GroupUtils.createGroup(repository, "alice", "test", true, ApprovalThreshold.ONE, minBlockDelay, maxBlockDelay);
+
+			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
+			GroupUtils.joinGroup(repository, "bob", groupId);
+
+			// Bob's issue-asset transaction needs group-approval
+			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
+			TransactionUtils.signAndForge(repository, bobAssetTransaction.getTransactionData(), bobAccount);
+
+			// Confirm transaction needs approval, and hasn't been approved
+			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction has no group-approval decision height
+			Integer approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+
+			// Have Alice approve Bob's approval-needed transaction
+			GroupUtils.approveTransaction(repository, "alice", bobAssetTransaction.getTransactionData().getSignature(), true);
+
+			// Now forge a few blocks so transaction is approved
+			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
+				BlockGenerator.generateTestingBlock(repository, aliceAccount);
+
+			// Confirm transaction now approved
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.APPROVED, approvalStatus);
+
+			// Confirm transaction now has a group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNotNull("group-approval decision height should not be null", approvalHeight);
+
+			// Orphan blocks that decided approval
+			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
+				BlockUtils.orphanLastBlock(repository);
+
+			// Confirm transaction no longer approved
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction no longer has group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+
+			// Orphan block containing Alice's group-approval transaction
+			BlockUtils.orphanLastBlock(repository);
+
+			// Confirm transaction no longer approved
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction no longer has group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+		}
+	}
+
+	@Test
+	/** Test generic rejection. */
+	public void testRejection() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
+			int groupId = GroupUtils.createGroup(repository, "alice", "test", true, ApprovalThreshold.ONE, minBlockDelay, maxBlockDelay);
+
+			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
+			GroupUtils.joinGroup(repository, "bob", groupId);
+
+			// Bob's issue-asset transaction needs group-approval
+			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
+			TransactionUtils.signAndForge(repository, bobAssetTransaction.getTransactionData(), bobAccount);
+
+			// Confirm transaction needs approval, and hasn't been approved
+			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction has no group-approval decision height
+			Integer approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+
+			// Have Alice reject Bob's approval-needed transaction
+			GroupUtils.approveTransaction(repository, "alice", bobAssetTransaction.getTransactionData().getSignature(), false);
+
+			// Now forge a few blocks so transaction is approved
+			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
+				BlockGenerator.generateTestingBlock(repository, aliceAccount);
+
+			// Confirm transaction now rejected
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.REJECTED, approvalStatus);
+
+			// Confirm transaction now has a group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNotNull("group-approval decision height should not be null", approvalHeight);
+
+			// Orphan blocks that decided rejection
+			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
+				BlockUtils.orphanLastBlock(repository);
+
+			// Confirm transaction no longer rejected
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction no longer has group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+
+			// Orphan block containing Alice's group-approval transaction
+			BlockUtils.orphanLastBlock(repository);
+
+			// Confirm transaction no longer rejected
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction no longer has group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+		}
+	}
+
+	@Test
+	/** Test generic expiry. */
+	public void testExpiry() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
+			int groupId = GroupUtils.createGroup(repository, "alice", "test", true, ApprovalThreshold.ONE, minBlockDelay, maxBlockDelay);
+
+			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
+			GroupUtils.joinGroup(repository, "bob", groupId);
+
+			// Bob's issue-asset transaction needs group-approval
+			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
+			TransactionUtils.signAndForge(repository, bobAssetTransaction.getTransactionData(), bobAccount);
+
+			// Confirm transaction needs approval, and hasn't been approved
+			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction has no group-approval decision height
+			Integer approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+
+			// Now forge a few blocks so group-approval for transaction expires
+			for (int blockCount = 0; blockCount <= maxBlockDelay; ++blockCount)
+				BlockGenerator.generateTestingBlock(repository, aliceAccount);
+
+			// Confirm transaction now expired
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.EXPIRED, approvalStatus);
+
+			// Confirm transaction now has a group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNotNull("group-approval decision height should not be null", approvalHeight);
+
+			// Orphan blocks that decided expiry
+			for (int blockCount = 0; blockCount <= maxBlockDelay; ++blockCount)
+				BlockUtils.orphanLastBlock(repository);
+
+			// Confirm transaction no longer expired
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction no longer has group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+		}
+	}
+
+	@Test
+	/** Test generic invalid. */
+	public void testInvalid() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			PrivateKeyAccount aliceAccount = Common.getTestAccount(repository, "alice");
+			int groupId = GroupUtils.createGroup(repository, "alice", "test", true, ApprovalThreshold.ONE, minBlockDelay, maxBlockDelay);
+
+			PrivateKeyAccount bobAccount = Common.getTestAccount(repository, "bob");
+			GroupUtils.joinGroup(repository, "bob", groupId);
+
+			// Bob's issue-asset transaction needs group-approval
+			Transaction bobAssetTransaction = buildIssueAssetTransaction(repository, "bob", groupId);
+			TransactionUtils.signAndForge(repository, bobAssetTransaction.getTransactionData(), bobAccount);
+
+			// Confirm transaction needs approval, and hasn't been approved
+			ApprovalStatus approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction has no group-approval decision height
+			Integer approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+
+			// Have Alice approve Bob's approval-needed transaction
+			GroupUtils.approveTransaction(repository, "alice", bobAssetTransaction.getTransactionData().getSignature(), true);
+
+			// But wait! Alice issues an asset with the same name before Bob's asset is issued!
+			// This transaction will be auto-approved as Alice is the group owner (and admin)
+			Transaction aliceAssetTransaction = buildIssueAssetTransaction(repository, "alice", groupId);
+			TransactionUtils.signAndForge(repository, aliceAssetTransaction.getTransactionData(), aliceAccount);
+
+			// Confirm Alice's transaction auto-approved
+			approvalStatus = GroupUtils.getApprovalStatus(repository, aliceAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.NOT_REQUIRED, approvalStatus);
+
+			// Now forge a few blocks so transaction is approved
+			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
+				BlockGenerator.generateTestingBlock(repository, aliceAccount);
+
+			// Confirm Bob's transaction now invalid
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.INVALID, approvalStatus);
+
+			// Confirm transaction now has a group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNotNull("group-approval decision height should not be null", approvalHeight);
+
+			// Orphan blocks that decided group-approval
+			for (int blockCount = 0; blockCount < minBlockDelay; ++blockCount)
+				BlockUtils.orphanLastBlock(repository);
+
+			// Confirm transaction no longer invalid
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction no longer has group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
+
+			// Orphan block containing Alice's issue-asset transaction
+			BlockUtils.orphanLastBlock(repository);
+
+			// Orphan block containing Alice's group-approval transaction
+			BlockUtils.orphanLastBlock(repository);
+
+			// Confirm transaction no longer approved
+			approvalStatus = GroupUtils.getApprovalStatus(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertEquals("incorrect transaction approval status", ApprovalStatus.PENDING, approvalStatus);
+
+			// Confirm transaction no longer has group-approval decision height
+			approvalHeight = GroupUtils.getApprovalHeight(repository, bobAssetTransaction.getTransactionData().getSignature());
+			assertNull("group-approval decision height should be null", approvalHeight);
 		}
 	}
 

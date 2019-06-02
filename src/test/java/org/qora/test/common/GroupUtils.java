@@ -63,4 +63,8 @@ public class GroupUtils {
 		return repository.getTransactionRepository().fromSignature(signature).getApprovalStatus();
 	}
 
+	public static Integer getApprovalHeight(Repository repository, byte[] signature) throws DataException {
+		return repository.getTransactionRepository().fromSignature(signature).getApprovalHeight();
+	}
+
 }

@@ -1090,6 +1090,9 @@ public class Block {
 		for (TransactionData transactionData : approvalExpiringTransactions) {
 			transactionData.setApprovalStatus(ApprovalStatus.EXPIRED);
 			transactionRepository.save(transactionData);
+
+			// Update group-approval decision height for transaction in repository
+			transactionRepository.updateApprovalHeight(transactionData.getSignature(), this.blockData.getHeight());
 		}
 
 		// Search for pending transactions within min/max block delay range
@@ -1104,7 +1107,7 @@ public class Block {
 			if (isApproved == null)
 				continue; // approve/reject threshold not yet met
 
-			// Update approval height for transaction in repository
+			// Update group-approval decision height for transaction in repository
 			transactionRepository.updateApprovalHeight(transactionData.getSignature(), this.blockData.getHeight());
 
 			if (!isApproved) {
@@ -1266,15 +1269,16 @@ public class Block {
 		List<TransactionData> transactions = transactionRepository.getApprovalTransactionDecidedAtHeight(this.blockData.getHeight());
 
 		for (TransactionData transactionData : transactions) {
-			// Orphan/un-process transaction
+			// Orphan/un-process transaction (if approved)
 			Transaction transaction = Transaction.fromData(repository, transactionData);
-			transaction.orphan();
+			if (transactionData.getApprovalStatus() == ApprovalStatus.APPROVED)
+				transaction.orphan();
 
 			// Revert back to PENDING
 			transactionData.setApprovalStatus(ApprovalStatus.PENDING);
 			transactionRepository.save(transactionData);
 
-			// Undo approval decision height
+			// Remove group-approval decision height
 			transactionRepository.updateApprovalHeight(transactionData.getSignature(), null);
 		}
 	}
