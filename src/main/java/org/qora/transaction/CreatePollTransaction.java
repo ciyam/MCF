@@ -153,8 +153,6 @@ public class CreatePollTransaction extends Transaction {
 		// Publish poll to allow voting
 		Poll poll = new Poll(this.repository, createPollTransactionData);
 		poll.publish();
-
-		// We would save updated transaction at this point, but it hasn't been modified
 	}
 
 	@Override
@@ -162,15 +160,6 @@ public class CreatePollTransaction extends Transaction {
 		// Unpublish poll
 		Poll poll = new Poll(this.repository, createPollTransactionData.getPollName());
 		poll.unpublish();
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update creator's balance
-		Account creator = getCreator();
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(createPollTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(createPollTransactionData.getReference());
 	}
 
 }

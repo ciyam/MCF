@@ -122,7 +122,7 @@ public class CreateGroupTransaction extends Transaction {
 		// Note newly assigned group ID in our transaction record
 		createGroupTransactionData.setGroupId(group.getGroupData().getGroupId());
 
-		// Save this transaction
+		// Save this transaction with newly assigned group ID
 		this.repository.getTransactionRepository().save(createGroupTransactionData);
 	}
 
@@ -137,13 +137,6 @@ public class CreateGroupTransaction extends Transaction {
 
 		// Save this transaction with removed group ID
 		this.repository.getTransactionRepository().save(createGroupTransactionData);
-
-		// Update creator's balance
-		Account creator = getCreator();
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(createGroupTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(createGroupTransactionData.getReference());
 	}
 
 }

@@ -125,13 +125,6 @@ public class GroupBanTransaction extends Transaction {
 
 		// Save this transaction with removed member/admin references
 		this.repository.getTransactionRepository().save(groupBanTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(groupBanTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupBanTransactionData.getReference());
 	}
 
 }

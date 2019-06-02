@@ -161,12 +161,11 @@ public class ProxyForgingTransaction extends Transaction {
 		// Save this transaction, with removed previous share info
 		proxyForgingTransactionData.setPreviousShare(null);
 		this.repository.getTransactionRepository().save(proxyForgingTransactionData);
+	}
 
-		// Update forger's balance
-		forger.setConfirmedBalance(Asset.QORA, forger.getConfirmedBalance(Asset.QORA).add(proxyForgingTransactionData.getFee()));
-
-		// Update forger's reference
-		forger.setLastReference(proxyForgingTransactionData.getReference());
+	@Override
+	public void orphanReferencesAndFees() throws DataException {
+		super.orphanReferencesAndFees();
 
 		// If recipient didn't have a last-reference prior to this transaction then remove it
 		Account recipient = new Account(this.repository, proxyForgingTransactionData.getRecipient());

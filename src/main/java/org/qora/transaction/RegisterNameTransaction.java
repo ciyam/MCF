@@ -126,8 +126,6 @@ public class RegisterNameTransaction extends Transaction {
 		// Register Name
 		Name name = new Name(this.repository, registerNameTransactionData);
 		name.register();
-
-		// We would save updated transaction at this point, but it hasn't been modified
 	}
 
 	@Override
@@ -135,15 +133,6 @@ public class RegisterNameTransaction extends Transaction {
 		// Unregister name
 		Name name = new Name(this.repository, registerNameTransactionData.getName());
 		name.unregister();
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update registrant's balance
-		Account registrant = getRegistrant();
-		registrant.setConfirmedBalance(Asset.QORA, registrant.getConfirmedBalance(Asset.QORA).add(registerNameTransactionData.getFee()));
-
-		// Update registrant's reference
-		registrant.setLastReference(registerNameTransactionData.getReference());
 	}
 
 }

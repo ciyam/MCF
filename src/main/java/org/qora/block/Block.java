@@ -31,6 +31,7 @@ import org.qora.repository.ATRepository;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
+import org.qora.repository.TransactionRepository;
 import org.qora.transaction.AtTransaction;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ApprovalStatus;
@@ -1064,21 +1065,7 @@ public class Block {
 		processBlockRewards();
 
 		// Process transactions (we'll link them to this block after saving the block itself)
-		// AT-generated transactions are already prepended to our transactions at this point.
-		List<Transaction> transactions = this.getTransactions();
-		for (Transaction transaction : transactions) {
-			// AT_TRANSACTIONs are created locally and need saving into repository before processing
-			if (transaction.getTransactionData().getType() == TransactionType.AT)
-				this.repository.getTransactionRepository().save(transaction.getTransactionData());
-
-			// Only process transactions that don't require group-approval.
-			// Group-approval transactions are dealt with later.
-			if (transaction.getTransactionData().getApprovalStatus() == ApprovalStatus.NOT_REQUIRED)
-				transaction.process();
-
-			// Regardless of group-approval, update relevant info for creator (e.g. lastReference)
-			transaction.processReferencesAndFees();
-		}
+		processTransactions();
 
 		// Group-approval transactions
 		processGroupApprovalTransactions();
@@ -1087,86 +1074,19 @@ public class Block {
 		rewardTransactionFees();
 
 		// Process AT fees and save AT states into repository
-		ATRepository atRepository = this.repository.getATRepository();
-		for (ATStateData atState : this.getATStates()) {
-			Account atAccount = new Account(this.repository, atState.getATAddress());
-
-			// Subtract AT-generated fees from AT accounts
-			atAccount.setConfirmedBalance(Asset.QORA, atAccount.getConfirmedBalance(Asset.QORA).subtract(atState.getFees()));
-
-			atRepository.save(atState);
-		}
+		processAtFeesAndStates();
 
 		// Link block into blockchain by fetching signature of highest block and setting that as our reference
 		BlockData latestBlockData = this.repository.getBlockRepository().fromHeight(blockchainHeight);
 		if (latestBlockData != null)
 			this.blockData.setReference(latestBlockData.getSignature());
 
+		// Save block
 		this.repository.getBlockRepository().save(this.blockData);
 
 		// Link transactions to this block, thus removing them from unconfirmed transactions list.
 		// Also update "transaction participants" in repository for "transactions involving X" support in API
-		for (int sequence = 0; sequence < transactions.size(); ++sequence) {
-			Transaction transaction = transactions.get(sequence);
-
-			// Link transaction to this block
-			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence,
-					transaction.getTransactionData().getSignature());
-			this.repository.getBlockRepository().save(blockTransactionData);
-
-			// Update transaction's height in repository
-			this.repository.getTransactionRepository().updateBlockHeight(transaction.getTransactionData().getSignature(), this.blockData.getHeight());
-			// Update local transactionData's height too
-			transaction.getTransactionData().setBlockHeight(this.blockData.getHeight());
-
-			// No longer unconfirmed
-			this.repository.getTransactionRepository().confirmTransaction(transaction.getTransactionData().getSignature());
-
-			List<Account> participants = transaction.getInvolvedAccounts();
-			List<String> participantAddresses = participants.stream().map(account -> account.getAddress()).collect(Collectors.toList());
-			this.repository.getTransactionRepository().saveParticipants(transaction.getTransactionData(), participantAddresses);
-		}
-	}
-
-	protected void processGroupApprovalTransactions() throws DataException {
-		// Search for pending transactions that have now expired
-		List<TransactionData> approvalExpiringTransactions = this.repository.getTransactionRepository().getApprovalExpiringTransactions(this.blockData.getHeight());
-		for (TransactionData transactionData : approvalExpiringTransactions) {
-			transactionData.setApprovalStatus(ApprovalStatus.EXPIRED);
-			this.repository.getTransactionRepository().save(transactionData);
-		}
-
-		// Search for pending transactions within min/max block delay range
-		List<TransactionData> approvalPendingTransactions = this.repository.getTransactionRepository().getApprovalPendingTransactions(this.blockData.getHeight());
-		for (TransactionData transactionData : approvalPendingTransactions) {
-			Transaction transaction = Transaction.fromData(this.repository, transactionData);
-
-			// something like:
-			Boolean isApproved = transaction.getApprovalDecision();
-
-			if (isApproved == null)
-				continue; // approve/reject threshold not yet met
-
-			if (!isApproved) {
-				// REJECT
-				transactionData.setApprovalStatus(ApprovalStatus.REJECTED);
-				this.repository.getTransactionRepository().save(transactionData);
-				continue;
-			}
-
-			// Approved, but check transaction can still be processed
-			if (transaction.isProcessable() != Transaction.ValidationResult.OK) {
-				transactionData.setApprovalStatus(ApprovalStatus.INVALID);
-				this.repository.getTransactionRepository().save(transactionData);
-				continue;
-			}
-
-			// APPROVED, in which case do transaction.process();
-			transactionData.setApprovalStatus(ApprovalStatus.APPROVED);
-			this.repository.getTransactionRepository().save(transactionData);
-
-			transaction.process();
-		}
+		linkTransactionsToBlock();
 	}
 
 	protected void processBlockRewards() throws DataException {
@@ -1194,6 +1114,76 @@ public class Block {
 		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(reward));
 	}
 
+	protected void processTransactions() throws DataException {
+		// Process transactions (we'll link them to this block after saving the block itself)
+		// AT-generated transactions are already prepended to our transactions at this point.
+		List<Transaction> transactions = this.getTransactions();
+
+		for (Transaction transaction : transactions) {
+			TransactionData transactionData = transaction.getTransactionData();
+
+			// AT_TRANSACTIONs are created locally and need saving into repository before processing
+			if (transactionData.getType() == TransactionType.AT)
+				this.repository.getTransactionRepository().save(transactionData);
+
+			// Only process transactions that don't require group-approval.
+			// Group-approval transactions are dealt with later.
+			if (transactionData.getApprovalStatus() == ApprovalStatus.NOT_REQUIRED)
+				transaction.process();
+
+			// Regardless of group-approval, update relevant info for creator (e.g. lastReference)
+			transaction.processReferencesAndFees();
+		}
+	}
+
+	protected void processGroupApprovalTransactions() throws DataException {
+		TransactionRepository transactionRepository = this.repository.getTransactionRepository();
+
+		// Search for pending transactions that have now expired
+		List<TransactionData> approvalExpiringTransactions = transactionRepository.getApprovalExpiringTransactions(this.blockData.getHeight());
+
+		for (TransactionData transactionData : approvalExpiringTransactions) {
+			transactionData.setApprovalStatus(ApprovalStatus.EXPIRED);
+			transactionRepository.save(transactionData);
+		}
+
+		// Search for pending transactions within min/max block delay range
+		List<TransactionData> approvalPendingTransactions = transactionRepository.getApprovalPendingTransactions(this.blockData.getHeight());
+
+		for (TransactionData transactionData : approvalPendingTransactions) {
+			Transaction transaction = Transaction.fromData(this.repository, transactionData);
+
+			// something like:
+			Boolean isApproved = transaction.getApprovalDecision();
+
+			if (isApproved == null)
+				continue; // approve/reject threshold not yet met
+
+			// Update approval height for transaction in repository
+			transactionRepository.updateApprovalHeight(transactionData.getSignature(), this.blockData.getHeight());
+
+			if (!isApproved) {
+				// REJECT
+				transactionData.setApprovalStatus(ApprovalStatus.REJECTED);
+				transactionRepository.save(transactionData);
+				continue;
+			}
+
+			// Approved, but check transaction can still be processed
+			if (transaction.isProcessable() != Transaction.ValidationResult.OK) {
+				transactionData.setApprovalStatus(ApprovalStatus.INVALID);
+				transactionRepository.save(transactionData);
+				continue;
+			}
+
+			// APPROVED, in which case do transaction.process();
+			transactionData.setApprovalStatus(ApprovalStatus.APPROVED);
+			transactionRepository.save(transactionData);
+
+			transaction.process();
+		}
+	}
+
 	protected void rewardTransactionFees() throws DataException {
 		BigDecimal blockFees = this.blockData.getTotalFees();
 
@@ -1219,32 +1209,57 @@ public class Block {
 		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).add(blockFees));
 	}
 
+	protected void processAtFeesAndStates() throws DataException {
+		ATRepository atRepository = this.repository.getATRepository();
+
+		for (ATStateData atState : this.getATStates()) {
+			Account atAccount = new Account(this.repository, atState.getATAddress());
+
+			// Subtract AT-generated fees from AT accounts
+			atAccount.setConfirmedBalance(Asset.QORA, atAccount.getConfirmedBalance(Asset.QORA).subtract(atState.getFees()));
+
+			atRepository.save(atState);
+		}
+	}
+
+	protected void linkTransactionsToBlock() throws DataException {
+		TransactionRepository transactionRepository = this.repository.getTransactionRepository();
+
+		for (int sequence = 0; sequence < transactions.size(); ++sequence) {
+			Transaction transaction = transactions.get(sequence);
+			TransactionData transactionData = transaction.getTransactionData();
+
+			// Link transaction to this block
+			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence,
+					transactionData.getSignature());
+			this.repository.getBlockRepository().save(blockTransactionData);
+
+			// Update transaction's height in repository
+			transactionRepository.updateBlockHeight(transactionData.getSignature(), this.blockData.getHeight());
+
+			// Update local transactionData's height too
+			transaction.getTransactionData().setBlockHeight(this.blockData.getHeight());
+
+			// No longer unconfirmed
+			transactionRepository.confirmTransaction(transactionData.getSignature());
+
+			List<Account> participants = transaction.getInvolvedAccounts();
+			List<String> participantAddresses = participants.stream().map(account -> account.getAddress()).collect(Collectors.toList());
+			transactionRepository.saveParticipants(transactionData, participantAddresses);
+		}
+	}
+
 	/**
 	 * Removes block from blockchain undoing transactions and adding them to unconfirmed pile.
 	 * 
 	 * @throws DataException
 	 */
 	public void orphan() throws DataException {
-		// Orphan transactions in reverse order, and unlink them from this block
-		// AT-generated transactions are already added to our transactions so no special handling is needed here.
-		List<Transaction> transactions = this.getTransactions();
-		for (int sequence = transactions.size() - 1; sequence >= 0; --sequence) {
-			Transaction transaction = transactions.get(sequence);
-			transaction.orphan();
+		// Orphan, and unlink, transactions from this block
+		orphanTransactionsFromBlock();
 
-			// Unlink transaction from this block
-			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence,
-					transaction.getTransactionData().getSignature());
-			this.repository.getBlockRepository().delete(blockTransactionData);
-
-			// Add to unconfirmed pile, or delete if AT_TRANSACTION
-			if (transaction.getTransactionData().getType() == TransactionType.AT)
-				this.repository.getTransactionRepository().delete(transaction.getTransactionData());
-			else
-				this.repository.getTransactionRepository().unconfirmTransaction(transaction.getTransactionData());
-
-			this.repository.getTransactionRepository().deleteParticipants(transaction.getTransactionData());
-		}
+		// Undo any group-approval decisions that happen at this block
+		orphanGroupApprovalTransactions();
 
 		// Block rewards removed after transactions undone
 		orphanBlockRewards();
@@ -1253,18 +1268,70 @@ public class Block {
 		deductTransactionFees();
 
 		// Return AT fees and delete AT states from repository
-		ATRepository atRepository = this.repository.getATRepository();
-		for (ATStateData atState : this.getATStates()) {
-			Account atAccount = new Account(this.repository, atState.getATAddress());
-
-			// Return AT-generated fees to AT accounts
-			atAccount.setConfirmedBalance(Asset.QORA, atAccount.getConfirmedBalance(Asset.QORA).add(atState.getFees()));
-		}
-		// Delete ATStateData for this height
-		atRepository.deleteATStates(this.blockData.getHeight());
+		orphanAtFeesAndStates();
 
 		// Delete block from blockchain
 		this.repository.getBlockRepository().delete(this.blockData);
+		this.blockData.setHeight(null);
+	}
+
+	protected void orphanTransactionsFromBlock() throws DataException {
+		TransactionRepository transactionRepository = this.repository.getTransactionRepository();
+
+		// AT-generated transactions are already added to our transactions so no special handling is needed here.
+		List<Transaction> transactions = this.getTransactions();
+
+		for (int sequence = transactions.size() - 1; sequence >= 0; --sequence) {
+			Transaction transaction = transactions.get(sequence);
+			TransactionData transactionData = transaction.getTransactionData();
+
+			// Orphan transaction
+			// Only orphan transactions that didn't require group-approval.
+			// Group-approval transactions are dealt with later.
+			if (transactionData.getApprovalStatus() == ApprovalStatus.NOT_REQUIRED)
+				transaction.orphan();
+
+			// Regardless of group-approval, update relevant info for creator (e.g. lastReference)
+			transaction.orphanReferencesAndFees();
+
+			// Unlink transaction from this block
+			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence,
+					transactionData.getSignature());
+			this.repository.getBlockRepository().delete(blockTransactionData);
+
+			// Add to unconfirmed pile and remove height, or delete if AT_TRANSACTION
+			if (transaction.getTransactionData().getType() == TransactionType.AT) {
+				transactionRepository.delete(transactionData);
+			} else {
+				// Add to unconfirmed pile
+				transactionRepository.unconfirmTransaction(transactionData);
+
+				// Unset height
+				transactionRepository.updateBlockHeight(transactionData.getSignature(), null);
+			}
+
+			transactionRepository.deleteParticipants(transactionData);
+		}
+	}
+
+	protected void orphanGroupApprovalTransactions() throws DataException {
+		TransactionRepository transactionRepository = this.repository.getTransactionRepository();
+
+		// Find all transactions where decision happened at this block height
+		List<TransactionData> transactions = transactionRepository.getApprovalTransactionDecidedAtHeight(this.blockData.getHeight());
+
+		for (TransactionData transactionData : transactions) {
+			// Orphan/un-process transaction
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+			transaction.orphan();
+
+			// Revert back to PENDING
+			transactionData.setApprovalStatus(ApprovalStatus.PENDING);
+			transactionRepository.save(transactionData);
+
+			// Undo approval decision height
+			transactionRepository.updateApprovalHeight(transactionData.getSignature(), null);
+		}
 	}
 
 	protected void orphanBlockRewards() throws DataException {
@@ -1315,6 +1382,19 @@ public class Block {
 
 		// Deduct transaction fees to generator
 		this.generator.setConfirmedBalance(Asset.QORA, this.generator.getConfirmedBalance(Asset.QORA).subtract(blockFees));
+	}
+
+	protected void orphanAtFeesAndStates() throws DataException {
+		ATRepository atRepository = this.repository.getATRepository();
+		for (ATStateData atState : this.getATStates()) {
+			Account atAccount = new Account(this.repository, atState.getATAddress());
+
+			// Return AT-generated fees to AT accounts
+			atAccount.setConfirmedBalance(Asset.QORA, atAccount.getConfirmedBalance(Asset.QORA).add(atState.getFees()));
+		}
+
+		// Delete ATStateData for this height
+		atRepository.deleteATStates(this.blockData.getHeight());
 	}
 
 	protected BigDecimal getRewardAtHeight(int ourHeight) {

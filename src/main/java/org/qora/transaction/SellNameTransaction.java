@@ -116,8 +116,6 @@ public class SellNameTransaction extends Transaction {
 		// Sell Name
 		Name name = new Name(this.repository, sellNameTransactionData.getName());
 		name.sell(sellNameTransactionData);
-
-		// We would save updated transaction at this point, but it hasn't been modified
 	}
 
 	@Override
@@ -125,15 +123,6 @@ public class SellNameTransaction extends Transaction {
 		// Revert name
 		Name name = new Name(this.repository, sellNameTransactionData.getName());
 		name.unsell(sellNameTransactionData);
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(sellNameTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(sellNameTransactionData.getReference());
 	}
 
 }

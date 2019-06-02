@@ -121,13 +121,6 @@ public class CancelSellNameTransaction extends Transaction {
 
 		// Save this transaction, with removed "name reference"
 		this.repository.getTransactionRepository().save(cancelSellNameTransactionData);
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(cancelSellNameTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(cancelSellNameTransactionData.getReference());
 	}
 
 }

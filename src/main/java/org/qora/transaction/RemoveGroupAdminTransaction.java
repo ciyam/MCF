@@ -124,13 +124,6 @@ public class RemoveGroupAdminTransaction extends Transaction {
 
 		// Save this transaction with removed group references
 		this.repository.getTransactionRepository().save(removeGroupAdminTransactionData);
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(removeGroupAdminTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(removeGroupAdminTransactionData.getReference());
 	}
 
 }

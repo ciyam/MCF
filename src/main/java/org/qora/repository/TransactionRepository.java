@@ -113,6 +113,9 @@ public interface TransactionRepository {
 	 */
 	public List<TransactionData> getApprovalExpiringTransactions(int blockHeight) throws DataException;
 
+	/** Returns list of transactions that had group-approval decided at passed block height. */
+	public List<TransactionData> getApprovalTransactionDecidedAtHeight(int approvalHeight) throws DataException;
+
 	/** Returns latest approval decision by given admin for given pending transaction signature. */
 	public GroupApprovalTransactionData getLatestApproval(byte[] pendingSignature, byte[] adminPublicKey) throws DataException;
 

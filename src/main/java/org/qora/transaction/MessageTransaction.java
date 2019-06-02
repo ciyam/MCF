@@ -120,8 +120,6 @@ public class MessageTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(messageTransactionData.getSenderPublicKey(), getPaymentData(), messageTransactionData.getFee(),
 				messageTransactionData.getSignature());
@@ -136,11 +134,16 @@ public class MessageTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Wrap and delegate payment processing to Payment class. Only revert recipient's last reference if transferring QORA.
+		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).orphan(messageTransactionData.getSenderPublicKey(), getPaymentData(), messageTransactionData.getFee(),
-				messageTransactionData.getSignature(), messageTransactionData.getReference(), false);
+				messageTransactionData.getSignature(), messageTransactionData.getReference());
+	}
 
-		// We would save updated transaction at this point, but it hasn't been modified
+	@Override
+	public void orphanReferencesAndFees() throws DataException {
+		// Wrap and delegate references processing to Payment class. Only revert recipient's last reference if transferring QORA.
+		new Payment(this.repository).orphanReferencesAndFees(messageTransactionData.getSenderPublicKey(), getPaymentData(), messageTransactionData.getFee(),
+				messageTransactionData.getSignature(), messageTransactionData.getReference(), false);
 	}
 
 }

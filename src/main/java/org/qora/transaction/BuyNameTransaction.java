@@ -134,13 +134,6 @@ public class BuyNameTransaction extends Transaction {
 
 		// Save this transaction, with removed "name reference"
 		this.repository.getTransactionRepository().save(buyNameTransactionData);
-
-		// Update buyer's balance
-		Account buyer = getBuyer();
-		buyer.setConfirmedBalance(Asset.QORA, buyer.getConfirmedBalance(Asset.QORA).add(buyNameTransactionData.getFee()));
-
-		// Update buyer's reference
-		buyer.setLastReference(buyNameTransactionData.getReference());
 	}
 
 }

@@ -106,13 +106,6 @@ public class GroupApprovalTransaction extends Transaction {
 		// Save this transaction with removed prior reference
 		groupApprovalTransactionData.setPriorReference(null);
 		this.repository.getTransactionRepository().save(groupApprovalTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(groupApprovalTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupApprovalTransactionData.getReference());
 	}
 
 }

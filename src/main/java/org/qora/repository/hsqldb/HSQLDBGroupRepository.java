@@ -29,8 +29,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupData fromGroupId(int groupId) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_name, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_id = ?", groupId)) {
+		final String sql = "SELECT group_name, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_id = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
 				return null;
 
@@ -41,7 +42,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 			// Special handling for possibly-NULL "updated" column
 			Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
-			Long updated = resultSet.wasNull() ? null : updatedTimestamp.getTime();
+			Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
 
 			byte[] reference = resultSet.getBytes(6);
 			boolean isOpen = resultSet.getBoolean(7);
@@ -73,7 +74,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 			// Special handling for possibly-NULL "updated" column
 			Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
-			Long updated = resultSet.wasNull() ? null : updatedTimestamp.getTime();
+			Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
 
 			byte[] reference = resultSet.getBytes(6);
 			boolean isOpen = resultSet.getBoolean(7);
@@ -131,7 +132,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 				// Special handling for possibly-NULL "updated" column
 				Timestamp updatedTimestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC));
-				Long updated = resultSet.wasNull() ? null : updatedTimestamp.getTime();
+				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
 
 				byte[] reference = resultSet.getBytes(7);
 				boolean isOpen = resultSet.getBoolean(8);

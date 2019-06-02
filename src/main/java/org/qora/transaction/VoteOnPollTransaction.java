@@ -144,12 +144,7 @@ public class VoteOnPollTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Update voter's balance
 		Account voter = getVoter();
-		voter.setConfirmedBalance(Asset.QORA, voter.getConfirmedBalance(Asset.QORA).add(voteOnPollTransactionData.getFee()));
-
-		// Update voter's reference
-		voter.setLastReference(voteOnPollTransactionData.getReference());
 
 		// Does this transaction have previous vote info?
 		VotingRepository votingRepository = this.repository.getVotingRepository();

@@ -142,15 +142,15 @@ public class IssueAssetTransaction extends Transaction {
 		Asset asset = new Asset(this.repository, issueAssetTransactionData);
 		asset.issue();
 
+		// Add asset to owner
+		Account owner = getOwner();
+		owner.setConfirmedBalance(asset.getAssetData().getAssetId(), BigDecimal.valueOf(issueAssetTransactionData.getQuantity()).setScale(8));
+
 		// Note newly assigned asset ID in our transaction record
 		issueAssetTransactionData.setAssetId(asset.getAssetData().getAssetId());
 
-		// Save this transaction, now with corresponding assetId
+		// Save this transaction with newly assigned assetId
 		this.repository.getTransactionRepository().save(issueAssetTransactionData);
-
-		// Add asset to owner
-		Account owner = getOwner();
-		owner.setConfirmedBalance(issueAssetTransactionData.getAssetId(), BigDecimal.valueOf(issueAssetTransactionData.getQuantity()).setScale(8));
 	}
 
 	@Override
@@ -168,13 +168,6 @@ public class IssueAssetTransaction extends Transaction {
 
 		// Save this transaction, with removed assetId
 		this.repository.getTransactionRepository().save(issueAssetTransactionData);
-
-		// Update issuer's balance
-		Account issuer = getIssuer();
-		issuer.setConfirmedBalance(Asset.QORA, issuer.getConfirmedBalance(Asset.QORA).add(issueAssetTransactionData.getFee()));
-
-		// Update issuer's reference
-		issuer.setLastReference(issueAssetTransactionData.getReference());
 	}
 
 }

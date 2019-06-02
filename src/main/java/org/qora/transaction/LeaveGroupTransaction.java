@@ -110,13 +110,6 @@ public class LeaveGroupTransaction extends Transaction {
 
 		// Save this transaction with removed member/admin references
 		this.repository.getTransactionRepository().save(leaveGroupTransactionData);
-
-		// Update leaver's balance
-		Account leaver = getLeaver();
-		leaver.setConfirmedBalance(Asset.QORA, leaver.getConfirmedBalance(Asset.QORA).add(leaveGroupTransactionData.getFee()));
-
-		// Update leaver's reference
-		leaver.setLastReference(leaveGroupTransactionData.getReference());
 	}
 
 }

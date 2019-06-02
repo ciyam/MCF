@@ -20,7 +20,7 @@ public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionR
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
 		String sql = "SELECT recipient, asset_id, amount, asset_name FROM TransferAssetTransactions JOIN Assets USING (asset_id) WHERE signature = ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 

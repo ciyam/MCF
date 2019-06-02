@@ -119,8 +119,6 @@ public class MultiPaymentTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
 				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature());
@@ -128,8 +126,6 @@ public class MultiPaymentTransaction extends Transaction {
 
 	@Override
 	public void processReferencesAndFees() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		// Wrap and delegate reference processing to Payment class. Always update recipients' last references regardless of asset.
 		new Payment(this.repository).processReferencesAndFees(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
 				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), true);
@@ -139,9 +135,14 @@ public class MultiPaymentTransaction extends Transaction {
 	public void orphan() throws DataException {
 		// Wrap and delegate payment processing to Payment class. Always revert recipients' last references regardless of asset.
 		new Payment(this.repository).orphan(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
-				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), multiPaymentTransactionData.getReference(), true);
+				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), multiPaymentTransactionData.getReference());
+	}
 
-		// We would save updated transaction at this point, but it hasn't been modified
+	@Override
+	public void orphanReferencesAndFees() throws DataException {
+		// Wrap and delegate reference processing to Payment class. Always revert recipients' last references regardless of asset.
+		new Payment(this.repository).orphanReferencesAndFees(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
+				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), multiPaymentTransactionData.getReference(), true);
 	}
 
 }

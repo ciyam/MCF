@@ -238,8 +238,6 @@ public class DeployAtTransaction extends Transaction {
 		AT at = new AT(this.repository, this.deployATTransactionData);
 		at.deploy();
 
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		long assetId = deployATTransactionData.getAssetId();
 
 		// Update creator's balance regarding initial payment to AT
@@ -260,17 +258,11 @@ public class DeployAtTransaction extends Transaction {
 		AT at = new AT(this.repository, this.deployATTransactionData);
 		at.undeploy();
 
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		long assetId = deployATTransactionData.getAssetId();
 
-		// Update creator's balance
+		// Update creator's balance regarding initial payment to AT
 		Account creator = getCreator();
 		creator.setConfirmedBalance(assetId, creator.getConfirmedBalance(assetId).add(deployATTransactionData.getAmount()));
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(deployATTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(deployATTransactionData.getReference());
 
 		// Delete AT's account (and hence its balance)
 		this.repository.getAccountRepository().delete(this.deployATTransactionData.getAtAddress());

@@ -33,6 +33,9 @@ public class Payment {
 
 	// Processing
 
+
+	// isValid
+
 	/** Are payments valid? */
 	public ValidationResult isValid(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
 		AssetRepository assetRepository = this.repository.getAssetRepository();
@@ -115,6 +118,8 @@ public class Payment {
 		return isValid(senderPublicKey, paymentData, fee, false);
 	}
 
+	// isProcessable
+
 	/** Are multiple payments processable? */
 	public ValidationResult isProcessable(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, boolean isZeroAmountValid) throws DataException {
 		// Essentially the same as isValid...
@@ -135,6 +140,8 @@ public class Payment {
 	public ValidationResult isProcessable(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee) throws DataException {
 		return isProcessable(senderPublicKey, paymentData, fee, false);
 	}
+
+	// process
 
 	/** Multiple payment processing */
 	public void process(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature)
@@ -162,6 +169,8 @@ public class Payment {
 		process(senderPublicKey, Collections.singletonList(paymentData), fee, signature);
 	}
 
+	// processReferenceAndFees
+
 	/** Multiple payment reference processing */
 	public void processReferencesAndFees(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, boolean alwaysInitializeRecipientReference)
 			throws DataException {
@@ -173,7 +182,7 @@ public class Payment {
 		// Update sender's reference
 		sender.setLastReference(signature);
 
-		// Process all payments
+		// Process all recipients
 		for (PaymentData paymentData : payments) {
 			Account recipient = new Account(this.repository, paymentData.getRecipient());
 
@@ -191,15 +200,10 @@ public class Payment {
 		processReferencesAndFees(senderPublicKey, Collections.singletonList(payment), fee, signature, alwaysInitializeRecipientReference);
 	}
 
-	public void orphan(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, byte[] reference,
-			boolean alwaysUninitializeRecipientReference) throws DataException {
+	// orphan
+
+	public void orphan(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, byte[] reference) throws DataException {
 		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
-
-		// Update sender's balance due to fee
-		sender.setConfirmedBalance(Asset.QORA, sender.getConfirmedBalance(Asset.QORA).add(fee));
-
-		// Update sender's reference
-		sender.setLastReference(reference);
 
 		// Orphan all payments
 		for (PaymentData paymentData : payments) {
@@ -212,6 +216,29 @@ public class Payment {
 
 			// Update recipient's balance
 			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId).subtract(amount));
+		}
+	}
+
+	public void orphan(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature, byte[] reference) throws DataException {
+		orphan(senderPublicKey, Collections.singletonList(paymentData), fee, signature, reference);
+	}
+
+	// orphanReferencesAndFees
+
+	public void orphanReferencesAndFees(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, byte[] signature, byte[] reference,
+			boolean alwaysUninitializeRecipientReference) throws DataException {
+		Account sender = new PublicKeyAccount(this.repository, senderPublicKey);
+
+		// Update sender's balance due to fee
+		sender.setConfirmedBalance(Asset.QORA, sender.getConfirmedBalance(Asset.QORA).add(fee));
+
+		// Update sender's reference
+		sender.setLastReference(reference);
+
+		// Orphan all recipients
+		for (PaymentData paymentData : payments) {
+			Account recipient = new Account(this.repository, paymentData.getRecipient());
+			long assetId = paymentData.getAssetId();
 
 			/*
 			 * For QORA amounts only: If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own
@@ -222,9 +249,9 @@ public class Payment {
 		}
 	}
 
-	public void orphan(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature, byte[] reference,
+	public void orphanReferencesAndFees(byte[] senderPublicKey, PaymentData paymentData, BigDecimal fee, byte[] signature, byte[] reference,
 			boolean alwaysUninitializeRecipientReference) throws DataException {
-		orphan(senderPublicKey, Collections.singletonList(paymentData), fee, signature, reference, alwaysUninitializeRecipientReference);
+		orphanReferencesAndFees(senderPublicKey, Collections.singletonList(paymentData), fee, signature, reference, alwaysUninitializeRecipientReference);
 	}
 
 }
