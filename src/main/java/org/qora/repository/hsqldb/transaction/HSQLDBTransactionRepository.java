@@ -679,7 +679,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		String sql = "SELECT signature FROM Transactions "
 			+ "JOIN Groups on Groups.group_id = Transactions.tx_group_id "
 			+ "WHERE Transactions.approval_status = ? "
-			+ "AND Transactions.block_height >= ? - Groups.min_block_delay";
+			+ "AND Transactions.block_height < ? - Groups.min_block_delay";
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
