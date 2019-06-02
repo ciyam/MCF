@@ -5,6 +5,7 @@ import org.qora.repository.Repository;
 import org.qora.utils.Base58;
 
 public class TestAccount extends PrivateKeyAccount {
+
 	public final String accountName;
 
 	public TestAccount(Repository repository, String accountName, byte[] privateKey) {
@@ -16,4 +17,5 @@ public class TestAccount extends PrivateKeyAccount {
 	public TestAccount(Repository repository, String accountName, String privateKey) {
 		this(repository, accountName, Base58.decode(privateKey));
 	}
+
 }

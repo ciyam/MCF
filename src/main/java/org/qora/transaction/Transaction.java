@@ -230,6 +230,8 @@ public abstract class Transaction {
 		INVALID_PUBLIC_KEY(79),
 		AT_UNKNOWN(80),
 		AT_ALREADY_EXISTS(81),
+		GROUP_APPROVAL_NOT_REQUIRED(82),
+		GROUP_APPROVAL_DECIDED(83),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;

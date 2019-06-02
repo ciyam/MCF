@@ -17,6 +17,7 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.test.common.AccountUtils;
+import org.qora.test.common.BlockUtils;
 import org.qora.test.common.Common;
 
 public class RewardTests extends Common {
@@ -38,11 +39,11 @@ public class RewardTests extends Common {
 
 			PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, "alice");
 
-			BigDecimal firstReward = BlockChain.getInstance().getBlockRewardsByHeight().get(0).reward;
+			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
 
 			BlockGenerator.generateTestingBlock(repository, forgingAccount);
 
-			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORA).add(firstReward);
+			BigDecimal expectedBalance = initialBalances.get("alice").get(Asset.QORA).add(blockReward);
 			AccountUtils.assertBalance(repository, "alice", Asset.QORA, expectedBalance);
 		}
 	}
@@ -84,16 +85,15 @@ public class RewardTests extends Common {
 			PrivateKeyAccount proxyAccount = new PrivateKeyAccount(repository, proxyPrivateKey);
 
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORA);
+			BigDecimal blockReward = BlockUtils.getNextBlockReward(repository);
 			BlockGenerator.generateTestingBlock(repository, proxyAccount);
 
-			// We're expected reward * 12.8% to Bob, the rest to Alice
-			// (first reward is good for first 10 blocks)
-			BigDecimal firstReward = BlockChain.getInstance().getBlockRewardsByHeight().get(0).reward;
+			// We're expecting reward * 12.8% to Bob, the rest to Alice
 
-			BigDecimal bobShare = firstReward.multiply(share.movePointLeft(2)).setScale(8, RoundingMode.DOWN);
+			BigDecimal bobShare = blockReward.multiply(share.movePointLeft(2)).setScale(8, RoundingMode.DOWN);
 			AccountUtils.assertBalance(repository, "bob", Asset.QORA, initialBalances.get("bob").get(Asset.QORA).add(bobShare));
 
-			BigDecimal aliceShare = firstReward.subtract(bobShare);
+			BigDecimal aliceShare = blockReward.subtract(bobShare);
 			AccountUtils.assertBalance(repository, "alice", Asset.QORA, initialBalances.get("alice").get(Asset.QORA).add(aliceShare));
 		}
 	}

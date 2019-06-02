@@ -1035,7 +1035,7 @@ public class Block {
 	}
 
 	protected void processBlockRewards() throws DataException {
-		BigDecimal reward = getRewardAtHeight(this.blockData.getHeight());
+		BigDecimal reward = Block.getRewardAtHeight(this.blockData.getHeight());
 
 		// No reward for our height?
 		if (reward == null)
@@ -1280,7 +1280,7 @@ public class Block {
 	}
 
 	protected void orphanBlockRewards() throws DataException {
-		BigDecimal reward = getRewardAtHeight(this.blockData.getHeight());
+		BigDecimal reward = Block.getRewardAtHeight(this.blockData.getHeight());
 
 		// No reward for our height?
 		if (reward == null)
@@ -1342,7 +1342,7 @@ public class Block {
 		atRepository.deleteATStates(this.blockData.getHeight());
 	}
 
-	protected BigDecimal getRewardAtHeight(int ourHeight) {
+	public static BigDecimal getRewardAtHeight(int ourHeight) {
 		List<RewardByHeight> rewardsByHeight = BlockChain.getInstance().getBlockRewardsByHeight();
 
 		// No rewards configured?
