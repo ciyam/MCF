@@ -68,9 +68,13 @@ public class GroupApprovalTransaction extends Transaction {
 		if (pendingTransactionData == null)
 			return ValidationResult.TRANSACTION_UNKNOWN;
 
-		// Check pending transaction is not already in a block
-		if (this.repository.getTransactionRepository().getHeightFromSignature(groupApprovalTransactionData.getPendingSignature()) != 0)
-			return ValidationResult.TRANSACTION_ALREADY_CONFIRMED;
+		// Check pending transaction is actually needs group approval
+		if (pendingTransactionData.getApprovalStatus() == ApprovalStatus.NOT_REQUIRED)
+			return ValidationResult.GROUP_APPROVAL_NOT_REQUIRED;
+
+		// Check pending transaction is actually pending
+		if (pendingTransactionData.getApprovalStatus() != ApprovalStatus.PENDING)
+			return ValidationResult.GROUP_APPROVAL_DECIDED;
 
 		Account admin = getAdmin();
 
