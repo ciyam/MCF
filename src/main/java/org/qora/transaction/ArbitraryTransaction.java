@@ -116,8 +116,6 @@ public class ArbitraryTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
 				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature());
@@ -132,11 +130,16 @@ public class ArbitraryTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Wrap and delegate payment processing to Payment class. Always revert recipients' last references regardless of asset.
+		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).orphan(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
-				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference(), true);
+				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference());
+	}
 
-		// We would save transaction in orphaned form at this point, but it hasn't been modified
+	@Override
+	public void orphanReferencesAndFees() throws DataException {
+		// Wrap and delegate reference and fee processing to Payment class. Always revert recipients' last references regardless of asset.
+		new Payment(this.repository).orphanReferencesAndFees(arbitraryTransactionData.getSenderPublicKey(), arbitraryTransactionData.getPayments(),
+				arbitraryTransactionData.getFee(), arbitraryTransactionData.getSignature(), arbitraryTransactionData.getReference(), true);
 	}
 
 	// Data access

@@ -909,6 +909,22 @@ public abstract class Transaction {
 	 */
 	public abstract void orphan() throws DataException;
 
+	/**
+	 * Update last references, subtract transaction fees, etc.
+	 * 
+	 * @throws DataException
+	 */
+	public void orphanReferencesAndFees() throws DataException {
+		Account creator = getCreator();
+
+		// Update transaction creator's balance
+		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(transactionData.getFee()));
+
+		// Update transaction creator's reference
+		creator.setLastReference(transactionData.getReference());
+	}
+
+
 	// Comparison
 
 	/** Returns comparator that sorts ATTransactions first, then by timestamp, then by signature */

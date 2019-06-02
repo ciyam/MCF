@@ -161,8 +161,6 @@ public class AtTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		if (this.atTransactionData.getAmount() != null) {
 			Account sender = getATAccount();
 			Account recipient = getRecipient();
@@ -206,6 +204,17 @@ public class AtTransaction extends Transaction {
 
 			// Update recipient's balance
 			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId).subtract(amount));
+		}
+
+		// As AT_TRANSACTIONs are really part of a block, the caller (Block) will probably delete this transaction after orphaning
+	}
+
+	@Override
+	public void orphanReferencesAndFees() throws DataException {
+		if (this.atTransactionData.getAmount() != null) {
+			Account recipient = getRecipient();
+
+			long assetId = this.atTransactionData.getAssetId();
 
 			/*
 			 * For QORA amounts only: If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own
@@ -214,10 +223,6 @@ public class AtTransaction extends Transaction {
 			if (assetId == Asset.QORA && Arrays.equals(recipient.getLastReference(), this.atTransactionData.getSignature()))
 				recipient.setLastReference(null);
 		}
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// As AT_TRANSACTIONs are really part of a block, the caller (Block) will probably delete this transaction after orphaning
 	}
 
 }

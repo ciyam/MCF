@@ -25,9 +25,9 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public ATData fromATAddress(String atAddress) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT creator, creation, version, asset_id, code_bytes, is_sleeping, sleep_until_height, is_finished, had_fatal_error, is_frozen, frozen_balance FROM ATs WHERE AT_address = ?",
-				atAddress)) {
+		final String sql = "SELECT creator, creation, version, asset_id, code_bytes, is_sleeping, sleep_until_height, is_finished, had_fatal_error, is_frozen, frozen_balance FROM ATs WHERE AT_address = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, atAddress)) {
 			if (resultSet == null)
 				return null;
 
@@ -39,7 +39,7 @@ public class HSQLDBATRepository implements ATRepository {
 			boolean isSleeping = resultSet.getBoolean(6);
 
 			Integer sleepUntilHeight = resultSet.getInt(7);
-			if (resultSet.wasNull())
+			if (sleepUntilHeight == 0 && resultSet.wasNull())
 				sleepUntilHeight = null;
 
 			boolean isFinished = resultSet.getBoolean(8);
@@ -47,8 +47,6 @@ public class HSQLDBATRepository implements ATRepository {
 			boolean isFrozen = resultSet.getBoolean(10);
 
 			BigDecimal frozenBalance = resultSet.getBigDecimal(11);
-			if (resultSet.wasNull())
-				frozenBalance = null;
 
 			return new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, isSleeping, sleepUntilHeight, isFinished, hadFatalError,
 					isFrozen, frozenBalance);
@@ -68,10 +66,11 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public List<ATData> getAllExecutableATs() throws DataException {
+		final String sql = "SELECT AT_address, creator, creation, version, asset_id, code_bytes, is_sleeping, sleep_until_height, had_fatal_error, is_frozen, frozen_balance FROM ATs WHERE is_finished = false ORDER BY creation ASC";
+
 		List<ATData> executableATs = new ArrayList<ATData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT AT_address, creator, creation, version, asset_id, code_bytes, is_sleeping, sleep_until_height, had_fatal_error, is_frozen, frozen_balance FROM ATs WHERE is_finished = false ORDER BY creation ASC")) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return executableATs;
 
@@ -87,15 +86,13 @@ public class HSQLDBATRepository implements ATRepository {
 				boolean isSleeping = resultSet.getBoolean(7);
 
 				Integer sleepUntilHeight = resultSet.getInt(8);
-				if (resultSet.wasNull())
+				if (sleepUntilHeight == 0 && resultSet.wasNull())
 					sleepUntilHeight = null;
 
 				boolean hadFatalError = resultSet.getBoolean(9);
 				boolean isFrozen = resultSet.getBoolean(10);
 
 				BigDecimal frozenBalance = resultSet.getBigDecimal(11);
-				if (resultSet.wasNull())
-					frozenBalance = null;
 
 				ATData atData = new ATData(atAddress, creatorPublicKey, creation, version, assetId, codeBytes, isSleeping, sleepUntilHeight, isFinished,
 						hadFatalError, isFrozen, frozenBalance);
@@ -111,9 +108,9 @@ public class HSQLDBATRepository implements ATRepository {
 
 	@Override
 	public Integer getATCreationBlockHeight(String atAddress) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT height from DeployATTransactions JOIN BlockTransactions ON transaction_signature = signature JOIN Blocks ON Blocks.signature = block_signature WHERE AT_address = ?",
-				atAddress)) {
+		final String sql = "SELECT height from DeployATTransactions JOIN BlockTransactions ON transaction_signature = signature JOIN Blocks ON Blocks.signature = block_signature WHERE AT_address = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, atAddress)) {
 			if (resultSet == null)
 				return null;
 

@@ -131,13 +131,6 @@ public class GroupKickTransaction extends Transaction {
 
 		// Save this transaction with removed member/admin references
 		this.repository.getTransactionRepository().save(groupKickTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(groupKickTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupKickTransactionData.getReference());
 	}
 
 }

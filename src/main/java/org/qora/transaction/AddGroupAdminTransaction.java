@@ -113,8 +113,6 @@ public class AddGroupAdminTransaction extends Transaction {
 		// Update Group adminship
 		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
 		group.promoteToAdmin(addGroupAdminTransactionData);
-
-		// We would save updated transaction at this point, but it hasn't been modified
 	}
 
 	@Override
@@ -122,15 +120,6 @@ public class AddGroupAdminTransaction extends Transaction {
 		// Revert group adminship
 		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
 		group.unpromoteToAdmin(addGroupAdminTransactionData);
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(addGroupAdminTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(addGroupAdminTransactionData.getReference());
 	}
 
 }

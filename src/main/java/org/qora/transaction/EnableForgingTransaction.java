@@ -146,8 +146,6 @@ public class EnableForgingTransaction extends Transaction {
 		
 		target.setFlags(targetFlags);
 		target.setForgingEnabler(creator.getAddress());
-
-		// We would save updated transaction at this point, but it hasn't been modified
 	}
 
 	@Override
@@ -169,14 +167,6 @@ public class EnableForgingTransaction extends Transaction {
 
 		target.setFlags(targetFlags);
 		target.setForgingEnabler(null);
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update creator's balance
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(enableForgingTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(enableForgingTransactionData.getReference());
 	}
 
 }

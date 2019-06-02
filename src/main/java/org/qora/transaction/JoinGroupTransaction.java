@@ -111,13 +111,6 @@ public class JoinGroupTransaction extends Transaction {
 
 		// Save this transaction with removed references
 		this.repository.getTransactionRepository().save(joinGroupTransactionData);
-
-		// Update joiner's balance
-		Account joiner = getJoiner();
-		joiner.setConfirmedBalance(Asset.QORA, joiner.getConfirmedBalance(Asset.QORA).add(joinGroupTransactionData.getFee()));
-
-		// Update joiner's reference
-		joiner.setLastReference(joinGroupTransactionData.getReference());
 	}
 
 }

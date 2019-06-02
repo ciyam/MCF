@@ -124,13 +124,6 @@ public class CancelGroupInviteTransaction extends Transaction {
 
 		// Save this transaction with removed member/admin references
 		this.repository.getTransactionRepository().save(cancelGroupInviteTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(cancelGroupInviteTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(cancelGroupInviteTransactionData.getReference());
 	}
 
 }

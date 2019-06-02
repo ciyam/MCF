@@ -148,13 +148,6 @@ public class UpdateGroupTransaction extends Transaction {
 
 		// Save this transaction, now with removed "group reference"
 		this.repository.getTransactionRepository().save(updateGroupTransactionData);
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(updateGroupTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(updateGroupTransactionData.getReference());
 	}
 
 }

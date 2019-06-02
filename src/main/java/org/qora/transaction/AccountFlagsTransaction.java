@@ -120,14 +120,6 @@ public class AccountFlagsTransaction extends Transaction {
 		// Remove previous flags from transaction itself
 		accountFlagsTransactionData.setPreviousFlags(null);
 		this.repository.getTransactionRepository().save(accountFlagsTransactionData);
-
-		Account creator = getCreator();
-
-		// Update creator's balance
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(accountFlagsTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(accountFlagsTransactionData.getReference());
 	}
 
 }

@@ -737,6 +737,34 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public List<TransactionData> getApprovalTransactionDecidedAtHeight(int approvalHeight) throws DataException {
+		final String sql = "SELECT signature from Transactions WHERE approval_height = ?";
+
+		List<TransactionData> transactions = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, approvalHeight)) {
+			if (resultSet == null)
+				return transactions;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				TransactionData transactionData = this.fromSignature(signature);
+
+				if (transactionData == null)
+					// Something inconsistent with the repository
+					throw new DataException("Unable to fetch approval-decided transaction from repository?");
+
+				transactions.add(transactionData);
+			} while (resultSet.next());
+
+			return transactions;
+		} catch (SQLException | DataException e) {
+			throw new DataException("Unable to fetch approval-decided transactions from repository", e);
+		}
+	}
+
+	@Override
 	public GroupApprovalTransactionData getLatestApproval(byte[] pendingSignature, byte[] adminPublicKey) throws DataException {
 		String sql = "SELECT signature FROM GroupApprovalTransactions "
 			+ "NATURAL JOIN Transactions "

@@ -151,13 +151,6 @@ public class UpdateNameTransaction extends Transaction {
 
 		// Save this transaction, now with removed "name reference"
 		this.repository.getTransactionRepository().save(updateNameTransactionData);
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(updateNameTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(updateNameTransactionData.getReference());
 	}
 
 }
