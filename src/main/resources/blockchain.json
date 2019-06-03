@@ -5,7 +5,7 @@
 	"maxBlockTime": 90,
 	"blockTimestampMargin": 500,
 	"maxBytesPerUnitFee": 1024,
-	"unitFee": "0.1",
+	"unitFee": "0.00001",
 	"requireGroupForApproval": false,
 	"defaultGroupId": 2,
 	"oneNamePerAccount": true,
