@@ -18,6 +18,8 @@ import com.google.common.base.Utf8;
 
 public class IssueAssetTransaction extends Transaction {
 
+	private static final BigDecimal ISSUE_ASSET_FEE = BigDecimal.valueOf(3000L).setScale(8);
+
 	// Properties
 	private IssueAssetTransactionData issueAssetTransactionData;
 
@@ -113,9 +115,9 @@ public class IssueAssetTransaction extends Transaction {
 		if (issueAssetTransactionData.getQuantity() < 1 || issueAssetTransactionData.getQuantity() > maxQuantity)
 			return ValidationResult.INVALID_QUANTITY;
 
-		// Check fee is positive
-		if (issueAssetTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
+		// Check fee is correct amount
+		if (issueAssetTransactionData.getFee().compareTo(ISSUE_ASSET_FEE) != 0)
+			return ValidationResult.INSUFFICIENT_FEE;
 
 		Account issuer = getIssuer();
 
