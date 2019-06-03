@@ -269,6 +269,8 @@ public class Network extends Thread {
 				LOGGER.debug(String.format("Deleting old peer %s from repository", peerData.getAddress().toString()));
 				repository.getNetworkRepository().delete(peerData);
 			}
+
+			repository.saveChanges();
 		}
 	}
 
@@ -351,6 +353,7 @@ public class Network extends Thread {
 		if (!peer.isOutbound())
 			try (final Repository repository = RepositoryManager.getRepository()) {
 				repository.getNetworkRepository().delete(peer.getPeerData());
+				repository.saveChanges();
 			} catch (DataException e) {
 				LOGGER.warn(String.format("Repository issue while trying to delete inbound peer %s", peer));
 			}
