@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -101,6 +100,22 @@ public class UpdateGroupTransaction extends Transaction {
 
 		Account owner = getOwner();
 
+		// Check fee is positive
+		if (updateGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
+			return ValidationResult.NEGATIVE_FEE;
+
+		// Check creator has enough funds
+		if (owner.getConfirmedBalance(Asset.QORA).compareTo(updateGroupTransactionData.getFee()) < 0)
+			return ValidationResult.NO_BALANCE;
+
+		return ValidationResult.OK;
+	}
+
+	@Override
+	public ValidationResult isProcessable() throws DataException {
+		GroupData groupData = this.repository.getGroupRepository().fromGroupId(updateGroupTransactionData.getGroupId());
+		Account owner = getOwner();
+
 		// Check transaction's public key matches group's current owner
 		if (!owner.getAddress().equals(groupData.getOwner()))
 			return ValidationResult.INVALID_GROUP_OWNER;
@@ -111,17 +126,6 @@ public class UpdateGroupTransaction extends Transaction {
 		if (this.repository.getGroupRepository().banExists(updateGroupTransactionData.getGroupId(), newOwner.getAddress()))
 			return ValidationResult.BANNED_FROM_GROUP;
 
-		// Check fee is positive
-		if (updateGroupTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
-		// Check reference is correct
-		if (!Arrays.equals(owner.getLastReference(), updateGroupTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
-		// Check creator has enough funds
-		if (owner.getConfirmedBalance(Asset.QORA).compareTo(updateGroupTransactionData.getFee()) < 0)
-			return ValidationResult.NO_BALANCE;
 
 		return ValidationResult.OK;
 	}
@@ -134,13 +138,6 @@ public class UpdateGroupTransaction extends Transaction {
 
 		// Save this transaction, now with updated "group reference" to previous transaction that updated group
 		this.repository.getTransactionRepository().save(updateGroupTransactionData);
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).subtract(updateGroupTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(updateGroupTransactionData.getSignature());
 	}
 
 	@Override
@@ -151,13 +148,6 @@ public class UpdateGroupTransaction extends Transaction {
 
 		// Save this transaction, now with removed "group reference"
 		this.repository.getTransactionRepository().save(updateGroupTransactionData);
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(updateGroupTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(updateGroupTransactionData.getReference());
 	}
 
 }

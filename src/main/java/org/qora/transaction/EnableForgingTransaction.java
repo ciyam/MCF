@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -121,10 +120,6 @@ public class EnableForgingTransaction extends Transaction {
 		if (enableForgingTransactionData.getFee().compareTo(BigDecimal.ZERO) < 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(creator.getLastReference(), enableForgingTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (creator.getConfirmedBalance(Asset.QORA).compareTo(enableForgingTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -151,14 +146,6 @@ public class EnableForgingTransaction extends Transaction {
 		
 		target.setFlags(targetFlags);
 		target.setForgingEnabler(creator.getAddress());
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update creator's balance
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(enableForgingTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(enableForgingTransactionData.getSignature());
 	}
 
 	@Override
@@ -180,14 +167,6 @@ public class EnableForgingTransaction extends Transaction {
 
 		target.setFlags(targetFlags);
 		target.setForgingEnabler(null);
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update creator's balance
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(enableForgingTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(enableForgingTransactionData.getReference());
 	}
 
 }

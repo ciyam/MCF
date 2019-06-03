@@ -1,10 +1,10 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.CancelAssetOrderTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -16,14 +16,16 @@ public class HSQLDBCancelAssetOrderTransactionRepository extends HSQLDBTransacti
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT asset_order_id FROM CancelAssetOrderTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT asset_order_id FROM CancelAssetOrderTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
 			byte[] assetOrderId = resultSet.getBytes(1);
 
-			return new CancelAssetOrderTransactionData(timestamp, txGroupId, reference, creatorPublicKey, assetOrderId, fee, signature);
+			return new CancelAssetOrderTransactionData(baseTransactionData, assetOrderId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch cancel order transaction from repository", e);
 		}

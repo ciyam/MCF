@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.CreatePollTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.voting.PollOptionData;
@@ -90,7 +91,9 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new CreatePollTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, pollName, description, pollOptions, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+
+		return new CreatePollTransactionData(baseTransactionData, owner, pollName, description, pollOptions);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

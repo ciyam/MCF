@@ -5,7 +5,6 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.ciyam.at.MachineState;
@@ -171,11 +170,7 @@ public class DeployAtTransaction extends Transaction {
 		if (deployATTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference is correct
 		Account creator = getCreator();
-
-		if (!Arrays.equals(creator.getLastReference(), deployATTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
 
 		// Check creator has enough funds
 		if (assetId == Asset.QORA) {
@@ -209,6 +204,33 @@ public class DeployAtTransaction extends Transaction {
 	}
 
 	@Override
+	public ValidationResult isProcessable() throws DataException {
+		Account creator = getCreator();
+		long assetId = deployATTransactionData.getAssetId();
+
+		// Check creator has enough funds
+		if (assetId == Asset.QORA) {
+			// Simple case: amount and fee both in Qora
+			BigDecimal minimumBalance = deployATTransactionData.getFee().add(deployATTransactionData.getAmount());
+
+			if (creator.getConfirmedBalance(Asset.QORA).compareTo(minimumBalance) < 0)
+				return ValidationResult.NO_BALANCE;
+		} else {
+			if (creator.getConfirmedBalance(Asset.QORA).compareTo(deployATTransactionData.getFee()) < 0)
+				return ValidationResult.NO_BALANCE;
+
+			if (creator.getConfirmedBalance(assetId).compareTo(deployATTransactionData.getAmount()) < 0)
+				return ValidationResult.NO_BALANCE;
+		}
+
+		// Check AT doesn't already exist
+		if (this.repository.getATRepository().exists(deployATTransactionData.getAtAddress()))
+			return ValidationResult.AT_ALREADY_EXISTS;
+
+		return ValidationResult.OK;
+	}
+
+	@Override
 	public void process() throws DataException {
 		ensureATAddress();
 
@@ -216,17 +238,11 @@ public class DeployAtTransaction extends Transaction {
 		AT at = new AT(this.repository, this.deployATTransactionData);
 		at.deploy();
 
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		long assetId = deployATTransactionData.getAssetId();
 
-		// Update creator's balance
+		// Update creator's balance regarding initial payment to AT
 		Account creator = getCreator();
 		creator.setConfirmedBalance(assetId, creator.getConfirmedBalance(assetId).subtract(deployATTransactionData.getAmount()));
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(deployATTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(deployATTransactionData.getSignature());
 
 		// Update AT's reference, which also creates AT account
 		Account atAccount = this.getATAccount();
@@ -242,17 +258,11 @@ public class DeployAtTransaction extends Transaction {
 		AT at = new AT(this.repository, this.deployATTransactionData);
 		at.undeploy();
 
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		long assetId = deployATTransactionData.getAssetId();
 
-		// Update creator's balance
+		// Update creator's balance regarding initial payment to AT
 		Account creator = getCreator();
 		creator.setConfirmedBalance(assetId, creator.getConfirmedBalance(assetId).add(deployATTransactionData.getAmount()));
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(deployATTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(deployATTransactionData.getReference());
 
 		// Delete AT's account (and hence its balance)
 		this.repository.getAccountRepository().delete(this.deployATTransactionData.getAtAddress());

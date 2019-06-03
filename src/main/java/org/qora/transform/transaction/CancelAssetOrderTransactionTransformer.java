@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
@@ -53,7 +54,9 @@ public class CancelAssetOrderTransactionTransformer extends TransactionTransform
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new CancelAssetOrderTransactionData(timestamp, txGroupId, reference, creatorPublicKey, orderId, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+
+		return new CancelAssetOrderTransactionData(baseTransactionData, orderId);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

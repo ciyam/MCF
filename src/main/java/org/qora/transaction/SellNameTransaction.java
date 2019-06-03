@@ -2,7 +2,6 @@ package org.qora.transaction;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.qora.account.Account;
@@ -105,10 +104,6 @@ public class SellNameTransaction extends Transaction {
 		if (sellNameTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference is correct
-		if (!Arrays.equals(owner.getLastReference(), sellNameTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check issuer has enough funds
 		if (owner.getConfirmedBalance(Asset.QORA).compareTo(sellNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -121,15 +116,6 @@ public class SellNameTransaction extends Transaction {
 		// Sell Name
 		Name name = new Name(this.repository, sellNameTransactionData.getName());
 		name.sell(sellNameTransactionData);
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).subtract(sellNameTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(sellNameTransactionData.getSignature());
 	}
 
 	@Override
@@ -137,15 +123,6 @@ public class SellNameTransaction extends Transaction {
 		// Revert name
 		Name name = new Name(this.repository, sellNameTransactionData.getName());
 		name.unsell(sellNameTransactionData);
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(sellNameTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(sellNameTransactionData.getReference());
 	}
 
 }

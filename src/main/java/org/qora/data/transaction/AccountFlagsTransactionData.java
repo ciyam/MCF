@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -44,9 +42,10 @@ public class AccountFlagsTransactionData extends TransactionData {
 			this.creatorPublicKey = GenesisAccount.PUBLIC_KEY;
 	}
 
-	public AccountFlagsTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, int andMask, int orMask,
-			int xorMask, Integer previousFlags, BigDecimal fee, byte[] signature) {
-		super(TransactionType.ACCOUNT_FLAGS, timestamp, groupId, reference, creatorPublicKey, fee, signature);
+	/** From repository */
+	public AccountFlagsTransactionData(BaseTransactionData baseTransactionData,
+			String target, int andMask, int orMask, int xorMask, Integer previousFlags) {
+		super(TransactionType.ACCOUNT_FLAGS, baseTransactionData);
 
 		this.target = target;
 		this.andMask = andMask;
@@ -55,10 +54,10 @@ public class AccountFlagsTransactionData extends TransactionData {
 		this.previousFlags = previousFlags;
 	}
 
-	// Typically used in deserialization context
-	public AccountFlagsTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, int andMask, int orMask,
-			int xorMask, BigDecimal fee, byte[] signature) {
-		this(timestamp, groupId, reference, creatorPublicKey, target, andMask, orMask, xorMask, null, fee, signature);
+	/** From network/API */
+	public AccountFlagsTransactionData(BaseTransactionData baseTransactionData,
+			String target, int andMask, int orMask, int xorMask) {
+		this(baseTransactionData, target, andMask, orMask, xorMask, null);
 	}
 
 	// Getters / setters

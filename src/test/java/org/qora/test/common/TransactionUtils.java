@@ -17,6 +17,7 @@ import org.qora.transaction.Transaction.ValidationResult;
 
 public class TransactionUtils {
 
+	/** Signs transaction using given account and imports into unconfirmed pile. */
 	public static void signAsUnconfirmed(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
 		Transaction transaction = Transaction.fromData(repository, transactionData);
 		transaction.sign(signingAccount);
@@ -33,11 +34,10 @@ public class TransactionUtils {
 		ValidationResult result = transaction.isValidUnconfirmed();
 		assertEquals("Transaction invalid", ValidationResult.OK, result);
 
-		repository.getTransactionRepository().save(transactionData);
-		repository.getTransactionRepository().unconfirmTransaction(transactionData);
-		repository.saveChanges();
+		transaction.importAsUnconfirmed();
 	}
 
+	/** Signs transaction using given account and forges a new block, using "alice" account. */
 	public static void signAndForge(Repository repository, TransactionData transactionData, PrivateKeyAccount signingAccount) throws DataException {
 		signAsUnconfirmed(repository, transactionData, signingAccount);
 

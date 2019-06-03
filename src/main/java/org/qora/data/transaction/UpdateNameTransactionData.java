@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -41,25 +39,20 @@ public class UpdateNameTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public UpdateNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String newOwner, String name, String newData,
-			byte[] nameReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.UPDATE_NAME, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+	/** From repository */
+	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String newOwner, String name, String newData, byte[] nameReference) {
+		super(TransactionType.UPDATE_NAME, baseTransactionData);
 
-		this.ownerPublicKey = ownerPublicKey;
+		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
 		this.newOwner = newOwner;
 		this.name = name;
 		this.newData = newData;
 		this.nameReference = nameReference;
 	}
 
-	public UpdateNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String newOwner, String name, String newData,
-			BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, newOwner, name, newData, null, fee, signature);
-	}
-
-	public UpdateNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String newOwner, String name, String newData,
-			byte[] nameReference, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, newOwner, name, newData, nameReference, fee, null);
+	/** From network/API */
+	public UpdateNameTransactionData(BaseTransactionData baseTransactionData, String newOwner, String name, String newData) {
+		this(baseTransactionData, newOwner, name, newData, null);
 	}
 
 	// Getters / setters

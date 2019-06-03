@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -40,18 +38,19 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public CancelGroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, byte[] inviteReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.CANCEL_GROUP_INVITE, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+	/** From repository */
+	public CancelGroupInviteTransactionData(BaseTransactionData baseTransactionData, int groupId, String invitee, byte[] inviteReference) {
+		super(TransactionType.CANCEL_GROUP_INVITE, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.invitee = invitee;
 		this.inviteReference = inviteReference;
 	}
 
-	/** Constructor typically used after deserialization */
-	public CancelGroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, null, fee, signature);
+	/** From network/API */
+	public CancelGroupInviteTransactionData(BaseTransactionData baseTransactionData, int groupId, String invitee) {
+		this(baseTransactionData, groupId, invitee, null);
 	}
 
 	// Getters / setters

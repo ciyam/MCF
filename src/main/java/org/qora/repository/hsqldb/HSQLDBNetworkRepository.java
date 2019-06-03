@@ -38,7 +38,7 @@ public class HSQLDBNetworkRepository implements NetworkRepository {
 				Long lastAttempted = HSQLDBRepository.getZonedTimestampMilli(resultSet, 3);
 
 				Integer lastHeight = resultSet.getInt(4);
-				if (resultSet.wasNull())
+				if (lastHeight == 0 && resultSet.wasNull())
 					lastHeight = null;
 
 				byte[] lastBlockSignature = resultSet.getBytes(5);

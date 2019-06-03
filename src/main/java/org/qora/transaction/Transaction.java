@@ -15,12 +15,15 @@ import org.apache.logging.log4j.Logger;
 import org.qora.account.Account;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
+import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
 import org.qora.controller.Controller;
 import org.qora.data.block.BlockData;
+import org.qora.data.group.GroupApprovalData;
 import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
+import org.qora.group.Group.ApprovalThreshold;
 import org.qora.repository.DataException;
 import org.qora.repository.GroupRepository;
 import org.qora.repository.Repository;
@@ -124,6 +127,28 @@ public abstract class Transaction {
 		}
 	}
 
+	// Group-approval status
+	public enum ApprovalStatus {
+		NOT_REQUIRED(0),
+		PENDING(1),
+		APPROVED(2),
+		REJECTED(3),
+		EXPIRED(4),
+		INVALID(5);
+
+		public final int value;
+
+		private final static Map<Integer, ApprovalStatus> map = stream(ApprovalStatus.values()).collect(toMap(result -> result.value, result -> result));
+
+		ApprovalStatus(int value) {
+			this.value = value;
+		}
+
+		public static ApprovalStatus valueOf(int value) {
+			return map.get(value);
+		}
+	}
+
 	// Validation results
 	public enum ValidationResult {
 		OK(1),
@@ -204,6 +229,9 @@ public abstract class Transaction {
 		PUBLIC_KEY_UNKNOWN(78),
 		INVALID_PUBLIC_KEY(79),
 		AT_UNKNOWN(80),
+		AT_ALREADY_EXISTS(81),
+		GROUP_APPROVAL_NOT_REQUIRED(82),
+		GROUP_APPROVAL_DECIDED(83),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -510,6 +538,10 @@ public abstract class Transaction {
 				if (creator == null)
 					return ValidationResult.MISSING_CREATOR;
 
+				// Reject if unconfirmed pile already has X transactions from same creator
+				if (countUnconfirmedByCreator(creator) >= Settings.getInstance().getMaxUnconfirmedPerAccount())
+					return ValidationResult.TOO_MANY_UNCONFIRMED;
+
 				// Check transaction's txGroupId
 				if (!this.isValidTxGroupId())
 					return ValidationResult.INVALID_TX_GROUP_ID;
@@ -518,11 +550,17 @@ public abstract class Transaction {
 				if (unconfirmedLastReference != null)
 					creator.setLastReference(unconfirmedLastReference);
 
+				// Check transaction is valid
 				ValidationResult result = this.isValid();
+				if (result != ValidationResult.OK)
+					return result;
 
-				// Reject if unconfirmed pile already has X transactions from same creator
-				if (result == ValidationResult.OK && countUnconfirmedByCreator(creator) >= Settings.getInstance().getMaxUnconfirmedPerAccount())
-					return ValidationResult.TOO_MANY_UNCONFIRMED;
+				// Check transaction references
+				if (!this.hasValidReference())
+					return ValidationResult.INVALID_REFERENCE;
+
+				// Check transction is processable
+				result = this.isProcessable();
 
 				return result;
 			} finally {
@@ -755,20 +793,50 @@ public abstract class Transaction {
 		return true;
 	}
 
-	public boolean meetsGroupApprovalThreshold() throws DataException {
+	public Boolean getApprovalDecision() throws DataException {
+		// Grab latest decisions from repository
+		GroupApprovalData groupApprovalData = this.repository.getTransactionRepository().getApprovalData(this.transactionData.getSignature());
+		if (groupApprovalData == null)
+			return null;
+
+		// We need group info
 		int txGroupId = this.transactionData.getTxGroupId();
+		GroupData groupData = repository.getGroupRepository().fromGroupId(txGroupId);
+		ApprovalThreshold approvalThreshold = groupData.getApprovalThreshold();
 
-		Group group = new Group(repository, txGroupId);
-		GroupData groupData = group.getGroupData();
+		// Fetch total number of admins in group
+		int totalAdmins = repository.getGroupRepository().countGroupAdmins(txGroupId);
 
-		// Is transaction is outside of min/max approval period?
-		int creationBlockHeight = this.repository.getBlockRepository().getHeightFromTimestamp(this.transactionData.getTimestamp());
-		int currentBlockHeight = this.repository.getBlockRepository().getBlockchainHeight();
-		if (currentBlockHeight < creationBlockHeight + groupData.getMinimumBlockDelay()
-				|| currentBlockHeight > creationBlockHeight + groupData.getMaximumBlockDelay())
+		// Are there enough approvals?
+		if (approvalThreshold.meetsTheshold(groupApprovalData.approvingAdmins.size(), totalAdmins))
+			return true;
+
+		// Are there enough rejections?
+		if (approvalThreshold.meetsTheshold(groupApprovalData.rejectingAdmins.size(), totalAdmins))
 			return false;
 
-		return group.getGroupData().getApprovalThreshold().meetsApprovalThreshold(repository, txGroupId, this.transactionData.getSignature());
+		// No definitive decision yet
+		return null;
+	}
+
+	/**
+	 * Import into our repository as a new, unconfirmed transaction.
+	 * <p>
+	 * Calls <tt>repository.saveChanges()</tt>
+	 * 
+	 * @throws DataException
+	 */
+	public void importAsUnconfirmed() throws DataException {
+		// Fix up approval status
+		if (this.needsGroupApproval()) {
+			transactionData.setApprovalStatus(ApprovalStatus.PENDING);
+		} else {
+			transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
+		}
+
+		repository.getTransactionRepository().save(transactionData);
+		repository.getTransactionRepository().unconfirmTransaction(transactionData);
+		repository.saveChanges();
 	}
 
 	/**
@@ -779,8 +847,36 @@ public abstract class Transaction {
 	 * Transactions that have already been processed will return false.
 	 * 
 	 * @return true if transaction can be processed, false otherwise
+	 * @throws DataException
 	 */
 	public abstract ValidationResult isValid() throws DataException;
+
+	/**
+	 * Returns whether transaction's reference is valid.
+	 * 
+	 * @throws DataException
+	 */
+	public boolean hasValidReference() throws DataException {
+		Account creator = getCreator();
+
+		return Arrays.equals(transactionData.getReference(), creator.getLastReference());
+	}
+
+	/**
+	 * Returns whether transaction can be processed.
+	 * <p>
+	 * With group-approval, even if a transaction had valid values
+	 * when submitted, by the time it is approved dependency might
+	 * have changed.
+	 * <p>
+	 * For example, with UPDATE_ASSET, the asset owner might have
+	 * changed between submission and approval.
+	 * 
+	 * @throws DataException
+	 */
+	public ValidationResult isProcessable() throws DataException {
+		return ValidationResult.OK;
+	};
 
 	/**
 	 * Actually process a transaction, updating the blockchain.
@@ -792,6 +888,21 @@ public abstract class Transaction {
 	public abstract void process() throws DataException;
 
 	/**
+	 * Update last references, subtract transaction fees, etc.
+	 * 
+	 * @throws DataException
+	 */
+	public void processReferencesAndFees() throws DataException {
+		Account creator = getCreator();
+
+		// Update transaction creator's balance
+		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(transactionData.getFee()));
+
+		// Update transaction creator's reference
+		creator.setLastReference(transactionData.getSignature());
+	}
+
+	/**
 	 * Undo transaction, updating the blockchain.
 	 * <p>
 	 * Undoes transaction, updating balances, references, assets, etc. as appropriate.
@@ -799,6 +910,22 @@ public abstract class Transaction {
 	 * @throws DataException
 	 */
 	public abstract void orphan() throws DataException;
+
+	/**
+	 * Update last references, subtract transaction fees, etc.
+	 * 
+	 * @throws DataException
+	 */
+	public void orphanReferencesAndFees() throws DataException {
+		Account creator = getCreator();
+
+		// Update transaction creator's balance
+		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(transactionData.getFee()));
+
+		// Update transaction creator's reference
+		creator.setLastReference(transactionData.getReference());
+	}
+
 
 	// Comparison
 

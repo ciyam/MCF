@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -41,18 +39,17 @@ public class SetGroupTransactionData extends TransactionData {
 		super(TransactionType.SET_GROUP);
 	}
 
-	public SetGroupTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, int defaultGroupId, Integer previousDefaultGroupId,
-			BigDecimal fee, byte[] signature) {
-		super(TransactionType.SET_GROUP, timestamp, groupId, reference, creatorPublicKey, fee, signature);
+	/** From repository */
+	public SetGroupTransactionData(BaseTransactionData baseTransactionData, int defaultGroupId, Integer previousDefaultGroupId) {
+		super(TransactionType.SET_GROUP, baseTransactionData);
 
 		this.defaultGroupId = defaultGroupId;
 		this.previousDefaultGroupId = previousDefaultGroupId;
 	}
 
-	/** Constructor typically used after deserialization */
-	public SetGroupTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, int defaultGroupId, BigDecimal fee,
-			byte[] signature) {
-		this(timestamp, groupId, reference, creatorPublicKey, defaultGroupId, null, fee, signature);
+	/** From network/API */
+	public SetGroupTransactionData(BaseTransactionData baseTransactionData, int defaultGroupId) {
+		this(baseTransactionData, defaultGroupId, null);
 	}
 
 	// Getters / setters

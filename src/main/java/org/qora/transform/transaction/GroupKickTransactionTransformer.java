@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.GroupKickTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
@@ -65,7 +66,9 @@ public class GroupKickTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new GroupKickTransactionData(timestamp, txGroupId, reference, adminPublicKey, groupId, member, reason, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+
+		return new GroupKickTransactionData(baseTransactionData, groupId, member, reason);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

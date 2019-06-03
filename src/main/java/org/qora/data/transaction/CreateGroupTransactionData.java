@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -67,11 +65,12 @@ public class CreateGroupTransactionData extends TransactionData {
 		super(TransactionType.CREATE_GROUP);
 	}
 
-	public CreateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner, String groupName, String description,
-			boolean isOpen, ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay, Integer groupId, BigDecimal fee, byte[] signature) {
-		super(TransactionType.CREATE_GROUP, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+	/** From repository */
+	public CreateGroupTransactionData(BaseTransactionData baseTransactionData,
+			String owner, String groupName, String description, boolean isOpen,
+			ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay, Integer groupId) {
+		super(TransactionType.CREATE_GROUP, baseTransactionData);
 
-		this.creatorPublicKey = creatorPublicKey;
 		this.owner = owner;
 		this.groupName = groupName;
 		this.description = description;
@@ -80,6 +79,13 @@ public class CreateGroupTransactionData extends TransactionData {
 		this.minimumBlockDelay = minimumBlockDelay;
 		this.maximumBlockDelay = maximumBlockDelay;
 		this.groupId = groupId;
+	}
+
+	/** From network/API */
+	public CreateGroupTransactionData(BaseTransactionData baseTransactionData,
+			String owner, String groupName, String description, boolean isOpen,
+			ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay) {
+		this(baseTransactionData, owner, groupName, description, isOpen, approvalThreshold, minimumBlockDelay, maximumBlockDelay, null);
 	}
 
 	// Getters / setters

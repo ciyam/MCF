@@ -39,17 +39,13 @@ public class PaymentTransactionData extends TransactionData {
 		this.creatorPublicKey = this.senderPublicKey;
 	}
 
-	public PaymentTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
-			BigDecimal fee, byte[] signature) {
-		super(TransactionType.PAYMENT, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+	/** From repository */
+	public PaymentTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount) {
+		super(TransactionType.PAYMENT, baseTransactionData);
 
-		this.senderPublicKey = senderPublicKey;
+		this.senderPublicKey = baseTransactionData.creatorPublicKey;
 		this.recipient = recipient;
 		this.amount = amount;
-	}
-
-	public PaymentTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, fee, null);
 	}
 
 	// Getters/Setters

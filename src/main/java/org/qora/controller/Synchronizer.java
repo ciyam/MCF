@@ -16,7 +16,6 @@ import org.qora.block.BlockChain;
 import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
-import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
@@ -25,17 +24,14 @@ import org.qora.network.message.GetBlockMessage;
 import org.qora.network.message.GetBlockSummariesMessage;
 import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.GetSignaturesV2Message;
-import org.qora.network.message.GetTransactionMessage;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
 import org.qora.network.message.SignaturesMessage;
-import org.qora.network.message.TransactionMessage;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.transaction.Transaction;
-import org.qora.transaction.Transaction.TransactionType;
-import org.qora.utils.Base58;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.utils.NTP;
 
 public class Synchronizer {
@@ -242,46 +238,6 @@ public class Synchronizer {
 								return SynchronizationResult.NO_REPLY;
 							}
 
-							// If block contains GROUP_APPROVAL transactions then we need to make sure we have the relevant pending transactions too
-							for (Transaction transaction : newBlock.getTransactions()) {
-								TransactionData transactionData = transaction.getTransactionData();
-
-								if (transactionData.getType() != TransactionType.GROUP_APPROVAL)
-									continue;
-
-								GroupApprovalTransactionData groupApprovalTransactionData = (GroupApprovalTransactionData) transactionData;
-
-								byte[] pendingSignature = groupApprovalTransactionData.getPendingSignature();
-
-								if (repository.getTransactionRepository().exists(pendingSignature))
-									continue;
-
-								LOGGER.debug(String.format("Fetching unknown approval-pending transaction %s from peer %s, needed for block at height %d", Base58.encode(pendingSignature), peer, ourHeight));
-
-								TransactionData pendingTransactionData = this.fetchTransaction(peer, pendingSignature);
-								if (pendingTransactionData == null) {
-									LOGGER.info(String.format("Peer %s failed to respond with pending transaction %s", peer, Base58.encode(pendingSignature)));
-									return SynchronizationResult.NO_REPLY;
-								}
-
-								// Check the signature is valid at least!
-								Transaction pendingTransaction = Transaction.fromData(repository, pendingTransactionData);
-								if (!pendingTransaction.isSignatureValid()) {
-									LOGGER.info(String.format("Peer %s sent pending transaction %s with invalid signature", peer, Base58.encode(pendingSignature)));
-									return SynchronizationResult.INVALID_DATA;
-								}
-
-								Transaction.ValidationResult transactionResult = pendingTransaction.isValidUnconfirmed();
-								if (transactionResult != Transaction.ValidationResult.OK) {
-									LOGGER.info(String.format("Peer %s sent invalid (%s) pending transaction %s", peer, transactionResult.name(), Base58.encode(pendingSignature)));
-									return SynchronizationResult.INVALID_DATA;
-								}
-
-								// Add to our unconfirmed pile
-								this.repository.getTransactionRepository().save(pendingTransactionData);
-								this.repository.getTransactionRepository().unconfirmTransaction(pendingTransactionData);
-							}
-
 							if (!newBlock.isSignatureValid()) {
 								LOGGER.info(String.format("Peer %s sent block with invalid signature for height %d", peer, ourHeight));
 								return SynchronizationResult.INVALID_DATA;
@@ -294,8 +250,18 @@ public class Synchronizer {
 							}
 
 							// Save transactions attached to this block
-							for (Transaction transaction : newBlock.getTransactions())
-								repository.getTransactionRepository().save(transaction.getTransactionData());
+							for (Transaction transaction : newBlock.getTransactions()) {
+								TransactionData transactionData = transaction.getTransactionData();
+
+								// Fix up approval status
+								if (transaction.needsGroupApproval()) {
+									transactionData.setApprovalStatus(ApprovalStatus.PENDING);
+								} else {
+									transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
+								}
+
+								repository.getTransactionRepository().save(transactionData);
+							}
 
 							newBlock.process();
 
@@ -440,18 +406,6 @@ public class Synchronizer {
 			LOGGER.debug("Failed to create block", e);
 			return null;
 		}
-	}
-
-	private TransactionData fetchTransaction(Peer peer, byte[] signature) {
-		Message getTransactionMessage = new GetTransactionMessage(signature);
-
-		Message message = peer.getResponse(getTransactionMessage);
-		if (message == null || message.getType() != MessageType.TRANSACTION)
-			return null;
-
-		TransactionMessage transactionMessage = (TransactionMessage) message;
-
-		return transactionMessage.getTransactionData();
 	}
 
 }

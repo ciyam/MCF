@@ -10,6 +10,7 @@ import java.util.List;
 
 import org.qora.block.BlockChain;
 import org.qora.data.PaymentData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.MultiPaymentTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
@@ -66,7 +67,9 @@ public class MultiPaymentTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new MultiPaymentTransactionData(timestamp, txGroupId, reference, senderPublicKey, payments, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+
+		return new MultiPaymentTransactionData(baseTransactionData, payments);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

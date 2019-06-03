@@ -16,6 +16,7 @@ import org.qora.data.asset.OrderData;
 import org.qora.data.asset.TradeData;
 import org.qora.data.block.BlockData;
 import org.qora.data.naming.NameData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.BuyNameTransactionData;
 import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.CancelSellNameTransactionData;
@@ -130,8 +131,9 @@ public class TransactionTests extends Common {
 		BigDecimal amount = genericPaymentAmount;
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), recipient,
-				amount, fee);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(baseTransactionData, recipient, amount);
 
 		Transaction paymentTransaction = new PaymentTransaction(repository, paymentTransactionData);
 		paymentTransaction.sign(sender);
@@ -148,8 +150,9 @@ public class TransactionTests extends Common {
 		BigDecimal amount = BigDecimal.valueOf(1_000L);
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-				recipient.getAddress(), amount, fee);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(baseTransactionData, recipient.getAddress(), amount);
 
 		Transaction paymentTransaction = new PaymentTransaction(repository, paymentTransactionData);
 		paymentTransaction.sign(sender);
@@ -207,8 +210,9 @@ public class TransactionTests extends Common {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		RegisterNameTransactionData registerNameTransactionData = new RegisterNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-				sender.getAddress(), name, data, fee);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		RegisterNameTransactionData registerNameTransactionData = new RegisterNameTransactionData(baseTransactionData, sender.getAddress(), name, data);
 
 		Transaction registerNameTransaction = new RegisterNameTransaction(repository, registerNameTransactionData);
 		registerNameTransaction.sign(sender);
@@ -257,12 +261,12 @@ public class TransactionTests extends Common {
 		// Update name's owner and data
 		Account newOwner = new PublicKeyAccount(repository, recipientSeed);
 		String newData = "{\"newKey\":\"newValue\"}";
-		byte[] nameReference = reference;
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		UpdateNameTransactionData updateNameTransactionData = new UpdateNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-				newOwner.getAddress(), name, newData, nameReference, fee);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		UpdateNameTransactionData updateNameTransactionData = new UpdateNameTransactionData(baseTransactionData, newOwner.getAddress(), name, newData);
 
 		Transaction updateNameTransaction = new UpdateNameTransaction(repository, updateNameTransactionData);
 		updateNameTransaction.sign(sender);
@@ -305,8 +309,9 @@ public class TransactionTests extends Common {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		SellNameTransactionData sellNameTransactionData = new SellNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), name, amount,
-				fee);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		SellNameTransactionData sellNameTransactionData = new SellNameTransactionData(baseTransactionData, name, amount);
 
 		Transaction sellNameTransaction = new SellNameTransaction(repository, sellNameTransactionData);
 		sellNameTransaction.sign(sender);
@@ -355,8 +360,9 @@ public class TransactionTests extends Common {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		CancelSellNameTransactionData cancelSellNameTransactionData = new CancelSellNameTransactionData(timestamp, Group.NO_GROUP, reference,
-				sender.getPublicKey(), name, fee);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		CancelSellNameTransactionData cancelSellNameTransactionData = new CancelSellNameTransactionData(baseTransactionData, name);
 
 		Transaction cancelSellNameTransaction = new CancelSellNameTransaction(repository, cancelSellNameTransactionData);
 		cancelSellNameTransaction.sign(sender);
@@ -402,7 +408,6 @@ public class TransactionTests extends Common {
 
 		// Buyer
 		PrivateKeyAccount buyer = new PrivateKeyAccount(repository, recipientSeed);
-		byte[] nameReference = reference;
 
 		// Send buyer some funds so they have a reference
 		Transaction somePaymentTransaction = createPayment(sender, buyer.getAddress());
@@ -417,8 +422,9 @@ public class TransactionTests extends Common {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		BuyNameTransactionData buyNameTransactionData = new BuyNameTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(), name,
-				originalNameData.getSalePrice(), seller, nameReference, fee);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(), fee, null);
+		BuyNameTransactionData buyNameTransactionData = new BuyNameTransactionData(baseTransactionData, name, originalNameData.getSalePrice(), seller);
 
 		Transaction buyNameTransaction = new BuyNameTransaction(repository, buyNameTransactionData);
 		buyNameTransaction.sign(buyer);
@@ -468,8 +474,9 @@ public class TransactionTests extends Common {
 		Account recipient = new PublicKeyAccount(repository, recipientSeed);
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		CreatePollTransactionData createPollTransactionData = new CreatePollTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-				recipient.getAddress(), pollName, description, pollOptions, fee);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		CreatePollTransactionData createPollTransactionData = new CreatePollTransactionData(baseTransactionData, recipient.getAddress(), pollName, description, pollOptions);
 
 		Transaction createPollTransaction = new CreatePollTransaction(repository, createPollTransactionData);
 		createPollTransaction.sign(sender);
@@ -520,8 +527,9 @@ public class TransactionTests extends Common {
 
 		for (int optionIndex = 0; optionIndex <= pollOptionsSize; ++optionIndex) {
 			// Make a vote-on-poll transaction
-			VoteOnPollTransactionData voteOnPollTransactionData = new VoteOnPollTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-					pollName, optionIndex, fee);
+
+			BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+			VoteOnPollTransactionData voteOnPollTransactionData = new VoteOnPollTransactionData(baseTransactionData, pollName, optionIndex);
 
 			Transaction voteOnPollTransaction = new VoteOnPollTransaction(repository, voteOnPollTransactionData);
 			voteOnPollTransaction.sign(sender);
@@ -591,8 +599,8 @@ public class TransactionTests extends Common {
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		String data = (timestamp >= BlockChain.getInstance().getQoraV2Timestamp()) ? "{}" : null;
 
-		IssueAssetTransactionData issueAssetTransactionData = new IssueAssetTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-				sender.getAddress(), assetName, description, quantity, isDivisible, data, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		IssueAssetTransactionData issueAssetTransactionData = new IssueAssetTransactionData(baseTransactionData, sender.getAddress(), assetName, description, quantity, isDivisible, data);
 
 		Transaction issueAssetTransaction = new IssueAssetTransaction(repository, issueAssetTransactionData);
 		issueAssetTransaction.sign(sender);
@@ -679,8 +687,8 @@ public class TransactionTests extends Common {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 
-		TransferAssetTransactionData transferAssetTransactionData = new TransferAssetTransactionData(timestamp, Group.NO_GROUP, reference,
-				sender.getPublicKey(), recipient.getAddress(), amount, assetId, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		TransferAssetTransactionData transferAssetTransactionData = new TransferAssetTransactionData(baseTransactionData, recipient.getAddress(), amount, assetId);
 
 		Transaction transferAssetTransaction = new TransferAssetTransaction(repository, transferAssetTransactionData);
 		transferAssetTransaction.sign(sender);
@@ -780,8 +788,9 @@ public class TransactionTests extends Common {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 
-		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(timestamp, Group.NO_GROUP, buyersReference,
-				buyer.getPublicKey(), haveAssetId, wantAssetId, amount, price, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, buyersReference, sender.getPublicKey(), fee, null);
+		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(baseTransactionData, haveAssetId, wantAssetId, amount, price);
+
 		Transaction createOrderTransaction = new CreateAssetOrderTransaction(this.repository, createOrderTransactionData);
 		createOrderTransaction.sign(buyer);
 		assertTrue(createOrderTransaction.isSignatureValid());
@@ -859,8 +868,9 @@ public class TransactionTests extends Common {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		byte[] buyersReference = buyer.getLastReference();
-		CancelAssetOrderTransactionData cancelOrderTransactionData = new CancelAssetOrderTransactionData(timestamp, Group.NO_GROUP, buyersReference,
-				buyer.getPublicKey(), orderId, fee);
+
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, buyersReference, sender.getPublicKey(), fee, null);
+		CancelAssetOrderTransactionData cancelOrderTransactionData = new CancelAssetOrderTransactionData(baseTransactionData, orderId);
 
 		Transaction cancelOrderTransaction = new CancelAssetOrderTransaction(this.repository, cancelOrderTransactionData);
 		cancelOrderTransaction.sign(buyer);
@@ -933,8 +943,9 @@ public class TransactionTests extends Common {
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		BigDecimal senderPreTradeWantBalance = sender.getConfirmedBalance(wantAssetId);
 
-		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(timestamp, Group.NO_GROUP, reference,
-				sender.getPublicKey(), haveAssetId, wantAssetId, amount, price, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(baseTransactionData, haveAssetId, wantAssetId, amount, price);
+
 		Transaction createOrderTransaction = new CreateAssetOrderTransaction(this.repository, createOrderTransactionData);
 		createOrderTransaction.sign(sender);
 		assertTrue(createOrderTransaction.isSignatureValid());
@@ -1040,8 +1051,8 @@ public class TransactionTests extends Common {
 			payments.add(paymentData);
 		}
 
-		MultiPaymentTransactionData multiPaymentTransactionData = new MultiPaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
-				payments, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		MultiPaymentTransactionData multiPaymentTransactionData = new MultiPaymentTransactionData(baseTransactionData, payments);
 
 		Transaction multiPaymentTransaction = new MultiPaymentTransaction(repository, multiPaymentTransactionData);
 		multiPaymentTransaction.sign(sender);
@@ -1108,8 +1119,9 @@ public class TransactionTests extends Common {
 		boolean isText = true;
 		boolean isEncrypted = false;
 
-		MessageTransactionData messageTransactionData = new MessageTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), version,
-				recipient.getAddress(), Asset.QORA, amount, data, isText, isEncrypted, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), fee, null);
+		MessageTransactionData messageTransactionData = new MessageTransactionData(baseTransactionData, version,
+				recipient.getAddress(), Asset.QORA, amount, data, isText, isEncrypted);
 
 		Transaction messageTransaction = new MessageTransaction(repository, messageTransactionData);
 		messageTransaction.sign(sender);

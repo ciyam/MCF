@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -69,9 +68,13 @@ public class GroupApprovalTransaction extends Transaction {
 		if (pendingTransactionData == null)
 			return ValidationResult.TRANSACTION_UNKNOWN;
 
-		// Check pending transaction is not already in a block
-		if (this.repository.getTransactionRepository().getHeightFromSignature(groupApprovalTransactionData.getPendingSignature()) != 0)
-			return ValidationResult.TRANSACTION_ALREADY_CONFIRMED;
+		// Check pending transaction is actually needs group approval
+		if (pendingTransactionData.getApprovalStatus() == ApprovalStatus.NOT_REQUIRED)
+			return ValidationResult.GROUP_APPROVAL_NOT_REQUIRED;
+
+		// Check pending transaction is actually pending
+		if (pendingTransactionData.getApprovalStatus() != ApprovalStatus.PENDING)
+			return ValidationResult.GROUP_APPROVAL_DECIDED;
 
 		Account admin = getAdmin();
 
@@ -83,10 +86,6 @@ public class GroupApprovalTransaction extends Transaction {
 		if (groupApprovalTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(admin.getLastReference(), groupApprovalTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check creator has enough funds
 		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupApprovalTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -97,20 +96,13 @@ public class GroupApprovalTransaction extends Transaction {
 	@Override
 	public void process() throws DataException {
 		// Find previous approval decision (if any) by this admin for pending transaction
-		List<GroupApprovalTransactionData> approvals = this.repository.getTransactionRepository().getLatestApprovals(groupApprovalTransactionData.getPendingSignature(), groupApprovalTransactionData.getAdminPublicKey());
+		GroupApprovalTransactionData previousApproval = this.repository.getTransactionRepository().getLatestApproval(groupApprovalTransactionData.getPendingSignature(), groupApprovalTransactionData.getAdminPublicKey());
 		
-		if (!approvals.isEmpty())
-			groupApprovalTransactionData.setPriorReference(approvals.get(0).getSignature());
+		if (previousApproval != null)
+			groupApprovalTransactionData.setPriorReference(previousApproval.getSignature());
 
 		// Save this transaction with updated prior reference to transaction that can help restore state
 		this.repository.getTransactionRepository().save(groupApprovalTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).subtract(groupApprovalTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupApprovalTransactionData.getSignature());
 	}
 
 	@Override
@@ -118,13 +110,6 @@ public class GroupApprovalTransaction extends Transaction {
 		// Save this transaction with removed prior reference
 		groupApprovalTransactionData.setPriorReference(null);
 		this.repository.getTransactionRepository().save(groupApprovalTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(groupApprovalTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupApprovalTransactionData.getReference());
 	}
 
 }

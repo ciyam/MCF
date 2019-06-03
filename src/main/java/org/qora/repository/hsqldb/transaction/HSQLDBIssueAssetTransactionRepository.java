@@ -1,10 +1,10 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.IssueAssetTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -16,9 +16,10 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT owner, asset_name, description, quantity, is_divisible, data, asset_id FROM IssueAssetTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT owner, asset_name, description, quantity, is_divisible, data, asset_id FROM IssueAssetTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -31,11 +32,11 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 
 			// Special null-checking for asset ID
 			Long assetId = resultSet.getLong(7);
-			if (resultSet.wasNull())
+			if (assetId == 0 && resultSet.wasNull())
 				assetId = null;
 
-			return new IssueAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, assetId, owner, assetName, description, quantity, isDivisible,
-					data, fee, signature);
+			return new IssueAssetTransactionData(baseTransactionData, assetId, owner, assetName, description, quantity, isDivisible,
+					data);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch issue asset transaction from repository", e);
 		}

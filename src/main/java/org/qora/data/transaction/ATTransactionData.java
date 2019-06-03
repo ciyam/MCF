@@ -34,20 +34,16 @@ public class ATTransactionData extends TransactionData {
 		this.creatorPublicKey = GenesisAccount.PUBLIC_KEY;
 	}
 
-	public ATTransactionData(long timestamp, int txGroupId, byte[] reference, String atAddress, String recipient, BigDecimal amount, Long assetId,
-			byte[] message, BigDecimal fee, byte[] signature) {
-		super(TransactionType.AT, timestamp, txGroupId, reference, GenesisAccount.PUBLIC_KEY, fee, signature);
+	/** From repository */
+	public ATTransactionData(BaseTransactionData baseTransactionData, String atAddress, String recipient, BigDecimal amount, Long assetId, byte[] message) {
+		super(TransactionType.AT, baseTransactionData);
 
+		this.creatorPublicKey = GenesisAccount.PUBLIC_KEY;
 		this.atAddress = atAddress;
 		this.recipient = recipient;
 		this.amount = amount;
 		this.assetId = assetId;
 		this.message = message;
-	}
-
-	public ATTransactionData(long timestamp, int txGroupId, byte[] reference, String atAddress, String recipient, BigDecimal amount, Long assetId,
-			byte[] message, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, atAddress, recipient, amount, assetId, message, fee, null);
 	}
 
 	// Getters/Setters

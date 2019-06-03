@@ -30,6 +30,7 @@ public class BuyNameTransactionData extends TransactionData {
 	private BigDecimal amount;
 	@Schema(description = "seller's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
 	private String seller;
+
 	// For internal use when orphaning
 	@XmlTransient
 	@Schema(hidden = true)
@@ -46,29 +47,21 @@ public class BuyNameTransactionData extends TransactionData {
 		this.creatorPublicKey = this.buyerPublicKey;
 	}
 
-	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller,
-			byte[] nameReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.BUY_NAME, timestamp, txGroupId, reference, buyerPublicKey, fee, signature);
+	/** From repository */
+	public BuyNameTransactionData(BaseTransactionData baseTransactionData,
+			String name, BigDecimal amount, String seller, byte[] nameReference) {
+		super(TransactionType.BUY_NAME, baseTransactionData);
 
-		this.buyerPublicKey = buyerPublicKey;
+		this.buyerPublicKey = baseTransactionData.creatorPublicKey;
 		this.name = name;
 		this.amount = amount;
 		this.seller = seller;
 		this.nameReference = nameReference;
 	}
 
-	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller,
-			BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, null, fee, signature);
-	}
-
-	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller,
-			byte[] nameReference, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, nameReference, fee, null);
-	}
-
-	public BuyNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] buyerPublicKey, String name, BigDecimal amount, String seller, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, buyerPublicKey, name, amount, seller, null, fee, null);
+	/** From network/API */
+	public BuyNameTransactionData(BaseTransactionData baseTransactionData, String name, BigDecimal amount, String seller) {
+		this(baseTransactionData, name, amount, seller, null);
 	}
 
 	// Getters / setters

@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -40,18 +38,19 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, byte[] adminReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.REMOVE_GROUP_ADMIN, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+	/** From repository */
+	public RemoveGroupAdminTransactionData(BaseTransactionData baseTransactionData, int groupId, String admin, byte[] adminReference) {
+		super(TransactionType.REMOVE_GROUP_ADMIN, baseTransactionData);
 
-		this.ownerPublicKey = ownerPublicKey;
+		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.admin = admin;
 		this.adminReference = adminReference;
 	}
 
-	/** Constructor typically used after deserialization */
-	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, admin, null, fee, signature);
+	/** From network/API */
+	public RemoveGroupAdminTransactionData(BaseTransactionData baseTransactionData, int groupId, String admin) {
+		this(baseTransactionData, groupId, admin, null);
 	}
 
 	// Getters / setters

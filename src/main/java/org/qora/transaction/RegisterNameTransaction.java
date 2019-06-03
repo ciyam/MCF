@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -78,10 +77,6 @@ public class RegisterNameTransaction extends Transaction {
 	public ValidationResult isValid() throws DataException {
 		Account registrant = getRegistrant();
 
-		// If accounts are only allowed one registered name then check for this
-		if (BlockChain.getInstance().oneNamePerAccount() && !this.repository.getNameRepository().getNamesByOwner(registrant.getAddress()).isEmpty())
-			return ValidationResult.MULTIPLE_NAMES_FORBIDDEN;
-
 		// Check owner address is valid
 		if (!Crypto.isValidAddress(registerNameTransactionData.getOwner()))
 			return ValidationResult.INVALID_ADDRESS;
@@ -100,17 +95,9 @@ public class RegisterNameTransaction extends Transaction {
 		if (!registerNameTransactionData.getName().equals(registerNameTransactionData.getName().toLowerCase()))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
-		// Check the name isn't already taken
-		if (this.repository.getNameRepository().nameExists(registerNameTransactionData.getName()))
-			return ValidationResult.NAME_ALREADY_REGISTERED;
-
 		// Check fee is positive
 		if (registerNameTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
-
-		// Check reference is correct
-		if (!Arrays.equals(registrant.getLastReference(), registerNameTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
 
 		// Check issuer has enough funds
 		if (registrant.getConfirmedBalance(Asset.QORA).compareTo(registerNameTransactionData.getFee()) < 0)
@@ -120,19 +107,25 @@ public class RegisterNameTransaction extends Transaction {
 	}
 
 	@Override
+	public ValidationResult isProcessable() throws DataException {
+		// Check the name isn't already taken
+		if (this.repository.getNameRepository().nameExists(registerNameTransactionData.getName()))
+			return ValidationResult.NAME_ALREADY_REGISTERED;
+
+		Account registrant = getRegistrant();
+
+		// If accounts are only allowed one registered name then check for this
+		if (BlockChain.getInstance().oneNamePerAccount() && !this.repository.getNameRepository().getNamesByOwner(registrant.getAddress()).isEmpty())
+			return ValidationResult.MULTIPLE_NAMES_FORBIDDEN;
+
+		return ValidationResult.OK;
+	}
+
+	@Override
 	public void process() throws DataException {
 		// Register Name
 		Name name = new Name(this.repository, registerNameTransactionData);
 		name.register();
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update registrant's balance
-		Account registrant = getRegistrant();
-		registrant.setConfirmedBalance(Asset.QORA, registrant.getConfirmedBalance(Asset.QORA).subtract(registerNameTransactionData.getFee()));
-
-		// Update registrant's reference
-		registrant.setLastReference(registerNameTransactionData.getSignature());
 	}
 
 	@Override
@@ -140,15 +133,6 @@ public class RegisterNameTransaction extends Transaction {
 		// Unregister name
 		Name name = new Name(this.repository, registerNameTransactionData.getName());
 		name.unregister();
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update registrant's balance
-		Account registrant = getRegistrant();
-		registrant.setConfirmedBalance(Asset.QORA, registrant.getConfirmedBalance(Asset.QORA).add(registerNameTransactionData.getFee()));
-
-		// Update registrant's reference
-		registrant.setLastReference(registerNameTransactionData.getReference());
 	}
 
 }

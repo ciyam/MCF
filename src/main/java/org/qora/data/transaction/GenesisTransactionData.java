@@ -6,7 +6,6 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
 import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
-import org.qora.account.GenesisAccount;
 import org.qora.asset.Asset;
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -35,25 +34,20 @@ public class GenesisTransactionData extends TransactionData {
 		super(TransactionType.GENESIS);
 	}
 
-	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount, long assetId, byte[] signature) {
-		// no groupID, Zero fee
-		super(TransactionType.GENESIS, timestamp, 0, null, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, signature);
+	/** From repository (V2) */
+	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount, long assetId) {
+		// No groupID, null reference, zero fee, no approval required, height always 1
+		// super(TransactionType.GENESIS, timestamp, Group.NO_GROUP, null, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, ApprovalStatus.NOT_REQUIRED, 1, signature);
+		super(TransactionType.GENESIS, baseTransactionData);
 
 		this.recipient = recipient;
 		this.amount = amount;
 		this.assetId = assetId;
 	}
 
-	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount, byte[] signature) {
-		this(timestamp, recipient, amount, Asset.QORA, signature);
-	}
-
-	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount, long assetId) {
-		this(timestamp, recipient, amount, assetId, null);
-	}
-
-	public GenesisTransactionData(long timestamp, String recipient, BigDecimal amount) {
-		this(timestamp, recipient, amount, Asset.QORA, null);
+	/** From repository (V1, where asset locked to QORA) */
+	public GenesisTransactionData(BaseTransactionData baseTransactionData, String recipient, BigDecimal amount) {
+		this(baseTransactionData, recipient, amount, Asset.QORA);
 	}
 
 	// Getters/Setters

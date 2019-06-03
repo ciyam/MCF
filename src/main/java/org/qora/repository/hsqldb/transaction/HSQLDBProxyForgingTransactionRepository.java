@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
@@ -16,9 +17,10 @@ public class HSQLDBProxyForgingTransactionRepository extends HSQLDBTransactionRe
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT recipient, proxy_public_key, share, previous_share FROM ProxyForgingTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT recipient, proxy_public_key, share, previous_share FROM ProxyForgingTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -27,7 +29,7 @@ public class HSQLDBProxyForgingTransactionRepository extends HSQLDBTransactionRe
 			BigDecimal share = resultSet.getBigDecimal(3);
 			BigDecimal previousShare = resultSet.getBigDecimal(4);
 
-			return new ProxyForgingTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, proxyPublicKey, share, previousShare, fee, signature);
+			return new ProxyForgingTransactionData(baseTransactionData, recipient, proxyPublicKey, share, previousShare);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch proxy forging transaction from repository", e);
 		}

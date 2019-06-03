@@ -305,6 +305,7 @@ public class AddressesResource {
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.INVALID_CRITERIA, ApiError.REPOSITORY_ISSUE})
 	public List<ProxyForgerData> getProxying(@QueryParam("proxiedFor") List<String> recipients,
 			@QueryParam("proxiedBy") List<String> forgers,
+			@QueryParam("involving") List<String> addresses,
 			@Parameter(
 			ref = "limit"
 			) @QueryParam("limit") Integer limit, @Parameter(
@@ -313,7 +314,7 @@ public class AddressesResource {
 				ref = "reverse"
 			) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getAccountRepository().findProxyAccounts(recipients, forgers, limit, offset, reverse);
+			return repository.getAccountRepository().findProxyAccounts(recipients, forgers, addresses, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

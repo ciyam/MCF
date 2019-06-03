@@ -14,12 +14,14 @@ import org.ciyam.at.MachineState;
 import org.ciyam.at.OpCode;
 import org.ciyam.at.Timestamp;
 import org.qora.account.Account;
+import org.qora.account.GenesisAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
 import org.qora.data.at.ATData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.ATTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.MessageTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
@@ -268,8 +270,9 @@ public class QoraATAPI extends API {
 		byte[] reference = this.getLastReference();
 		BigDecimal amount = BigDecimal.valueOf(unscaledAmount, 8);
 
-		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference, this.atData.getATAddress(),
-				recipient.getAddress(), amount, this.atData.getAssetId(), new byte[0], BigDecimal.ZERO.setScale(8));
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
+				recipient.getAddress(), amount, this.atData.getAssetId(), new byte[0]);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions
@@ -286,8 +289,9 @@ public class QoraATAPI extends API {
 		long timestamp = this.getNextTransactionTimestamp();
 		byte[] reference = this.getLastReference();
 
-		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference,
-				this.atData.getATAddress(), recipient.getAddress(), BigDecimal.ZERO, this.atData.getAssetId(), message, BigDecimal.ZERO.setScale(8));
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
+				recipient.getAddress(), BigDecimal.ZERO, this.atData.getAssetId(), message);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions
@@ -312,8 +316,9 @@ public class QoraATAPI extends API {
 		byte[] reference = this.getLastReference();
 		BigDecimal amount = BigDecimal.valueOf(finalBalance, 8);
 
-		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference, this.atData.getATAddress(),
-				creator.getAddress(), amount, this.atData.getAssetId(), new byte[0], BigDecimal.ZERO.setScale(8));
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, Group.NO_GROUP, reference, GenesisAccount.PUBLIC_KEY, BigDecimal.ZERO, null);
+		ATTransactionData atTransactionData = new ATTransactionData(baseTransactionData, this.atData.getATAddress(),
+				creator.getAddress(), amount, this.atData.getAssetId(), new byte[0]);
 		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions

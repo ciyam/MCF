@@ -2,7 +2,6 @@ package org.qora.transaction;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -110,9 +109,6 @@ public class VoteOnPollTransaction extends Transaction {
 		// Check reference is correct
 		Account voter = getVoter();
 
-		if (!Arrays.equals(voter.getLastReference(), voteOnPollTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check voter has enough funds
 		if (voter.getConfirmedBalance(Asset.QORA).compareTo(voteOnPollTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -122,12 +118,7 @@ public class VoteOnPollTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// Update voter's balance
 		Account voter = getVoter();
-		voter.setConfirmedBalance(Asset.QORA, voter.getConfirmedBalance(Asset.QORA).subtract(voteOnPollTransactionData.getFee()));
-
-		// Update vote's reference
-		voter.setLastReference(voteOnPollTransactionData.getSignature());
 
 		VotingRepository votingRepository = this.repository.getVotingRepository();
 
@@ -153,12 +144,7 @@ public class VoteOnPollTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		// Update voter's balance
 		Account voter = getVoter();
-		voter.setConfirmedBalance(Asset.QORA, voter.getConfirmedBalance(Asset.QORA).add(voteOnPollTransactionData.getFee()));
-
-		// Update voter's reference
-		voter.setLastReference(voteOnPollTransactionData.getReference());
 
 		// Does this transaction have previous vote info?
 		VotingRepository votingRepository = this.repository.getVotingRepository();

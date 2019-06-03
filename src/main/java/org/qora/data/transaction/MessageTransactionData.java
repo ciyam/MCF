@@ -37,11 +37,11 @@ public class MessageTransactionData extends TransactionData {
 		this.creatorPublicKey = this.senderPublicKey;
 	}
 
-	public MessageTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, String recipient, Long assetId,
-			BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted, BigDecimal fee, byte[] signature) {
-		super(TransactionType.MESSAGE, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+	public MessageTransactionData(BaseTransactionData baseTransactionData,
+			int version, String recipient, Long assetId, BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted) {
+		super(TransactionType.MESSAGE, baseTransactionData);
 
-		this.senderPublicKey = senderPublicKey;
+		this.senderPublicKey = baseTransactionData.creatorPublicKey;
 		this.version = version;
 		this.recipient = recipient;
 
@@ -54,11 +54,6 @@ public class MessageTransactionData extends TransactionData {
 		this.data = data;
 		this.isText = isText;
 		this.isEncrypted = isEncrypted;
-	}
-
-	public MessageTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, String recipient, Long assetId,
-			BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, recipient, assetId, amount, data, isText, isEncrypted, fee, null);
 	}
 
 	// Getters/Setters

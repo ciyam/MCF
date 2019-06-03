@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.repository.DataException;
@@ -16,10 +17,10 @@ public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionR
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
 		String sql = "SELECT recipient, asset_id, amount, asset_name FROM TransferAssetTransactions JOIN Assets USING (asset_id) WHERE signature = ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -28,7 +29,7 @@ public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionR
 			BigDecimal amount = resultSet.getBigDecimal(3);
 			String assetName = resultSet.getString(4);
 
-			return new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, assetName, signature);
+			return new TransferAssetTransactionData(baseTransactionData, recipient, amount, assetId, assetName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transfer asset transaction from repository", e);
 		}

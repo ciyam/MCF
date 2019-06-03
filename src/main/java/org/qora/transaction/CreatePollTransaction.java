@@ -2,7 +2,6 @@ package org.qora.transaction;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -102,10 +101,6 @@ public class CreatePollTransaction extends Transaction {
 		if (!createPollTransactionData.getPollName().equals(createPollTransactionData.getPollName().toLowerCase()))
 			return ValidationResult.NAME_NOT_LOWER_CASE;
 
-		// Check the poll name isn't already taken
-		if (this.repository.getVotingRepository().pollExists(createPollTransactionData.getPollName()))
-			return ValidationResult.POLL_ALREADY_EXISTS;
-
 		// In gen1 we tested for presence of existing votes but how could there be any if poll doesn't exist?
 
 		// Check number of options
@@ -137,12 +132,18 @@ public class CreatePollTransaction extends Transaction {
 		// Check reference is correct
 		Account creator = getCreator();
 
-		if (!Arrays.equals(creator.getLastReference(), createPollTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check issuer has enough funds
 		if (creator.getConfirmedBalance(Asset.QORA).compareTo(createPollTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
+
+		return ValidationResult.OK;
+	}
+
+	@Override
+	public ValidationResult isProcessable() throws DataException {
+		// Check the poll name isn't already taken
+		if (this.repository.getVotingRepository().pollExists(createPollTransactionData.getPollName()))
+			return ValidationResult.POLL_ALREADY_EXISTS;
 
 		return ValidationResult.OK;
 	}
@@ -152,15 +153,6 @@ public class CreatePollTransaction extends Transaction {
 		// Publish poll to allow voting
 		Poll poll = new Poll(this.repository, createPollTransactionData);
 		poll.publish();
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update creator's balance
-		Account creator = getCreator();
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(createPollTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(createPollTransactionData.getSignature());
 	}
 
 	@Override
@@ -168,15 +160,6 @@ public class CreatePollTransaction extends Transaction {
 		// Unpublish poll
 		Poll poll = new Poll(this.repository, createPollTransactionData.getPollName());
 		poll.unpublish();
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update creator's balance
-		Account creator = getCreator();
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(createPollTransactionData.getFee()));
-
-		// Update creator's reference
-		creator.setLastReference(createPollTransactionData.getReference());
 	}
 
 }

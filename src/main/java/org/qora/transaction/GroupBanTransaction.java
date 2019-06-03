@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -101,10 +100,6 @@ public class GroupBanTransaction extends Transaction {
 		if (groupBanTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference
-		if (!Arrays.equals(admin.getLastReference(), groupBanTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check admin has enough funds
 		if (admin.getConfirmedBalance(Asset.QORA).compareTo(groupBanTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -120,13 +115,6 @@ public class GroupBanTransaction extends Transaction {
 
 		// Save this transaction with updated member/admin references to transactions that can help restore state
 		this.repository.getTransactionRepository().save(groupBanTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).subtract(groupBanTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupBanTransactionData.getSignature());
 	}
 
 	@Override
@@ -137,13 +125,6 @@ public class GroupBanTransaction extends Transaction {
 
 		// Save this transaction with removed member/admin references
 		this.repository.getTransactionRepository().save(groupBanTransactionData);
-
-		// Update admin's balance
-		Account admin = getAdmin();
-		admin.setConfirmedBalance(Asset.QORA, admin.getConfirmedBalance(Asset.QORA).add(groupBanTransactionData.getFee()));
-
-		// Update admin's reference
-		admin.setLastReference(groupBanTransactionData.getReference());
 	}
 
 }

@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -75,11 +73,13 @@ public class GroupBanTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public GroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member,
-			String reason, int timeToLive, byte[] memberReference, byte[] adminReference, byte[] joinInviteReference, Integer previousGroupId, BigDecimal fee, byte[] signature) {
-		super(TransactionType.GROUP_BAN, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+	/** From repository */
+	public GroupBanTransactionData(BaseTransactionData baseTransactionData,
+			int groupId, String member, String reason, int timeToLive,
+			byte[] memberReference, byte[] adminReference, byte[] joinInviteReference, Integer previousGroupId) {
+		super(TransactionType.GROUP_BAN, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.offender = member;
 		this.reason = reason;
@@ -90,10 +90,9 @@ public class GroupBanTransactionData extends TransactionData {
 		this.previousGroupId = previousGroupId;
 	}
 
-	/** Constructor typically used after deserialization */
-	public GroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String offender, String reason,
-			int timeToLive, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, offender, reason, timeToLive, null, null, null, null, fee, signature);
+	/** From network/API */
+	public GroupBanTransactionData(BaseTransactionData baseTransactionData, int groupId, String member, String reason, int timeToLive) {
+		this(baseTransactionData, groupId, member, reason, timeToLive, null, null, null, null);
 	}
 
 	// Getters / setters

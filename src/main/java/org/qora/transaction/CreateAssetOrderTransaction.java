@@ -178,16 +178,6 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		Account creator = getCreator();
-
-		// Update creator's balance due to fee
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).subtract(createOrderTransactionData.getFee()));
-
-		// Update creator's last reference
-		creator.setLastReference(createOrderTransactionData.getSignature());
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		// Order Id is transaction's signature
 		byte[] orderId = createOrderTransactionData.getSignature();
 
@@ -201,22 +191,12 @@ public class CreateAssetOrderTransaction extends Transaction {
 
 	@Override
 	public void orphan() throws DataException {
-		Account creator = getCreator();
-
-		// Update creator's balance due to fee
-		creator.setConfirmedBalance(Asset.QORA, creator.getConfirmedBalance(Asset.QORA).add(createOrderTransactionData.getFee()));
-
-		// Update creator's last reference
-		creator.setLastReference(createOrderTransactionData.getReference());
-
 		// Order Id is transaction's signature
 		byte[] orderId = createOrderTransactionData.getSignature();
 
 		// Orphan the order itself
 		OrderData orderData = this.repository.getAssetRepository().fromOrderId(orderId);
 		new Order(this.repository, orderData).orphan();
-
-		// We would save updated transaction at this point, but it hasn't been modified
 	}
 
 }

@@ -108,12 +108,14 @@ public class AtTransaction extends Transaction {
 	// Processing
 
 	@Override
-	public ValidationResult isValid() throws DataException {
+	public boolean hasValidReference() throws DataException {
 		// Check reference is correct
 		Account atAccount = getATAccount();
-		if (!Arrays.equals(atAccount.getLastReference(), atTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
+		return Arrays.equals(atAccount.getLastReference(), atTransactionData.getReference());
+	}
 
+	@Override
+	public ValidationResult isValid() throws DataException {
 		if (this.atTransactionData.getMessage().length > MAX_DATA_SIZE)
 			return ValidationResult.INVALID_DATA_LENGTH;
 
@@ -159,8 +161,6 @@ public class AtTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		if (this.atTransactionData.getAmount() != null) {
 			Account sender = getATAccount();
 			Account recipient = getRecipient();
@@ -173,6 +173,14 @@ public class AtTransaction extends Transaction {
 
 			// Update recipient's balance
 			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId).add(amount));
+		}
+	}
+
+	@Override
+	public void processReferencesAndFees() throws DataException {
+		if (this.atTransactionData.getAmount() != null) {
+			Account recipient = getRecipient();
+			long assetId = this.atTransactionData.getAssetId();
 
 			// For QORA amounts only: if recipient has no reference yet, then this is their starting reference
 			if (assetId == Asset.QORA && recipient.getLastReference() == null)
@@ -196,6 +204,17 @@ public class AtTransaction extends Transaction {
 
 			// Update recipient's balance
 			recipient.setConfirmedBalance(assetId, recipient.getConfirmedBalance(assetId).subtract(amount));
+		}
+
+		// As AT_TRANSACTIONs are really part of a block, the caller (Block) will probably delete this transaction after orphaning
+	}
+
+	@Override
+	public void orphanReferencesAndFees() throws DataException {
+		if (this.atTransactionData.getAmount() != null) {
+			Account recipient = getRecipient();
+
+			long assetId = this.atTransactionData.getAssetId();
 
 			/*
 			 * For QORA amounts only: If recipient's last reference is this transaction's signature, then they can't have made any transactions of their own
@@ -204,10 +223,6 @@ public class AtTransaction extends Transaction {
 			if (assetId == Asset.QORA && Arrays.equals(recipient.getLastReference(), this.atTransactionData.getSignature()))
 				recipient.setLastReference(null);
 		}
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// As AT_TRANSACTIONs are really part of a block, the caller (Block) will probably delete this transaction after orphaning
 	}
 
 }

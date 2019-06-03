@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -32,23 +30,19 @@ public class VoteOnPollTransactionData extends TransactionData {
 		this.creatorPublicKey = this.voterPublicKey;
 	}
 
-	public VoteOnPollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] voterPublicKey, String pollName, int optionIndex,
-			Integer previousOptionIndex, BigDecimal fee, byte[] signature) {
-		super(TransactionType.VOTE_ON_POLL, timestamp, txGroupId, reference, voterPublicKey, fee, signature);
+	/** From repository */
+	public VoteOnPollTransactionData(BaseTransactionData baseTransactionData, String pollName, int optionIndex, Integer previousOptionIndex) {
+		super(TransactionType.VOTE_ON_POLL, baseTransactionData);
 
-		this.voterPublicKey = voterPublicKey;
+		this.voterPublicKey = baseTransactionData.creatorPublicKey;
 		this.pollName = pollName;
 		this.optionIndex = optionIndex;
 		this.previousOptionIndex = previousOptionIndex;
 	}
 
-	public VoteOnPollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] voterPublicKey, String pollName, int optionIndex,
-			BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, voterPublicKey, pollName, optionIndex, null, fee, signature);
-	}
-
-	public VoteOnPollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] voterPublicKey, String pollName, int optionIndex, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, voterPublicKey, pollName, optionIndex, null, fee, null);
+	/** From network/API */
+	public VoteOnPollTransactionData(BaseTransactionData baseTransactionData, String pollName, int optionIndex) {
+		this(baseTransactionData, pollName, optionIndex, null);
 	}
 
 	// Getters / setters

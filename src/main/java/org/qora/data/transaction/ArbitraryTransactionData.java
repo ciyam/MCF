@@ -1,6 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import javax.xml.bind.Unmarshaller;
@@ -52,12 +51,12 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.creatorPublicKey = this.senderPublicKey;
 	}
 
-	/** Reconstructing a V3 arbitrary transaction with signature */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service,
-			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee, byte[] signature) {
-		super(TransactionType.ARBITRARY, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+	/** V3 */
+	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
+			int version, int service, byte[] data, DataType dataType, List<PaymentData> payments) {
+		super(TransactionType.ARBITRARY, baseTransactionData);
 
-		this.senderPublicKey = senderPublicKey;
+		this.senderPublicKey = baseTransactionData.creatorPublicKey;
 		this.version = version;
 		this.service = service;
 		this.data = data;
@@ -65,22 +64,10 @@ public class ArbitraryTransactionData extends TransactionData {
 		this.payments = payments;
 	}
 
-	/** Constructing a new V3 arbitrary transaction without signature */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service,
-			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, payments, fee, null);
-	}
-
-	/** Reconstructing a V1 arbitrary transaction with signature */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
-			DataType dataType, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, null, fee, signature);
-	}
-
-	/** Constructing a new V1 arbitrary transaction without signature */
-	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
-			DataType dataType, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, null, fee, null);
+	/** V1 */
+	public ArbitraryTransactionData(BaseTransactionData baseTransactionData,
+			int version, int service, byte[] data, DataType dataType) {
+		this(baseTransactionData, version, service, data, dataType, null);
 	}
 
 	// Getters/Setters

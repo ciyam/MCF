@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.CreateAssetOrderTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -16,14 +17,14 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		String sql = "SELECT have_asset_id, amount, want_asset_id, price, HaveAsset.asset_name, WantAsset.asset_name "
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT have_asset_id, amount, want_asset_id, price, HaveAsset.asset_name, WantAsset.asset_name "
 				+ "FROM CreateAssetOrderTransactions "
 				+ "JOIN Assets AS HaveAsset ON HaveAsset.asset_id = have_asset_id "
 				+ "JOIN Assets AS WantAsset ON WantAsset.asset_id = want_asset_id "
 				+ "WHERE signature = ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -34,7 +35,7 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 			String haveAssetName = resultSet.getString(5);
 			String wantAssetName = resultSet.getString(6);
 
-			return new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, haveAssetName, wantAssetName, signature);
+			return new CreateAssetOrderTransactionData(baseTransactionData, haveAssetId, wantAssetId, amount, price, haveAssetName, wantAssetName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create order transaction from repository", e);
 		}

@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.qora.account.PrivateKeyAccount;
 import org.qora.crypto.Crypto;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.EnableForgingTransactionData;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
@@ -26,7 +27,8 @@ public class AccountUtils {
 		byte[] reference = sendingAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		TransactionData transactionData = new PaymentTransactionData(timestamp, txGroupId, reference, sendingAccount.getPublicKey(), recipientAccount.getAddress(), amount, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, sendingAccount.getPublicKey(), fee, null);
+		TransactionData transactionData = new PaymentTransactionData(baseTransactionData, recipientAccount.getAddress(), amount);
 
 		TransactionUtils.signAndForge(repository, transactionData, sendingAccount);
 	}
@@ -41,7 +43,8 @@ public class AccountUtils {
 		byte[] proxyPrivateKey = forgingAccount.getSharedSecret(recipientAccount.getPublicKey());
 		PrivateKeyAccount proxyAccount = new PrivateKeyAccount(null, proxyPrivateKey);
 
-		TransactionData transactionData = new ProxyForgingTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), recipientAccount.getAddress(), proxyAccount.getPublicKey(), share, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), fee, null);
+		TransactionData transactionData = new ProxyForgingTransactionData(baseTransactionData, recipientAccount.getAddress(), proxyAccount.getPublicKey(), share);
 
 		TransactionUtils.signAndForge(repository, transactionData, forgingAccount);
 
@@ -54,7 +57,8 @@ public class AccountUtils {
 		byte[] reference = forgingAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		return new EnableForgingTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), Crypto.toAddress(recipientPublicKey), fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), fee, null);
+		return new EnableForgingTransactionData(baseTransactionData, Crypto.toAddress(recipientPublicKey));
 	}
 
 	public static TransactionData createEnableForging(Repository repository, String forger, String recipient) throws DataException {

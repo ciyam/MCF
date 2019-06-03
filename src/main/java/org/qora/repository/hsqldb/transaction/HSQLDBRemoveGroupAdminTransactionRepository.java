@@ -1,10 +1,10 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.RemoveGroupAdminTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -16,9 +16,10 @@ public class HSQLDBRemoveGroupAdminTransactionRepository extends HSQLDBTransacti
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_id, admin, admin_reference FROM RemoveGroupAdminTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT group_id, admin, admin_reference FROM RemoveGroupAdminTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -26,7 +27,7 @@ public class HSQLDBRemoveGroupAdminTransactionRepository extends HSQLDBTransacti
 			String admin = resultSet.getString(2);
 			byte[] adminReference = resultSet.getBytes(3);
 
-			return new RemoveGroupAdminTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, admin, adminReference, fee, signature);
+			return new RemoveGroupAdminTransactionData(baseTransactionData, groupId, admin, adminReference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch remove group admin transaction from repository", e);
 		}

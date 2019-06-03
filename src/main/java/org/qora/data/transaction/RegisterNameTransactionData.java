@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -36,18 +34,14 @@ public class RegisterNameTransactionData extends TransactionData {
 		this.creatorPublicKey = this.registrantPublicKey;
 	}
 
-	public RegisterNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] registrantPublicKey, String owner, String name, String data,
-			BigDecimal fee, byte[] signature) {
-		super(TransactionType.REGISTER_NAME, timestamp, txGroupId, reference, registrantPublicKey, fee, signature);
+	/** From repository */
+	public RegisterNameTransactionData(BaseTransactionData baseTransactionData, String owner, String name, String data) {
+		super(TransactionType.REGISTER_NAME, baseTransactionData);
 
-		this.registrantPublicKey = registrantPublicKey;
+		this.registrantPublicKey = baseTransactionData.creatorPublicKey;
 		this.owner = owner;
 		this.name = name;
 		this.data = data;
-	}
-
-	public RegisterNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] registrantPublicKey, String owner, String name, String data, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, registrantPublicKey, owner, name, data, fee, null);
 	}
 
 	// Getters / setters

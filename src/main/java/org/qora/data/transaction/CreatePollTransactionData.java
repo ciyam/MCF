@@ -1,6 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import javax.xml.bind.annotation.XmlAccessType;
@@ -30,19 +29,14 @@ public class CreatePollTransactionData extends TransactionData {
 		super(TransactionType.CREATE_POLL);
 	}
 
-	public CreatePollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner,
-			String pollName, String description, List<PollOptionData> pollOptions, BigDecimal fee, byte[] signature) {
-		super(Transaction.TransactionType.CREATE_POLL, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+	public CreatePollTransactionData(BaseTransactionData baseTransactionData,
+			String owner, String pollName, String description, List<PollOptionData> pollOptions) {
+		super(Transaction.TransactionType.CREATE_POLL, baseTransactionData);
 
 		this.owner = owner;
 		this.pollName = pollName;
 		this.description = description;
 		this.pollOptions = pollOptions;
-	}
-
-	public CreatePollTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner,
-			String pollName, String description, List<PollOptionData> pollOptions, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, creatorPublicKey, owner, pollName, description, pollOptions, fee, null);
 	}
 
 	// Getters/setters

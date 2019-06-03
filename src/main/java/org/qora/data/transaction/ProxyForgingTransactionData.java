@@ -42,24 +42,22 @@ public class ProxyForgingTransactionData extends TransactionData {
 		this.creatorPublicKey = this.forgerPublicKey;
 	}
 
-
-	public ProxyForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] forgerPublicKey, String recipient, byte[] proxyPublicKey, BigDecimal share, BigDecimal previousShare, BigDecimal fee, byte[] signature) {
-		super(TransactionType.PROXY_FORGING, timestamp, groupId, reference, forgerPublicKey, fee, signature);
+	/** From repository */
+	public ProxyForgingTransactionData(BaseTransactionData baseTransactionData,
+			String recipient, byte[] proxyPublicKey, BigDecimal share, BigDecimal previousShare) {
+		super(TransactionType.PROXY_FORGING, baseTransactionData);
  
-		this.forgerPublicKey = forgerPublicKey;
+		this.forgerPublicKey = baseTransactionData.creatorPublicKey;
 		this.recipient = recipient;
 		this.proxyPublicKey = proxyPublicKey;
 		this.share = share;
 		this.previousShare = previousShare;
 	}
 
-	public ProxyForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] forgerPublicKey, String recipient, byte[] proxyPublicKey, BigDecimal share, BigDecimal fee) {
-		this(timestamp, groupId, reference, forgerPublicKey, recipient, proxyPublicKey, share, fee, null);
-	}
-
-	// Used in deserialization context
-	public ProxyForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] forgerPublicKey, String recipient, byte[] proxyPublicKey, BigDecimal share, BigDecimal fee, byte[] signature) {
-		this(timestamp, groupId, reference, forgerPublicKey, recipient, proxyPublicKey, share, null, fee, signature);
+	/** From network/API */
+	public ProxyForgingTransactionData(BaseTransactionData baseTransactionData,
+			String recipient, byte[] proxyPublicKey, BigDecimal share) {
+		this(baseTransactionData, recipient, proxyPublicKey, share, null);
 	}
 
 	// Getters / setters

@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -55,20 +53,19 @@ public class GroupApprovalTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public GroupApprovalTransactionData(long timestamp, int groupId, byte[] reference, byte[] adminPublicKey, byte[] pendingSignature, boolean approval,
-			byte[] priorReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.GROUP_APPROVAL, timestamp, groupId, reference, adminPublicKey, fee, signature);
+	/** From repository */
+	public GroupApprovalTransactionData(BaseTransactionData baseTransactionData, byte[] pendingSignature, boolean approval, byte[] priorReference) {
+		super(TransactionType.GROUP_APPROVAL, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.pendingSignature = pendingSignature;
 		this.approval = approval;
 		this.priorReference = priorReference;
 	}
 
-	/** Constructor typically used after deserialization */
-	public GroupApprovalTransactionData(long timestamp, int groupId, byte[] reference, byte[] adminPublicKey, byte[] pendingSignature, boolean approval,
-			BigDecimal fee, byte[] signature) {
-		this(timestamp, groupId, reference, adminPublicKey, pendingSignature, approval, null, fee, signature);
+	/** From network/API */
+	public GroupApprovalTransactionData(BaseTransactionData baseTransactionData, byte[] pendingSignature, boolean approval) {
+		this(baseTransactionData, pendingSignature, approval, null);
 	}
 
 	// Getters / setters

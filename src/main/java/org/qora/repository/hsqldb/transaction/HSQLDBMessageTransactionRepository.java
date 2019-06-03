@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.MessageTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -16,9 +17,10 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT version, recipient, is_text, is_encrypted, amount, asset_id, data FROM MessageTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT version, recipient, is_text, is_encrypted, amount, asset_id, data FROM MessageTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -30,13 +32,12 @@ public class HSQLDBMessageTransactionRepository extends HSQLDBTransactionReposit
 
 			// Special null-checking for asset ID
 			Long assetId = resultSet.getLong(6);
-			if (resultSet.wasNull())
+			if (assetId == 0 && resultSet.wasNull())
 				assetId = null;
 
 			byte[] data = resultSet.getBytes(7);
 
-			return new MessageTransactionData(timestamp, txGroupId, reference, creatorPublicKey, version, recipient, assetId, amount, data, isText, isEncrypted,
-					fee, signature);
+			return new MessageTransactionData(baseTransactionData, version, recipient, assetId, amount, data, isText, isEncrypted);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch message transaction from repository", e);
 		}

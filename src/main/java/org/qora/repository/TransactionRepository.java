@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
+import org.qora.data.group.GroupApprovalData;
 import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.TransferAssetTransactionData;
@@ -88,21 +89,44 @@ public interface TransactionRepository {
 	 * @return list of transactions, or empty if none.
 	 * @throws DataException
 	 */
-	public List<TransactionData> getPendingTransactions(Integer txGroupId, Integer limit, Integer offset, Boolean reverse) throws DataException;
-
-	/** Returns number of approvals for transaction with given signature. */
-	public int countTransactionApprovals(int txGroupId, byte[] signature) throws DataException;
+	public List<TransactionData> getApprovalPendingTransactions(Integer txGroupId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
-	 * Returns list of latest approval decisions per admin for given pending transaction signature.
+	 * Returns list of transactions pending approval that can be resolved as of passed blockHeight.
+	 * <p>
+	 * Typically called by Block.process().
 	 * 
-	 * @param signature
-	 * @param adminPublicKey
-	 *            restrict results to decision by this admin, pass null for all admins' results
+	 * @param blockHeight
 	 * @return
 	 * @throws DataException
 	 */
-	public List<GroupApprovalTransactionData> getLatestApprovals(byte[] pendingSignature, byte[] adminPublicKey) throws DataException;
+	public List<TransactionData> getApprovalPendingTransactions(int blockHeight) throws DataException;
+
+	/**
+	 * Returns list of transactions that have now expired as of passed blockHeight.
+	 * <p>
+	 * Typically called by Block.process().
+	 * 
+	 * @param blockHeight
+	 * @return
+	 * @throws DataException
+	 */
+	public List<TransactionData> getApprovalExpiringTransactions(int blockHeight) throws DataException;
+
+	/** Returns list of transactions that had group-approval decided at passed block height. */
+	public List<TransactionData> getApprovalTransactionDecidedAtHeight(int approvalHeight) throws DataException;
+
+	/** Returns latest approval decision by given admin for given pending transaction signature. */
+	public GroupApprovalTransactionData getLatestApproval(byte[] pendingSignature, byte[] adminPublicKey) throws DataException;
+
+	/**
+	 * Returns list of latest approval decisions for given pending transaction signature.
+	 * 
+	 * @param pendingSignature
+	 * @return
+	 * @throws DataException
+	 */
+	public GroupApprovalData getApprovalData(byte[] pendingSignature) throws DataException;
 
 	/**
 	 * Returns whether transaction is confirmed or not.
@@ -142,6 +166,10 @@ public interface TransactionRepository {
 	 * @throws DataException
 	 */
 	public void confirmTransaction(byte[] signature) throws DataException;
+
+	public void updateBlockHeight(byte[] signature, Integer height) throws DataException;
+
+	public void updateApprovalHeight(byte[] signature, Integer approvalHeight) throws DataException;
 
 	/**
 	 * Add transaction to unconfirmed transactions pile.

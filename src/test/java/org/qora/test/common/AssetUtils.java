@@ -8,6 +8,7 @@ import java.util.Map;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.BlockChain;
 import org.qora.data.asset.OrderData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.CancelAssetOrderTransactionData;
 import org.qora.data.transaction.CreateAssetOrderTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
@@ -33,7 +34,8 @@ public class AssetUtils {
 		byte[] reference = account.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		TransactionData transactionData = new IssueAssetTransactionData(timestamp, AssetUtils.txGroupId, reference, account.getPublicKey(), account.getAddress(), assetName, "desc", quantity, isDivisible, "{}", AssetUtils.fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, AssetUtils.txGroupId, reference, account.getPublicKey(), AssetUtils.fee, null);
+		TransactionData transactionData = new IssueAssetTransactionData(baseTransactionData, account.getAddress(), assetName, "desc", quantity, isDivisible, "{}");
 
 		TransactionUtils.signAndForge(repository, transactionData, account);
 
@@ -47,7 +49,8 @@ public class AssetUtils {
 		byte[] reference = fromAccount.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		TransactionData transactionData = new TransferAssetTransactionData(timestamp, AssetUtils.txGroupId, reference, fromAccount.getPublicKey(), toAccount.getAddress(), amount, assetId, AssetUtils.fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, AssetUtils.txGroupId, reference, fromAccount.getPublicKey(), AssetUtils.fee, null);
+		TransactionData transactionData = new TransferAssetTransactionData(baseTransactionData, toAccount.getAddress(), amount, assetId);
 
 		TransactionUtils.signAndForge(repository, transactionData, fromAccount);
 	}
@@ -58,7 +61,8 @@ public class AssetUtils {
 		byte[] reference = account.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		TransactionData transactionData = new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, account.getPublicKey(), haveAssetId, wantAssetId, amount, price, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, AssetUtils.txGroupId, reference, account.getPublicKey(), AssetUtils.fee, null);
+		TransactionData transactionData = new CreateAssetOrderTransactionData(baseTransactionData, haveAssetId, wantAssetId, amount, price);
 
 		TransactionUtils.signAndForge(repository, transactionData, account);
 
@@ -71,7 +75,8 @@ public class AssetUtils {
 		byte[] reference = account.getLastReference();
 		long timestamp = repository.getTransactionRepository().fromSignature(reference).getTimestamp() + 1;
 
-		TransactionData transactionData = new CancelAssetOrderTransactionData(timestamp, txGroupId, reference, account.getPublicKey(), orderId, fee);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, AssetUtils.txGroupId, reference, account.getPublicKey(), AssetUtils.fee, null);
+		TransactionData transactionData = new CancelAssetOrderTransactionData(baseTransactionData, orderId);
 
 		TransactionUtils.signAndForge(repository, transactionData, account);
 	}

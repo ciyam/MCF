@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -77,21 +76,27 @@ public class PaymentTransaction extends Transaction {
 
 	@Override
 	public ValidationResult isValid() throws DataException {
-		// Check reference is correct
-		Account sender = getSender();
-		if (!Arrays.equals(sender.getLastReference(), paymentTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Wrap and delegate final payment checks to Payment class
 		return new Payment(this.repository).isValid(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee());
 	}
 
 	@Override
-	public void process() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
+	public ValidationResult isProcessable() throws DataException {
+		// Wrap and delegate final processable checks to Payment class
+		return new Payment(this.repository).isProcessable(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee());
+	}
 
-		// Wrap and delegate payment processing to Payment class. Only update recipient's last reference if transferring QORA.
+	@Override
+	public void process() throws DataException {
+		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
+				paymentTransactionData.getSignature());
+	}
+
+	@Override
+	public void processReferencesAndFees() throws DataException {
+		// Wrap and delegate references processing to Payment class. Only update recipient's last reference if transferring QORA.
+		new Payment(this.repository).processReferencesAndFees(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
 				paymentTransactionData.getSignature(), false);
 	}
 
@@ -99,9 +104,14 @@ public class PaymentTransaction extends Transaction {
 	public void orphan() throws DataException {
 		// Wrap and delegate payment processing to Payment class. Only revert recipient's last reference if transferring QORA.
 		new Payment(this.repository).orphan(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
-				paymentTransactionData.getSignature(), paymentTransactionData.getReference(), false);
+				paymentTransactionData.getSignature(), paymentTransactionData.getReference());
+	}
 
-		// We would save updated transaction at this point, but it hasn't been modified
+	@Override
+	public void orphanReferencesAndFees() throws DataException {
+		// Wrap and delegate payment processing to Payment class. Only revert recipient's last reference if transferring QORA.
+		new Payment(this.repository).orphanReferencesAndFees(paymentTransactionData.getSenderPublicKey(), getPaymentData(), paymentTransactionData.getFee(),
+				paymentTransactionData.getSignature(), paymentTransactionData.getReference(), false);
 	}
 
 }

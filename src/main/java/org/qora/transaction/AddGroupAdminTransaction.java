@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -10,7 +9,6 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
 import org.qora.data.transaction.AddGroupAdminTransactionData;
-import org.qora.data.group.GroupData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
@@ -78,16 +76,19 @@ public class AddGroupAdminTransaction extends Transaction {
 		if (!Crypto.isValidAddress(addGroupAdminTransactionData.getMember()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		GroupData groupData = this.repository.getGroupRepository().fromGroupId(addGroupAdminTransactionData.getGroupId());
-
 		// Check group exists
-		if (groupData == null)
+		if (!this.repository.getGroupRepository().groupExists(addGroupAdminTransactionData.getGroupId()))
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
+		// Check fee is positive
+		if (addGroupAdminTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
+			return ValidationResult.NEGATIVE_FEE;
+
 		Account owner = getOwner();
+		String groupOwner = this.repository.getGroupRepository().getOwner(addGroupAdminTransactionData.getGroupId());
 
 		// Check transaction's public key matches group's current owner
-		if (!owner.getAddress().equals(groupData.getOwner()))
+		if (!owner.getAddress().equals(groupOwner))
 			return ValidationResult.INVALID_GROUP_OWNER;
 
 		Account member = getMember();
@@ -100,15 +101,7 @@ public class AddGroupAdminTransaction extends Transaction {
 		if (this.repository.getGroupRepository().adminExists(addGroupAdminTransactionData.getGroupId(), member.getAddress()))
 			return ValidationResult.ALREADY_GROUP_ADMIN;
 
-		// Check fee is positive
-		if (addGroupAdminTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
-			return ValidationResult.NEGATIVE_FEE;
-
-		// Check reference
-		if (!Arrays.equals(owner.getLastReference(), addGroupAdminTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
-		// Check creator has enough funds
+		// Check group owner has enough funds
 		if (owner.getConfirmedBalance(Asset.QORA).compareTo(addGroupAdminTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
 
@@ -120,15 +113,6 @@ public class AddGroupAdminTransaction extends Transaction {
 		// Update Group adminship
 		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
 		group.promoteToAdmin(addGroupAdminTransactionData);
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).subtract(addGroupAdminTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(addGroupAdminTransactionData.getSignature());
 	}
 
 	@Override
@@ -136,15 +120,6 @@ public class AddGroupAdminTransaction extends Transaction {
 		// Revert group adminship
 		Group group = new Group(this.repository, addGroupAdminTransactionData.getGroupId());
 		group.unpromoteToAdmin(addGroupAdminTransactionData);
-
-		// We would save updated transaction at this point, but it hasn't been modified
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(addGroupAdminTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(addGroupAdminTransactionData.getReference());
 	}
 
 }

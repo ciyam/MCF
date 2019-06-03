@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -59,12 +57,13 @@ public class IssueAssetTransactionData extends TransactionData {
 		this.creatorPublicKey = this.issuerPublicKey;
 	}
 
-	public IssueAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] issuerPublicKey, Long assetId, String owner,
-			String assetName, String description, long quantity, boolean isDivisible, String data, BigDecimal fee, byte[] signature) {
-		super(TransactionType.ISSUE_ASSET, timestamp, txGroupId, reference, issuerPublicKey, fee, signature);
+	/** From repository */
+	public IssueAssetTransactionData(BaseTransactionData baseTransactionData,
+			Long assetId, String owner, String assetName, String description, long quantity, boolean isDivisible, String data) {
+		super(TransactionType.ISSUE_ASSET, baseTransactionData);
 
 		this.assetId = assetId;
-		this.issuerPublicKey = issuerPublicKey;
+		this.issuerPublicKey = baseTransactionData.creatorPublicKey;
 		this.owner = owner;
 		this.assetName = assetName;
 		this.description = description;
@@ -73,14 +72,9 @@ public class IssueAssetTransactionData extends TransactionData {
 		this.data = data;
 	}
 
-	public IssueAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] issuerPublicKey, String owner, String assetName,
-			String description, long quantity, boolean isDivisible, String data, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, issuerPublicKey, null, owner, assetName, description, quantity, isDivisible, data, fee, signature);
-	}
-
-	public IssueAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] issuerPublicKey, String owner, String assetName,
-			String description, long quantity, boolean isDivisible, String data, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, issuerPublicKey, null, owner, assetName, description, quantity, isDivisible, data, fee, null);
+	/** From network/API */
+	public IssueAssetTransactionData(BaseTransactionData baseTransactionData, String owner, String assetName, String description, long quantity, boolean isDivisible, String data) {
+		this(baseTransactionData, null, owner, assetName, description, quantity, isDivisible, data);
 	}
 
 	// Getters/Setters

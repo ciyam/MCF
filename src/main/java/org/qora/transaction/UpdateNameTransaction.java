@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -104,26 +103,32 @@ public class UpdateNameTransaction extends Transaction {
 		if (nameData.getCreationGroupId() != updateNameTransactionData.getTxGroupId())
 			return ValidationResult.TX_GROUP_ID_MISMATCH;
 
-		// Check name isn't currently for sale
-		if (nameData.getIsForSale())
-			return ValidationResult.NAME_ALREADY_FOR_SALE;
-
-		// Check transaction's public key matches name's current owner
 		Account owner = getOwner();
-		if (!owner.getAddress().equals(nameData.getOwner()))
-			return ValidationResult.INVALID_NAME_OWNER;
 
 		// Check fee is positive
 		if (updateNameTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference is correct
-		if (!Arrays.equals(owner.getLastReference(), updateNameTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check issuer has enough funds
 		if (owner.getConfirmedBalance(Asset.QORA).compareTo(updateNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
+
+		return ValidationResult.OK;
+	}
+
+	@Override
+	public ValidationResult isProcessable() throws DataException {
+		NameData nameData = this.repository.getNameRepository().fromName(updateNameTransactionData.getName());
+
+		// Check name isn't currently for sale
+		if (nameData.getIsForSale())
+			return ValidationResult.NAME_ALREADY_FOR_SALE;
+
+		Account owner = getOwner();
+
+		// Check transaction's public key matches name's current owner
+		if (!owner.getAddress().equals(nameData.getOwner()))
+			return ValidationResult.INVALID_NAME_OWNER;
 
 		return ValidationResult.OK;
 	}
@@ -136,13 +141,6 @@ public class UpdateNameTransaction extends Transaction {
 
 		// Save this transaction, now with updated "name reference" to previous transaction that updated name
 		this.repository.getTransactionRepository().save(updateNameTransactionData);
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).subtract(updateNameTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(updateNameTransactionData.getSignature());
 	}
 
 	@Override
@@ -153,13 +151,6 @@ public class UpdateNameTransaction extends Transaction {
 
 		// Save this transaction, now with removed "name reference"
 		this.repository.getTransactionRepository().save(updateNameTransactionData);
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA, owner.getConfirmedBalance(Asset.QORA).add(updateNameTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(updateNameTransactionData.getReference());
 	}
 
 }

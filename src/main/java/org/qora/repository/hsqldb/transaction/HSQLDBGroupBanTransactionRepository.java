@@ -1,10 +1,10 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.GroupBanTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -16,10 +16,10 @@ public class HSQLDBGroupBanTransactionRepository extends HSQLDBTransactionReposi
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT group_id, address, reason, time_to_live, member_reference, admin_reference, join_invite_reference, previous_group_id FROM GroupBanTransactions WHERE signature = ?",
-				signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT group_id, address, reason, time_to_live, member_reference, admin_reference, join_invite_reference, previous_group_id FROM GroupBanTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -32,11 +32,11 @@ public class HSQLDBGroupBanTransactionRepository extends HSQLDBTransactionReposi
 			byte[] joinInviteReference = resultSet.getBytes(7);
 
 			Integer previousGroupId = resultSet.getInt(8);
-			if (resultSet.wasNull())
+			if (previousGroupId == 0 && resultSet.wasNull())
 				previousGroupId = null;
 
-			return new GroupBanTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, offender, reason, timeToLive,
-					memberReference, adminReference, joinInviteReference, previousGroupId, fee, signature);
+			return new GroupBanTransactionData(baseTransactionData, groupId, offender, reason, timeToLive,
+					memberReference, adminReference, joinInviteReference, previousGroupId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group ban transaction from repository", e);
 		}

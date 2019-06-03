@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
 import org.qora.data.transaction.AddGroupAdminTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
@@ -58,7 +59,9 @@ public class AddGroupAdminTransactionTransformer extends TransactionTransformer 
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new AddGroupAdminTransactionData(timestamp, txGroupId, reference, ownerPublicKey, groupId, member, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+
+		return new AddGroupAdminTransactionData(baseTransactionData, groupId, member);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

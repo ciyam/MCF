@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -85,11 +84,6 @@ public class UpdateAssetTransaction extends Transaction {
 		if (assetData == null)
 			return ValidationResult.ASSET_DOES_NOT_EXIST;
 
-		// Check transaction's public key matches asset's current owner
-		PublicKeyAccount currentOwner = getOwner();
-		if (!assetData.getOwner().equals(currentOwner.getAddress()))
-			return ValidationResult.INVALID_ASSET_OWNER;
-
 		// Check new owner address is valid
 		if (!Crypto.isValidAddress(updateAssetTransactionData.getNewOwner()))
 			return ValidationResult.INVALID_ADDRESS;
@@ -113,13 +107,23 @@ public class UpdateAssetTransaction extends Transaction {
 		if (updateAssetTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference is correct
-		if (!Arrays.equals(currentOwner.getLastReference(), updateAssetTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
+		Account currentOwner = getOwner();
 
 		// Check current owner has enough funds
 		if (currentOwner.getConfirmedBalance(Asset.QORA).compareTo(updateAssetTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
+
+		return ValidationResult.OK;
+	}
+
+	@Override
+	public ValidationResult isProcessable() throws DataException {
+		// Check transaction's public key matches asset's current owner
+		Account currentOwner = getOwner();
+		AssetData assetData = this.repository.getAssetRepository().fromAssetId(updateAssetTransactionData.getAssetId());
+
+		if (!assetData.getOwner().equals(currentOwner.getAddress()))
+			return ValidationResult.INVALID_ASSET_OWNER;
 
 		return ValidationResult.OK;
 	}
@@ -132,14 +136,6 @@ public class UpdateAssetTransaction extends Transaction {
 
 		// Save this transaction, with updated "name reference" to previous transaction that updated name
 		this.repository.getTransactionRepository().save(updateAssetTransactionData);
-
-		// Update old owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA,
-				owner.getConfirmedBalance(Asset.QORA).subtract(updateAssetTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(updateAssetTransactionData.getSignature());
 	}
 
 	@Override
@@ -150,14 +146,6 @@ public class UpdateAssetTransaction extends Transaction {
 
 		// Save this transaction, with removed "name reference" to previous transaction that updated name
 		this.repository.getTransactionRepository().save(updateAssetTransactionData);
-
-		// Update owner's balance
-		Account owner = getOwner();
-		owner.setConfirmedBalance(Asset.QORA,
-				owner.getConfirmedBalance(Asset.QORA).add(updateAssetTransactionData.getFee()));
-
-		// Update owner's reference
-		owner.setLastReference(updateAssetTransactionData.getReference());
 	}
 
 }

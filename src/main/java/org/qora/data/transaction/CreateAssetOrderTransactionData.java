@@ -79,9 +79,9 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 	}
 
 	/** Constructs using data from repository, including optional asset names. */
-	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
-			BigDecimal amount, BigDecimal price, BigDecimal fee, String haveAssetName, String wantAssetName, byte[] signature) {
-		super(TransactionType.CREATE_ASSET_ORDER, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+	public CreateAssetOrderTransactionData(BaseTransactionData baseTransactionData,
+			long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, String haveAssetName, String wantAssetName) {
+		super(TransactionType.CREATE_ASSET_ORDER, baseTransactionData);
 
 		this.haveAssetId = haveAssetId;
 		this.wantAssetId = wantAssetId;
@@ -92,16 +92,9 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 		this.wantAssetName = wantAssetName;
 	}
 
-	/** Constructs using data from repository, excluding optional asset names. */
-	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
-			BigDecimal amount, BigDecimal price, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, null, null, signature);
-	}
-
-	/** Constructor typically used with data from network. */
-	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
-			BigDecimal amount, BigDecimal price, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, null);
+	/** Constructor excluding optional asset names. */
+	public CreateAssetOrderTransactionData(BaseTransactionData baseTransactionData, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price) {
+		this(baseTransactionData, haveAssetId, wantAssetId, amount, price, null, null);
 	}
 
 	// Getters/Setters

@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.MessageTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.MessageTransaction;
@@ -90,8 +91,9 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new MessageTransactionData(timestamp, txGroupId, reference, senderPublicKey, version, recipient, assetId, amount, data, isText, isEncrypted, fee,
-				signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+
+		return new MessageTransactionData(baseTransactionData, version, recipient, assetId, amount, data, isText, isEncrypted);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

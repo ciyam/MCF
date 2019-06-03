@@ -136,23 +136,31 @@ public class GenesisTransaction extends Transaction {
 
 	@Override
 	public void process() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
-
 		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
-
-		// Set recipient's starting reference (also creates account)
-		recipient.setLastReference(genesisTransactionData.getSignature());
 
 		// Update recipient's balance
 		recipient.setConfirmedBalance(Asset.QORA, genesisTransactionData.getAmount());
 	}
 
 	@Override
-	public void orphan() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
+	public void processReferencesAndFees() throws DataException {
+		// Do not attempt to update non-existent genesis account's reference!
 
+		Account recipient = new Account(repository, genesisTransactionData.getRecipient());
+
+		// Set recipient's starting reference (also creates account)
+		recipient.setLastReference(genesisTransactionData.getSignature());
+	}
+
+	@Override
+	public void orphan() throws DataException {
 		// Delete recipient's account (and balance)
 		this.repository.getAccountRepository().delete(genesisTransactionData.getRecipient());
+	}
+
+	@Override
+	public void orphanReferencesAndFees() throws DataException {
+		// Recipient's last reference removed thanks to delete() called by orphan() above.
 	}
 
 }

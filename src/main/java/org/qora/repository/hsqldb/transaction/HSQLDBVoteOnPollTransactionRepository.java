@@ -1,9 +1,9 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.VoteOnPollTransactionData;
 import org.qora.repository.DataException;
@@ -16,9 +16,10 @@ public class HSQLDBVoteOnPollTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT poll_name, option_index, previous_option_index FROM VoteOnPollTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT poll_name, option_index, previous_option_index FROM VoteOnPollTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
@@ -27,10 +28,10 @@ public class HSQLDBVoteOnPollTransactionRepository extends HSQLDBTransactionRepo
 
 			// Special null-checking for previous option index
 			Integer previousOptionIndex = resultSet.getInt(3);
-			if (resultSet.wasNull())
+			if (previousOptionIndex == 0 && resultSet.wasNull())
 				previousOptionIndex = null;
 
-			return new VoteOnPollTransactionData(timestamp, txGroupId, reference, creatorPublicKey, pollName, optionIndex, previousOptionIndex, fee, signature);
+			return new VoteOnPollTransactionData(baseTransactionData, pollName, optionIndex, previousOptionIndex);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch vote on poll transaction from repository", e);
 		}

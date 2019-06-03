@@ -2,7 +2,6 @@ package org.qora.transaction;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import org.qora.account.Account;
@@ -102,9 +101,6 @@ public class MultiPaymentTransaction extends Transaction {
 		// Check reference is correct
 		Account sender = getSender();
 
-		if (!Arrays.equals(sender.getLastReference(), multiPaymentTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check sender has enough funds for fee
 		// NOTE: in Gen1 pre-POWFIX-RELEASE transactions didn't have this check
 		if (multiPaymentTransactionData.getTimestamp() >= BlockChain.getInstance().getPowFixReleaseTimestamp()
@@ -115,11 +111,23 @@ public class MultiPaymentTransaction extends Transaction {
 	}
 
 	@Override
-	public void process() throws DataException {
-		// We would save updated transaction at this point, but it hasn't been modified
+	public ValidationResult isProcessable() throws DataException {
+		List<PaymentData> payments = multiPaymentTransactionData.getPayments();
 
-		// Wrap and delegate payment processing to Payment class. Always update recipients' last references regardless of asset.
+		return new Payment(this.repository).isProcessable(multiPaymentTransactionData.getSenderPublicKey(), payments, multiPaymentTransactionData.getFee());
+	}
+
+	@Override
+	public void process() throws DataException {
+		// Wrap and delegate payment processing to Payment class.
 		new Payment(this.repository).process(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
+				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature());
+	}
+
+	@Override
+	public void processReferencesAndFees() throws DataException {
+		// Wrap and delegate reference processing to Payment class. Always update recipients' last references regardless of asset.
+		new Payment(this.repository).processReferencesAndFees(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
 				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), true);
 	}
 
@@ -127,9 +135,14 @@ public class MultiPaymentTransaction extends Transaction {
 	public void orphan() throws DataException {
 		// Wrap and delegate payment processing to Payment class. Always revert recipients' last references regardless of asset.
 		new Payment(this.repository).orphan(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
-				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), multiPaymentTransactionData.getReference(), true);
+				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), multiPaymentTransactionData.getReference());
+	}
 
-		// We would save updated transaction at this point, but it hasn't been modified
+	@Override
+	public void orphanReferencesAndFees() throws DataException {
+		// Wrap and delegate reference processing to Payment class. Always revert recipients' last references regardless of asset.
+		new Payment(this.repository).orphanReferencesAndFees(multiPaymentTransactionData.getSenderPublicKey(), multiPaymentTransactionData.getPayments(),
+				multiPaymentTransactionData.getFee(), multiPaymentTransactionData.getSignature(), multiPaymentTransactionData.getReference(), true);
 	}
 
 }

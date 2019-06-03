@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -48,20 +46,21 @@ public class LeaveGroupTransactionData extends TransactionData {
 		this.creatorPublicKey = this.leaverPublicKey;
 	}
 
-	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, byte[] memberReference, byte[] adminReference, Integer previousGroupId, 
-			BigDecimal fee, byte[] signature) {
-		super(TransactionType.LEAVE_GROUP, timestamp, txGroupId, reference, leaverPublicKey, fee, signature);
+	/** From repository */
+	public LeaveGroupTransactionData(BaseTransactionData baseTransactionData,
+			int groupId, byte[] memberReference, byte[] adminReference, Integer previousGroupId) {
+		super(TransactionType.LEAVE_GROUP, baseTransactionData);
 
-		this.leaverPublicKey = leaverPublicKey;
+		this.leaverPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.memberReference = memberReference;
 		this.adminReference = adminReference;
 		this.previousGroupId = previousGroupId;
 	}
 
-	/** Constructor typically used after deserialization */
-	public LeaveGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] leaverPublicKey, int groupId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, leaverPublicKey, groupId, null, null, null, fee, signature);
+	/** From network/API */
+	public LeaveGroupTransactionData(BaseTransactionData baseTransactionData, int groupId) {
+		this(baseTransactionData, groupId, null, null, null);
 	}
 
 	// Getters / setters

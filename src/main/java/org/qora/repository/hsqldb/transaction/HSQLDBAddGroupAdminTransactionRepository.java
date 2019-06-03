@@ -1,10 +1,10 @@
 package org.qora.repository.hsqldb.transaction;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.qora.data.transaction.AddGroupAdminTransactionData;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -16,15 +16,17 @@ public class HSQLDBAddGroupAdminTransactionRepository extends HSQLDBTransactionR
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, address FROM AddGroupAdminTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
+		final String sql = "SELECT group_id, address FROM AddGroupAdminTransactions WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
 				return null;
 
 			int groupId = resultSet.getInt(1);
 			String member = resultSet.getString(2);
 
-			return new AddGroupAdminTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, member, fee, signature);
+			return new AddGroupAdminTransactionData(baseTransactionData, groupId, member);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch add group admin transaction from repository", e);
 		}

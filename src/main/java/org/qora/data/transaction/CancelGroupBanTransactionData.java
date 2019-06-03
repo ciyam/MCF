@@ -1,6 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
 
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
@@ -40,18 +39,19 @@ public class CancelGroupBanTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, byte[] banReference, BigDecimal fee, byte[] signature) {
-		super(TransactionType.CANCEL_GROUP_BAN, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+	/** From repository */
+	public CancelGroupBanTransactionData(BaseTransactionData baseTransactionData, int groupId, String member, byte[] banReference) {
+		super(TransactionType.CANCEL_GROUP_BAN, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.member = member;
 		this.banReference = banReference;
 	}
 
-	/** Constructor typically used after deserialization */
-	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, null, fee, signature);
+	/** From network/API */
+	public CancelGroupBanTransactionData(BaseTransactionData baseTransactionData, int groupId, String member) {
+		this(baseTransactionData, groupId, member, null);
 	}
 
 	// Getters / setters

@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
 import org.qora.block.BlockChain;
+import org.qora.data.transaction.BaseTransactionData;
 import org.qora.data.transaction.SellNameTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.naming.Name;
@@ -60,7 +61,9 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new SellNameTransactionData(timestamp, txGroupId, reference, ownerPublicKey, name, amount, fee, signature);
+		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+
+		return new SellNameTransactionData(baseTransactionData, name, amount);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {

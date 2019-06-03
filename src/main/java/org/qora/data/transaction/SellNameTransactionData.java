@@ -39,16 +39,12 @@ public class SellNameTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public SellNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String name, BigDecimal amount, BigDecimal fee, byte[] signature) {
-		super(TransactionType.SELL_NAME, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+	public SellNameTransactionData(BaseTransactionData baseTransactionData, String name, BigDecimal amount) {
+		super(TransactionType.SELL_NAME, baseTransactionData);
 
-		this.ownerPublicKey = ownerPublicKey;
+		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
 		this.name = name;
 		this.amount = amount;
-	}
-
-	public SellNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String name, BigDecimal amount, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, name, amount, fee, null);
 	}
 
 	// Getters / setters

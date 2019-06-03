@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -42,21 +40,22 @@ public class UpdateAssetTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public UpdateAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, long assetId, String newOwner,
-			String newDescription, String newData, BigDecimal fee, byte[] orphanReference, byte[] signature) {
-		super(TransactionType.UPDATE_ASSET, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
+	/** From repository */
+	public UpdateAssetTransactionData(BaseTransactionData baseTransactionData,
+			long assetId, String newOwner, String newDescription, String newData, byte[] orphanReference) {
+		super(TransactionType.UPDATE_ASSET, baseTransactionData);
 
 		this.assetId = assetId;
-		this.ownerPublicKey = ownerPublicKey;
+		this.ownerPublicKey = baseTransactionData.creatorPublicKey;
 		this.newOwner = newOwner;
 		this.newDescription = newDescription;
 		this.newData = newData;
 		this.orphanReference = orphanReference;
 	}
 
-	public UpdateAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, long assetId, String newOwner,
-			String newDescription, String newData, BigDecimal fee, byte[] orphanReference) {
-		this(timestamp, txGroupId, reference, ownerPublicKey, assetId, newOwner, newDescription, newData, fee, orphanReference, null);
+	/** From network/API */
+	public UpdateAssetTransactionData(BaseTransactionData baseTransactionData, long assetId, String newOwner, String newDescription, String newData) {
+		this(baseTransactionData, assetId, newOwner, newDescription, newData, null);
 	}
 
 	// Getters/Setters

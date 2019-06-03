@@ -1,7 +1,6 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -110,10 +109,6 @@ public class BuyNameTransaction extends Transaction {
 		if (buyNameTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_FEE;
 
-		// Check reference is correct
-		if (!Arrays.equals(buyer.getLastReference(), buyNameTransactionData.getReference()))
-			return ValidationResult.INVALID_REFERENCE;
-
 		// Check issuer has enough funds
 		if (buyer.getConfirmedBalance(Asset.QORA).compareTo(buyNameTransactionData.getFee()) < 0)
 			return ValidationResult.NO_BALANCE;
@@ -129,13 +124,6 @@ public class BuyNameTransaction extends Transaction {
 
 		// Save transaction with updated "name reference" pointing to previous transaction that updated name
 		this.repository.getTransactionRepository().save(buyNameTransactionData);
-
-		// Update buyer's balance
-		Account buyer = getBuyer();
-		buyer.setConfirmedBalance(Asset.QORA, buyer.getConfirmedBalance(Asset.QORA).subtract(buyNameTransactionData.getFee()));
-
-		// Update buyer's reference
-		buyer.setLastReference(buyNameTransactionData.getSignature());
 	}
 
 	@Override
@@ -146,13 +134,6 @@ public class BuyNameTransaction extends Transaction {
 
 		// Save this transaction, with removed "name reference"
 		this.repository.getTransactionRepository().save(buyNameTransactionData);
-
-		// Update buyer's balance
-		Account buyer = getBuyer();
-		buyer.setConfirmedBalance(Asset.QORA, buyer.getConfirmedBalance(Asset.QORA).add(buyNameTransactionData.getFee()));
-
-		// Update buyer's reference
-		buyer.setLastReference(buyNameTransactionData.getReference());
 	}
 
 }

@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
@@ -24,14 +22,10 @@ public class EnableForgingTransactionData extends TransactionData {
 		super(TransactionType.ENABLE_FORGING);
 	}
 
-	public EnableForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, BigDecimal fee, byte[] signature) {
-		super(TransactionType.ENABLE_FORGING, timestamp, groupId, reference, creatorPublicKey, fee, signature);
+	public EnableForgingTransactionData(BaseTransactionData baseTransactionData, String target) {
+		super(TransactionType.ENABLE_FORGING, baseTransactionData);
  
 		this.target = target;
-	}
-
-	public EnableForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, BigDecimal fee) {
-		this(timestamp, groupId, reference, creatorPublicKey, target, fee, null);
 	}
 
 	// Getters / setters

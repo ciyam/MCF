@@ -1,7 +1,5 @@
 package org.qora.data.transaction;
 
-import java.math.BigDecimal;
-
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -50,11 +48,12 @@ public class GroupInviteTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public GroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, int timeToLive, byte[] joinReference, Integer previousGroupId,
-			BigDecimal fee, byte[] signature) {
-		super(TransactionType.GROUP_INVITE, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
+	/** From repository */
+	public GroupInviteTransactionData(BaseTransactionData baseTransactionData,
+			int groupId, String invitee, int timeToLive, byte[] joinReference, Integer previousGroupId) {
+		super(TransactionType.GROUP_INVITE, baseTransactionData);
 
-		this.adminPublicKey = adminPublicKey;
+		this.adminPublicKey = baseTransactionData.creatorPublicKey;
 		this.groupId = groupId;
 		this.invitee = invitee;
 		this.timeToLive = timeToLive;
@@ -62,9 +61,9 @@ public class GroupInviteTransactionData extends TransactionData {
 		this.previousGroupId = previousGroupId;
 	}
 
-	/** Constructor typically used after deserialization */
-	public GroupInviteTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String invitee, int timeToLive, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, timeToLive, null, null, fee, signature);
+	/** From network/API */
+	public GroupInviteTransactionData(BaseTransactionData baseTransactionData, int groupId, String invitee, int timeToLive) {
+		this(baseTransactionData, groupId, invitee, timeToLive, null, null);
 	}
 
 	// Getters / setters

@@ -31,9 +31,10 @@ public class DeployAtTransactionData extends TransactionData {
 		super(TransactionType.DEPLOY_AT);
 	}
 
-	public DeployAtTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String aTAddress, String name, String description,
-			String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId, BigDecimal fee, byte[] signature) {
-		super(TransactionType.DEPLOY_AT, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
+	/** From repository */
+	public DeployAtTransactionData(BaseTransactionData baseTransactionData,
+			String aTAddress, String name, String description, String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId) {
+		super(TransactionType.DEPLOY_AT, baseTransactionData);
 
 		this.aTAddress = aTAddress;
 		this.name = name;
@@ -45,14 +46,10 @@ public class DeployAtTransactionData extends TransactionData {
 		this.assetId = assetId;
 	}
 
-	public DeployAtTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String name, String description,
-			String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId, BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, creatorPublicKey, null, name, description, aTType, tags, creationBytes, amount, assetId, fee, signature);
-	}
-
-	public DeployAtTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String name, String description,
-			String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, creatorPublicKey, null, name, description, aTType, tags, creationBytes, amount, assetId, fee, null);
+	/** From network/API */
+	public DeployAtTransactionData(BaseTransactionData baseTransactionData,
+			String name, String description, String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId) {
+		this(baseTransactionData, null, name, description, aTType, tags, creationBytes, amount, assetId);
 	}
 
 	// Getters/Setters
