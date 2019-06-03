@@ -345,6 +345,15 @@ public class Network extends Thread {
 		synchronized (this.connectedPeers) {
 			this.connectedPeers.remove(peer);
 		}
+
+		// If this is an inbound peer then remove from known peers list
+		// as remote port is not likely to be remote peer's listen port
+		if (!peer.isOutbound())
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				repository.getNetworkRepository().delete(peer.getPeerData());
+			} catch (DataException e) {
+				LOGGER.warn(String.format("Repository issue while trying to delete inbound peer %s", peer));
+			}
 	}
 
 	/** Called when a new message arrives for a peer. message can be null if called after connection */
@@ -549,7 +558,7 @@ public class Network extends Thread {
 						InetAddress address = InetAddress.getByName(peerData.getAddress().getHost());
 
 						// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9889 to node4.qora.org
-						if (!peer.getIsLocal() && !Peer.isAddressLocal(address))
+						if (!peer.getIsLocal() && Peer.isAddressLocal(address))
 							continue;
 
 						peerAddresses.add(peerData.getAddress());
@@ -696,7 +705,7 @@ public class Network extends Thread {
 						// Save the rest into database
 						for (PeerAddress peerAddress : peerAddresses) {
 							PeerData peerData = new PeerData(peerAddress);
-							LOGGER.trace(String.format("Adding new peer %s to repository", peerAddress));
+							LOGGER.info(String.format("Adding new peer %s to repository", peerAddress));
 							repository.getNetworkRepository().save(peerData);
 						}
 
