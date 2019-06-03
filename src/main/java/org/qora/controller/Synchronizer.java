@@ -16,6 +16,7 @@ import org.qora.block.BlockChain;
 import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
+import org.qora.data.transaction.TransactionData;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
 import org.qora.network.message.BlockSummariesMessage;
@@ -30,6 +31,7 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.ApprovalStatus;
 import org.qora.utils.NTP;
 
 public class Synchronizer {
@@ -248,8 +250,18 @@ public class Synchronizer {
 							}
 
 							// Save transactions attached to this block
-							for (Transaction transaction : newBlock.getTransactions())
-								repository.getTransactionRepository().save(transaction.getTransactionData());
+							for (Transaction transaction : newBlock.getTransactions()) {
+								TransactionData transactionData = transaction.getTransactionData();
+
+								// Fix up approval status
+								if (transaction.needsGroupApproval()) {
+									transactionData.setApprovalStatus(ApprovalStatus.PENDING);
+								} else {
+									transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
+								}
+
+								repository.getTransactionRepository().save(transactionData);
+							}
 
 							newBlock.process();
 
