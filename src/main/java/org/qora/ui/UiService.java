@@ -50,7 +50,7 @@ public class UiService {
 		uiServlet.setInitParameter("pathInfoOnly", "true");
 		context.addServlet(uiServlet, "/*");
 
-		rewriteHandler.addRule(new RedirectPatternRule("", "/peer.html")); // node management UI start page
+		rewriteHandler.addRule(new RedirectPatternRule("", "/index.html")); // node management UI start page
 	}
 
 	private static UiService instance;
