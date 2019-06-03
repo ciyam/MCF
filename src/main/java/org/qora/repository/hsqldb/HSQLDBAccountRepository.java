@@ -16,7 +16,6 @@ import org.qora.data.account.ProxyForgerData;
 import org.qora.repository.AccountRepository;
 import org.qora.repository.DataException;
 
-import static org.qora.repository.hsqldb.HSQLDBRepository.nPlaceholders;
 import static org.qora.repository.hsqldb.HSQLDBRepository.nValuesPlaceholders;
 
 public class HSQLDBAccountRepository implements AccountRepository {
