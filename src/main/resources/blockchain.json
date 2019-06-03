@@ -11,7 +11,7 @@
 	"oneNamePerAccount": true,
 	"genesisInfo": {
 		"version": 4,
-		"timestamp": 1558800000000,
+		"timestamp": 1559000000000,
 		"generatingBalance": "10000000",
 		"transactions": [
 			{ "type": "ISSUE_ASSET", "owner": "QUwGVHPPxJNJ2dq95abQNe79EyBN2K26zM", "assetName": "MCF", "description": "MCF", "quantity": 100000000, "isDivisible": true, "fee": 0, "reference": "3Verk6ZKBJc3WTTVfxFC9icSjKdM8b92eeJEpJP8qNizG4ZszNFq8wdDYdSjJXq2iogDFR1njyhsBdVpbvDfjzU7", 
