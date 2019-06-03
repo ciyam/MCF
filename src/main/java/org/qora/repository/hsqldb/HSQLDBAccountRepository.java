@@ -17,6 +17,7 @@ import org.qora.repository.AccountRepository;
 import org.qora.repository.DataException;
 
 import static org.qora.repository.hsqldb.HSQLDBRepository.nPlaceholders;
+import static org.qora.repository.hsqldb.HSQLDBRepository.nValuesPlaceholders;
 
 public class HSQLDBAccountRepository implements AccountRepository {
 
@@ -362,24 +363,35 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT forger, recipient, share, proxy_public_key FROM ProxyForgers ";
+	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, List<String> involvedAddresses,
+			Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT DISTINCT forger, recipient, share, proxy_public_key FROM ProxyForgers ";
+
 		List<Object> args = new ArrayList<>();
 
-		if (!forgers.isEmpty()) {
-			sql += "JOIN Accounts ON Accounts.public_key = ProxyForgers.forger "
-					+ "WHERE Accounts.account IN (" + nPlaceholders(forgers.size()) + ") ";
-			args.addAll(forgers);
-		}
+		final boolean hasRecipients = recipients != null && !recipients.isEmpty();
+		final boolean hasForgers = forgers != null && !forgers.isEmpty();
+		final boolean hasInvolved = involvedAddresses != null && !involvedAddresses.isEmpty();
 
-		if (!recipients.isEmpty()) {
-			sql += forgers.isEmpty() ? "WHERE " : "AND ";
-			sql += "recipient IN (" + nPlaceholders(recipients.size()) + ") ";
+		if (hasForgers || hasInvolved)
+			sql += "JOIN Accounts ON Accounts.public_key = ProxyForgers.forger ";
+
+		if (hasRecipients) {
+			sql += "JOIN (VALUES " + nValuesPlaceholders(recipients.size()) + ") AS Recipients (address) ON ProxyForgers.recipient = Recipients.address ";
 			args.addAll(recipients);
 		}
 
-		sql += "ORDER BY recipient, share";
+		if (hasForgers) {
+			sql += "JOIN (VALUES " + nValuesPlaceholders(forgers.size()) + ") AS Forgers (address) ON Accounts.account = Forgers.address ";
+			args.addAll(forgers);
+		}
 
+		if (hasInvolved) {
+			sql += "JOIN (VALUES " + nValuesPlaceholders(involvedAddresses.size()) + ") AS Involved (address) ON Involved.address IN (ProxyForgers.recipient, Accounts.account) ";
+			args.addAll(involvedAddresses);
+		}
+
+		sql += "ORDER BY recipient, share";
 		if (reverse != null && reverse)
 			sql += " DESC";
 

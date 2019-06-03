@@ -534,4 +534,9 @@ public class HSQLDBRepository implements Repository {
 		return String.join(", ", Collections.nCopies(n, "?"));
 	}
 
+	/** Convenience method to return n comma-separated, bracketed, placeholders as a string. */
+	public static String nValuesPlaceholders(int n) {
+		return String.join(", ", Collections.nCopies(n, "(?)"));
+	}
+
 }
