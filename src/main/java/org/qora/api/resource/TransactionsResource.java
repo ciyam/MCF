@@ -408,9 +408,12 @@ public class TransactionsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_SIGNATURE, ApiError.INVALID_DATA, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE
+		ApiError.BLOCKCHAIN_NEEDS_SYNC, ApiError.INVALID_SIGNATURE, ApiError.INVALID_DATA, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE
 	})
 	public String processTransaction(String rawBytes58) {
+		if (!Controller.getInstance().isUpToDate())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCKCHAIN_NEEDS_SYNC);
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] rawBytes = Base58.decode(rawBytes58);
 
