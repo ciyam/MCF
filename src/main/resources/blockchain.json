@@ -10,6 +10,7 @@
 	"requireGroupForApproval": false,
 	"defaultGroupId": 0,
 	"oneNamePerAccount": false,
+	"maxProxyRelationships": 4,
 	"genesisInfo": {
 		"version": 1,
 		"timestamp": "1400247274336",
