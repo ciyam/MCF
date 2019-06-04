@@ -77,7 +77,7 @@ public class Controller extends Thread {
 	private final long buildTimestamp; // seconds
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly generated block. */
-	private final ReentrantLock blockchainLock;
+	private final ReentrantLock blockchainLock = new ReentrantLock();;
 
 	private Controller() {
 		Properties properties = new Properties();
@@ -100,8 +100,6 @@ public class Controller extends Thread {
 
 		this.buildVersion = VERSION_PREFIX + buildVersion;
 		LOGGER.info(String.format("Build version: %s", this.buildVersion));
-
-		blockchainLock = new ReentrantLock();
 	}
 
 	public static Controller getInstance() {
@@ -583,26 +581,26 @@ public class Controller extends Thread {
 
 					// Blockchain lock required to prevent multiple threads trying to save the same transaction simultaneously
 					ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-					blockchainLock.lock();
-					try {
-						// Do we have it already?
-						if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
-							LOGGER.trace(String.format("Ignoring existing TRANSACTION %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-							break;
-						}
+					if (blockchainLock.tryLock())
+						try {
+							// Do we have it already?
+							if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
+								LOGGER.trace(String.format("Ignoring existing TRANSACTION %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+								break;
+							}
 
-						// Is it valid?
-						ValidationResult validationResult = transaction.isValidUnconfirmed();
-						if (validationResult != ValidationResult.OK) {
-							LOGGER.trace(String.format("Ignoring invalid (%s) TRANSACTION %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
-							break;
-						}
+							// Is it valid?
+							ValidationResult validationResult = transaction.isValidUnconfirmed();
+							if (validationResult != ValidationResult.OK) {
+								LOGGER.trace(String.format("Ignoring invalid (%s) TRANSACTION %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
+								break;
+							}
 
-						// Seems ok - add to unconfirmed pile
-						transaction.importAsUnconfirmed();
-					} finally {
-						blockchainLock.unlock();
-					}
+							// Seems ok - add to unconfirmed pile
+							transaction.importAsUnconfirmed();
+						} finally {
+							blockchainLock.unlock();
+						}
 				} catch (DataException e) {
 					LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
 				}
@@ -688,9 +686,6 @@ public class Controller extends Thread {
 
 		// Remove peers that have "misbehaved" recently
 		peers.removeIf(hasPeerMisbehaved);
-
-		for (Peer peer : peers)
-			LOGGER.debug(String.format("Not up to date due to peer %s at height %d with block sig %s", peer, peer.getPeerData().getLastHeight(), Base58.encode(peer.getPeerData().getLastBlockSignature())));
 
 		// If we have any peers left, then they would be candidates for synchronization therefore we're not up to date.
 		return peers.isEmpty();
