@@ -15,6 +15,7 @@ public class BlockForgerSummary {
 
 	public String forgedBy;
 	public String forgedFor;
+	public byte[] proxyPublicKey;
 
 	// Constructors
 
@@ -22,10 +23,12 @@ public class BlockForgerSummary {
 	}
 
 	public BlockForgerSummary(byte[] generator, int blockCount, byte[] forger, String recipient) {
-		this.generatorAddress = Crypto.toAddress(generator);
 		this.blockCount = blockCount;
 
-		if (recipient != null) {
+		if (recipient == null) {
+			this.generatorAddress = Crypto.toAddress(generator);
+		} else {
+			this.proxyPublicKey = generator;
 			this.forgedBy = Crypto.toAddress(forger);
 			this.forgedFor = recipient;
 		}
