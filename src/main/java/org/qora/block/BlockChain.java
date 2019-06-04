@@ -115,6 +115,8 @@ public class BlockChain {
 	}
 	List<ForgingTier> forgingTiers;
 
+	private int maxProxyRelationships;
+
 	// Constructors, etc.
 
 	private BlockChain() {
@@ -267,6 +269,10 @@ public class BlockChain {
 
 	public List<ForgingTier> getForgingTiers() {
 		return this.forgingTiers;
+	}
+
+	public int getMaxProxyRelationships() {
+		return this.maxProxyRelationships;
 	}
 
 	// Convenience methods for specific blockchain feature triggers

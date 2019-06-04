@@ -9,6 +9,7 @@ import org.qora.account.Account;
 import org.qora.account.Forging;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
+import org.qora.block.BlockChain;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
@@ -98,9 +99,15 @@ public class ProxyForgingTransaction extends Transaction {
 
 		// If proxy public key aleady exists in repository, then it must be for the same forger-recipient combo
 		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.proxyForgingTransactionData.getProxyPublicKey());
-		if (proxyForgerData != null)
+		if (proxyForgerData != null) {
 			if (!proxyForgerData.getRecipient().equals(recipient.getAddress()) || !Arrays.equals(proxyForgerData.getForgerPublicKey(), creator.getPublicKey()))
 				return ValidationResult.INVALID_PUBLIC_KEY;
+		} else {
+			// This is a new relationship - check that the generator hasn't reach maximum number of relationships
+			int relationshipCount = this.repository.getAccountRepository().countProxyAccounts(creator.getPublicKey());
+			if (relationshipCount >= BlockChain.getInstance().getMaxProxyRelationships())
+				return ValidationResult.MAXIMUM_PROXY_RELATIONSHIPS;
+		}
 
 		// Check fee is positive
 		if (proxyForgingTransactionData.getFee().compareTo(BigDecimal.ZERO) <= 0)

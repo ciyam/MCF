@@ -232,6 +232,7 @@ public abstract class Transaction {
 		AT_ALREADY_EXISTS(81),
 		GROUP_APPROVAL_NOT_REQUIRED(82),
 		GROUP_APPROVAL_DECIDED(83),
+		MAXIMUM_PROXY_RELATIONSHIPS(84),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
