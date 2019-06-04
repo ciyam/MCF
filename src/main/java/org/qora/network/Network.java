@@ -472,6 +472,12 @@ public class Network extends Thread {
 				mergePeers(peerV2Addresses);
 				break;
 
+			case GET_PEERS:
+				// Send our known peers
+				if (!peer.sendMessage(buildPeersMessage(peer)))
+					peer.disconnect("failed to send peers list");
+				break;
+
 			default:
 				// Bump up to controller for possible action
 				Controller.getInstance().onNetworkMessage(peer, message);

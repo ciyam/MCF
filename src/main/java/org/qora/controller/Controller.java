@@ -292,14 +292,17 @@ public class Controller extends Thread {
 					LOGGER.info(String.format("Failed to synchronize with peer %s (%s) - cooling off", peer, syncResult.name()));
 
 					// Don't use this peer again for a while
-					try (final Repository repository = RepositoryManager.getRepository()) {
-						PeerData peerData = peer.getPeerData();
-						peerData.setLastMisbehaved(NTP.getTime());
-						repository.getNetworkRepository().save(peerData);
-						repository.saveChanges();
-					} catch (DataException e) {
-						LOGGER.warn("Repository issue while updating peer synchronization info", e);
-					}
+					PeerData peerData = peer.getPeerData();
+					peerData.setLastMisbehaved(NTP.getTime());
+
+					// Only save to repository if outbound peer
+					if (peer.isOutbound())
+						try (final Repository repository = RepositoryManager.getRepository()) {
+							repository.getNetworkRepository().save(peerData);
+							repository.saveChanges();
+						} catch (DataException e) {
+							LOGGER.warn("Repository issue while updating peer synchronization info", e);
+						}
 					break;
 
 				case NO_REPLY:
@@ -614,12 +617,6 @@ public class Controller extends Thread {
 				} catch (DataException e) {
 					LOGGER.error(String.format("Repository issue while sending block summaries after %s to peer %s", Base58.encode(parentSignature), peer), e);
 				}
-				break;
-
-			case GET_PEERS:
-				// Send our known peers
-				if (!peer.sendMessage(Network.getInstance().buildPeersMessage(peer)))
-					peer.disconnect("failed to send peers list");
 				break;
 
 			default:
