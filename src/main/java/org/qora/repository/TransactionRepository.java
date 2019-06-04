@@ -137,6 +137,14 @@ public interface TransactionRepository {
 	public boolean isConfirmed(byte[] signature) throws DataException;
 
 	/**
+	 * Returns list of unconfirmed transaction signatures in timestamp-else-signature order.
+	 * 
+	 * @return list of transaction signatures, or empty if none.
+	 * @throws DataException
+	 */
+	public List<byte[]> getUnconfirmedTransactionSignatures() throws DataException;
+
+	/**
 	 * Returns list of unconfirmed transactions in timestamp-else-signature order.
 	 * <p>
 	 * This is typically called by the API.

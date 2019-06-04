@@ -834,6 +834,29 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
+	public List<byte[]> getUnconfirmedTransactionSignatures() throws DataException {
+		String sql = "SELECT signature FROM UnconfirmedTransactions ORDER by creation DESC, signature DESC";
+
+		List<byte[]> signatures = new ArrayList<>();
+
+		// Find transactions with no corresponding row in BlockTransactions
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return signatures;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+
+				signatures.add(signature);
+			} while (resultSet.next());
+
+			return signatures;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch unconfirmed transaction signatures from repository", e);
+		}
+	}
+
+	@Override
 	public List<TransactionData> getUnconfirmedTransactions(Integer limit, Integer offset, Boolean reverse) throws DataException {
 		String sql = "SELECT signature FROM UnconfirmedTransactions ";
 

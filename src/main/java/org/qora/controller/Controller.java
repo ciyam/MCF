@@ -11,6 +11,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
@@ -38,11 +41,13 @@ import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.GetSignaturesV2Message;
 import org.qora.network.message.GetTransactionMessage;
+import org.qora.network.message.GetUnconfirmedTransactionsMessage;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.HeightV2Message;
 import org.qora.network.message.Message;
 import org.qora.network.message.SignaturesMessage;
 import org.qora.network.message.TransactionMessage;
+import org.qora.network.message.TransactionSignaturesMessage;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryFactory;
@@ -77,7 +82,10 @@ public class Controller extends Thread {
 	private final long buildTimestamp; // seconds
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly generated block. */
-	private final ReentrantLock blockchainLock;
+	private final ReentrantLock blockchainLock = new ReentrantLock();
+
+	/** Executor for processing network messages. */
+	private final ExecutorService networkMessageExecutor = Executors.newCachedThreadPool();
 
 	private Controller() {
 		Properties properties = new Properties();
@@ -100,8 +108,6 @@ public class Controller extends Thread {
 
 		this.buildVersion = VERSION_PREFIX + buildVersion;
 		LOGGER.info(String.format("Build version: %s", this.buildVersion));
-
-		blockchainLock = new ReentrantLock();
 	}
 
 	public static Controller getInstance() {
@@ -239,6 +245,12 @@ public class Controller extends Thread {
 		Gui.getInstance().notifyRunning();
 	}
 
+	/** Called by AdvancedInstaller's launch EXE in single-instance mode, when an instance is already running. */
+	public static void secondaryMain(String args[]) {
+		// Return as we don't want to run more than one instance
+	}
+
+
 	// Main thread
 
 	@Override
@@ -349,6 +361,7 @@ public class Controller extends Thread {
 				}
 
 				LOGGER.info("Shutting down networking");
+				networkMessageExecutor.shutdown();
 				Network.getInstance().shutdown();
 
 				LOGGER.info("Shutting down API");
@@ -395,6 +408,9 @@ public class Controller extends Thread {
 
 		// Request peers lists
 		network.broadcast(peer -> new GetPeersMessage());
+
+		// Request unconfirmed transaction signatures
+		network.broadcast(peer -> network.buildGetUnconfirmedTransactionsMessage(peer));
 	}
 
 	public void onGeneratedBlock() {
@@ -407,10 +423,64 @@ public class Controller extends Thread {
 
 	public void onNewTransaction(TransactionData transactionData) {
 		// Send round to all peers
-		Network.getInstance().broadcast(peer -> new TransactionMessage(transactionData));
+		Network network = Network.getInstance();
+		network.broadcast(peer -> network.buildNewTransactionMessage(peer, transactionData));
+	}
+
+	public void onPeerHandshakeCompleted(Peer peer) {
+		if (peer.getVersion() < 2) {
+			// Legacy mode
+
+			// Send our unconfirmed transactions
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+
+				for (TransactionData transactionData : transactions) {
+					Message transactionMessage = new TransactionMessage(transactionData);
+					if (!peer.sendMessage(transactionMessage)) {
+						peer.disconnect("failed to send unconfirmed transaction");
+						return;
+					}
+				}
+			} catch (DataException e) {
+				LOGGER.error("Repository issue while sending unconfirmed transactions", e);
+			}
+		} else {
+			// V2 protocol
+
+			// Request peer's unconfirmed transactions
+			Message message = new GetUnconfirmedTransactionsMessage();
+			if (!peer.sendMessage(message)) {
+				peer.disconnect("failed to send request for unconfirmed transactions");
+				return;
+			}
+		}
 	}
 
 	public void onNetworkMessage(Peer peer, Message message) {
+		class NetworkMessageProcessor implements Runnable {
+			private Peer peer;
+			private Message message;
+
+			public NetworkMessageProcessor(Peer peer, Message message) {
+				this.peer = peer;
+				this.message = message;
+			}
+
+			@Override
+			public void run() {
+				Controller.getInstance().processNetworkMessage(peer, message);
+			}
+		}
+
+		try {
+			networkMessageExecutor.execute(new NetworkMessageProcessor(peer, message));
+		} catch (RejectedExecutionException e) {
+			// Can't execute - probably because we're shutting down, so ignore
+		}
+	}
+
+	private void processNetworkMessage(Peer peer, Message message) {
 		LOGGER.trace(String.format("Processing %s message from %s", message.getType().name(), peer));
 
 		switch (message.getType()) {
@@ -578,33 +648,119 @@ public class Controller extends Thread {
 
 					// Blockchain lock required to prevent multiple threads trying to save the same transaction simultaneously
 					ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-					blockchainLock.lock();
-					try {
-						// Do we have it already?
-						if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
-							LOGGER.trace(String.format("Ignoring existing TRANSACTION %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-							break;
-						}
+					if (blockchainLock.tryLock())
+						try {
+							// Do we have it already?
+							if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
+								LOGGER.trace(String.format("Ignoring existing TRANSACTION %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+								break;
+							}
 
-						// Is it valid?
-						ValidationResult validationResult = transaction.isValidUnconfirmed();
-						if (validationResult != ValidationResult.OK) {
-							LOGGER.trace(String.format("Ignoring invalid (%s) TRANSACTION %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
-							break;
-						}
+							// Is it valid?
+							ValidationResult validationResult = transaction.isValidUnconfirmed();
+							if (validationResult != ValidationResult.OK) {
+								LOGGER.trace(String.format("Ignoring invalid (%s) TRANSACTION %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
+								break;
+							}
 
-						// Seems ok - add to unconfirmed pile
-						transaction.importAsUnconfirmed();
-					} finally {
-						blockchainLock.unlock();
-					}
+							// Seems ok - add to unconfirmed pile
+							transaction.importAsUnconfirmed();
+						} finally {
+							blockchainLock.unlock();
+						}
 				} catch (DataException e) {
 					LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
 				}
 				break;
 			}
 
-			case GET_BLOCK_SUMMARIES:
+			case GET_UNCONFIRMED_TRANSACTIONS: {
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					List<byte[]> signatures = repository.getTransactionRepository().getUnconfirmedTransactionSignatures();
+
+					Message transactionSignaturesMessage = new TransactionSignaturesMessage(signatures);
+					if (!peer.sendMessage(transactionSignaturesMessage))
+						peer.disconnect("failed to send unconfirmed transaction signatures");
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while sending unconfirmed transaction signatures to peer %s", peer), e);
+				}
+				break;
+			}
+
+			case TRANSACTION_SIGNATURES: {
+				TransactionSignaturesMessage transactionSignaturesMessage = (TransactionSignaturesMessage) message;
+				List<byte[]> signatures = transactionSignaturesMessage.getSignatures();
+				List<byte[]> newSignatures = new ArrayList<>();
+
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					for (byte[] signature : signatures) {
+						// Do we have it already?
+						if (repository.getTransactionRepository().exists(signature)) {
+							LOGGER.trace(String.format("Ignoring unconfirmed transaction %s from peer %s", Base58.encode(signature), peer));
+							break;
+						}
+
+						// Blockchain lock required to prevent multiple threads trying to save the same transaction simultaneously
+						ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+						if (blockchainLock.tryLock())
+							try {
+								// Fetch actual transaction data from peer
+								Message getTransactionMessage = new GetTransactionMessage(signature);
+								Message responseMessage = peer.getResponse(getTransactionMessage);
+								if (responseMessage == null || !(responseMessage instanceof TransactionMessage)) {
+									peer.disconnect("failed to fetch unconfirmed transaction");
+									break;
+								}
+
+								TransactionMessage transactionMessage = (TransactionMessage) responseMessage;
+								TransactionData transactionData = transactionMessage.getTransactionData();
+								Transaction transaction = Transaction.fromData(repository, transactionData);
+
+								// Check signature
+								if (!transaction.isSignatureValid()) {
+									LOGGER.trace(String.format("Ignoring unconfirmed transaction %s with invalid signature from peer %s", Base58.encode(transactionData.getSignature()), peer));
+									break;
+								}
+
+								// Do we have it already?
+								if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
+									LOGGER.trace(String.format("Ignoring existing unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+									break;
+								}
+
+								// Is it valid?
+								ValidationResult validationResult = transaction.isValidUnconfirmed();
+								if (validationResult != ValidationResult.OK) {
+									LOGGER.trace(String.format("Ignoring invalid (%s) unconfirmed transaction %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
+									break;
+								}
+
+								// Clean repository state before import
+								repository.discardChanges();
+
+								// Seems ok - add to unconfirmed pile
+								transaction.importAsUnconfirmed();
+							} finally {
+								blockchainLock.unlock();
+							}
+
+						// We could collate signatures that are new to us and broadcast them to our peers too
+						newSignatures.add(signature);
+					}
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while processing unconfirmed transactions from peer %s", peer), e);
+				}
+
+				if (newSignatures.isEmpty())
+					break;
+
+				// Broadcast signatures that are new to us
+				Network.getInstance().broadcast(broadcastPeer -> new TransactionSignaturesMessage(newSignatures));
+
+				break;
+			}
+
+			case GET_BLOCK_SUMMARIES: {
 				GetBlockSummariesMessage getBlockSummariesMessage = (GetBlockSummariesMessage) message;
 				byte[] parentSignature = getBlockSummariesMessage.getParentSignature();
 
@@ -632,6 +788,7 @@ public class Controller extends Thread {
 					LOGGER.error(String.format("Repository issue while sending block summaries after %s to peer %s", Base58.encode(parentSignature), peer), e);
 				}
 				break;
+			}
 
 			default:
 				LOGGER.debug(String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
@@ -683,9 +840,6 @@ public class Controller extends Thread {
 
 		// Remove peers that have "misbehaved" recently
 		peers.removeIf(hasPeerMisbehaved);
-
-		for (Peer peer : peers)
-			LOGGER.debug(String.format("Not up to date due to peer %s at height %d with block sig %s", peer, peer.getPeerData().getLastHeight(), Base58.encode(peer.getPeerData().getLastBlockSignature())));
 
 		// If we have any peers left, then they would be candidates for synchronization therefore we're not up to date.
 		return peers.isEmpty();

@@ -56,7 +56,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public BlockData fromSignature(byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ?", signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE signature = ? LIMIT 1", signature)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error fetching block by signature from repository", e);
@@ -65,7 +65,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public BlockData fromReference(byte[] reference) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE reference = ?", reference)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE reference = ? LIMIT 1", reference)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error fetching block by reference from repository", e);
@@ -74,7 +74,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public BlockData fromHeight(int height) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ?", height)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE height = ? LIMIT 1", height)) {
 			return getBlockFromResultSet(resultSet);
 		} catch (SQLException e) {
 			throw new DataException("Error fetching block by height from repository", e);
@@ -83,7 +83,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int getHeightFromSignature(byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks WHERE signature = ?", signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT height FROM Blocks WHERE signature = ? LIMIT 1", signature)) {
 			if (resultSet == null)
 				return 0;
 
@@ -157,15 +157,25 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int countForgedBlocks(byte[] publicKey) throws DataException {
-		String subquerySql = "SELECT proxy_public_key FROM ProxyForgers WHERE forger = ?";
+		String directSql = "SELECT COUNT(*) FROM Blocks WHERE generator = ?";
 
-		String sql = "SELECT COUNT(*) FROM Blocks WHERE generator IN (?, (" + subquerySql + ")) LIMIT 1";
+		String proxySql = "SELECT COUNT(*) FROM ProxyForgers JOIN Blocks ON generator = proxy_public_key WHERE forger = ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey, publicKey)) {
-			return resultSet.getInt(1);
+		int totalCount = 0;
+
+		try (ResultSet resultSet = this.repository.checkedExecute(directSql, publicKey)) {
+			totalCount += resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch forged blocks count from repository", e);
 		}
+
+		try (ResultSet resultSet = this.repository.checkedExecute(proxySql, publicKey)) {
+			totalCount += resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch forged blocks count from repository", e);
+		}
+
+		return totalCount;
 	}
 
 	@Override
