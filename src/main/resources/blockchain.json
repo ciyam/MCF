@@ -230,7 +230,7 @@
 		{ "height": 1065601, "reward": 4 }
 	],
 	"forgingTiers": [
-		{ "minBlocks": 2500, "maxSubAccounts": 50 },
+		{ "minBlocks": 250, "maxSubAccounts": 50 },
 		{ "minBlocks": 25, "maxSubAccounts": 50 },
 		{ "minBlocks": 0, "maxSubAccounts": 0 }
 	],
