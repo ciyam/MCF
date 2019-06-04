@@ -29,6 +29,7 @@ import org.qora.data.block.BlockData;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.message.GetPeersMessage;
+import org.qora.network.message.GetUnconfirmedTransactionsMessage;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.HeightV2Message;
 import org.qora.network.message.Message;
@@ -38,6 +39,7 @@ import org.qora.network.message.PeersMessage;
 import org.qora.network.message.PeersV2Message;
 import org.qora.network.message.PingMessage;
 import org.qora.network.message.TransactionMessage;
+import org.qora.network.message.TransactionSignaturesMessage;
 import org.qora.network.message.VerificationCodesMessage;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -529,25 +531,13 @@ public class Network extends Thread {
 		if (!peer.sendMessage(peersMessage))
 			peer.disconnect("failed to send peers list");
 
-		// Send our unconfirmed transactions
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
-
-			for (TransactionData transactionData : transactions) {
-				Message transactionMessage = new TransactionMessage(transactionData);
-				if (!peer.sendMessage(transactionMessage)) {
-					peer.disconnect("failed to send unconfirmed transaction");
-					return;
-				}
-			}
-		} catch (DataException e) {
-			LOGGER.error("Repository issue while sending unconfirmed transactions", e);
-		}
-
 		// Request their peers list
 		Message getPeersMessage = new GetPeersMessage();
 		if (!peer.sendMessage(getPeersMessage))
 			peer.disconnect("failed to request peers list");
+
+		// Ask Controller if they want to send anything
+		Controller.getInstance().onPeerHandshakeCompleted(peer);
 	}
 
 	/** Returns PEERS message made from peers we've connected to recently, and this node's details */
@@ -619,6 +609,24 @@ public class Network extends Thread {
 
 		// HEIGHT_V2 contains way more useful info
 		return new HeightV2Message(blockData.getHeight(), blockData.getSignature(), blockData.getTimestamp(), blockData.getGeneratorPublicKey());
+	}
+
+	public Message buildNewTransactionMessage(Peer peer, TransactionData transactionData) {
+		if (peer.getVersion() < 2) {
+			// Legacy TRANSACTION message
+			return new TransactionMessage(transactionData);
+		}
+
+		// In V2 we send out transaction signature only and peers can decide whether to request the full transaction
+		return new TransactionSignaturesMessage(Collections.singletonList(transactionData.getSignature()));
+	}
+
+	public Message buildGetUnconfirmedTransactionsMessage(Peer peer) {
+		// V2 only
+		if (peer.getVersion() < 2)
+			return null;
+
+		return new GetUnconfirmedTransactionsMessage();
 	}
 
 	// Network-wide calls
@@ -731,26 +739,32 @@ public class Network extends Thread {
 		mergePeersExecutor.execute(new PeersMerger(peerAddresses));
 	}
 
-	public void broadcast(Function<Peer, Message> peerMessage) {
+	public void broadcast(Function<Peer, Message> peerMessageBuilder) {
 		class Broadcaster implements Runnable {
 			private List<Peer> targetPeers;
-			private Function<Peer, Message> peerMessage;
+			private Function<Peer, Message> peerMessageBuilder;
 
-			public Broadcaster(List<Peer> targetPeers, Function<Peer, Message> peerMessage) {
+			public Broadcaster(List<Peer> targetPeers, Function<Peer, Message> peerMessageBuilder) {
 				this.targetPeers = targetPeers;
-				this.peerMessage = peerMessage;
+				this.peerMessageBuilder = peerMessageBuilder;
 			}
 
 			@Override
 			public void run() {
-				for (Peer peer : targetPeers)
-					if (!peer.sendMessage(peerMessage.apply(peer)))
+				for (Peer peer : targetPeers) {
+					Message message = peerMessageBuilder.apply(peer);
+
+					if (message == null)
+						continue;
+
+					if (!peer.sendMessage(message))
 						peer.disconnect("failed to broadcast message");
+				}
 			}
 		}
 
 		try {
-			peerExecutor.execute(new Broadcaster(this.getHandshakedPeers(), peerMessage));
+			peerExecutor.execute(new Broadcaster(this.getHandshakedPeers(), peerMessageBuilder));
 		} catch (RejectedExecutionException e) {
 			// Can't execute - probably because we're shutting down, so ignore
 		}
