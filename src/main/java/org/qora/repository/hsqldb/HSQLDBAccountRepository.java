@@ -362,6 +362,42 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public int countProxyAccounts(byte[] forgerPublicKey) throws DataException {
+		String sql = "SELECT COUNT(*) FROM ProxyForgers WHERE forger = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, forgerPublicKey)) {
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to count proxy forging relationships in repository", e);
+		}
+	}
+
+	@Override
+	public List<ProxyForgerData> getProxyAccounts() throws DataException {
+		String sql = "SELECT forger, recipient, share, proxy_public_key FROM ProxyForgers";
+
+		List<ProxyForgerData> proxyAccounts = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+			if (resultSet == null)
+				return proxyAccounts;
+
+			do {
+				byte[] forgerPublicKey = resultSet.getBytes(1);
+				String recipient = resultSet.getString(2);
+				BigDecimal share = resultSet.getBigDecimal(3);
+				byte[] proxyPublicKey = resultSet.getBytes(4);
+
+				proxyAccounts.add(new ProxyForgerData(forgerPublicKey, recipient, proxyPublicKey, share));
+			} while (resultSet.next());
+
+			return proxyAccounts;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch proxy forge accounts from repository", e);
+		}
+	}
+
+	@Override
 	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, List<String> involvedAddresses,
 			Integer limit, Integer offset, Boolean reverse) throws DataException {
 		String sql = "SELECT DISTINCT forger, recipient, share, proxy_public_key FROM ProxyForgers ";
