@@ -26,8 +26,10 @@ public class CreateGroupTransactionTransformer extends TransactionTransformer {
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int IS_OPEN_LENGTH = BOOLEAN_LENGTH;
 	private static final int APPROVAL_THRESHOLD_LENGTH = BYTE_LENGTH;
+	private static final int BLOCK_DELAY_LENGTH = INT_LENGTH;
 
-	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + IS_OPEN_LENGTH + APPROVAL_THRESHOLD_LENGTH;
+	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + IS_OPEN_LENGTH
+			+ APPROVAL_THRESHOLD_LENGTH + BLOCK_DELAY_LENGTH + BLOCK_DELAY_LENGTH;
 
 	protected static final TransactionLayout layout;
 
