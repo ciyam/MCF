@@ -18,6 +18,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -47,6 +48,7 @@ public class Peer implements Runnable {
 	private final boolean isOutbound;
 	private Socket socket = null;
 	private PeerData peerData = null;
+	private final ReentrantLock peerDataLock = new ReentrantLock();
 	private Long connectionTimestamp = null;
 	private OutputStream out;
 	private Handshake handshakeStatus = Handshake.STARTED;
@@ -82,7 +84,13 @@ public class Peer implements Runnable {
 	// Getters / setters
 
 	public PeerData getPeerData() {
-		return this.peerData;
+		this.peerDataLock.lock();
+
+		try {
+			return this.peerData;
+		} finally {
+			this.peerDataLock.unlock();
+		}
 	}
 
 	public boolean isOutbound() {
@@ -158,6 +166,11 @@ public class Peer implements Runnable {
 	public void setVerificationCodes(byte[] sent, byte[] expected) {
 		this.verificationCodeSent = sent;
 		this.verificationCodeExpected = expected;
+	}
+
+	/** Returns the lock used for synchronizing access to peer's PeerData. */
+	public ReentrantLock getPeerDataLock() {
+		return this.peerDataLock;
 	}
 
 	// Easier, and nicer output, than peer.getRemoteSocketAddress()
