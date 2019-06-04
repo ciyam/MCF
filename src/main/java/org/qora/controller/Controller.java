@@ -238,6 +238,12 @@ public class Controller extends Thread {
 		Gui.getInstance().notifyRunning();
 	}
 
+	/** Called by AdvancedInstaller's launch EXE in single-instance mode, when an instance is already running. */
+	public static void secondaryMain(String args[]) {
+		// Return as we don't want to run more than one instance
+	}
+
+
 	// Main thread
 
 	@Override
