@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +45,7 @@ public class Peer implements Runnable {
 	private static final int RESPONSE_TIMEOUT = 5000; // ms
 	private static final int PING_INTERVAL = 20000; // ms - just under every 30s is usually ideal to keep NAT mappings refreshed
 	private static final int INACTIVITY_TIMEOUT = 30000; // ms
+	private static final int UNSOLICITED_MESSAGE_QUEUE_CAPACITY = 10;
 
 	private final boolean isOutbound;
 	private Socket socket = null;
@@ -52,11 +54,14 @@ public class Peer implements Runnable {
 	private Long connectionTimestamp = null;
 	private OutputStream out;
 	private Handshake handshakeStatus = Handshake.STARTED;
-	private Map<Integer, BlockingQueue<Message>> messages;
+	private Map<Integer, BlockingQueue<Message>> replyQueues;
+	private BlockingQueue<Message> unsolicitedQueue;
+	private ExecutorService messageExecutor;
 	private VersionMessage versionMessage = null;
 	private Integer version;
-	private ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+	private ScheduledExecutorService pingExecutor;
 	private Long lastPing = null;
+	private InetSocketAddress resolvedAddress = null;
 	private boolean isLocal;
 	private byte[] peerId;
 
@@ -75,7 +80,8 @@ public class Peer implements Runnable {
 		this.isOutbound = false;
 		this.socket = socket;
 
-		this.isLocal = isAddressLocal(((InetSocketAddress) socket.getRemoteSocketAddress()).getAddress());
+		this.resolvedAddress = ((InetSocketAddress) socket.getRemoteSocketAddress());
+		this.isLocal = isAddressLocal(this.resolvedAddress.getAddress());
 
 		PeerAddress peerAddress = PeerAddress.fromSocket(socket);
 		this.peerData = new PeerData(peerAddress);
@@ -135,6 +141,10 @@ public class Peer implements Runnable {
 		this.lastPing = lastPing;
 	}
 
+	public InetSocketAddress getResolvedAddress() {
+		return this.resolvedAddress;
+	}
+
 	public boolean getIsLocal() {
 		return this.isLocal;
 	}
@@ -190,11 +200,41 @@ public class Peer implements Runnable {
 		new SecureRandom().nextBytes(verificationCodeExpected);
 	}
 
+	class MessageProcessor implements Runnable {
+		private Peer peer;
+		private BlockingQueue<Message> blockingQueue;
+
+		public MessageProcessor(Peer peer, BlockingQueue<Message> blockingQueue) {
+			this.peer = peer;
+			this.blockingQueue = blockingQueue;
+		}
+
+		@Override
+		public void run() {
+			Thread.currentThread().setName("Peer UMP " + this.peer);
+
+			while (true) {
+				try {
+					Message message = blockingQueue.poll(1000L, TimeUnit.MILLISECONDS);
+					if (message != null)
+						Network.getInstance().onMessage(peer, message);
+				} catch (InterruptedException e) {
+					// Shutdown
+					return;
+				}
+			}
+		}
+	}
+
 	private void setup() throws IOException {
 		this.socket.setSoTimeout(INACTIVITY_TIMEOUT);
 		this.out = this.socket.getOutputStream();
 		this.connectionTimestamp = NTP.getTime();
-		this.messages = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
+		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
+
+		this.unsolicitedQueue = new ArrayBlockingQueue<>(UNSOLICITED_MESSAGE_QUEUE_CAPACITY);
+		this.messageExecutor = Executors.newSingleThreadExecutor();
+		this.messageExecutor.execute(new MessageProcessor(this, this.unsolicitedQueue));
 	}
 
 	public boolean connect() {
@@ -202,11 +242,10 @@ public class Peer implements Runnable {
 		this.socket = new Socket();
 
 		try {
-			InetSocketAddress resolvedSocketAddress = this.peerData.getAddress().toSocketAddress();
+			this.resolvedAddress = this.peerData.getAddress().toSocketAddress();
+			this.isLocal = isAddressLocal(this.resolvedAddress.getAddress());
 
-			this.isLocal = isAddressLocal(resolvedSocketAddress.getAddress());
-
-			this.socket.connect(resolvedSocketAddress, CONNECT_TIMEOUT);
+			this.socket.connect(resolvedAddress, CONNECT_TIMEOUT);
 			LOGGER.debug(String.format("Connected to peer %s", this));
 		} catch (SocketTimeoutException e) {
 			LOGGER.trace(String.format("Connection timed out to peer %s", this));
@@ -242,13 +281,20 @@ public class Peer implements Runnable {
 				LOGGER.trace(String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
 
 				// Find potential blocking queue for this id (expect null if id is -1)
-				BlockingQueue<Message> queue = this.messages.get(message.getId());
+				BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
 				if (queue != null) {
 					// Adding message to queue will unblock thread waiting for response
-					this.messages.get(message.getId()).add(message);
+					this.replyQueues.get(message.getId()).add(message);
 				} else {
-					// Nothing waiting for this message - pass up to network
-					Network.getInstance().onMessage(this, message);
+					// Nothing waiting for this message (unsolicited) - queue up for network
+
+					// Queue full?
+					if (unsolicitedQueue.remainingCapacity() == 0) {
+						LOGGER.debug(String.format("No room for %s message with ID %s from peer %s", message.getType().name(), message.getId(), this));
+						continue;
+					}
+
+					unsolicitedQueue.add(message);
 				}
 			}
 		} catch (MessageException e) {
@@ -313,12 +359,12 @@ public class Peer implements Runnable {
 			message.setId(id);
 
 			// Put queue into map (keyed by message ID) so we can poll for a response
-			// If putIfAbsent() doesn't return null, then this id is already taken
-		} while (this.messages.putIfAbsent(id, blockingQueue) != null);
+			// If putIfAbsent() doesn't return null, then this ID is already taken
+		} while (this.replyQueues.putIfAbsent(id, blockingQueue) != null);
 
 		// Try to send message
 		if (!this.sendMessage(message)) {
-			this.messages.remove(id);
+			this.replyQueues.remove(id);
 			return null;
 		}
 
@@ -329,7 +375,7 @@ public class Peer implements Runnable {
 			// Our thread was interrupted. Probably in shutdown scenario.
 			return null;
 		} finally {
-			this.messages.remove(id);
+			this.replyQueues.remove(id);
 		}
 	}
 
@@ -343,6 +389,8 @@ public class Peer implements Runnable {
 
 			@Override
 			public void run() {
+				Thread.currentThread().setName("Pinger " + this.peer);
+
 				PingMessage pingMessage = new PingMessage();
 
 				long before = System.currentTimeMillis();
@@ -358,16 +406,28 @@ public class Peer implements Runnable {
 
 		Random random = new Random();
 		long initialDelay = random.nextInt(PING_INTERVAL);
-		this.executor.scheduleWithFixedDelay(new Pinger(this), initialDelay, PING_INTERVAL, TimeUnit.MILLISECONDS);
+		this.pingExecutor = Executors.newSingleThreadScheduledExecutor();
+		this.pingExecutor.scheduleWithFixedDelay(new Pinger(this), initialDelay, PING_INTERVAL, TimeUnit.MILLISECONDS);
 	}
 
 	public void disconnect(String reason) {
+		LOGGER.trace(String.format("Disconnecting peer %s: %s", this, reason));
+
 		// Shut down pinger
-		this.executor.shutdownNow();
+		if (this.pingExecutor != null) {
+			this.pingExecutor.shutdownNow();
+			this.pingExecutor = null;
+		}
+
+		// Shut down unsolicited message processor
+		if (this.messageExecutor != null) {
+			this.messageExecutor.shutdownNow();
+			this.messageExecutor = null;
+		}
 
 		// Close socket
 		if (!this.socket.isClosed()) {
-			LOGGER.debug(String.format("Disconnecting peer %s: %s", this, reason));
+			LOGGER.debug(String.format("Closing socket with peer %s: %s", this, reason));
 
 			try {
 				this.socket.close();
