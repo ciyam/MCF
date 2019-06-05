@@ -64,6 +64,8 @@ public class AutoUpdate extends Thread {
 	}
 
 	public void run() {
+		Thread.currentThread().setName("Auto-update");
+
 		long buildTimestamp = Controller.getInstance().getBuildTimestamp() * 1000L;
 		boolean attemptedUpdate = false;
 

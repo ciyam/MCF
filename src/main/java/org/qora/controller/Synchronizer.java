@@ -5,6 +5,7 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -13,7 +14,6 @@ import org.apache.logging.log4j.Logger;
 import org.qora.block.Block;
 import org.qora.block.Block.ValidationResult;
 import org.qora.block.BlockChain;
-import org.qora.block.GenesisBlock;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
 import org.qora.data.transaction.TransactionData;
@@ -110,6 +110,10 @@ public class Synchronizer {
 
 						List<byte[]> signatures = findSignaturesFromCommonBlock(peer, ourHeight);
 						if (signatures == null) {
+							LOGGER.info(String.format("Error while trying to find common block with peer %s", peer));
+							return SynchronizationResult.NO_REPLY;
+						}
+						if (signatures.isEmpty()) {
 							LOGGER.info(String.format("Failure to find common block with peer %s", peer));
 							return SynchronizationResult.NO_COMMON_BLOCK;
 						}
@@ -295,7 +299,7 @@ public class Synchronizer {
 	 * Returns list of peer's block signatures starting with common block with peer.
 	 * 
 	 * @param peer
-	 * @return block signatures
+	 * @return block signatures, or empty list if no common block, or null if there was an issue
 	 * @throws DataException
 	 */
 	private List<byte[]> findSignaturesFromCommonBlock(Peer peer, int ourHeight) throws DataException {
@@ -304,10 +308,10 @@ public class Synchronizer {
 		int step = INITIAL_BLOCK_STEP;
 
 		List<byte[]> blockSignatures = null;
-		int testHeight = ourHeight - step;
+		int testHeight = Math.max(ourHeight - step, 1);
 		byte[] testSignature = null;
 
-		while (testHeight > 1) {
+		while (testHeight >= 1) {
 			// Fetch our block signature at this height
 			BlockData testBlockData = this.repository.getBlockRepository().fromHeight(testHeight);
 			if (testBlockData == null) {
@@ -333,6 +337,11 @@ public class Synchronizer {
 				// We have entries so we have found a common block
 				break;
 
+			// No blocks after genesis block?
+			// We don't get called for a peer at genesis height so this means NO blocks in common
+			if (testHeight == 1)
+				return Collections.emptyList();
+
 			if (peer.getVersion() >= 2) {
 				step <<= 1;
 			} else {
@@ -341,12 +350,8 @@ public class Synchronizer {
 			}
 			step = Math.min(step, MAXIMUM_BLOCK_STEP);
 
-			testHeight -= step;
+			testHeight = Math.max(testHeight - step, 1);
 		}
-
-		if (testHeight <= 1)
-			// Can't go back any further - return Genesis block
-			return new ArrayList<byte[]>(Arrays.asList(GenesisBlock.getInstance(this.repository).getBlockData().getSignature()));
 
 		// Prepend common block's signature as first block sig
 		blockSignatures.add(0, testSignature);
