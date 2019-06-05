@@ -300,7 +300,7 @@ public class Network extends Thread {
 				peers.removeIf(isSelfPeer);
 			}
 
-			// Don't consider already connected peers
+			// Don't consider already connected peers (simple address match)
 			Predicate<PeerData> isConnectedPeer = peerData -> {
 				PeerAddress peerAddress = peerData.getAddress();
 				return this.connectedPeers.stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
@@ -308,6 +308,21 @@ public class Network extends Thread {
 
 			synchronized (this.connectedPeers) {
 				peers.removeIf(isConnectedPeer);
+			}
+
+			// Don't consider already connected peers (resolved address match)
+			Predicate<PeerData> isResolvedAsConnectedPeer = peerData -> {
+				try {
+					InetSocketAddress resolvedSocketAddress = peerData.getAddress().toSocketAddress();
+					return this.connectedPeers.stream().anyMatch(peer -> peer.getResolvedAddress().equals(resolvedSocketAddress));
+				} catch (UnknownHostException e) {
+					// Can't resolve - no point even trying to connect
+					return true;
+				}
+			};
+
+			synchronized (this.connectedPeers) {
+				peers.removeIf(isResolvedAsConnectedPeer);
 			}
 
 			// Any left?
@@ -642,7 +657,7 @@ public class Network extends Thread {
 		return peers;
 	}
 
-	/** Returns list of connected peers that have completed handshaking, with unbound duplicates removed. */
+	/** Returns list of connected peers that have completed handshaking, with inbound duplicates removed. */
 	public List<Peer> getUniqueHandshakedPeers() {
 		final List<Peer> peers;
 
@@ -702,6 +717,8 @@ public class Network extends Thread {
 
 			@Override
 			public void run() {
+				Thread.currentThread().setName("Merging peers");
+
 				// Serialize using lock to prevent repository deadlocks
 				mergePeersLock.lock();
 
@@ -751,6 +768,8 @@ public class Network extends Thread {
 
 			@Override
 			public void run() {
+				Thread.currentThread().setName("Network Broadcast");
+
 				for (Peer peer : targetPeers) {
 					Message message = peerMessageBuilder.apply(peer);
 
@@ -764,7 +783,7 @@ public class Network extends Thread {
 		}
 
 		try {
-			peerExecutor.execute(new Broadcaster(this.getHandshakedPeers(), peerMessageBuilder));
+			peerExecutor.execute(new Broadcaster(this.getUniqueHandshakedPeers(), peerMessageBuilder));
 		} catch (RejectedExecutionException e) {
 			// Can't execute - probably because we're shutting down, so ignore
 		}
