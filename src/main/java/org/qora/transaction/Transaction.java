@@ -233,6 +233,8 @@ public abstract class Transaction {
 		GROUP_APPROVAL_NOT_REQUIRED(82),
 		GROUP_APPROVAL_DECIDED(83),
 		MAXIMUM_PROXY_RELATIONSHIPS(84),
+		TRANSACTION_ALREADY_EXISTS(85),
+		NO_BLOCKCHAIN_LOCK(86),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -827,17 +829,36 @@ public abstract class Transaction {
 	 * 
 	 * @throws DataException
 	 */
-	public void importAsUnconfirmed() throws DataException {
-		// Fix up approval status
-		if (this.needsGroupApproval()) {
-			transactionData.setApprovalStatus(ApprovalStatus.PENDING);
-		} else {
-			transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
-		}
+	public ValidationResult importAsUnconfirmed() throws DataException {
+		// Attempt to acquire blockchain lock
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		if (!blockchainLock.tryLock())
+			return ValidationResult.NO_BLOCKCHAIN_LOCK;
 
-		repository.getTransactionRepository().save(transactionData);
-		repository.getTransactionRepository().unconfirmTransaction(transactionData);
-		repository.saveChanges();
+		try {
+			// Check transaction doesn't already exist
+			if (repository.getTransactionRepository().exists(transactionData.getSignature()))
+				return ValidationResult.TRANSACTION_ALREADY_EXISTS;
+
+			ValidationResult validationResult = this.isValidUnconfirmed();
+			if (validationResult != ValidationResult.OK)
+				return validationResult;
+
+			// Fix up approval status
+			if (this.needsGroupApproval()) {
+				transactionData.setApprovalStatus(ApprovalStatus.PENDING);
+			} else {
+				transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
+			}
+
+			repository.getTransactionRepository().save(transactionData);
+			repository.getTransactionRepository().unconfirmTransaction(transactionData);
+			repository.saveChanges();
+
+			return ValidationResult.OK;
+		} finally {
+			blockchainLock.unlock();
+		}
 	}
 
 	/**

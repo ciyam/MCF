@@ -386,25 +386,25 @@ public class BlockChain {
 
 	public static boolean orphan(int targetHeight) throws DataException {
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-		if (blockchainLock.tryLock())
-			try {
-				try (final Repository repository = RepositoryManager.getRepository()) {
-					for (int height = repository.getBlockRepository().getBlockchainHeight(); height > targetHeight; --height) {
-						LOGGER.info(String.format("Forcably orphaning block %d", height));
+		if (!blockchainLock.tryLock())
+			return false;
 
-						BlockData blockData = repository.getBlockRepository().fromHeight(height);
-						Block block = new Block(repository, blockData);
-						block.orphan();
-						repository.saveChanges();
-					}
+		try {
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				for (int height = repository.getBlockRepository().getBlockchainHeight(); height > targetHeight; --height) {
+					LOGGER.info(String.format("Forcably orphaning block %d", height));
 
-					return true;
+					BlockData blockData = repository.getBlockRepository().fromHeight(height);
+					Block block = new Block(repository, blockData);
+					block.orphan();
+					repository.saveChanges();
 				}
-			} finally {
-				blockchainLock.unlock();
-			}
 
-		return false;
+				return true;
+			}
+		} finally {
+			blockchainLock.unlock();
+		}
 	}
 
 }

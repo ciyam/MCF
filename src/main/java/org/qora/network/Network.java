@@ -65,7 +65,15 @@ public class Network extends Thread {
 	/** Maximum time since last successful connection before a peer is potentially considered "old", in milliseconds. */
 	private static final long OLD_PEER_CONNECTION_PERIOD = 7 * 24 * 60 * 60 * 1000; // ms
 
-	private static final String[] INITIAL_PEERS = new String[] { "node1.qora.org", "node2.qora.org" };
+	private static final String[] INITIAL_PEERS = new String[] {
+			"node1.qora.org",
+			"node2.qora.org",
+			"node3.qora.org",
+			"node4.qora.org",
+			"node5.qora.org",
+			"node6.qora.org",
+			"node7.qora.org"
+	};
 
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
 	public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
@@ -479,12 +487,15 @@ public class Network extends Thread {
 				List<PeerAddress> peerV2Addresses = peersV2Message.getPeerAddresses();
 
 				// First entry contains remote peer's listen port but empty address.
-				// Overwrite address with one obtained from socket.
 				int peerPort = peerV2Addresses.get(0).getPort();
 				peerV2Addresses.remove(0);
-				PeerAddress sendingPeerAddress = PeerAddress.fromString(peer.getPeerData().getAddress().getHost() + ":" + peerPort);
-				LOGGER.trace("PEERS_V2 sending peer's listen address: " + sendingPeerAddress.toString());
-				peerV2Addresses.add(0, sendingPeerAddress);
+
+				// If inbound peer, use listen port and socket address to recreate first entry
+				if (!peer.isOutbound()) {
+					PeerAddress sendingPeerAddress = PeerAddress.fromString(peer.getPeerData().getAddress().getHost() + ":" + peerPort);
+					LOGGER.trace("PEERS_V2 sending peer's listen address: " + sendingPeerAddress.toString());
+					peerV2Addresses.add(0, sendingPeerAddress);
+				}
 
 				mergePeers(peerV2Addresses);
 				break;
