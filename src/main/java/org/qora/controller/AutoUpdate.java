@@ -149,7 +149,7 @@ public class AutoUpdate extends Thread {
 
 	private static boolean attemptUpdate(byte[] commitHash, byte[] downloadHash, String repoBaseUri) {
 		LOGGER.info(String.format("Fetching update from %s", repoBaseUri));
-		InputStream in = ApiRequest.fetchStream(repoBaseUri + "/raw/" + HashCode.fromBytes(commitHash).toString() + "/" + JAR_FILENAME);
+		InputStream in = ApiRequest.fetchStream(String.format(repoBaseUri, HashCode.fromBytes(commitHash).toString()));
 		if (in == null) {
 			LOGGER.warn(String.format("Failed to fetch update from %s", repoBaseUri));
 			return false; // failed - try another repo
