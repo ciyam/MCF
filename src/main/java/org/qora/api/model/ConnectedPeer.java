@@ -7,6 +7,8 @@ import org.qora.data.network.PeerData;
 import org.qora.network.Handshake;
 import org.qora.network.Peer;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 @XmlAccessorType(XmlAccessType.FIELD)
 public class ConnectedPeer {
 
@@ -23,6 +25,7 @@ public class ConnectedPeer {
 	public Long buildTimestamp;
 
 	public Integer lastHeight;
+	@Schema(example = "base58")
 	public byte[] lastBlockSignature;
 	public Long lastBlockTimestamp;
 
