@@ -187,9 +187,6 @@ public class BlockGenerator extends Thread {
 					try {
 						bestBlock.process();
 
-						LOGGER.info("Generated new block: " + bestBlock.getBlockData().getHeight());
-						repository.saveChanges();
-
 						ProxyForgerData proxyForgerData = repository.getAccountRepository().getProxyForgeData(bestBlock.getBlockData().getGeneratorPublicKey());
 
 						if (proxyForgerData != null) {

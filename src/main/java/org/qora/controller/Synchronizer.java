@@ -152,7 +152,7 @@ public class Synchronizer {
 						return SynchronizationResult.TOO_DIVERGENT;
 					}
 
-					// If we have blocks after common block then decide whether we want to sync (lowest block signature wins)
+					// If we both have blocks after common block then decide whether we want to sync
 					int highestMutualHeight = Math.min(peerHeight, ourHeight);
 
 					// XXX This might be obsolete now
@@ -162,7 +162,7 @@ public class Synchronizer {
 						highestMutualHeight = commonBlockHeight;
 					}
 
-					if (highestMutualHeight > commonBlockHeight) {
+					if (!force && highestMutualHeight > commonBlockHeight) {
 						int numberRequired = highestMutualHeight - commonBlockHeight;
 
 						LOGGER.debug(String.format("Comparing blocks %d to %d with peer %s", commonBlockHeight + 1, highestMutualHeight, peer));

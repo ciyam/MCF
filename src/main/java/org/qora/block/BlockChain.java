@@ -394,17 +394,23 @@ public class BlockChain {
 		}
 	}
 
+	public static BigInteger calcBlockchainDistance(BlockSummaryData parentBlockSummary, BlockSummaryData blockSummary) {
+		byte[] idealGenerator = Block.calcIdealGeneratorPublicKey(parentBlockSummary.getHeight(), parentBlockSummary.getSignature());
+		BigInteger idealBI = new BigInteger(idealGenerator);
+
+		byte[] heightPerturbedGenerator = Crypto.digest(Bytes.concat(Longs.toByteArray(blockSummary.getHeight()), blockSummary.getGeneratorPublicKey()));
+		BigInteger distance = new BigInteger(heightPerturbedGenerator).subtract(idealBI).abs();
+
+		return distance;
+	}
+
 	public static BigInteger calcBlockchainDistance(BlockSummaryData parentBlockSummary, List<BlockSummaryData> blockSummaries) {
 		BigInteger weight = BigInteger.ZERO;
 
 		HashSet<String> seenGenerators = new HashSet<>();
 
 		for (BlockSummaryData blockSummary : blockSummaries) {
-			byte[] idealGenerator = Block.calcIdealGeneratorPublicKey(parentBlockSummary.getHeight(), parentBlockSummary.getSignature());
-			BigInteger idealBI = new BigInteger(idealGenerator);
-
-			byte[] heightPerturbedGenerator = Crypto.digest(Bytes.concat(Longs.toByteArray(blockSummary.getHeight()), blockSummary.getGeneratorPublicKey()));
-			BigInteger distance = new BigInteger(heightPerturbedGenerator).subtract(idealBI).abs();
+			BigInteger distance = calcBlockchainDistance(parentBlockSummary, blockSummary);
 
 			weight = weight.add(distance);
 
