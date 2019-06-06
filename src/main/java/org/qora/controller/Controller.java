@@ -745,7 +745,7 @@ public class Controller extends Thread {
 					break;
 
 				// Broadcast signatures that are new to us
-				Network.getInstance().broadcast(broadcastPeer -> new TransactionSignaturesMessage(newSignatures));
+				Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : new TransactionSignaturesMessage(newSignatures));
 
 				break;
 			}
