@@ -31,10 +31,8 @@ public class TransactionUtils {
 		} catch (InterruptedException e) {
 		}
 
-		ValidationResult result = transaction.isValidUnconfirmed();
+		ValidationResult result = transaction.importAsUnconfirmed();
 		assertEquals("Transaction invalid", ValidationResult.OK, result);
-
-		transaction.importAsUnconfirmed();
 	}
 
 	/** Signs transaction using given account and forges a new block, using "alice" account. */

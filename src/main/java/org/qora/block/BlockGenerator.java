@@ -124,96 +124,96 @@ public class BlockGenerator extends Thread {
 
 				// Make sure we're the only thread modifying the blockchain
 				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-				if (blockchainLock.tryLock()) {
-					boolean newBlockGenerated = false;
+				if (!blockchainLock.tryLock())
+					continue;
 
-					generation: try {
-						// Clear repository's "in transaction" state so we don't cause a repository deadlock
-						repository.discardChanges();
+				boolean newBlockGenerated = false;
 
-						List<Block> goodBlocks = new ArrayList<>();
+				generation: try {
+					// Clear repository's "in transaction" state so we don't cause a repository deadlock
+					repository.discardChanges();
 
-						for (Block testBlock : newBlocks) {
-							// Is new block's timestamp valid yet?
-							// We do a separate check as some timestamp checks are skipped for testnet
-							if (testBlock.isTimestampValid() != ValidationResult.OK)
-								continue;
+					List<Block> goodBlocks = new ArrayList<>();
 
-							// Is new block valid yet? (Before adding unconfirmed transactions)
-							if (testBlock.isValid() != ValidationResult.OK)
-								continue;
+					for (Block testBlock : newBlocks) {
+						// Is new block's timestamp valid yet?
+						// We do a separate check as some timestamp checks are skipped for testnet
+						if (testBlock.isTimestampValid() != ValidationResult.OK)
+							continue;
 
-							goodBlocks.add(testBlock);
-						}
+						// Is new block valid yet? (Before adding unconfirmed transactions)
+						if (testBlock.isValid() != ValidationResult.OK)
+							continue;
 
-						if (goodBlocks.isEmpty())
-							break generation;
-
-						// Pick best generator
-						Block bestBlock = goodBlocks.get(0);
-						BigInteger bestDistance = bestBlock.calcGeneratorDistance(lastBlockData);
-
-						for (int i = 1; i < goodBlocks.size(); ++i) {
-							Block testBlock = goodBlocks.get(i);
-							BigInteger distance = testBlock.calcGeneratorDistance(lastBlockData);
-
-							if (distance.compareTo(bestDistance) < 0) {
-								bestDistance = distance;
-								bestBlock = testBlock;
-							}
-						}
-
-						// Delete invalid transactions. NOTE: discards repository changes on entry, saves changes on exit.
-						deleteInvalidTransactions(repository);
-
-						// Add unconfirmed transactions
-						addUnconfirmedTransactions(repository, bestBlock);
-
-						// Sign to create block's signature
-						bestBlock.sign();
-
-						// Is newBlock still valid?
-						ValidationResult validationResult = bestBlock.isValid();
-						if (validationResult != ValidationResult.OK) {
-							// No longer valid? Report and discard
-							LOGGER.error("Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
-							newBlocks.clear();
-							break generation;
-						}
-
-						// Add to blockchain - something else will notice and broadcast new block to network
-						try {
-							bestBlock.process();
-
-							ProxyForgerData proxyForgerData = repository.getAccountRepository().getProxyForgeData(bestBlock.getBlockData().getGeneratorPublicKey());
-
-							if (proxyForgerData != null) {
-								PublicKeyAccount forger = new PublicKeyAccount(repository, proxyForgerData.getForgerPublicKey());
-								LOGGER.info(String.format("Generated block %d by %s on behalf of %s (proxy %s)",
-										bestBlock.getBlockData().getHeight(),
-										forger.getAddress(),
-										proxyForgerData.getRecipient(),
-										bestBlock.getGenerator().getAddress()));
-							} else {
-								LOGGER.info(String.format("Generated block %d by %s", bestBlock.getBlockData().getHeight(), bestBlock.getGenerator().getAddress()));
-							}
-
-							repository.saveChanges();
-
-							// Notify controller
-							newBlockGenerated = true;
-						} catch (DataException e) {
-							// Unable to process block - report and discard
-							LOGGER.error("Unable to process newly generated block?", e);
-							newBlocks.clear();
-						}
-					} finally {
-						blockchainLock.unlock();
+						goodBlocks.add(testBlock);
 					}
 
-					if (newBlockGenerated)
-						Controller.getInstance().onGeneratedBlock();
+					if (goodBlocks.isEmpty())
+						break generation;
+
+					// Pick best generator
+					Block bestBlock = goodBlocks.get(0);
+					BigInteger bestDistance = bestBlock.calcGeneratorDistance(lastBlockData);
+
+					for (int i = 1; i < goodBlocks.size(); ++i) {
+						Block testBlock = goodBlocks.get(i);
+						BigInteger distance = testBlock.calcGeneratorDistance(lastBlockData);
+
+						if (distance.compareTo(bestDistance) < 0) {
+							bestDistance = distance;
+							bestBlock = testBlock;
+						}
+					}
+
+					// Delete invalid transactions. NOTE: discards repository changes on entry, saves changes on exit.
+					deleteInvalidTransactions(repository);
+
+					// Add unconfirmed transactions
+					addUnconfirmedTransactions(repository, bestBlock);
+
+					// Sign to create block's signature
+					bestBlock.sign();
+
+					// Is newBlock still valid?
+					ValidationResult validationResult = bestBlock.isValid();
+					if (validationResult != ValidationResult.OK) {
+						// No longer valid? Report and discard
+						LOGGER.error("Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
+						newBlocks.clear();
+						break generation;
+					}
+
+					// Add to blockchain - something else will notice and broadcast new block to network
+					try {
+						bestBlock.process();
+
+						ProxyForgerData proxyForgerData = repository.getAccountRepository().getProxyForgeData(bestBlock.getBlockData().getGeneratorPublicKey());
+
+						if (proxyForgerData != null) {
+							PublicKeyAccount forger = new PublicKeyAccount(repository, proxyForgerData.getForgerPublicKey());
+							LOGGER.info(String.format("Generated block %d by %s on behalf of %s",
+									bestBlock.getBlockData().getHeight(),
+									forger.getAddress(),
+									proxyForgerData.getRecipient()));
+						} else {
+							LOGGER.info(String.format("Generated block %d by %s", bestBlock.getBlockData().getHeight(), bestBlock.getGenerator().getAddress()));
+						}
+
+						repository.saveChanges();
+
+						// Notify controller
+						newBlockGenerated = true;
+					} catch (DataException e) {
+						// Unable to process block - report and discard
+						LOGGER.error("Unable to process newly generated block?", e);
+						newBlocks.clear();
+					}
+				} finally {
+					blockchainLock.unlock();
 				}
+
+				if (newBlockGenerated)
+					Controller.getInstance().onGeneratedBlock();
 			}
 		} catch (DataException e) {
 			LOGGER.warn("Repository issue while running block generator", e);

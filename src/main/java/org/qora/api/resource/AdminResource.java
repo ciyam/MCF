@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
@@ -43,11 +45,16 @@ import org.qora.api.model.ActivitySummary;
 import org.qora.api.model.NodeInfo;
 import org.qora.block.BlockChain;
 import org.qora.controller.Controller;
+import org.qora.controller.Synchronizer;
+import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.data.account.ForgingAccountData;
 import org.qora.data.account.ProxyForgerData;
+import org.qora.network.Network;
+import org.qora.network.Peer;
+import org.qora.network.PeerAddress;
 import org.qora.utils.Base58;
 
 import com.google.common.collect.Lists;
@@ -398,6 +405,53 @@ public class AdminResource {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_HEIGHT);
 		} catch (ApiException e) {
 			throw e;
+		}
+	}
+
+	@POST
+	@Path("/forcesync")
+	@Operation(
+		summary = "Forcibly synchronize to given peer.",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string", example = "node7.mcfamily.io"
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "\"true\"",
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_DATA, ApiError.REPOSITORY_ISSUE})
+	public String forceSync(String targetPeerAddress) {
+		Security.checkApiCallAllowed(request);
+
+		try {
+			// Try to resolve passed address to make things easier
+			PeerAddress peerAddress = PeerAddress.fromString(targetPeerAddress);
+			InetSocketAddress resolvedAddress = peerAddress.toSocketAddress();
+
+			List<Peer> peers = Network.getInstance().getHandshakedPeers();
+			Peer targetPeer = peers.stream().filter(peer -> peer.getResolvedAddress().equals(resolvedAddress)).findFirst().orElse(null);
+
+			if (targetPeer == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+
+			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(targetPeer, true);
+
+			return syncResult.name();
+		} catch (IllegalArgumentException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+		} catch (ApiException e) {
+			throw e;
+		} catch (UnknownHostException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		}
 	}
 

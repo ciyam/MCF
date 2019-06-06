@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.SocketTimeoutException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
@@ -101,14 +102,17 @@ public abstract class Message {
 			return map.get(value);
 		}
 
-		public Message fromBytes(int id, byte[] data) {
+		public Message fromBytes(int id, byte[] data) throws MessageException {
 			if (this.fromByteBuffer == null)
-				return null;
+				throw new MessageException("Unsupported message type [" + value + "] during conversion from bytes");
 
 			try {
 				return (Message) this.fromByteBuffer.invoke(null, id, data == null ? null : ByteBuffer.wrap(data));
 			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-				return null;
+				if (e.getCause() instanceof BufferUnderflowException)
+					throw new MessageException("Byte data too short for " + name() + " message");
+
+				throw new MessageException("Internal error with " + name() + " message during conversion from bytes");
 			}
 		}
 	}
