@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -781,7 +782,16 @@ public class Network extends Thread {
 			public void run() {
 				Thread.currentThread().setName("Network Broadcast");
 
+				Random random = new Random();
+
 				for (Peer peer : targetPeers) {
+					// Very short sleep to reduce strain, improve multithreading and catch interrupts
+					try {
+						Thread.sleep(random.nextInt(20) + 20);
+					} catch (InterruptedException e) {
+						return;
+					}
+
 					Message message = peerMessageBuilder.apply(peer);
 
 					if (message == null)
