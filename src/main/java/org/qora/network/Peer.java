@@ -275,8 +275,10 @@ public class Peer implements Runnable {
 			while (true) {
 				// Wait (up to INACTIVITY_TIMEOUT) for, and parse, incoming message
 				Message message = Message.fromStream(in);
-				if (message == null)
+				if (message == null) {
+					this.disconnect("null message");
 					return;
+				}
 
 				LOGGER.trace(String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
 

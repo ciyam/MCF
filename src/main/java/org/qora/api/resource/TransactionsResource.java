@@ -427,11 +427,9 @@ public class TransactionsResource {
 			if (!transaction.isSignatureValid())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE);
 
-			ValidationResult result = transaction.isValidUnconfirmed();
+			ValidationResult result = transaction.importAsUnconfirmed();
 			if (result != ValidationResult.OK)
 				throw createTransactionInvalidException(request, result);
-
-			transaction.importAsUnconfirmed();
 
 			// Notify controller of new transaction
 			Controller.getInstance().onNewTransaction(transactionData);

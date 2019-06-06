@@ -69,6 +69,7 @@ public class Controller extends Thread {
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
 	private static final long MISBEHAVIOUR_COOLOFF = 60 * 60 * 1000; // ms
+	private static final int MAX_BLOCKCHAIN_TIP_AGE = 5; // blocks
 	private static final Object shutdownLock = new Object();
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true";
 
@@ -273,23 +274,27 @@ public class Controller extends Thread {
 		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 			return;
 
-		for(Peer peer : peers)
-			LOGGER.trace(String.format("Peer %s is at height %d", peer, peer.getPeerData().getLastHeight()));
-
-		// Remove peers with unknown height, lower height or same height and same block signature (unless we don't have their block signature)
-		peers.removeIf(hasShorterBlockchain());
-
-		// Remove peers that have "misbehaved" recently
+		// Disregard peers that have "misbehaved" recently
 		peers.removeIf(hasPeerMisbehaved);
 
-		if (!peers.isEmpty()) {
-			int ourHeight = getChainHeight();
+		// Remove peers with unknown height, lower height or same height and same block signature (unless we don't have their block signature)
+		// peers.removeIf(hasShorterBlockchain());
 
+		// Disregard peers that don't have a recent block
+		final long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
+		peers.removeIf(peer -> peer.getPeerData().getLastBlockTimestamp() == null || peer.getPeerData().getLastBlockTimestamp() < minLatestBlockTimestamp);
+
+		BlockData latestBlockData = getChainTip();
+
+		// Disregard peers that have no block signature or the same block signature as us
+		peers.removeIf(peer -> peer.getPeerData().getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peer.getPeerData().getLastBlockSignature()));
+
+		if (!peers.isEmpty()) {
 			// Pick random peer to sync with
 			int index = new SecureRandom().nextInt(peers.size());
 			Peer peer = peers.get(index);
 
-			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer);
+			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer, false);
 			switch (syncResult) {
 				case GENESIS_ONLY:
 				case NO_COMMON_BLOCK:
@@ -327,10 +332,10 @@ public class Controller extends Thread {
 					break;
 			}
 
-			// Broadcast our new height (if changed)
-			BlockData latestBlockData = getChainTip();
-			if (latestBlockData.getHeight() != ourHeight)
-				Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, latestBlockData));
+			// Broadcast our new chain tip (if changed)
+			BlockData newLatestBlockData = getChainTip();
+			if (!Arrays.equals(newLatestBlockData.getSignature(), latestBlockData.getSignature()))
+				Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, newLatestBlockData));
 		}
 	}
 
@@ -458,18 +463,25 @@ public class Controller extends Thread {
 			case HEIGHT: {
 				HeightMessage heightMessage = (HeightMessage) message;
 
-				// Update our record of peer's height
-				PeerData peerData = peer.getPeerData();
-				peer.getPeerData().setLastHeight(heightMessage.getHeight());
+				// Update all peers with same ID
 
-				// Only save to repository if outbound peer
-				if (peer.isOutbound())
-					try (final Repository repository = RepositoryManager.getRepository()) {
-						repository.getNetworkRepository().save(peerData);
-						repository.saveChanges();
-					} catch (DataException e) {
-						LOGGER.error(String.format("Repository issue while updating height of peer %s", peer), e);
-					}
+				List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
+				for (Peer connectedPeer : connectedPeers) {
+					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
+						continue;
+
+					PeerData peerData = connectedPeer.getPeerData();
+					peerData.setLastHeight(heightMessage.getHeight());
+
+					// Only save to repository if outbound peer
+					if (connectedPeer.isOutbound())
+						try (final Repository repository = RepositoryManager.getRepository()) {
+							repository.getNetworkRepository().save(peerData);
+							repository.saveChanges();
+						} catch (DataException e) {
+							LOGGER.error(String.format("Repository issue while updating height of peer %s", connectedPeer), e);
+						}
+				}
 
 				// Potentially synchronize
 				requestSync = true;
@@ -480,29 +492,36 @@ public class Controller extends Thread {
 			case HEIGHT_V2: {
 				HeightV2Message heightV2Message = (HeightV2Message) message;
 
-				// Update our record for peer's blockchain info
-				PeerData peerData = peer.getPeerData();
+				// Update all peers with same ID
 
-				// We want to update atomically so use lock
-				ReentrantLock peerDataLock = peer.getPeerDataLock();
-				peerDataLock.lock();
-				try {
-					peerData.setLastHeight(heightV2Message.getHeight());
-					peerData.setLastBlockSignature(heightV2Message.getSignature());
-					peerData.setLastBlockTimestamp(heightV2Message.getTimestamp());
-					peerData.setLastBlockGenerator(heightV2Message.getGenerator());
-				} finally {
-					peerDataLock.unlock();
-				}
+				List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
+				for (Peer connectedPeer : connectedPeers) {
+					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
+						continue;
 
-				// Only save to repository if outbound peer
-				if (peer.isOutbound())
-					try (final Repository repository = RepositoryManager.getRepository()) {
-						repository.getNetworkRepository().save(peerData);
-						repository.saveChanges();
-					} catch (DataException e) {
-						LOGGER.error(String.format("Repository issue while updating info of peer %s", peer), e);
+					PeerData peerData = connectedPeer.getPeerData();
+
+					// We want to update atomically so use lock
+					ReentrantLock peerDataLock = connectedPeer.getPeerDataLock();
+					peerDataLock.lock();
+					try {
+						peerData.setLastHeight(heightV2Message.getHeight());
+						peerData.setLastBlockSignature(heightV2Message.getSignature());
+						peerData.setLastBlockTimestamp(heightV2Message.getTimestamp());
+						peerData.setLastBlockGenerator(heightV2Message.getGenerator());
+					} finally {
+						peerDataLock.unlock();
 					}
+
+					// Only save to repository if outbound peer
+					if (connectedPeer.isOutbound())
+						try (final Repository repository = RepositoryManager.getRepository()) {
+							repository.getNetworkRepository().save(peerData);
+							repository.saveChanges();
+						} catch (DataException e) {
+							LOGGER.error(String.format("Repository issue while updating info of peer %s", connectedPeer), e);
+						}
+				}
 
 				// Potentially synchronize
 				requestSync = true;
@@ -623,34 +642,28 @@ public class Controller extends Thread {
 
 					// Check signature
 					if (!transaction.isSignatureValid()) {
-						LOGGER.trace(String.format("Ignoring TRANSACTION %s with invalid signature from peer %s", Base58.encode(transactionData.getSignature()), peer));
+						LOGGER.trace(String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 						break;
 					}
 
-					// Blockchain lock required to prevent multiple threads trying to save the same transaction simultaneously
-					ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-					if (blockchainLock.tryLock())
-						try {
-							// Do we have it already?
-							if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
-								LOGGER.trace(String.format("Ignoring existing TRANSACTION %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-								break;
-							}
+					ValidationResult validationResult = transaction.importAsUnconfirmed();
 
-							// Is it valid?
-							ValidationResult validationResult = transaction.isValidUnconfirmed();
-							if (validationResult != ValidationResult.OK) {
-								LOGGER.trace(String.format("Ignoring invalid (%s) TRANSACTION %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
-								break;
-							}
+					if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
+						LOGGER.trace(String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+						break;
+					}
 
-							// Seems ok - add to unconfirmed pile
-							transaction.importAsUnconfirmed();
+					if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
+						LOGGER.trace(String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+						break;
+					}
 
-							LOGGER.debug(String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-						} finally {
-							blockchainLock.unlock();
-						}
+					if (validationResult != ValidationResult.OK) {
+						LOGGER.trace(String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+						break;
+					}
+
+					LOGGER.debug(String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 				} catch (DataException e) {
 					LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
 				}
@@ -678,9 +691,9 @@ public class Controller extends Thread {
 
 				try (final Repository repository = RepositoryManager.getRepository()) {
 					for (byte[] signature : signatures) {
-						// Do we have it already?
+						// Do we have it already? (Before requesting transaction data itself)
 						if (repository.getTransactionRepository().exists(signature)) {
-							LOGGER.trace(String.format("Ignoring unconfirmed transaction %s from peer %s", Base58.encode(signature), peer));
+							LOGGER.trace(String.format("Ignoring existing transaction %s from peer %s", Base58.encode(signature), peer));
 							break;
 						}
 
@@ -698,40 +711,31 @@ public class Controller extends Thread {
 
 						// Check signature
 						if (!transaction.isSignatureValid()) {
-							LOGGER.trace(String.format("Ignoring unconfirmed transaction %s with invalid signature from peer %s", Base58.encode(transactionData.getSignature()), peer));
+							LOGGER.trace(String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 							break;
 						}
 
-						// Blockchain lock required to prevent multiple threads trying to save the same transaction simultaneously
-						ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-						if (blockchainLock.tryLock())
-							try {
-								// Do we have it already? Rechecking in case it has appeared since previous check above
-								if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
-									LOGGER.trace(String.format("Ignoring existing unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-									break;
-								}
+						ValidationResult validationResult = transaction.importAsUnconfirmed();
 
-								// Is it valid?
-								ValidationResult validationResult = transaction.isValidUnconfirmed();
-								if (validationResult != ValidationResult.OK) {
-									LOGGER.trace(String.format("Ignoring invalid (%s) unconfirmed transaction %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
-									break;
-								}
+						if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
+							LOGGER.trace(String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+							break;
+						}
 
-								// Clean repository state before import
-								repository.discardChanges();
+						if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
+							LOGGER.trace(String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+							break;
+						}
 
-								// Seems ok - add to unconfirmed pile
-								transaction.importAsUnconfirmed();
+						if (validationResult != ValidationResult.OK) {
+							LOGGER.trace(String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+							break;
+						}
 
-								LOGGER.debug(String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+						LOGGER.debug(String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 
-								// We could collate signatures that are new to us and broadcast them to our peers too
-								newSignatures.add(signature);
-							} finally {
-								blockchainLock.unlock();
-							}
+						// We could collate signatures that are new to us and broadcast them to our peers too
+						newSignatures.add(signature);
 					}
 				} catch (DataException e) {
 					LOGGER.error(String.format("Repository issue while processing unconfirmed transactions from peer %s", peer), e);
@@ -810,26 +814,42 @@ public class Controller extends Thread {
 		};
 	}
 
-	/** Returns whether we think our node has up-to-date blockchain based on our height info about other peers. */
+	/** Returns whether we think our node has up-to-date blockchain based on our info about other peers. */
 	public boolean isUpToDate() {
+		// Is our blockchain too old?
+		final long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
+		BlockData latestBlockData = getChainTip();
+		if (latestBlockData.getTimestamp() < minLatestBlockTimestamp)
+			return false;
+
 		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
 
 		// Check we have enough peers to potentially synchronize/generator
 		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 			return false;
 
-		// Remove peers with unknown height, lower height or same height and same block signature (unless we don't have their block signature)
-		peers.removeIf(hasShorterBlockchain());
-
-		// Remove peers that within 1 block of our height (actually ourHeight + 1)
-		final int maxHeight = getChainHeight() + 1;
-		peers.removeIf(peer -> peer.getPeerData().getLastHeight() <= maxHeight );
-
-		// Remove peers that have "misbehaved" recently
+		// Disregard peers that have "misbehaved" recently
 		peers.removeIf(hasPeerMisbehaved);
 
+		// Disregard peers with unknown height, lower height or same height and same block signature (unless we don't have their block signature)
+		// peers.removeIf(hasShorterBlockchain());
+
+		// Disregard peers that within 1 block of our height (actually ourHeight + 1)
+		// final int maxHeight = getChainHeight() + 1;
+		// peers.removeIf(peer -> peer.getPeerData().getLastHeight() <= maxHeight );
+
+		// Disregard peers that don't have a recent block
+		peers.removeIf(peer -> peer.getPeerData().getLastBlockTimestamp() == null || peer.getPeerData().getLastBlockTimestamp() < minLatestBlockTimestamp);
+
 		// If we have any peers left, then they would be candidates for synchronization therefore we're not up to date.
-		return peers.isEmpty();
+		// return peers.isEmpty();
+
+		// If we don't have any peers left then can't synchronize, therefore consider ourself not up to date
+		return !peers.isEmpty();
+	}
+
+	public long getMinimumLatestBlockTimestamp() {
+		return NTP.getTime() - BlockChain.getInstance().getMaxBlockTime() * 1000L * MAX_BLOCKCHAIN_TIP_AGE;
 	}
 
 }
