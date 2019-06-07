@@ -357,12 +357,12 @@ public class Peer implements Runnable {
 		// Assign random ID to this message
 		int id;
 		do {
-			id = new SecureRandom().nextInt(Integer.MAX_VALUE - 1) + 1;
-			message.setId(id);
+			id = new Random().nextInt(Integer.MAX_VALUE - 1) + 1;
 
 			// Put queue into map (keyed by message ID) so we can poll for a response
 			// If putIfAbsent() doesn't return null, then this ID is already taken
 		} while (this.replyQueues.putIfAbsent(id, blockingQueue) != null);
+		message.setId(id);
 
 		// Try to send message
 		if (!this.sendMessage(message)) {

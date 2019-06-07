@@ -68,7 +68,9 @@ public abstract class Message {
 		HEIGHT_V2(19),
 		GET_TRANSACTION(20),
 		GET_UNCONFIRMED_TRANSACTIONS(21),
-		TRANSACTION_SIGNATURES(22);
+		TRANSACTION_SIGNATURES(22),
+		GET_ARBITRARY_DATA(23),
+		ARBITRARY_DATA(24);
 
 		public final int value;
 		public final Method fromByteBuffer;

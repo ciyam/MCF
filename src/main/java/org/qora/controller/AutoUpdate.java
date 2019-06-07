@@ -51,7 +51,7 @@ public class AutoUpdate extends Thread {
 
 	private static AutoUpdate instance;
 
-	private boolean isStopping = false;
+	private volatile boolean isStopping = false;
 
 	private AutoUpdate() {
 	}

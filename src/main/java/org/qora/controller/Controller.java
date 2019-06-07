@@ -9,8 +9,12 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
@@ -23,15 +27,20 @@ import org.qora.block.Block;
 import org.qora.block.BlockChain;
 import org.qora.block.BlockGenerator;
 import org.qora.controller.Synchronizer.SynchronizationResult;
+import org.qora.crypto.Crypto;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
 import org.qora.data.network.PeerData;
+import org.qora.data.transaction.ArbitraryTransactionData;
+import org.qora.data.transaction.ArbitraryTransactionData.DataType;
 import org.qora.data.transaction.TransactionData;
 import org.qora.gui.Gui;
 import org.qora.network.Network;
 import org.qora.network.Peer;
+import org.qora.network.message.ArbitraryDataMessage;
 import org.qora.network.message.BlockMessage;
 import org.qora.network.message.BlockSummariesMessage;
+import org.qora.network.message.GetArbitraryDataMessage;
 import org.qora.network.message.GetBlockMessage;
 import org.qora.network.message.GetBlockSummariesMessage;
 import org.qora.network.message.GetPeersMessage;
@@ -51,11 +60,14 @@ import org.qora.repository.RepositoryFactory;
 import org.qora.repository.RepositoryManager;
 import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qora.settings.Settings;
+import org.qora.transaction.ArbitraryTransaction;
 import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.ui.UiService;
 import org.qora.utils.Base58;
 import org.qora.utils.NTP;
+import org.qora.utils.Triple;
 
 public class Controller extends Thread {
 
@@ -72,13 +84,34 @@ public class Controller extends Thread {
 	private static final int MAX_BLOCKCHAIN_TIP_AGE = 5; // blocks
 	private static final Object shutdownLock = new Object();
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true";
+	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000; // ms
 
 	private static volatile boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
 	private static volatile boolean requestSync = false;
 	private static Controller instance;
+
 	private final String buildVersion;
 	private final long buildTimestamp; // seconds
+
+	/**
+	 * Map of recent requests for ARBITRARY transaction data payloads.
+	 * <p>
+	 * Key is original request's message ID<br>
+	 * Value is Triple&lt;transaction signature in base58, first requesting peer, first request's timestamp&gt;
+	 * <p>
+	 * If peer is null then either:<br>
+	 * <ul>
+	 * <li>we are the original requesting peer</li>
+	 * <li>we have already sent data payload to original requesting peer.</li>
+	 * </ul>
+	 * If signature is null then we have already received the data payload and either:<br>
+	 * <ul>
+	 * <li>we are the original requesting peer and have saved it locally</li>
+	 * <li>we have forwarded the data payload (and maybe also saved it locally)</li>
+	 * </ul>
+	 */
+	private Map<Integer, Triple<String, Peer, Long>> arbitraryDataRequests = Collections.synchronizedMap(new HashMap<>());
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly generated block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
@@ -223,6 +256,10 @@ public class Controller extends Thread {
 		LOGGER.info("Starting controller");
 		Controller.getInstance().start();
 
+		// Arbitrary transaction data manager
+		LOGGER.info("Starting arbitrary-transaction data manager");
+		ArbitraryDataManager.getInstance().start();
+
 		// Auto-update service
 		LOGGER.info("Starting auto-update");
 		AutoUpdate.getInstance().start();
@@ -263,6 +300,10 @@ public class Controller extends Thread {
 				requestSync = false;
 				potentiallySynchronize();
 			}
+
+			// Clean up arbitrary data request cache
+			final long requestMinimumTimestamp = NTP.getTime() - ARBITRARY_REQUEST_TIMEOUT;
+			arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
 		}
 	}
 
@@ -350,6 +391,10 @@ public class Controller extends Thread {
 
 				LOGGER.info("Shutting down auto-update");
 				AutoUpdate.getInstance().shutdown();
+
+				// Arbitrary transaction data manager
+				LOGGER.info("Shutting down arbitrary-transaction data manager");
+				ArbitraryDataManager.getInstance().shutdown();
 
 				LOGGER.info("Shutting down controller");
 				this.interrupt();
@@ -780,6 +825,107 @@ public class Controller extends Thread {
 				break;
 			}
 
+			case GET_ARBITRARY_DATA: {
+				GetArbitraryDataMessage getArbitraryDataMessage = (GetArbitraryDataMessage) message;
+
+				byte[] signature = getArbitraryDataMessage.getSignature();
+				String signature58 = Base58.encode(signature);
+				Long timestamp = NTP.getTime();
+				Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
+
+				// If we've seen this request recently, then ignore
+				if (arbitraryDataRequests.putIfAbsent(message.getId(), newEntry) != null)
+					break;
+
+				// Do we even have this transaction?
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+					if (transactionData == null || transactionData.getType() != TransactionType.ARBITRARY)
+						break;
+
+					ArbitraryTransaction transaction = new ArbitraryTransaction(repository, transactionData);
+
+					// If we have the data then send it
+					if (transaction.isDataLocal()) {
+						byte[] data = transaction.fetchData();
+						if (data == null)
+							break;
+
+						// Update requests map to reflect that we've sent it
+						newEntry = new Triple<>(signature58, null, timestamp);
+						arbitraryDataRequests.put(message.getId(), newEntry);
+
+						Message arbitraryDataMessage = new ArbitraryDataMessage(signature, data);
+						arbitraryDataMessage.setId(message.getId());
+						if (!peer.sendMessage(arbitraryDataMessage))
+							peer.disconnect("failed to send arbitrary data");
+
+						break;
+					}
+
+					// Ask our other peers if they have it
+					Network.getInstance().broadcast(broadcastPeer -> broadcastPeer == peer ? null : message);
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while finding arbitrary transaction data for peer %s", peer), e);
+				}
+
+				break;
+			}
+
+			case ARBITRARY_DATA: {
+				ArbitraryDataMessage arbitraryDataMessage = (ArbitraryDataMessage) message;
+
+				// Do we have a pending request for this data?
+				Triple<String, Peer, Long> request = arbitraryDataRequests.get(message.getId());
+				if (request == null || request.getA() == null)
+					break;
+
+				// Does this message's signature match what we're expecting?
+				byte[] signature = arbitraryDataMessage.getSignature();
+				String signature58 = Base58.encode(signature);
+				if (!request.getA().equals(signature58))
+					break;
+
+				byte[] data = arbitraryDataMessage.getData();
+
+				// Check transaction exists and payload hash is correct
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
+					if (transactionData == null || !(transactionData instanceof ArbitraryTransactionData))
+						break;
+
+					ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
+
+					byte[] actualHash = Crypto.digest(data);
+
+					// "data" from repository will always be hash of actual raw data
+					if (!Arrays.equals(arbitraryTransactionData.getData(), actualHash))
+						break;
+
+					// Update requests map to reflect that we've received it
+					Triple<String, Peer, Long> newEntry = new Triple<>(null, null, request.getC());
+					arbitraryDataRequests.put(message.getId(), newEntry);
+
+					// Save payload locally
+					// TODO: storage policy
+					arbitraryTransactionData.setDataType(DataType.RAW_DATA);
+					arbitraryTransactionData.setData(data);
+					repository.getArbitraryRepository().save(arbitraryTransactionData);
+					repository.saveChanges();
+				} catch (DataException e) {
+					LOGGER.error(String.format("Repository issue while finding arbitrary transaction data for peer %s", peer), e);
+				}
+
+				Peer requestingPeer = request.getB();
+				if (requestingPeer != null) {
+					// Forward to requesting peer;
+					if (!requestingPeer.sendMessage(arbitraryDataMessage))
+						requestingPeer.disconnect("failed to forward arbitrary data");
+				}
+
+				break;
+			}
+
 			default:
 				LOGGER.debug(String.format("Unhandled %s message [ID %d] from peer %s", message.getType().name(), message.getId(), peer));
 				break;
@@ -787,6 +933,51 @@ public class Controller extends Thread {
 	}
 
 	// Utilities
+
+	public byte[] fetchArbitraryData(byte[] signature) throws InterruptedException {
+		// Build request
+		Message getArbitraryDataMessage = new GetArbitraryDataMessage(signature);
+
+		// Save our request into requests map
+		String signature58 = Base58.encode(signature);
+		Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
+
+		// Assign random ID to this message
+		int id;
+		do {
+			id = new Random().nextInt(Integer.MAX_VALUE - 1) + 1;
+
+			// Put queue into map (keyed by message ID) so we can poll for a response
+			// If putIfAbsent() doesn't return null, then this ID is already taken
+		} while (arbitraryDataRequests.put(id, requestEntry) != null);
+		getArbitraryDataMessage.setId(id);
+
+		// Broadcast request
+		Network.getInstance().broadcast(peer -> peer.getVersion() < 2 ? null : getArbitraryDataMessage);
+
+		// Poll to see if data has arrived
+		final long singleWait = 100;
+		long totalWait = 0;
+		while (totalWait < ARBITRARY_REQUEST_TIMEOUT) {
+			Thread.sleep(singleWait);
+
+			requestEntry = arbitraryDataRequests.get(id);
+			if (requestEntry == null)
+				return null;
+
+			if (requestEntry.getA() == null)
+				break;
+
+			totalWait += singleWait;
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getArbitraryRepository().fetchData(signature);
+		} catch (DataException e) {
+			LOGGER.error(String.format("Repository issue while fetching arbitrary transaction data"), e);
+			return null;
+		}
+	}
 
 	public static final Predicate<Peer> hasPeerMisbehaved = peer -> {
 		Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
