@@ -20,7 +20,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT version, service, data_hash from ArbitraryTransactions WHERE signature = ?";
+		final String sql = "SELECT version, service, is_data_raw, data from ArbitraryTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
@@ -28,11 +28,13 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 
 			int version = resultSet.getInt(1);
 			int service = resultSet.getInt(2);
-			byte[] dataHash = resultSet.getBytes(3);
+			boolean isDataRaw = resultSet.getBoolean(3); // NOT NULL, so no null to false
+			DataType dataType = isDataRaw ? DataType.RAW_DATA : DataType.DATA_HASH;
+			byte[] data = resultSet.getBytes(4);
 
 			List<PaymentData> payments = this.getPaymentsFromSignature(baseTransactionData.getSignature());
 
-			return new ArbitraryTransactionData(baseTransactionData, version, service, dataHash, DataType.DATA_HASH, payments);
+			return new ArbitraryTransactionData(baseTransactionData, version, service, data, dataType, payments);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch arbitrary transaction from repository", e);
 		}
@@ -42,15 +44,15 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 	public void save(TransactionData transactionData) throws DataException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-		// Refuse to store raw data in the repository - it needs to be saved elsewhere!
-		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA)
+		// For V4+, we might not store raw data in the repository but elsewhere
+		if (arbitraryTransactionData.getVersion() >= 4)
 			this.repository.getArbitraryRepository().save(arbitraryTransactionData);
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("ArbitraryTransactions");
 
 		saveHelper.bind("signature", arbitraryTransactionData.getSignature()).bind("sender", arbitraryTransactionData.getSenderPublicKey())
 				.bind("version", arbitraryTransactionData.getVersion()).bind("service", arbitraryTransactionData.getService())
-				.bind("data_hash", arbitraryTransactionData.getData());
+				.bind("is_data_raw", arbitraryTransactionData.getDataType() == DataType.RAW_DATA).bind("data", arbitraryTransactionData.getData());
 
 		try {
 			saveHelper.execute(this.repository);

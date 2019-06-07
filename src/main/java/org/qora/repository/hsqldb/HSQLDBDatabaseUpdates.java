@@ -758,6 +758,14 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX TransactionApprovalHeightIndex on Transactions (approval_height)");
 					break;
 
+				case 52:
+					// Arbitrary transactions changes to allow storage of very small payloads locally
+					stmt.execute("CREATE TYPE ArbitraryData AS VARBINARY(255)");
+					stmt.execute("ALTER TABLE ArbitraryTransactions ADD COLUMN is_data_raw BOOLEAN NOT NULL");
+					stmt.execute("ALTER TABLE ArbitraryTransactions ALTER COLUMN data_hash ArbitraryData");
+					stmt.execute("ALTER TABLE ArbitraryTransactions ALTER COLUMN data_hash RENAME TO data");
+					break;
+
 				default:
 					// nothing to do
 					return false;

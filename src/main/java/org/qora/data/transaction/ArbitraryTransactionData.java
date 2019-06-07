@@ -11,7 +11,6 @@ import org.qora.data.PaymentData;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -21,7 +20,6 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 public class ArbitraryTransactionData extends TransactionData {
 
 	// "data" field types
-	@Schema(accessMode = AccessMode.READ_ONLY)
 	public enum DataType {
 		RAW_DATA,
 		DATA_HASH;
