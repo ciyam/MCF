@@ -148,6 +148,7 @@ public class ArbitraryTransaction extends Transaction {
 		return this.repository.getArbitraryRepository().isDataLocal(this.transactionData.getSignature());
 	}
 
+	/** Returns arbitrary data payload, fetching from network if needed. Can block for a while! */
 	public byte[] fetchData() throws DataException {
 		// If local, read from file
 		if (isDataLocal())

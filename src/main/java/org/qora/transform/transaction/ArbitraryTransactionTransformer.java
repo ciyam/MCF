@@ -27,7 +27,9 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
 	private static final int SERVICE_LENGTH = INT_LENGTH;
+	private static final int DATA_TYPE_LENGTH = BYTE_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
+	private static final int NUMBER_PAYMENTS_LENGTH = INT_LENGTH;
 
 	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + DATA_SIZE_LENGTH;
 
@@ -47,6 +49,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		layout.add("* payment amount", TransformationType.AMOUNT);
 
 		layout.add("service ID", TransformationType.INT);
+		layout.add("is data raw?", TransformationType.BOOLEAN);
 		layout.add("data length", TransformationType.INT);
 		layout.add("data", TransformationType.DATA);
 		layout.add("fee", TransformationType.AMOUNT);
@@ -78,6 +81,15 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		int service = byteBuffer.getInt();
 
+		// With V4+ we might be receiving hash of data instead of actual raw data
+		DataType dataType = DataType.RAW_DATA;
+		if (version >= 4) {
+			boolean isRaw = byteBuffer.get() != 0;
+
+			if (!isRaw)
+				dataType = DataType.DATA_HASH;
+		}
+
 		int dataSize = byteBuffer.getInt();
 		// Don't allow invalid dataSize here to avoid run-time issues
 		if (dataSize > ArbitraryTransaction.MAX_DATA_SIZE)
@@ -93,17 +105,21 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, senderPublicKey, fee, signature);
 
-		return new ArbitraryTransactionData(baseTransactionData, version, service, data, DataType.RAW_DATA, payments);
+		return new ArbitraryTransactionData(baseTransactionData, version, service, data, dataType, payments);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-		int length = getBaseLength(transactionData) + EXTRAS_LENGTH;
+		int length = getBaseLength(transactionData) + EXTRAS_LENGTH + arbitraryTransactionData.getData().length;
+
+		// V4+ transactions have data type
+		if (arbitraryTransactionData.getVersion() >= 4)
+			length += DATA_TYPE_LENGTH;
 
 		// V3+ transactions have optional payments
 		if (arbitraryTransactionData.getVersion() >= 3)
-			length += arbitraryTransactionData.getData().length + arbitraryTransactionData.getPayments().size() * PaymentTransformer.getDataLength();
+			length += NUMBER_PAYMENTS_LENGTH + arbitraryTransactionData.getPayments().size() * PaymentTransformer.getDataLength();
 
 		return length;
 	}
@@ -125,6 +141,10 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 			}
 
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService()));
+
+			// V4+ also has data type
+			if (arbitraryTransactionData.getVersion() >= 4)
+				bytes.write((byte) (arbitraryTransactionData.getDataType() == DataType.RAW_DATA ? 1 : 0));
 
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getData().length));
 			bytes.write(arbitraryTransactionData.getData());
@@ -188,6 +208,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 			bytes.write(Ints.toByteArray(arbitraryTransactionData.getService()));
 
+			bytes.write(Ints.toByteArray(arbitraryTransactionData.getData().length));
 			switch (arbitraryTransactionData.getDataType()) {
 				case DATA_HASH:
 					bytes.write(arbitraryTransactionData.getData());

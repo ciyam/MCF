@@ -19,6 +19,8 @@ import org.qora.utils.Base58;
 
 public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
+	private static final int MAX_RAW_DATA_SIZE = 255; // size of VARBINARY
+
 	protected HSQLDBRepository repository;
 
 	public HSQLDBArbitraryRepository(HSQLDBRepository repository) {
@@ -51,19 +53,25 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 		return stringBuilder.toString();
 	}
 
-	private String buildPathname(byte[] signature) throws DataException {
+	private ArbitraryTransactionData getTransactionData(byte[] signature) throws DataException {
 		TransactionData transactionData = this.repository.getTransactionRepository().fromSignature(signature);
 		if (transactionData == null)
 			return null;
 
-		return buildPathname((ArbitraryTransactionData) transactionData);
+		return (ArbitraryTransactionData) transactionData;
 	}
 
 	@Override
 	public boolean isDataLocal(byte[] signature) throws DataException {
-		String dataPathname = buildPathname(signature);
-		if (dataPathname == null)
+		ArbitraryTransactionData transactionData = getTransactionData(signature);
+		if (transactionData == null)
 			return false;
+
+		// Raw data is always available
+		if (transactionData.getDataType() == DataType.RAW_DATA)
+			return true;
+
+		String dataPathname = buildPathname(transactionData);
 
 		Path dataPath = Paths.get(dataPathname);
 		return Files.exists(dataPath);
@@ -71,9 +79,15 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	@Override
 	public byte[] fetchData(byte[] signature) throws DataException {
-		String dataPathname = buildPathname(signature);
-		if (dataPathname == null)
+		ArbitraryTransactionData transactionData = getTransactionData(signature);
+		if (transactionData == null)
 			return null;
+
+		// Raw data is always available
+		if (transactionData.getDataType() == DataType.RAW_DATA)
+			return transactionData.getData();
+
+		String dataPathname = buildPathname(transactionData);
 
 		Path dataPath = Paths.get(dataPathname);
 		try {
@@ -85,37 +99,47 @@ public class HSQLDBArbitraryRepository implements ArbitraryRepository {
 
 	@Override
 	public void save(ArbitraryTransactionData arbitraryTransactionData) throws DataException {
-		// Refuse to store raw data in the repository - it needs to be saved elsewhere!
-		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA) {
-			byte[] rawData = arbitraryTransactionData.getData();
+		// Already hashed? Nothing to do
+		if (arbitraryTransactionData.getDataType() == DataType.DATA_HASH)
+			return;
 
-			// Calculate hash of data and update our transaction to use that
-			byte[] dataHash = Crypto.digest(rawData);
-			arbitraryTransactionData.setData(dataHash);
-			arbitraryTransactionData.setDataType(DataType.DATA_HASH);
+		// Trivial-sized payloads can remain in raw form
+		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA && arbitraryTransactionData.getData().length <= MAX_RAW_DATA_SIZE)
+			return;
 
-			String dataPathname = buildPathname(arbitraryTransactionData);
+		// Store non-trivial payloads in filesystem and convert transaction's data to hash form
+		byte[] rawData = arbitraryTransactionData.getData();
 
-			Path dataPath = Paths.get(dataPathname);
+		// Calculate hash of data and update our transaction to use that
+		byte[] dataHash = Crypto.digest(rawData);
+		arbitraryTransactionData.setData(dataHash);
+		arbitraryTransactionData.setDataType(DataType.DATA_HASH);
 
-			// Make sure directory structure exists
-			try {
-				Files.createDirectories(dataPath.getParent());
-			} catch (IOException e) {
-				throw new DataException("Unable to create arbitrary transaction directory", e);
-			}
+		String dataPathname = buildPathname(arbitraryTransactionData);
 
-			// Output actual transaction data
-			try (OutputStream dataOut = Files.newOutputStream(dataPath)) {
-				dataOut.write(rawData);
-			} catch (IOException e) {
-				throw new DataException("Unable to store arbitrary transaction data", e);
-			}
+		Path dataPath = Paths.get(dataPathname);
+
+		// Make sure directory structure exists
+		try {
+			Files.createDirectories(dataPath.getParent());
+		} catch (IOException e) {
+			throw new DataException("Unable to create arbitrary transaction directory", e);
+		}
+
+		// Output actual transaction data
+		try (OutputStream dataOut = Files.newOutputStream(dataPath)) {
+			dataOut.write(rawData);
+		} catch (IOException e) {
+			throw new DataException("Unable to store arbitrary transaction data", e);
 		}
 	}
 
 	@Override
 	public void delete(ArbitraryTransactionData arbitraryTransactionData) throws DataException {
+		// No need to do anything if we still only have raw data, and hence nothing saved in filesystem
+		if (arbitraryTransactionData.getDataType() == DataType.RAW_DATA)
+			return;
+
 		String dataPathname = buildPathname(arbitraryTransactionData);
 		Path dataPath = Paths.get(dataPathname);
 		try {

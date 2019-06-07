@@ -94,7 +94,7 @@ public class Serialization {
 	public static void serializeSizedString(ByteArrayOutputStream bytes, String string) throws UnsupportedEncodingException, IOException {
 		byte[] stringBytes = string.getBytes("UTF-8");
 		bytes.write(Ints.toByteArray(stringBytes.length));
-		bytes.write(string.getBytes("UTF-8"));
+		bytes.write(stringBytes);
 	}
 
 	public static String deserializeSizedString(ByteBuffer byteBuffer, int maxSize) throws TransformationException {
