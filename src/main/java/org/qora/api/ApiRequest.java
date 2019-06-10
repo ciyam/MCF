@@ -4,13 +4,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SNIHostName;
@@ -29,23 +32,32 @@ import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 
 public class ApiRequest {
 
+	private static final Pattern proxyUrlPattern = Pattern.compile("(https://)([^@:/]+)@([0-9.]{7,15})(/.*)");
+
+	public static class FixedIpSocket extends Socket {
+		private final String ipAddress;
+
+		public FixedIpSocket(String ipAddress) {
+			this.ipAddress = ipAddress;
+		}
+
+		@Override
+		public void connect(SocketAddress endpoint, int timeout) throws IOException {
+			InetSocketAddress inetEndpoint = (InetSocketAddress) endpoint;
+			InetSocketAddress newEndpoint = new InetSocketAddress(ipAddress, inetEndpoint.getPort());
+			super.connect(newEndpoint, timeout);
+		}
+	}
+
 	public static String perform(String uri, Map<String, String> params) {
 		if (params != null && !params.isEmpty())
 			uri += "?" + getParamsString(params);
 
-		InputStream in = fetchStream(uri);
-		if (in == null)
-			return null;
-
-		try (Scanner scanner = new Scanner(in, "UTF8")) {
+		try (InputStream in = fetchStream(uri); Scanner scanner = new Scanner(in, "UTF8")) {
 			scanner.useDelimiter("\\A");
 			return scanner.hasNext() ? scanner.next() : "";
-		} finally {
-			try {
-				in.close();
-			} catch (IOException e) {
-				// We tried...
-			}
+		} catch (IOException e) {
+			return null;
 		}
 	}
 
@@ -55,11 +67,7 @@ public class ApiRequest {
 		if (params != null && !params.isEmpty())
 			uri += "?" + getParamsString(params);
 
-		InputStream in = fetchStream(uri);
-		if (in == null)
-			return null;
-
-		try {
+		try (InputStream in = fetchStream(uri)) {
 			StreamSource json = new StreamSource(in);
 
 			// Attempt to unmarshal JSON stream to Settings
@@ -73,6 +81,8 @@ public class ApiRequest {
 
 			throw new RuntimeException("Unable to unmarshall API response", e);
 		} catch (JAXBException e) {
+			throw new RuntimeException("Unable to unmarshall API response", e);
+		} catch (IOException e) {
 			throw new RuntimeException("Unable to unmarshall API response", e);
 		}
 	}
@@ -115,39 +125,43 @@ public class ApiRequest {
 		return resultString.length() > 0 ? resultString.substring(0, resultString.length() - 1) : resultString;
 	}
 
-	public static InputStream fetchStream(String uri) {
-		try {
-			URL url = new URL(uri);
-			HttpURLConnection con = (HttpURLConnection) url.openConnection();
+	/**
+	 * Returns InputStream for given URI.
+	 * <p>
+	 * Also accepts special URI form:<br>
+	 * <tt>https://&lt;hostname&gt;@&lt;ip-address&gt;/...</tt>
 
-			try {
-				con.setRequestMethod("GET");
-				con.setConnectTimeout(5000);
-				con.setReadTimeout(5000);
-				ApiRequest.setConnectionSSL(con);
+	 * @param uri
+	 * @return
+	 * @throws IOException
+	 */
+	public static InputStream fetchStream(String uri) throws IOException {
+		String ipAddress = null;
 
-				try {
-					int status = con.getResponseCode();
-
-					if (status != 200)
-						return null;
-				} catch (IOException e) {
-					return null;
-				}
-
-				return con.getInputStream();
-			} catch (IOException e) {
-				return null;
-			}
-		} catch (MalformedURLException e) {
-			throw new RuntimeException("Malformed API request", e);
-		} catch (IOException e) {
-			// Temporary fail
-			return null;
+		// Check for special proxy form
+		Matcher uriMatcher = proxyUrlPattern.matcher(uri);
+		if (uriMatcher.matches()) {
+			ipAddress = uriMatcher.group(3);
+			uri = uriMatcher.replaceFirst(uriMatcher.group(1) + uriMatcher.group(2) + uriMatcher.group(4));
 		}
+
+		URL url = new URL(uri);
+		HttpURLConnection con = (HttpURLConnection) url.openConnection();
+
+		con.setRequestMethod("GET");
+		con.setConnectTimeout(5000);
+		con.setReadTimeout(5000);
+		ApiRequest.setConnectionSSL(con, ipAddress);
+
+		int status = con.getResponseCode();
+
+		if (status != 200)
+			throw new IOException("Non-OK HTTP response");
+
+		return con.getInputStream();
 	}
 
-	public static void setConnectionSSL(HttpURLConnection con) {
+	public static void setConnectionSSL(HttpURLConnection con, String ipAddress) {
 		if (!(con instanceof HttpsURLConnection))
 			return;
 
@@ -155,6 +169,14 @@ public class ApiRequest {
 		URL url = con.getURL();
 
 		httpsCon.setSSLSocketFactory(new org.bouncycastle.jsse.util.CustomSSLSocketFactory(httpsCon.getSSLSocketFactory()) {
+			@Override
+			public Socket createSocket() throws IOException {
+				if (ipAddress == null)
+					return super.createSocket();
+
+				return new FixedIpSocket(ipAddress);
+			}
+
 			@Override
 			protected Socket configureSocket(Socket s) {
 				if (s instanceof SSLSocket) {

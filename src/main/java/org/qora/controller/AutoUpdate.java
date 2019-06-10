@@ -148,56 +148,60 @@ public class AutoUpdate extends Thread {
 	}
 
 	private static boolean attemptUpdate(byte[] commitHash, byte[] downloadHash, String repoBaseUri) {
-		LOGGER.info(String.format("Fetching update from %s", repoBaseUri));
-		InputStream in = ApiRequest.fetchStream(String.format(repoBaseUri, HashCode.fromBytes(commitHash).toString()));
-		if (in == null) {
-			LOGGER.warn(String.format("Failed to fetch update from %s", repoBaseUri));
-			return false; // failed - try another repo
-		}
-
+		String repoUri = String.format(repoBaseUri, HashCode.fromBytes(commitHash).toString());
+		LOGGER.info(String.format("Fetching update from %s", repoUri));
 		Path newJar = Paths.get(NEW_JAR_FILENAME);
-		try {
-			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+
+		try (InputStream in = ApiRequest.fetchStream(repoUri)) {
+			MessageDigest sha256;
+			try {
+				sha256 = MessageDigest.getInstance("SHA-256");
+			} catch (NoSuchAlgorithmException e) {
+				return true; // not repo's fault
+			}
 
 			// Save input stream into new JAR
-			LOGGER.debug(String.format("Saving update from %s into %s", repoBaseUri, newJar.toString()));
+			LOGGER.debug(String.format("Saving update from %s into %s", repoUri, newJar.toString()));
 
-			OutputStream out = Files.newOutputStream(newJar);
-			byte[] buffer = new byte[1024 * 1024];
-			do {
-				int nread = in.read(buffer);
-				if (nread == -1)
-					break;
+			try (OutputStream out = Files.newOutputStream(newJar)) {
+				byte[] buffer = new byte[1024 * 1024];
+				do {
+					int nread = in.read(buffer);
+					if (nread == -1)
+						break;
 
-				sha256.update(buffer, 0, nread);
-				out.write(buffer, 0, nread);
-			} while (true);
+					sha256.update(buffer, 0, nread);
+					out.write(buffer, 0, nread);
+				} while (true);
+				out.flush();
 
-			// Check hash
-			byte[] hash = sha256.digest();
-			if (!Arrays.equals(downloadHash, hash)) {
-				LOGGER.warn(String.format("Downloaded JAR's hash %s doesn't match %s", HashCode.fromBytes(hash).toString(), HashCode.fromBytes(downloadHash).toString()));
+				// Check hash
+				byte[] hash = sha256.digest();
+				if (!Arrays.equals(downloadHash, hash)) {
+					LOGGER.warn(String.format("Downloaded JAR's hash %s doesn't match %s", HashCode.fromBytes(hash).toString(), HashCode.fromBytes(downloadHash).toString()));
+
+					try {
+						Files.deleteIfExists(newJar);
+					} catch (IOException de) {
+						LOGGER.warn(String.format("Failed to delete download: %s", de.getMessage()));
+					}
+
+					return false;
+				}
+			} catch (IOException e) {
+				LOGGER.warn(String.format("Failed to save update from %s into %s", repoUri, newJar.toString()));
 
 				try {
 					Files.deleteIfExists(newJar);
 				} catch (IOException de) {
-					LOGGER.warn(String.format("Failed to delete download: %s", de.getMessage()));
+					LOGGER.warn(String.format("Failed to delete partial download: %s", de.getMessage()));
 				}
 
-				return false;
+				return false; // failed - try another repo
 			}
 		} catch (IOException e) {
-			LOGGER.warn(String.format("Failed to save update from %s into %s", repoBaseUri, newJar.toString()));
-
-			try {
-				Files.deleteIfExists(newJar);
-			} catch (IOException de) {
-				LOGGER.warn(String.format("Failed to delete partial download: %s", de.getMessage()));
-			}
-
+			LOGGER.warn(String.format("Failed to fetch update from %s", repoUri));
 			return false; // failed - try another repo
-		} catch (NoSuchAlgorithmException e) {
-			return true; // not repo's fault
 		}
 
 		// Call ApplyUpdate to end this process (unlocking current JAR so it can be replaced)

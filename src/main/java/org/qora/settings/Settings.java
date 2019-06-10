@@ -83,8 +83,11 @@ public class Settings {
 
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
+		"https://mcfamily.io/updates/%s",
+		"https://mcfamily.io@47.75.186.105/updates/%s",
 		"https://github.com/ciyam/MCF/raw/%s/MCF-core.jar",
-		"https://mcfamily.io/updates/%s"
+		"https://raw.githubusercontent.com/ciyam/MCF/%s/MCF-core.jar",
+		"https://raw.githubusercontent.com@151.101.16.133/ciyam/MCF/%s/MCF-core.jar"
 	};
 
 	// Constructors
