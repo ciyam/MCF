@@ -83,7 +83,8 @@ public class Settings {
 
 	// Auto-update sources
 	private String[] autoUpdateRepos = new String[] {
-		"https://github.com/catbref/qora-core/raw/%s/qora-core.jar"
+		"https://github.com/catbref/qora-core/raw/%s/qora-core.jar",
+		"https://raw.githubusercontent.com@151.101.16.133/catbref/qora-core/%s/qora-core.jar"
 	};
 
 	// Constructors
