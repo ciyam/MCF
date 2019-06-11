@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
@@ -427,14 +429,22 @@ public class TransactionsResource {
 			if (!transaction.isSignatureValid())
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_SIGNATURE);
 
-			ValidationResult result = transaction.importAsUnconfirmed();
-			if (result != ValidationResult.OK)
-				throw createTransactionInvalidException(request, result);
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+			if (!blockchainLock.tryLock(500, TimeUnit.MILLISECONDS))
+				throw createTransactionInvalidException(request, ValidationResult.NO_BLOCKCHAIN_LOCK);
 
-			// Notify controller of new transaction
-			Controller.getInstance().onNewTransaction(transactionData);
+			try {
+				ValidationResult result = transaction.importAsUnconfirmed();
+				if (result != ValidationResult.OK)
+					throw createTransactionInvalidException(request, result);
 
-			return "true";
+				// Notify controller of new transaction
+				Controller.getInstance().onNewTransaction(transactionData);
+
+				return "true";
+			} finally {
+				blockchainLock.unlock();
+			}
 		} catch (NumberFormatException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA, e);
 		} catch (TransformationException e) {
@@ -443,6 +453,8 @@ public class TransactionsResource {
 			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		} catch (InterruptedException e) {
+			throw createTransactionInvalidException(request, ValidationResult.NO_BLOCKCHAIN_LOCK);
 		}
 	}
 
