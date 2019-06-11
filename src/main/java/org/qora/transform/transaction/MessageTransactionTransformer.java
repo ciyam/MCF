@@ -28,7 +28,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 	private static final int IS_TEXT_LENGTH = BOOLEAN_LENGTH;
 	private static final int IS_ENCRYPTED_LENGTH = BOOLEAN_LENGTH;
 
-	private static final int EXTRAS_LENGTH = RECIPIENT_LENGTH + AMOUNT_LENGTH + DATA_SIZE_LENGTH + IS_TEXT_LENGTH + IS_ENCRYPTED_LENGTH;
+	private static final int EXTRAS_LENGTH = RECIPIENT_LENGTH + AMOUNT_LENGTH + DATA_SIZE_LENGTH + IS_ENCRYPTED_LENGTH + IS_TEXT_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -99,7 +99,7 @@ public class MessageTransactionTransformer extends TransactionTransformer {
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		MessageTransactionData messageTransactionData = (MessageTransactionData) transactionData;
 
-		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH;
+		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH + messageTransactionData.getData().length;
 
 		// V3+ has assetID for amount
 		if (messageTransactionData.getVersion() != 1)

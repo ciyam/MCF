@@ -20,10 +20,10 @@ import com.google.common.primitives.Ints;
 public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int VOTER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
+	private static final int POLL_OPTION_LENGTH = INT_LENGTH;
 
-	private static final int EXTRAS_LENGTH = VOTER_LENGTH + NAME_SIZE_LENGTH;
+	private static final int EXTRAS_LENGTH = NAME_SIZE_LENGTH + POLL_OPTION_LENGTH;
 
 	protected static final TransactionLayout layout;
 

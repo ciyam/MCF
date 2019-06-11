@@ -562,7 +562,7 @@ public abstract class Transaction {
 				if (!this.hasValidReference())
 					return ValidationResult.INVALID_REFERENCE;
 
-				// Check transction is processable
+				// Check transaction is processable
 				result = this.isProcessable();
 
 				return result;

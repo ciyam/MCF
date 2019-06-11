@@ -18,7 +18,7 @@ import com.google.common.primitives.Ints;
 public class SetGroupTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int GROUPID_LENGTH = SIGNATURE_LENGTH;
+	private static final int GROUPID_LENGTH = INT_LENGTH;
 
 	private static final int EXTRAS_LENGTH = GROUPID_LENGTH;
 
