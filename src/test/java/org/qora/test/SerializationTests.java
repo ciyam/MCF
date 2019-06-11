@@ -1,157 +1,73 @@
 package org.qora.test;
 
 import org.junit.Test;
-import org.qora.block.Block;
-import org.qora.block.GenesisBlock;
-import org.qora.data.block.BlockData;
-import org.qora.data.transaction.GenesisTransactionData;
+import org.qora.account.PrivateKeyAccount;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.test.common.Common;
-import org.qora.transaction.GenesisTransaction;
+import org.qora.test.common.TransactionUtils;
 import org.qora.transaction.Transaction;
-import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
+import org.qora.utils.Base58;
+
+import com.google.common.hash.HashCode;
 
 import static org.junit.Assert.*;
 
-import java.util.Arrays;
-import java.util.List;
+import org.junit.Before;
 
 public class SerializationTests extends Common {
 
+	@Before
+	public void beforeTest() throws DataException {
+		Common.useDefaultSettings();
+	}
+
 	@Test
-	public void testGenesisSerialization() throws TransformationException, DataException {
+	public void testTransactions() throws DataException, TransformationException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			GenesisBlock block = GenesisBlock.getInstance(repository);
+			PrivateKeyAccount signingAccount = Common.getTestAccount(repository, "alice");
 
-			GenesisTransaction transaction = (GenesisTransaction) block.getTransactions().get(1);
-			assertNotNull(transaction);
+			// Check serialization/deserialization of transactions of every type (except GENESIS, ACCOUNT_FLAGS or AT)
+			for (Transaction.TransactionType txType : Transaction.TransactionType.values()) {
+				switch (txType) {
+					case GENESIS:
+					case ACCOUNT_FLAGS:
+					case AT:
+					case DELEGATION:
+					case SUPERNODE:
+					case AIRDROP:
+						continue;
 
-			GenesisTransactionData genesisTransactionData = (GenesisTransactionData) transaction.getTransactionData();
+					default:
+						// fall-through
+				}
 
-			System.out.println(genesisTransactionData.getTimestamp() + ": " + genesisTransactionData.getRecipient() + " received "
-					+ genesisTransactionData.getAmount().toPlainString());
+				TransactionData transactionData = TransactionUtils.randomTransaction(repository, signingAccount, txType, true);
+				Transaction transaction = Transaction.fromData(repository, transactionData);
+				transaction.sign(signingAccount);
 
-			byte[] bytes = TransactionTransformer.toBytes(genesisTransactionData);
+				final int claimedLength = TransactionTransformer.getDataLength(transactionData);
+				byte[] serializedTransaction = TransactionTransformer.toBytes(transactionData);
+				assertEquals(String.format("Serialized %s transaction length differs from declared length", txType.name()), claimedLength, serializedTransaction.length);
 
-			GenesisTransactionData parsedTransactionData = (GenesisTransactionData) TransactionTransformer.fromBytes(bytes);
+				TransactionData deserializedTransactionData = TransactionTransformer.fromBytes(serializedTransaction);
+				// Re-sign
+				Transaction deserializedTransaction = Transaction.fromData(repository, deserializedTransactionData);
+				deserializedTransaction.sign(signingAccount);
+				assertEquals(String.format("Deserialized %s transaction signature differs", txType.name()), Base58.encode(transactionData.getSignature()), Base58.encode(deserializedTransactionData.getSignature()));
 
-			System.out.println(parsedTransactionData.getTimestamp() + ": " + parsedTransactionData.getRecipient() + " received "
-					+ parsedTransactionData.getAmount().toPlainString());
+				// Re-serialize to check new length and bytes
+				final int reclaimedLength = TransactionTransformer.getDataLength(deserializedTransactionData);
+				assertEquals(String.format("Reserialized %s transaction declared length differs", txType.name()), claimedLength, reclaimedLength);
 
-			/*
-			 * NOTE: parsedTransactionData.getSignature() will be null as no signature is present in serialized bytes and calculating the signature is performed
-			 * by GenesisTransaction, not GenesisTransactionData
-			 */
-			// Not applicable: assertTrue(Arrays.equals(genesisTransactionData.getSignature(), parsedTransactionData.getSignature()));
-
-			GenesisTransaction parsedTransaction = new GenesisTransaction(repository, parsedTransactionData);
-			assertTrue(Arrays.equals(genesisTransactionData.getSignature(), parsedTransaction.getTransactionData().getSignature()));
+				byte[] reserializedTransaction = TransactionTransformer.toBytes(deserializedTransactionData);
+				assertEquals(String.format("Reserialized %s transaction bytes differ", txType.name()), HashCode.fromBytes(serializedTransaction).toString(), HashCode.fromBytes(reserializedTransaction).toString());
+			}
 		}
-	}
-
-	private void testGenericSerialization(TransactionData transactionData) throws TransformationException {
-		assertNotNull(transactionData);
-
-		byte[] bytes = TransactionTransformer.toBytes(transactionData);
-
-		TransactionData parsedTransactionData = TransactionTransformer.fromBytes(bytes);
-
-		assertTrue("Transaction signature mismatch", Arrays.equals(transactionData.getSignature(), parsedTransactionData.getSignature()));
-
-		assertEquals("Data length mismatch", bytes.length, TransactionTransformer.getDataLength(transactionData));
-	}
-
-	private void testSpecificBlockTransactions(int height, TransactionType type) throws DataException, TransformationException {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			BlockData blockData = repository.getBlockRepository().fromHeight(height);
-			assertNotNull("Block " + height + " is required for this test", blockData);
-
-			Block block = new Block(repository, blockData);
-
-			List<Transaction> transactions = block.getTransactions();
-			assertNotNull(transactions);
-
-			for (Transaction transaction : transactions)
-				if (transaction.getTransactionData().getType() == type)
-					testGenericSerialization(transaction.getTransactionData());
-		}
-	}
-
-	@Test
-	public void testPaymentSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(754, TransactionType.PAYMENT);
-	}
-
-	@Test
-	public void testRegisterNameSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(120, TransactionType.REGISTER_NAME);
-	}
-
-	@Test
-	public void testUpdateNameSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(673, TransactionType.UPDATE_NAME);
-	}
-
-	@Test
-	public void testSellNameSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(200, TransactionType.SELL_NAME);
-	}
-
-	@Test
-	public void testCancelSellNameSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(741, TransactionType.CANCEL_SELL_NAME);
-	}
-
-	@Test
-	public void testBuyNameSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(973, TransactionType.BUY_NAME);
-	}
-
-	@Test
-	public void testCreatePollSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(10537, TransactionType.CREATE_POLL);
-	}
-
-	@Test
-	public void testVoteOnPollSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(10540, TransactionType.CREATE_POLL);
-	}
-
-	@Test
-	public void testIssueAssetSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(33661, TransactionType.ISSUE_ASSET);
-	}
-
-	@Test
-	public void testTransferAssetSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(39039, TransactionType.TRANSFER_ASSET);
-	}
-
-	@Test
-	public void testCreateAssetOrderSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(35611, TransactionType.CREATE_ASSET_ORDER);
-	}
-
-	@Test
-	public void testCancelAssetOrderSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(36176, TransactionType.CANCEL_ASSET_ORDER);
-	}
-
-	@Test
-	public void testMultiPaymentSerialization() throws TransformationException, DataException {
-		testSpecificBlockTransactions(34500, TransactionType.MULTI_PAYMENT);
-	}
-
-	@Test
-	public void testMessageSerialization() throws TransformationException, DataException {
-		// Message transactions went live block 99000
-		// Some transactions to be found in block 99001/2/5/6
-		testSpecificBlockTransactions(99001, TransactionType.MESSAGE);
 	}
 
 }

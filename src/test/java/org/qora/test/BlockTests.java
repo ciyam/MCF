@@ -84,21 +84,20 @@ public class BlockTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PrivateKeyAccount signingAccount = Common.getTestAccount(repository, "alice");
 
-			// TODO: Fill block with random, valid transactions of every type (except GENESIS or AT)
+			// TODO: Fill block with random, valid transactions of every type (except GENESIS, ACCOUNT_FLAGS or AT)
+			// This isn't as trivial as it seems as some transactions rely on others.
+			// e.g. CANCEL_ASSET_ORDER needs a prior CREATE_ASSET_ORDER
 			for (Transaction.TransactionType txType : Transaction.TransactionType.values()) {
-				if (txType == TransactionType.GENESIS || txType == TransactionType.AT)
+				if (txType == TransactionType.GENESIS || txType == TransactionType.ACCOUNT_FLAGS || txType == TransactionType.AT)
 					continue;
 
 				TransactionData transactionData = TransactionUtils.randomTransaction(repository, signingAccount, txType, true);
 				Transaction transaction = Transaction.fromData(repository, transactionData);
 				transaction.sign(signingAccount);
 
-				repository.getTransactionRepository().save(transactionData);
-				repository.getTransactionRepository().unconfirmTransaction(transactionData);
-				repository.saveChanges();
-
-				// TODO: more transactions
-				break;
+				Transaction.ValidationResult validationResult = transaction.importAsUnconfirmed();
+				if (validationResult != Transaction.ValidationResult.OK)
+					fail(String.format("Invalid (%s) test transaction, type %s", validationResult.name(), txType.name()));
 			}
 
 			// We might need to wait until transactions' timestamps are valid for the block we're about to generate

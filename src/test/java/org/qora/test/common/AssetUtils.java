@@ -3,7 +3,10 @@ package org.qora.test.common;
 import static org.junit.Assert.assertNotNull;
 
 import java.math.BigDecimal;
+import java.util.Base64;
+import java.util.Base64.Encoder;
 import java.util.Map;
+import java.util.Random;
 
 import org.qora.account.PrivateKeyAccount;
 import org.qora.block.BlockChain;
@@ -132,6 +135,15 @@ public class AssetUtils {
 			expectedFulfilled = isNewPricing ? newPricingAmount : bobReturn;
 			Common.assertEqualBigDecimals(String.format("Alice's order \"fulfilled\" incorrect"), expectedFulfilled, targetOrderData.getFulfilled());
 		}
+	}
+
+	public static String randomData() {
+		Random random = new Random();
+		byte[] rawData = new byte[1024];
+		random.nextBytes(rawData);
+
+		Encoder base64Encoder = Base64.getEncoder();
+		return "{ \"logo\": \"data:image/png;base64," + base64Encoder.encodeToString(rawData) + "\" }";
 	}
 
 }
