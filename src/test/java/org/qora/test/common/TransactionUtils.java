@@ -11,6 +11,7 @@ import org.qora.block.BlockGenerator;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
+import org.qora.test.common.transaction.TestTransaction;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transaction.Transaction.ValidationResult;
@@ -46,7 +47,7 @@ public class TransactionUtils {
 
 	public static TransactionData randomTransaction(Repository repository, PrivateKeyAccount account, TransactionType txType, boolean wantValid) throws DataException {
 		try {
-			Class <?> clazz = Class.forName(String.join("", org.qora.test.common.transaction.Transaction.class.getPackage().getName(), ".", txType.className, "Transaction"));
+			Class <?> clazz = Class.forName(String.join("", TestTransaction.class.getPackage().getName(), ".", txType.className, "TestTransaction"));
 
 			try {
 				Method method = clazz.getDeclaredMethod("randomTransaction", Repository.class, PrivateKeyAccount.class, boolean.class);

@@ -16,6 +16,7 @@ import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.transaction.Transaction;
+import org.qora.utils.Base58;
 
 public class Account {
 
@@ -159,7 +160,9 @@ public class Account {
 	 * @throws DataException
 	 */
 	public byte[] getLastReference() throws DataException {
-		return this.repository.getAccountRepository().getLastReference(this.address);
+		byte[] reference = this.repository.getAccountRepository().getLastReference(this.address);
+		LOGGER.trace(() -> String.format("Last reference for %s is %s", this.address, reference == null ? "null" : Base58.encode(reference)));
+		return reference;
 	}
 
 	/**
@@ -184,6 +187,8 @@ public class Account {
 				reference = transactionData.getSignature();
 		}
 
+		final byte[] loggingReference = reference;
+		LOGGER.trace(() -> String.format("Last unconfirmed reference for %s is %s", this.address, loggingReference == null ? "null" : Base58.encode(loggingReference)));
 		return reference;
 	}
 
@@ -195,6 +200,8 @@ public class Account {
 	 * @throws DataException
 	 */
 	public void setLastReference(byte[] reference) throws DataException {
+		LOGGER.trace(() -> String.format("Setting last reference for %s to %s", this.address, Base58.encode(reference)));
+
 		AccountData accountData = this.buildAccountData();
 		accountData.setReference(reference);
 		this.repository.getAccountRepository().setLastReference(accountData);

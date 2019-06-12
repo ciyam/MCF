@@ -180,9 +180,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public List<BlockForgerSummary> getBlockForgers(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String subquerySql = "SELECT generator, COUNT(signature) FROM Blocks GROUP BY generator ORDER BY COUNT(signature) ";
-		if (reverse != null && reverse)
-			subquerySql += " DESC";
+		String subquerySql = "SELECT generator, COUNT(signature) FROM Blocks GROUP BY generator";
 
 		String sql = "SELECT DISTINCT generator, n_blocks, forger, recipient FROM (" + subquerySql + ") AS Forgers (generator, n_blocks) "
 			+ " LEFT OUTER JOIN ProxyForgers ON proxy_public_key = generator ";
@@ -195,6 +193,10 @@ public class HSQLDBBlockRepository implements BlockRepository {
 		} else {
 			addresses = Collections.emptyList();
 		}
+
+		sql += "ORDER BY n_blocks ";
+		if (reverse != null && reverse)
+			sql += "DESC ";
 
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 

@@ -180,6 +180,8 @@ public class Common {
 		RepositoryManager.closeRepositoryFactory();
 	}
 
+	// Test assertions
+
 	public static void assertEmptyBlockchain(Repository repository) throws DataException {
 		assertEquals("Blockchain should be empty for this test", 0, repository.getBlockRepository().getBlockchainHeight());
 	}
