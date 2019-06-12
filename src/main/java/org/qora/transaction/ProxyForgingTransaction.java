@@ -97,13 +97,19 @@ public class ProxyForgingTransaction extends Transaction {
 		if (!Crypto.isValidAddress(recipient.getAddress()))
 			return ValidationResult.INVALID_ADDRESS;
 
-		// If proxy public key aleady exists in repository, then it must be for the same forger-recipient combo
+		// If proxy public key already exists in repository, then it must be for the same forger-recipient combo
 		ProxyForgerData proxyForgerData = this.repository.getAccountRepository().getProxyForgeData(this.proxyForgingTransactionData.getProxyPublicKey());
 		if (proxyForgerData != null) {
 			if (!proxyForgerData.getRecipient().equals(recipient.getAddress()) || !Arrays.equals(proxyForgerData.getForgerPublicKey(), creator.getPublicKey()))
 				return ValidationResult.INVALID_PUBLIC_KEY;
 		} else {
-			// This is a new relationship - check that the generator hasn't reach maximum number of relationships
+			// This is a new relationship
+
+			// No point starting a new relationship with 0% share (i.e. delete relationship)
+			if (this.proxyForgingTransactionData.getShare().compareTo(BigDecimal.ZERO) == 0)
+				return ValidationResult.INVALID_FORGE_SHARE;
+
+			// Check that the generator hasn't reach maximum number of relationships
 			int relationshipCount = this.repository.getAccountRepository().countProxyAccounts(creator.getPublicKey());
 			if (relationshipCount >= BlockChain.getInstance().getMaxProxyRelationships())
 				return ValidationResult.MAXIMUM_PROXY_RELATIONSHIPS;
@@ -134,9 +140,14 @@ public class ProxyForgingTransaction extends Transaction {
 		// Save this transaction, with previous share info
 		this.repository.getTransactionRepository().save(proxyForgingTransactionData);
 
-		// Save proxy forging info
-		proxyForgerData = new ProxyForgerData(forger.getPublicKey(), proxyForgingTransactionData.getRecipient(), proxyForgingTransactionData.getProxyPublicKey(), proxyForgingTransactionData.getShare());
-		this.repository.getAccountRepository().save(proxyForgerData);
+		// 0% share is actually a request to delete existing relationship
+		if (proxyForgingTransactionData.getShare().compareTo(BigDecimal.ZERO) == 0) {
+			this.repository.getAccountRepository().delete(forger.getPublicKey(), proxyForgingTransactionData.getRecipient());
+		} else {
+			// Save proxy forging info
+			proxyForgerData = new ProxyForgerData(forger.getPublicKey(), proxyForgingTransactionData.getRecipient(), proxyForgingTransactionData.getProxyPublicKey(), proxyForgingTransactionData.getShare());
+			this.repository.getAccountRepository().save(proxyForgerData);
+		}
 	}
 
 	@Override
