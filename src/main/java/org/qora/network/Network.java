@@ -73,7 +73,13 @@ public class Network extends Thread {
 			"node4.mcfamily.io",
 			"node5.mcfamily.io",
 			"node6.mcfamily.io",
-			"node7.mcfamily.io"
+			"node7.mcfamily.io",
+			"47.52.103.13",
+			"47.244.204.251",
+			"183.3.205.197",
+			"203.160.55.142",
+			"47.56.55.89",
+			"47.244.211.179"
 	};
 
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
