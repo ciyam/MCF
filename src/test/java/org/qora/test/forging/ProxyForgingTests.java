@@ -9,12 +9,15 @@ import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.data.account.ProxyForgerData;
+import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.test.common.AccountUtils;
 import org.qora.test.common.BlockUtils;
 import org.qora.test.common.Common;
+import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.utils.Base58;
 
 public class ProxyForgingTests extends Common {
@@ -104,6 +107,20 @@ public class ProxyForgingTests extends Common {
 			// Fetch using generator public key and recipient address combination
 			newProxyForgerData = repository.getAccountRepository().getProxyForgeData(aliceAccount.getPublicKey(), bobAccount.getAddress());
 			assertNull("Proxy relationship data shouldn't exist", newProxyForgerData);
+		}
+	}
+
+	@Test
+	public void testZeroInitialShareInvalid() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Create invalid PROXY_FORGING transaction with initial 0% reward share
+			TransactionData transactionData = AccountUtils.createProxyForging(repository, "alice", "bob", BigDecimal.ZERO);
+
+			// Confirm transaction is invalid
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult validationResult = transaction.isValidUnconfirmed();
+			assertEquals("Initial 0% share should be invalid", ValidationResult.INVALID_FORGE_SHARE, validationResult);
 		}
 	}
 
