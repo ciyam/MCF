@@ -33,7 +33,7 @@ public class AccountUtils {
 		TransactionUtils.signAndForge(repository, transactionData, sendingAccount);
 	}
 
-	public static byte[] proxyForging(Repository repository, String forger, String recipient, BigDecimal share) throws DataException {
+	public static TransactionData createProxyForging(Repository repository, String forger, String recipient, BigDecimal share) throws DataException {
 		PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, forger);
 		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
 
@@ -46,7 +46,17 @@ public class AccountUtils {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, txGroupId, reference, forgingAccount.getPublicKey(), fee, null);
 		TransactionData transactionData = new ProxyForgingTransactionData(baseTransactionData, recipientAccount.getAddress(), proxyAccount.getPublicKey(), share);
 
+		return transactionData;
+	}
+
+	public static byte[] proxyForging(Repository repository, String forger, String recipient, BigDecimal share) throws DataException {
+		TransactionData transactionData = createProxyForging(repository, forger, recipient, share);
+
+		PrivateKeyAccount forgingAccount = Common.getTestAccount(repository, forger);
 		TransactionUtils.signAndForge(repository, transactionData, forgingAccount);
+
+		PrivateKeyAccount recipientAccount = Common.getTestAccount(repository, recipient);
+		byte[] proxyPrivateKey = forgingAccount.getSharedSecret(recipientAccount.getPublicKey());
 
 		return proxyPrivateKey;
 	}

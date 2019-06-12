@@ -99,6 +99,7 @@ public interface AccountRepository {
 
 	public void save(ProxyForgerData proxyForgerData) throws DataException;
 
+	/** Delete proxy forging relationship from repository using passed forger's public key and recipient's address. */
 	public void delete(byte[] forgerPublickey, String recipient) throws DataException;
 
 	// Forging accounts used by BlockGenerator
@@ -107,6 +108,7 @@ public interface AccountRepository {
 
 	public void save(ForgingAccountData forgingAccountData) throws DataException;
 
+	/** Delete forging account info, used by BlockGenerator, from repository using passed private key. */
 	public int delete(byte[] forgingAccountSeed) throws DataException;
 
 }

@@ -8,6 +8,7 @@
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "0.1",
 	"requireGroupForApproval": false,
+	"maxProxyRelationships": 8,
 	"genesisInfo": {
 		"version": 4,
 		"timestamp": 0,
