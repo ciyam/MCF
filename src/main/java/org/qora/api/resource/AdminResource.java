@@ -20,6 +20,8 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
@@ -443,7 +445,19 @@ public class AdminResource {
 			if (targetPeer == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
-			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(targetPeer, true);
+			// Try to grab blockchain lock
+			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+			if (!blockchainLock.tryLock(5000, TimeUnit.MILLISECONDS))
+				return SynchronizationResult.NO_BLOCKCHAIN_LOCK.name();
+
+			SynchronizationResult syncResult;
+			try {
+				do {
+					syncResult = Synchronizer.getInstance().synchronize(targetPeer, true);
+				} while (syncResult == SynchronizationResult.OK);
+			} finally {
+				blockchainLock.unlock();
+			}
 
 			return syncResult.name();
 		} catch (IllegalArgumentException e) {
@@ -452,6 +466,8 @@ public class AdminResource {
 			throw e;
 		} catch (UnknownHostException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
+		} catch (InterruptedException e) {
+			return SynchronizationResult.NO_BLOCKCHAIN_LOCK.name();
 		}
 	}
 

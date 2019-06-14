@@ -1,6 +1,4 @@
-package org.qora.data.network;
-
-import org.qora.data.block.BlockData;
+package org.qora.data.block;
 
 public class BlockSummaryData {
 

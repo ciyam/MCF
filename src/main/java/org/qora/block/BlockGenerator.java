@@ -93,7 +93,7 @@ public class BlockGenerator extends Thread {
 				final long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 
 				// Disregard peers that don't have a recent block
-				peers.removeIf(peer -> peer.getPeerData().getLastBlockTimestamp() == null || peer.getPeerData().getLastBlockTimestamp() < minLatestBlockTimestamp);
+				peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
 
 				// If we have any peers with a recent block, but our latest block isn't recent
 				// then we need to synchronize instead of generating.
@@ -152,12 +152,11 @@ public class BlockGenerator extends Thread {
 
 				boolean newBlockGenerated = false;
 
-				generation: try {
+				try {
 					// Clear repository's "in transaction" state so we don't cause a repository deadlock
 					repository.discardChanges();
 
 					List<Block> goodBlocks = new ArrayList<>();
-
 					for (Block testBlock : newBlocks) {
 						// Is new block's timestamp valid yet?
 						// We do a separate check as some timestamp checks are skipped for testchains
@@ -172,7 +171,7 @@ public class BlockGenerator extends Thread {
 					}
 
 					if (goodBlocks.isEmpty())
-						break generation;
+						continue;
 
 					// Pick best generator
 					Block bestBlock = goodBlocks.get(0);
@@ -202,8 +201,10 @@ public class BlockGenerator extends Thread {
 					if (validationResult != ValidationResult.OK) {
 						// No longer valid? Report and discard
 						LOGGER.error("Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
+
+						// Rebuild block candidates, just to be sure
 						newBlocks.clear();
-						break generation;
+						continue;
 					}
 
 					// Add to blockchain - something else will notice and broadcast new block to network

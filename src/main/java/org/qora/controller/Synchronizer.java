@@ -15,7 +15,7 @@ import org.qora.block.Block;
 import org.qora.block.Block.ValidationResult;
 import org.qora.block.BlockChain;
 import org.qora.data.block.BlockData;
-import org.qora.data.network.BlockSummaryData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
@@ -75,8 +75,9 @@ public class Synchronizer {
 	 * <p>
 	 * @param peer
 	 * @return false if something went wrong, true otherwise.
+	 * @throws InterruptedException
 	 */
-	public SynchronizationResult synchronize(Peer peer, boolean force) {
+	public SynchronizationResult synchronize(Peer peer, boolean force) throws InterruptedException {
 		// Make sure we're the only thread modifying the blockchain
 		// If we're already synchronizing with another peer then this will also return fast
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
@@ -91,7 +92,18 @@ public class Synchronizer {
 					final BlockData ourLatestBlockData = this.repository.getBlockRepository().getLastBlock();
 					final int ourInitialHeight = ourLatestBlockData.getHeight();
 					int ourHeight = ourInitialHeight;
-					int peerHeight = peer.getPeerData().getLastHeight();
+
+					int peerHeight;
+					byte[] peersLastBlockSignature;
+
+					ReentrantLock peerLock = peer.getPeerLock();
+					peerLock.lockInterruptibly();
+					try {
+						peerHeight = peer.getLastHeight();
+						peersLastBlockSignature = peer.getLastBlockSignature();
+					} finally {
+						peerLock.unlock();
+					}
 
 					// If peer is at genesis block then peer has no blocks so ignore them for a while
 					if (peerHeight == 1)
@@ -104,7 +116,6 @@ public class Synchronizer {
 						return SynchronizationResult.TOO_FAR_BEHIND;
 					}
 
-					byte[] peersLastBlockSignature = peer.getPeerData().getLastBlockSignature();
 					byte[] ourLastBlockSignature = ourLatestBlockData.getSignature();
 					if (peerHeight == ourHeight && (peersLastBlockSignature == null || !Arrays.equals(peersLastBlockSignature, ourLastBlockSignature)))
 						LOGGER.debug(String.format("Synchronizing with peer %s at height %d, our height %d, signatures differ", peer, peerHeight, ourHeight));
@@ -293,10 +304,10 @@ public class Synchronizer {
 					repository.discardChanges(); // Free repository locks, if any, also in case anything went wrong
 					this.repository = null;
 				}
+			} catch (DataException e) {
+				LOGGER.error("Repository issue during synchronization with peer", e);
+				return SynchronizationResult.REPOSITORY_ISSUE;
 			}
-		} catch (DataException e) {
-			LOGGER.error("Repository issue during synchronization with peer", e);
-			return SynchronizationResult.REPOSITORY_ISSUE;
 		} finally {
 			blockchainLock.unlock();
 		}
@@ -308,8 +319,9 @@ public class Synchronizer {
 	 * @param peer
 	 * @return block signatures, or empty list if no common block, or null if there was an issue
 	 * @throws DataException
+	 * @throws InterruptedException
 	 */
-	private List<byte[]> findSignaturesFromCommonBlock(Peer peer, int ourHeight) throws DataException {
+	private List<byte[]> findSignaturesFromCommonBlock(Peer peer, int ourHeight) throws DataException, InterruptedException {
 		// Start by asking for a few recent block hashes as this will cover a majority of reorgs
 		// Failing that, back off exponentially
 		int step = INITIAL_BLOCK_STEP;
@@ -378,7 +390,7 @@ public class Synchronizer {
 		return blockSignatures;
 	}
 
-	private List<BlockSummaryData> getBlockSummaries(Peer peer, byte[] parentSignature, int numberRequested) {
+	private List<BlockSummaryData> getBlockSummaries(Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
 		Message getBlockSummariesMessage = new GetBlockSummariesMessage(parentSignature, numberRequested);
 
 		Message message = peer.getResponse(getBlockSummariesMessage);
@@ -390,7 +402,7 @@ public class Synchronizer {
 		return blockSummariesMessage.getBlockSummaries();
 	}
 
-	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) {
+	private List<byte[]> getBlockSignatures(Peer peer, byte[] parentSignature, int numberRequested) throws InterruptedException {
 		// numberRequested is v2+ feature
 		Message getSignaturesMessage = peer.getVersion() >= 2 ? new GetSignaturesV2Message(parentSignature, numberRequested) : new GetSignaturesMessage(parentSignature);
 
@@ -403,7 +415,7 @@ public class Synchronizer {
 		return signaturesMessage.getSignatures();
 	}
 
-	private Block fetchBlock(Repository repository, Peer peer, byte[] signature) {
+	private Block fetchBlock(Repository repository, Peer peer, byte[] signature) throws InterruptedException {
 		Message getBlockMessage = new GetBlockMessage(signature);
 
 		Message message = peer.getResponse(getBlockMessage);

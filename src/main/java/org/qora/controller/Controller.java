@@ -29,7 +29,7 @@ import org.qora.block.BlockGenerator;
 import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.crypto.Crypto;
 import org.qora.data.block.BlockData;
-import org.qora.data.network.BlockSummaryData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.ArbitraryTransactionData.DataType;
@@ -217,18 +217,8 @@ public class Controller extends Thread {
 			System.exit(2);
 		}
 
-		LOGGER.info("Starting block generator");
-		blockGenerator = new BlockGenerator();
-		blockGenerator.start();
-
-		LOGGER.info("Starting API on port " + Settings.getInstance().getApiPort());
-		try {
-			ApiService apiService = ApiService.getInstance();
-			apiService.start();
-		} catch (Exception e) {
-			LOGGER.error("Unable to start API", e);
-			System.exit(1);
-		}
+		LOGGER.info("Starting controller");
+		Controller.getInstance().start();
 
 		LOGGER.info("Starting networking");
 		try {
@@ -248,8 +238,9 @@ public class Controller extends Thread {
 			}
 		});
 
-		LOGGER.info("Starting controller");
-		Controller.getInstance().start();
+		LOGGER.info("Starting block generator");
+		blockGenerator = new BlockGenerator();
+		blockGenerator.start();
 
 		// Arbitrary transaction data manager
 		// LOGGER.info("Starting arbitrary-transaction data manager");
@@ -258,6 +249,15 @@ public class Controller extends Thread {
 		// Auto-update service
 		LOGGER.info("Starting auto-update");
 		AutoUpdate.getInstance().start();
+
+		LOGGER.info("Starting API on port " + Settings.getInstance().getApiPort());
+		try {
+			ApiService apiService = ApiService.getInstance();
+			apiService.start();
+		} catch (Exception e) {
+			LOGGER.error("Unable to start API", e);
+			System.exit(1);
+		}
 
 		LOGGER.info("Starting node management UI on port " + Settings.getInstance().getUiPort());
 		try {
@@ -284,25 +284,25 @@ public class Controller extends Thread {
 	public void run() {
 		Thread.currentThread().setName("Controller");
 
-		while (!isStopping) {
-			try {
+		try {
+			while (!isStopping) {
 				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				return;
-			}
 
-			if (requestSync) {
-				requestSync = false;
-				potentiallySynchronize();
-			}
+				if (requestSync) {
+					requestSync = false;
+					potentiallySynchronize();
+				}
 
-			// Clean up arbitrary data request cache
-			final long requestMinimumTimestamp = NTP.getTime() - ARBITRARY_REQUEST_TIMEOUT;
-			arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
+				// Clean up arbitrary data request cache
+				final long requestMinimumTimestamp = NTP.getTime() - ARBITRARY_REQUEST_TIMEOUT;
+				arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
+			}
+		} catch (InterruptedException e) {
+			// Fall-through to exit
 		}
 	}
 
-	private void potentiallySynchronize() {
+	private void potentiallySynchronize() throws InterruptedException {
 		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
 
 		// Disregard peers that have "misbehaved" recently
@@ -314,12 +314,12 @@ public class Controller extends Thread {
 
 		// Disregard peers that don't have a recent block
 		final long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
-		peers.removeIf(peer -> peer.getPeerData().getLastBlockTimestamp() == null || peer.getPeerData().getLastBlockTimestamp() < minLatestBlockTimestamp);
+		peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
 
 		BlockData latestBlockData = getChainTip();
 
 		// Disregard peers that have no block signature or the same block signature as us
-		peers.removeIf(peer -> peer.getPeerData().getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peer.getPeerData().getLastBlockSignature()));
+		peers.removeIf(peer -> peer.getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peer.getLastBlockSignature()));
 
 		if (!peers.isEmpty()) {
 			// Pick random peer to sync with
@@ -391,26 +391,15 @@ public class Controller extends Thread {
 				LOGGER.info("Shutting down node management UI");
 				UiService.getInstance().stop();
 
+				LOGGER.info("Shutting down API");
+				ApiService.getInstance().stop();
+
 				LOGGER.info("Shutting down auto-update");
 				AutoUpdate.getInstance().shutdown();
 
 				// Arbitrary transaction data manager
 				// LOGGER.info("Shutting down arbitrary-transaction data manager");
 				// ArbitraryDataManager.getInstance().shutdown();
-
-				LOGGER.info("Shutting down controller");
-				this.interrupt();
-				try {
-					this.join();
-				} catch (InterruptedException e) {
-					// We were interrupted while waiting for thread to join
-				}
-
-				LOGGER.info("Shutting down networking");
-				Network.getInstance().shutdown();
-
-				LOGGER.info("Shutting down API");
-				ApiService.getInstance().stop();
 
 				if (blockGenerator != null) {
 					LOGGER.info("Shutting down block generator");
@@ -420,6 +409,17 @@ public class Controller extends Thread {
 					} catch (InterruptedException e) {
 						// We were interrupted while waiting for thread to join
 					}
+				}
+
+				LOGGER.info("Shutting down networking");
+				Network.getInstance().shutdown();
+
+				LOGGER.info("Shutting down controller");
+				this.interrupt();
+				try {
+					this.join();
+				} catch (InterruptedException e) {
+					// We were interrupted while waiting for thread to join
 				}
 
 				try {
@@ -522,17 +522,7 @@ public class Controller extends Thread {
 					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
 						continue;
 
-					PeerData peerData = connectedPeer.getPeerData();
-					peerData.setLastHeight(heightMessage.getHeight());
-
-					// Only save to repository if outbound peer
-					if (connectedPeer.isOutbound())
-						try (final Repository repository = RepositoryManager.getRepository()) {
-							repository.getNetworkRepository().save(peerData);
-							repository.saveChanges();
-						} catch (DataException e) {
-							LOGGER.error(String.format("Repository issue while updating height of peer %s", connectedPeer), e);
-						}
+					connectedPeer.setLastHeight(heightMessage.getHeight());
 				}
 
 				// Potentially synchronize
@@ -551,28 +541,17 @@ public class Controller extends Thread {
 					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
 						continue;
 
-					PeerData peerData = connectedPeer.getPeerData();
-
 					// We want to update atomically so use lock
-					ReentrantLock peerDataLock = connectedPeer.getPeerDataLock();
-					peerDataLock.lock();
+					ReentrantLock peerLock = connectedPeer.getPeerLock();
+					peerLock.lock();
 					try {
-						peerData.setLastHeight(heightV2Message.getHeight());
-						peerData.setLastBlockSignature(heightV2Message.getSignature());
-						peerData.setLastBlockTimestamp(heightV2Message.getTimestamp());
-						peerData.setLastBlockGenerator(heightV2Message.getGenerator());
+						peer.setLastHeight(heightV2Message.getHeight());
+						peer.setLastBlockSignature(heightV2Message.getSignature());
+						peer.setLastBlockTimestamp(heightV2Message.getTimestamp());
+						peer.setLastBlockGenerator(heightV2Message.getGenerator());
 					} finally {
-						peerDataLock.unlock();
+						peerLock.unlock();
 					}
-
-					// Only save to repository if outbound peer
-					if (connectedPeer.isOutbound())
-						try (final Repository repository = RepositoryManager.getRepository()) {
-							repository.getNetworkRepository().save(peerData);
-							repository.saveChanges();
-						} catch (DataException e) {
-							LOGGER.error(String.format("Repository issue while updating info of peer %s", connectedPeer), e);
-						}
 				}
 
 				// Potentially synchronize
@@ -749,6 +728,10 @@ public class Controller extends Thread {
 							continue;
 						}
 
+						// Check isInterrupted() here and exit fast
+						if (Thread.currentThread().isInterrupted())
+							return;
+
 						// Fetch actual transaction data from peer
 						Message getTransactionMessage = new GetTransactionMessage(signature);
 						Message responseMessage = peer.getResponse(getTransactionMessage);
@@ -757,6 +740,10 @@ public class Controller extends Thread {
 							LOGGER.trace(String.format("Peer %s didn't send transaction %s", peer, Base58.encode(signature)));
 							continue;
 						}
+
+						// Check isInterrupted() here and exit fast
+						if (Thread.currentThread().isInterrupted())
+							return;
 
 						TransactionMessage transactionMessage = (TransactionMessage) responseMessage;
 						TransactionData transactionData = transactionMessage.getTransactionData();
@@ -793,6 +780,9 @@ public class Controller extends Thread {
 					}
 				} catch (DataException e) {
 					LOGGER.error(String.format("Repository issue while processing unconfirmed transactions from peer %s", peer), e);
+				} catch (InterruptedException e) {
+					// Shutdown
+					return;
 				}
 
 				if (newSignatures.isEmpty())
@@ -994,26 +984,6 @@ public class Controller extends Thread {
 		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
 	};
 
-	/** True if peer has unknown height, lower height or same height and same block signature (unless we don't have their block signature). */
-	public static Predicate<Peer> hasShorterBlockchain() {
-		BlockData highestBlockData = getInstance().getChainTip();
-		int ourHeight = highestBlockData.getHeight();
-
-		return peer -> {
-			PeerData peerData = peer.getPeerData();
-
-			Integer peerHeight = peerData.getLastHeight();
-			if (peerHeight == null || peerHeight < ourHeight)
-				return true;
-
-			if (peerHeight > ourHeight || peerData.getLastBlockSignature() == null)
-				return false;
-
-			// Remove if signatures match
-			return Arrays.equals(peerData.getLastBlockSignature(), highestBlockData.getSignature());
-		};
-	}
-
 	/** Returns whether we think our node has up-to-date blockchain based on our info about other peers. */
 	public boolean isUpToDate() {
 		final long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
@@ -1033,7 +1003,7 @@ public class Controller extends Thread {
 			return false;
 
 		// Disregard peers that don't have a recent block
-		peers.removeIf(peer -> peer.getPeerData().getLastBlockTimestamp() == null || peer.getPeerData().getLastBlockTimestamp() < minLatestBlockTimestamp);
+		peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
 
 		// If we don't have any peers left then can't synchronize, therefore consider ourself not up to date
 		return !peers.isEmpty();

@@ -37,39 +37,64 @@ import com.google.common.net.HostAndPort;
 import com.google.common.net.InetAddresses;
 
 // For managing one peer
-public class Peer implements Runnable {
+public class Peer extends Thread {
 
 	private static final Logger LOGGER = LogManager.getLogger(Peer.class);
 
 	private static final int CONNECT_TIMEOUT = 1000; // ms
 	private static final int RESPONSE_TIMEOUT = 5000; // ms
 	private static final int PING_INTERVAL = 20000; // ms - just under every 30s is usually ideal to keep NAT mappings refreshed
-	private static final int INACTIVITY_TIMEOUT = 30000; // ms
+	private static final int SOCKET_TIMEOUT = 10000; // ms
 	private static final int UNSOLICITED_MESSAGE_QUEUE_CAPACITY = 10;
 
-	private final boolean isOutbound;
+	private volatile boolean isStopping = false;
+
 	private Socket socket = null;
-	private PeerData peerData = null;
-	private final ReentrantLock peerDataLock = new ReentrantLock();
-	private Long connectionTimestamp = null;
+	private InetSocketAddress resolvedAddress = null;
+	/** True if remote address is loopback/link-local/site-local, false otherwise. */
+	private boolean isLocal;
 	private OutputStream out;
-	private Handshake handshakeStatus = Handshake.STARTED;
+
 	private Map<Integer, BlockingQueue<Message>> replyQueues;
+
 	private BlockingQueue<Message> unsolicitedQueue;
 	private ExecutorService messageExecutor;
-	private VersionMessage versionMessage = null;
-	private Integer version;
+
 	private ScheduledExecutorService pingExecutor;
-	private Long lastPing = null;
-	private InetSocketAddress resolvedAddress = null;
-	private boolean isLocal;
+
+	/** True if we created connection to peer, false if we accepted incoming connection from peer. */
+	private final boolean isOutbound;
+	/** Numeric protocol version, typically 1 or 2. */
+	private Integer version;
 	private byte[] peerId;
+
+	private Handshake handshakeStatus = Handshake.STARTED;
 
 	private byte[] pendingPeerId;
 	private byte[] verificationCodeSent;
 	private byte[] verificationCodeExpected;
 
-	/** Construct unconnected outbound Peer using socket address in peer data */
+	private PeerData peerData = null;
+	private final ReentrantLock peerLock = new ReentrantLock();
+
+	/** Timestamp of when socket was accepted, or connected. */
+	private Long connectionTimestamp = null;
+	/** Version info as reported by peer. */
+	private VersionMessage versionMessage = null;
+	/** Last PING message round-trip time (ms). */
+	private Long lastPing = null;
+	/** Latest block height as reported by peer. */
+	private Integer lastHeight;
+	/** Latest block signature as reported by peer. */
+	private byte[] lastBlockSignature;
+	/** Latest block timestamp as reported by peer. */
+	private Long lastBlockTimestamp;
+	/** Latest block generator public key as reported by peer. */
+	private byte[] lastBlockGenerator;
+
+	// Constructors
+
+	/** Construct unconnected, outbound Peer using socket address in peer data */
 	public Peer(PeerData peerData) {
 		this.isOutbound = true;
 		this.peerData = peerData;
@@ -90,13 +115,7 @@ public class Peer implements Runnable {
 	// Getters / setters
 
 	public PeerData getPeerData() {
-		this.peerDataLock.lock();
-
-		try {
-			return this.peerData;
-		} finally {
-			this.peerDataLock.unlock();
-		}
+		return this.peerData;
 	}
 
 	public boolean isOutbound() {
@@ -178,9 +197,41 @@ public class Peer implements Runnable {
 		this.verificationCodeExpected = expected;
 	}
 
-	/** Returns the lock used for synchronizing access to peer's PeerData. */
-	public ReentrantLock getPeerDataLock() {
-		return this.peerDataLock;
+	public Integer getLastHeight() {
+		return this.lastHeight;
+	}
+
+	public void setLastHeight(Integer lastHeight) {
+		this.lastHeight = lastHeight;
+	}
+
+	public byte[] getLastBlockSignature() {
+		return lastBlockSignature;
+	}
+
+	public void setLastBlockSignature(byte[] lastBlockSignature) {
+		this.lastBlockSignature = lastBlockSignature;
+	}
+
+	public Long getLastBlockTimestamp() {
+		return lastBlockTimestamp;
+	}
+
+	public void setLastBlockTimestamp(Long lastBlockTimestamp) {
+		this.lastBlockTimestamp = lastBlockTimestamp;
+	}
+
+	public byte[] getLastBlockGenerator() {
+		return lastBlockGenerator;
+	}
+
+	public void setLastBlockGenerator(byte[] lastBlockGenerator) {
+		this.lastBlockGenerator = lastBlockGenerator;
+	}
+
+	/** Returns the lock used for synchronizing access to peer info. */
+	public ReentrantLock getPeerLock() {
+		return this.peerLock;
 	}
 
 	// Easier, and nicer output, than peer.getRemoteSocketAddress()
@@ -227,7 +278,7 @@ public class Peer implements Runnable {
 	}
 
 	private void setup() throws IOException {
-		this.socket.setSoTimeout(INACTIVITY_TIMEOUT);
+		this.socket.setSoTimeout(SOCKET_TIMEOUT);
 		this.out = this.socket.getOutputStream();
 		this.connectionTimestamp = NTP.getTime();
 		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
@@ -272,7 +323,7 @@ public class Peer implements Runnable {
 
 			Network.getInstance().onPeerReady(this);
 
-			while (true) {
+			while (!isStopping) {
 				// Wait (up to INACTIVITY_TIMEOUT) for, and parse, incoming message
 				Message message = Message.fromStream(in);
 				if (message == null) {
@@ -305,7 +356,10 @@ public class Peer implements Runnable {
 		} catch (SocketTimeoutException e) {
 			this.disconnect("timeout");
 		} catch (IOException e) {
-			this.disconnect("I/O error");
+			if (isStopping)
+				LOGGER.debug(String.format("Peer %s stopping...", this));
+			else
+				this.disconnect("I/O error");
 		} finally {
 			Thread.currentThread().setName("disconnected peer");
 		}
@@ -345,13 +399,14 @@ public class Peer implements Runnable {
 	 * <p>
 	 * Message is assigned a random ID and sent. If a response with matching ID is received then it is returned to caller.
 	 * <p>
-	 * If no response with matching ID within timeout, or some other error/exception occurs, then return <code>null</code>. (Assume peer will be rapidly
-	 * disconnected after this).
+	 * If no response with matching ID within timeout, or some other error/exception occurs, then return <code>null</code>.<br>
+	 * (Assume peer will be rapidly disconnected after this).
 	 * 
 	 * @param message
 	 * @return <code>Message</code> if valid response received; <code>null</code> if not or error/exception occurs
+	 * @throws InterruptedException
 	 */
-	public Message getResponse(Message message) {
+	public Message getResponse(Message message) throws InterruptedException {
 		BlockingQueue<Message> blockingQueue = new ArrayBlockingQueue<Message>(1);
 
 		// Assign random ID to this message
@@ -373,9 +428,6 @@ public class Peer implements Runnable {
 		try {
 			Message response = blockingQueue.poll(RESPONSE_TIMEOUT, TimeUnit.MILLISECONDS);
 			return response;
-		} catch (InterruptedException e) {
-			// Our thread was interrupted. Probably in shutdown scenario.
-			return null;
 		} finally {
 			this.replyQueues.remove(id);
 		}
@@ -395,14 +447,18 @@ public class Peer implements Runnable {
 
 				PingMessage pingMessage = new PingMessage();
 
-				long before = System.currentTimeMillis();
-				Message message = peer.getResponse(pingMessage);
-				long after = System.currentTimeMillis();
+				try {
+					long before = System.currentTimeMillis();
+					Message message = peer.getResponse(pingMessage);
+					long after = System.currentTimeMillis();
 
-				if (message == null || message.getType() != MessageType.PING)
-					peer.disconnect("no ping received");
+					if (message == null || message.getType() != MessageType.PING)
+						peer.disconnect("no ping received");
 
-				peer.setLastPing(after - before);
+					peer.setLastPing(after - before);
+				} catch (InterruptedException e) {
+					// Shutdown
+				}
 			}
 		}
 
@@ -413,31 +469,54 @@ public class Peer implements Runnable {
 	}
 
 	public void disconnect(String reason) {
-		LOGGER.trace(String.format("Disconnecting peer %s: %s", this, reason));
+		LOGGER.debug(String.format("Disconnecting peer %s: %s", this, reason));
+
+		this.shutdown();
+
+		Network.getInstance().onDisconnect(this);
+	}
+
+	public void shutdown() {
+		LOGGER.debug(String.format("Shutting down peer %s", this));
+		this.isStopping = true;
 
 		// Shut down pinger
 		if (this.pingExecutor != null) {
 			this.pingExecutor.shutdownNow();
-			this.pingExecutor = null;
+			try {
+				if (!this.pingExecutor.awaitTermination(1000, TimeUnit.MILLISECONDS))
+					LOGGER.debug(String.format("Pinger for peer %s failed to terminate", this));
+			} catch (InterruptedException e) {
+				LOGGER.debug(String.format("Interrupted while terminating pinger for peer %s", this));
+			}
 		}
 
 		// Shut down unsolicited message processor
 		if (this.messageExecutor != null) {
 			this.messageExecutor.shutdownNow();
-			this.messageExecutor = null;
+			try {
+				if (!this.messageExecutor.awaitTermination(5000, TimeUnit.MILLISECONDS))
+					LOGGER.debug(String.format("Message processor for peer %s failed to terminate", this));
+			} catch (InterruptedException e) {
+				LOGGER.debug(String.format("Interrupted while terminating message processor for peer %s", this));
+			}
 		}
 
-		// Close socket
-		if (!this.socket.isClosed()) {
-			LOGGER.debug(String.format("Closing socket with peer %s: %s", this, reason));
+		this.interrupt();
 
+		// Close socket, which should trigger run() to exit
+		if (!this.socket.isClosed()) {
 			try {
 				this.socket.close();
 			} catch (IOException e) {
 			}
 		}
 
-		Network.getInstance().onDisconnect(this);
+		try {
+			this.join();
+		} catch (InterruptedException e) {
+			LOGGER.debug(String.format("Interrupted while waiting for peer %s to shutdown", this));
+		}
 	}
 
 	// Utility methods
@@ -459,6 +538,7 @@ public class Peer implements Runnable {
 		return new InetSocketAddress(address, hostAndPort.getPortOrDefault(Settings.DEFAULT_LISTEN_PORT));
 	}
 
+	/** Returns true if address is loopback/link-local/site-local, false otherwise. */
 	public static boolean isAddressLocal(InetAddress address) {
 		return address.isLoopbackAddress() || address.isLinkLocalAddress() || address.isSiteLocalAddress();
 	}
