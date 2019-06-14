@@ -9,6 +9,7 @@ import java.util.List;
 
 import org.qora.api.model.BlockForgerSummary;
 import org.qora.data.block.BlockData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.data.block.BlockTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.BlockRepository;
@@ -262,6 +263,31 @@ public class HSQLDBBlockRepository implements BlockRepository {
 			return blockData;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch height-ranged blocks from repository", e);
+		}
+	}
+
+	@Override
+	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException {
+		String sql = "SELECT signature, height, generator FROM Blocks WHERE height BETWEEN ? AND ?";
+
+		List<BlockSummaryData> blockSummaries = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, firstBlockHeight, lastBlockHeight)) {
+			if (resultSet == null)
+				return blockSummaries;
+
+			do {
+				byte[] signature = resultSet.getBytes(1);
+				int height = resultSet.getInt(2);
+				byte[] generatorPublicKey = resultSet.getBytes(3);
+
+				BlockSummaryData blockSummary = new BlockSummaryData(height, signature, generatorPublicKey);
+				blockSummaries.add(blockSummary);
+			} while (resultSet.next());
+
+			return blockSummaries;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch height-ranged block summaries from repository", e);
 		}
 	}
 

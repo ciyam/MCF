@@ -16,6 +16,7 @@ import org.qora.controller.Controller;
 import org.qora.data.account.ForgingAccountData;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.block.BlockData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.Network;
 import org.qora.network.Peer;
@@ -152,41 +153,33 @@ public class BlockGenerator extends Thread {
 
 				boolean newBlockGenerated = false;
 
-				generation: try {
+				try {
 					// Clear repository's "in transaction" state so we don't cause a repository deadlock
 					repository.discardChanges();
 
-					List<Block> goodBlocks = new ArrayList<>();
+					// Pick best block
 
-					for (Block testBlock : newBlocks) {
-						// Is new block's timestamp valid yet?
-						// We do a separate check as some timestamp checks are skipped for testchains
-						if (testBlock.isTimestampValid() != ValidationResult.OK)
-							continue;
+					// Convert block candidates into a list of single-entry blockchain summaries
+					List<List<BlockSummaryData>> blockSummaries = newBlocks.stream().map(block -> Arrays.asList(new BlockSummaryData(block.getBlockData()))).collect(Collectors.toList());
 
-						// Is new block valid yet? (Before adding unconfirmed transactions)
-						if (testBlock.isValid() != ValidationResult.OK)
-							continue;
+					BlockSummaryData parentBlockSummary = new BlockSummaryData(previousBlock.getBlockData());
+					List<BigInteger> distances = BlockChain.calcBlockchainDistances(repository, parentBlockSummary, blockSummaries);
 
-						goodBlocks.add(testBlock);
-					}
+					int indexOfBest = 0;
+					for (int i = 1; i < distances.size(); ++i)
+						if (distances.get(i).compareTo(distances.get(indexOfBest)) < 0)
+							indexOfBest = i;
 
-					if (goodBlocks.isEmpty())
-						break generation;
+					Block bestBlock = newBlocks.get(indexOfBest);
 
-					// Pick best generator
-					Block bestBlock = goodBlocks.get(0);
-					BigInteger bestDistance = bestBlock.calcGeneratorDistance(lastBlockData);
+					// Is new block's timestamp valid yet?
+					// We do a separate check as some timestamp checks are skipped for testnet
+					if (bestBlock.isTimestampValid() != ValidationResult.OK)
+						continue;
 
-					for (int i = 1; i < goodBlocks.size(); ++i) {
-						Block testBlock = goodBlocks.get(i);
-						BigInteger distance = testBlock.calcGeneratorDistance(lastBlockData);
-
-						if (distance.compareTo(bestDistance) < 0) {
-							bestDistance = distance;
-							bestBlock = testBlock;
-						}
-					}
+					// Is new block valid yet? (Before adding unconfirmed transactions)
+					if (bestBlock.isValid() != ValidationResult.OK)
+						continue;
 
 					// Delete invalid transactions. NOTE: discards repository changes on entry, saves changes on exit.
 					deleteInvalidTransactions(repository);
@@ -202,8 +195,10 @@ public class BlockGenerator extends Thread {
 					if (validationResult != ValidationResult.OK) {
 						// No longer valid? Report and discard
 						LOGGER.error("Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
+
+						// Rebuild block candidates, just to be sure
 						newBlocks.clear();
-						break generation;
+						continue;
 					}
 
 					// Add to blockchain - something else will notice and broadcast new block to network

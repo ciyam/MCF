@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.qora.data.network.BlockSummaryData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.transform.Transformer;
 import org.qora.transform.block.BlockTransformer;
 

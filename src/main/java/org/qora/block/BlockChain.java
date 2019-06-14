@@ -6,7 +6,10 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,8 +35,9 @@ import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
+import org.qora.data.account.ProxyForgerData;
 import org.qora.data.block.BlockData;
-import org.qora.data.network.BlockSummaryData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.network.Network;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
@@ -41,6 +45,7 @@ import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
 import org.qora.utils.NTP;
+import org.qora.utils.ByteArray;
 import org.qora.utils.StringLongMapXmlAdapter;
 
 import com.google.common.primitives.Bytes;
@@ -88,6 +93,7 @@ public class BlockChain {
 	public enum FeatureTrigger {
 		messageHeight,
 		atHeight,
+		newBlockDistanceHeight,
 		assetsTimestamp,
 		votingTimestamp,
 		arbitraryTimestamp,
@@ -292,6 +298,10 @@ public class BlockChain {
 		return featureTriggers.get("atHeight");
 	}
 
+	public long getNewBlockDistanceHeight() {
+		return featureTriggers.get("newBlockDistanceHeight");
+	}
+
 	public long getPowFixReleaseTimestamp() {
 		return featureTriggers.get("powfixTimestamp");
 	}
@@ -456,7 +466,164 @@ public class BlockChain {
 		}
 	}
 
-	public static BigInteger calcBlockchainDistance(BlockSummaryData parentBlockSummary, BlockSummaryData blockSummary) {
+	/**
+	 * Returns distances from 'ideal' for each of passed blockchains.
+	 * <p>
+	 * 'Ideal' block is based on previous block data.<br>
+	 * Passed blockchains all follow on from passed parent block.
+	 * <p>
+	 * Passed blocks are first compared using 'root' forger's public key.
+	 * <p>
+	 * If more than one block shares the smallest distance, then a second round
+	 * uses the proxy public key instead. After the second round, losing blocks from the
+	 * first round have their distance set to be worse than the worst block from 2nd round.
+	 * <p>
+	 * 'Root' forger means the account that either forged the block directly, or
+	 * is the account with minting right enable in a proxy-forging relationship, i.e. not
+	 * the reward-share recipient.
+	 * 
+	 * @param repository
+	 * @param parentBlockSummary
+	 * @param comparableBlockSummaries
+	 * @return
+	 * @throws DataException
+	 */
+	public static List<BigInteger> calcBlockchainDistances(Repository repository, BlockSummaryData parentBlockSummary, List<List<BlockSummaryData>> blockSummaries) throws DataException {
+		final int nChains = blockSummaries.size();
+		final int nBlocks = blockSummaries.get(0).size();
+
+		List<HashSet<ByteArray>> uniqueForgersPerChain = new ArrayList<>(nChains);
+		for (int ci = 0; ci < nChains; ++ci)
+			uniqueForgersPerChain.add(new HashSet<ByteArray>());
+
+		HashMap<ByteArray, ProxyForgerData> cachedProxyForgerData = new HashMap<>();
+
+		List<BigInteger> totalDistances = new ArrayList<>(Collections.nCopies(nChains, BigInteger.ZERO));
+
+		List<BlockSummaryData> parentSummaries = new ArrayList<>(Collections.nCopies(nChains, parentBlockSummary));
+
+		int height = parentBlockSummary.getHeight();
+		for (int bi = 0; bi < nBlocks; ++bi) {
+			++height;
+
+			final boolean isNewBehaviour = height >= BlockChain.getInstance().getNewBlockDistanceHeight();
+			List<BigInteger> distances = new ArrayList<>(nChains);
+			List<BigInteger> idealGenerators = new ArrayList<>(nChains);
+
+			int indexOfClosest = 0;
+
+			// 1st round - compare root forgers
+			for (int ci = 0; ci < nChains; ++ci) {
+				// Per chain
+
+				// 'Ideal'
+				byte[] idealGenerator = Block.calcIdealGeneratorPublicKey(height - 1, parentSummaries.get(ci).getSignature());
+				BigInteger idealGeneratorBI = new BigInteger(idealGenerator);
+				idealGenerators.add(idealGeneratorBI);
+
+				BlockSummaryData blockSummaryData = blockSummaries.get(ci).get(bi);
+				ByteArray generatorBA = new ByteArray(blockSummaryData.getGeneratorPublicKey());
+
+				// Check for proxy forging
+				ProxyForgerData proxyForgerData = cachedProxyForgerData.get(generatorBA);
+				if (proxyForgerData == null && !cachedProxyForgerData.containsKey(generatorBA)) {
+					proxyForgerData = repository.getAccountRepository().getProxyForgeData(generatorBA.raw);
+					cachedProxyForgerData.put(generatorBA, proxyForgerData);
+				}
+
+				byte[] publicKey;
+				if (isNewBehaviour)
+					// New behaviour: If proxy forged then use forger's key
+					publicKey = proxyForgerData != null ? proxyForgerData.getForgerPublicKey() : blockSummaryData.getGeneratorPublicKey();
+				else
+					// Previous behaviour only ever uses block's "generator" public key, which is typically proxy public key
+					publicKey = blockSummaryData.getGeneratorPublicKey();
+
+				// Unique forger?
+				uniqueForgersPerChain.get(ci).add(new ByteArray(publicKey));
+
+				byte[] perturbedPublicKey = Block.calcHeightPerturbedPublicKey(height, publicKey);
+				BigInteger generatorBI = new BigInteger(perturbedPublicKey);
+
+				BigInteger distance = idealGeneratorBI.subtract(generatorBI).abs();
+				distances.add(distance);
+
+				// Is this the closest to ideal (i.e. smallest distance)?
+				if (distance.compareTo(distances.get(indexOfClosest)) < 0)
+					indexOfClosest = ci;
+			}
+
+			BigInteger smallestDistance = distances.get(indexOfClosest);
+
+			// If there are more than one block summaries with the same root forging account then we need to do round two
+			// (This should not happen for blocks under old behaviour)
+			final long nSmallest = distances.stream().filter(distance -> distance.compareTo(smallestDistance) == 0).count();
+			if (nSmallest > 1) {
+				// 2nd round - compare proxy-forged blocks with same root forger
+
+				BlockSummaryData smallestBlockSummaryData = blockSummaries.get(indexOfClosest).get(bi);
+
+				// Forger from block(s) with smallest distance from 1st round
+				ProxyForgerData smallestProxyForgerData = cachedProxyForgerData.get(new ByteArray(smallestBlockSummaryData.getGeneratorPublicKey()));
+				if (smallestProxyForgerData == null) {
+					// Wasn't proxy forged - multiple chains with a block forged directly
+				} else {
+					byte[] forgerPublicKey = smallestProxyForgerData.getForgerPublicKey();
+
+					// Keep track of largest distance
+					Integer indexOfLargest = null;
+
+					for (int ci = 0; ci < nChains; ++ci) {
+						BlockSummaryData blockSummaryData = blockSummaries.get(ci).get(bi);
+						ProxyForgerData proxyForgerData = cachedProxyForgerData.get(new ByteArray(blockSummaryData.getGeneratorPublicKey()));
+
+						// We're only interested in blocks with the same root forger as the one with smallest distance from 1st round
+						if (proxyForgerData == null || !Arrays.equals(proxyForgerData.getForgerPublicKey(), forgerPublicKey))
+							continue;
+
+						// Compare using proxy public key
+						byte[] perturbedPublicKey = Block.calcHeightPerturbedPublicKey(blockSummaryData.getHeight(), proxyForgerData.getProxyPublicKey());
+						BigInteger generatorBI = new BigInteger(perturbedPublicKey);
+
+						BigInteger distance = idealGenerators.get(ci).subtract(generatorBI).abs();
+						distances.set(ci, distance);
+
+						// Is this the largest distance?
+						if (indexOfLargest == null || distance.compareTo(distances.get(indexOfLargest)) > 0)
+							indexOfLargest = ci;
+					}
+
+					// Set distances of all other blocks NOT with same root forger to largest distance + 1
+					// This is so those blocks appear 'worse' than all the ones processed in 2nd round
+					BigInteger fakeLargestDistance = distances.get(indexOfLargest).add(BigInteger.ONE);
+					for (int ci = 0; ci < nChains; ++ci) {
+						BlockSummaryData blockSummaryData = blockSummaries.get(ci).get(bi);
+						ProxyForgerData proxyForgerData = cachedProxyForgerData.get(new ByteArray(blockSummaryData.getGeneratorPublicKey()));
+
+						// We're only interested in blocks WITHOUT the same root forger as the one with smallest distance from 1st round
+						if (proxyForgerData !=null && Arrays.equals(proxyForgerData.getForgerPublicKey(), forgerPublicKey))
+							continue;
+
+						distances.set(ci, fakeLargestDistance);
+					}
+				}
+			}
+
+			// Add final distance to total for each blockchain
+			for (int ci = 0; ci < nChains; ++ci)
+				totalDistances.set(ci, totalDistances.get(ci).add(distances.get(ci)));
+		}
+
+		// A variety of generators is a benefit
+		for (int ci = 0; ci < nChains; ++ci) {
+			BigInteger uniqueForgers = BigInteger.valueOf(uniqueForgersPerChain.get(ci).size());
+			totalDistances.set(ci, totalDistances.get(ci).divide(uniqueForgers));
+		}
+
+		return totalDistances;
+	}
+
+	public static BigInteger UNUSEDcalcBlockchainDistance(BlockSummaryData parentBlockSummary, BlockSummaryData blockSummary) {
 		byte[] idealGenerator = Block.calcIdealGeneratorPublicKey(parentBlockSummary.getHeight(), parentBlockSummary.getSignature());
 		BigInteger idealBI = new BigInteger(idealGenerator);
 
@@ -466,13 +633,13 @@ public class BlockChain {
 		return distance;
 	}
 
-	public static BigInteger calcBlockchainDistance(BlockSummaryData parentBlockSummary, List<BlockSummaryData> blockSummaries) {
+	public static BigInteger UNUSEDcalcBlockchainDistance(BlockSummaryData parentBlockSummary, List<BlockSummaryData> blockSummaries) {
 		BigInteger weight = BigInteger.ZERO;
 
 		HashSet<String> seenGenerators = new HashSet<>();
 
 		for (BlockSummaryData blockSummary : blockSummaries) {
-			BigInteger distance = calcBlockchainDistance(parentBlockSummary, blockSummary);
+			BigInteger distance = UNUSEDcalcBlockchainDistance(parentBlockSummary, blockSummary);
 
 			weight = weight.add(distance);
 
@@ -487,14 +654,14 @@ public class BlockChain {
 		return weight;
 	}
 
-	public static BigInteger calcBlockchainDistance(Repository repository, int firstBlockHeight, int lastBlockHeight) throws DataException {
+	public static BigInteger UNUSEDcalcBlockchainDistance(Repository repository, int firstBlockHeight, int lastBlockHeight) throws DataException {
 		BlockData parentBlockData = repository.getBlockRepository().fromHeight(firstBlockHeight - 1);
 		BlockSummaryData parentBlockSummary = new BlockSummaryData(parentBlockData);
 
 		List<BlockData> blocksData = repository.getBlockRepository().getBlocks(firstBlockHeight, lastBlockHeight);
 		List<BlockSummaryData> blockSummaries = blocksData.stream().map(blockData -> new BlockSummaryData(blockData)).collect(Collectors.toList());
 
-		return BlockChain.calcBlockchainDistance(parentBlockSummary, blockSummaries);
+		return BlockChain.UNUSEDcalcBlockchainDistance(parentBlockSummary, blockSummaries);
 	}
 
 	public static boolean orphan(int targetHeight) throws DataException {
