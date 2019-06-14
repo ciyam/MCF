@@ -10,7 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.qora.block.Block;
 import org.qora.block.Block.ValidationResult;
 import org.qora.data.block.BlockData;
-import org.qora.data.network.BlockSummaryData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;

@@ -29,7 +29,7 @@ import org.qora.block.BlockGenerator;
 import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.crypto.Crypto;
 import org.qora.data.block.BlockData;
-import org.qora.data.network.BlockSummaryData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.ArbitraryTransactionData.DataType;

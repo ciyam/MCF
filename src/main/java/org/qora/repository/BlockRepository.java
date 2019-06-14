@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.qora.api.model.BlockForgerSummary;
 import org.qora.data.block.BlockData;
+import org.qora.data.block.BlockSummaryData;
 import org.qora.data.block.BlockTransactionData;
 import org.qora.data.transaction.TransactionData;
 
@@ -116,6 +117,11 @@ public interface BlockRepository {
 	 * Returns blocks within height range.
 	 */
 	public List<BlockData> getBlocks(int firstBlockHeight, int lastBlockHeight) throws DataException;
+
+	/**
+	 * Returns block summaries for the passed height range.
+	 */
+	public List<BlockSummaryData> getBlockSummaries(int firstBlockHeight, int lastBlockHeight) throws DataException;
 
 	/**
 	 * Saves block into repository.
