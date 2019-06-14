@@ -179,26 +179,46 @@ public class Synchronizer {
 
 						// We need block summaries (which we also use to fill signatures list)
 						byte[] previousSignature = commonBlockData.getSignature();
-						List<BlockSummaryData> blockSummaries = new ArrayList<>();
+						List<BlockSummaryData> peerBlockSummaries = new ArrayList<>();
 
-						while (blockSummaries.size() < numberRequired) {
-							int height = commonBlockHeight + blockSummaries.size();
+						while (peerBlockSummaries.size() < numberRequired) {
+							int height = commonBlockHeight + peerBlockSummaries.size();
 
-							List<BlockSummaryData> moreBlockSummaries = this.getBlockSummaries(peer, previousSignature, numberRequired - blockSummaries.size());
+							List<BlockSummaryData> moreBlockSummaries = this.getBlockSummaries(peer, previousSignature, numberRequired - peerBlockSummaries.size());
 
 							if (moreBlockSummaries == null || moreBlockSummaries.isEmpty()) {
 								LOGGER.info(String.format("Peer %s failed to respond with block summaries after height %d", peer, height));
 								return SynchronizationResult.NO_REPLY;
 							}
 
-							blockSummaries.addAll(moreBlockSummaries);
+							// Check peer sent valid heights
+							for (int i = 0; i < moreBlockSummaries.size(); ++i) {
+								++height;
+
+								BlockSummaryData blockSummary = moreBlockSummaries.get(i);
+
+								if (blockSummary.getHeight() != height) {
+									LOGGER.info(String.format("Peer %s responded with invalid block summary for height %d", peer, height));
+									return SynchronizationResult.NO_REPLY;
+								}
+							}
+
+							peerBlockSummaries.addAll(moreBlockSummaries);
 						}
 
-						// Calculate total 'distance' of PEER'S blockchain from common block to highest block height we both have
-						BigInteger peerBlockchainValue = BlockChain.calcBlockchainDistance(new BlockSummaryData(commonBlockData), blockSummaries);
+						// Fetch our corresponding block summaries
+						List<BlockSummaryData> ourBlockSummaries = repository.getBlockRepository().getBlockSummaries(commonBlockHeight + 1, highestMutualHeight);
 
-						// Calculate total 'distance' of OUR blockchain from common block to highest block height we both have
-						BigInteger ourBlockchainValue = BlockChain.calcBlockchainDistance(repository, commonBlockHeight + 1, highestMutualHeight);
+						// We only need to pass the same number of peer's block summaries, regardless of how many they sent
+						peerBlockSummaries.subList(ourBlockSummaries.size(), peerBlockSummaries.size()).clear();
+
+						// Calculate total 'distance' of both blockchain subsets, from common block to highest mutual block.
+						BlockSummaryData parentBlockSummary = new BlockSummaryData(commonBlockData);
+						List<List<BlockSummaryData>> comparableBlockSummaries = Arrays.asList(ourBlockSummaries, peerBlockSummaries);
+						List<BigInteger> distances = BlockChain.calcBlockchainDistances(repository, parentBlockSummary, comparableBlockSummaries);
+
+						BigInteger ourBlockchainValue = distances.get(0);
+						BigInteger peerBlockchainValue = distances.get(1);
 
 						// If our blockchain has a lower distance then don't synchronize with peer
 						if (ourBlockchainValue.compareTo(peerBlockchainValue) < 0) {
