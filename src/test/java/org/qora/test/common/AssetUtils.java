@@ -21,6 +21,7 @@ import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.transaction.Transaction;
 
 public class AssetUtils {
 
@@ -72,7 +73,7 @@ public class AssetUtils {
 		return repository.getAssetRepository().getAccountsOrders(account.getPublicKey(), null, null, null, null, true).get(0).getOrderId();
 	}
 
-	public static void cancelOrder(Repository repository, String accountName, byte[] orderId) throws DataException {
+	public static Transaction buildCancelOrder(Repository repository, String accountName, byte[] orderId) throws DataException {
 		PrivateKeyAccount account = Common.getTestAccount(repository, accountName);
 
 		byte[] reference = account.getLastReference();
@@ -81,7 +82,14 @@ public class AssetUtils {
 		BaseTransactionData baseTransactionData = new BaseTransactionData(timestamp, AssetUtils.txGroupId, reference, account.getPublicKey(), AssetUtils.fee, null);
 		TransactionData transactionData = new CancelAssetOrderTransactionData(baseTransactionData, orderId);
 
-		TransactionUtils.signAndForge(repository, transactionData, account);
+		return Transaction.fromData(repository, transactionData);
+	}
+
+	public static void cancelOrder(Repository repository, String accountName, byte[] orderId) throws DataException {
+		PrivateKeyAccount account = Common.getTestAccount(repository, accountName);
+		Transaction transaction = buildCancelOrder(repository, accountName, orderId);
+
+		TransactionUtils.signAndForge(repository, transaction.getTransactionData(), account);
 	}
 
 	public static void genericTradeTest(long haveAssetId, long wantAssetId,

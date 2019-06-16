@@ -235,6 +235,7 @@ public abstract class Transaction {
 		MAXIMUM_PROXY_RELATIONSHIPS(84),
 		TRANSACTION_ALREADY_EXISTS(85),
 		NO_BLOCKCHAIN_LOCK(86),
+		ORDER_ALREADY_CLOSED(87),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
