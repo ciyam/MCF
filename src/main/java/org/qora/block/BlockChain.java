@@ -406,7 +406,7 @@ public class BlockChain {
 		};
 
 		// Set up time-based trigger for rollback
-		final long triggerTimestamp = 1561590000_000L; // Wed Jun 26 23:59:00.000 2019 UTC+0000
+		final long triggerTimestamp = 1560726000_000L; // Wed Jun 16 23:59:00.000 2019 UTC+0000
 
 		// How long to wait? (Minimum 0 seconds)
 		long delay = Math.max(0, triggerTimestamp - NTP.getTime());
