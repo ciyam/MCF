@@ -74,6 +74,9 @@ public class CancelAssetOrderTransaction extends Transaction {
 		if (orderData == null)
 			return ValidationResult.ORDER_DOES_NOT_EXIST;
 
+		if (orderData.getIsClosed())
+			return ValidationResult.ORDER_ALREADY_CLOSED;
+
 		Account creator = getCreator();
 
 		// Check creator's public key results in valid address

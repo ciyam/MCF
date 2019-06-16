@@ -1,5 +1,7 @@
 package org.qora.test.assets;
 
+import static org.junit.Assert.*;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Map;
@@ -7,12 +9,15 @@ import java.util.Map;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.test.common.AccountUtils;
 import org.qora.test.common.AssetUtils;
 import org.qora.test.common.Common;
+import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.ValidationResult;
 
 public class CancellingTests extends Common {
 
@@ -39,6 +44,31 @@ public class CancellingTests extends Common {
 
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.testAssetId, amount, price);
 			AssetUtils.cancelOrder(repository, "bob", bobOrderId);
+
+			// Check asset balances match pre-ordering values
+			BigDecimal expectedBalance;
+
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId);
+			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
+
+			expectedBalance = initialBalances.get("bob").get(AssetUtils.otherAssetId);
+			AccountUtils.assertBalance(repository, "bob", AssetUtils.otherAssetId, expectedBalance);
+		}
+	}
+
+	@Test
+	public void testRepeatCancel() throws DataException {
+		BigDecimal amount = new BigDecimal("1234.87654321").setScale(8);
+		BigDecimal price = new BigDecimal("1.35615263").setScale(8);
+
+		try (Repository repository = RepositoryManager.getRepository()) {
+			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, AssetUtils.testAssetId, AssetUtils.otherAssetId);
+
+			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.testAssetId, AssetUtils.otherAssetId, amount, price);
+			AssetUtils.cancelOrder(repository, "alice", aliceOrderId);
+
+			// Build 2nd cancel-order transaction to check it is invalid
+			assertCannotCancelClosedOrder(repository, "alice", aliceOrderId);
 
 			// Check asset balances match pre-ordering values
 			BigDecimal expectedBalance;
@@ -79,7 +109,7 @@ public class CancellingTests extends Common {
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.testAssetId, bobAmount, bobPrice);
 
 			AssetUtils.cancelOrder(repository, "alice", aliceOrderId);
-			AssetUtils.cancelOrder(repository, "bob", bobOrderId);
+			assertCannotCancelClosedOrder(repository, "bob", bobOrderId);
 
 			// Check asset balances
 			BigDecimal expectedBalance;
@@ -127,7 +157,7 @@ public class CancellingTests extends Common {
 			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.testAssetId, AssetUtils.otherAssetId, aliceAmount, alicePrice);
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.testAssetId, bobAmount, bobPrice);
 
-			AssetUtils.cancelOrder(repository, "alice", aliceOrderId);
+			assertCannotCancelClosedOrder(repository, "alice", aliceOrderId);
 			AssetUtils.cancelOrder(repository, "bob", bobOrderId);
 
 			// Check asset balances
@@ -177,7 +207,7 @@ public class CancellingTests extends Common {
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.goldAssetId, bobAmount, bobPrice);
 
 			AssetUtils.cancelOrder(repository, "alice", aliceOrderId);
-			AssetUtils.cancelOrder(repository, "bob", bobOrderId);
+			assertCannotCancelClosedOrder(repository, "bob", bobOrderId);
 
 			// Check asset balances
 			BigDecimal expectedBalance;
@@ -225,7 +255,7 @@ public class CancellingTests extends Common {
 			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.goldAssetId, AssetUtils.otherAssetId, aliceAmount, alicePrice);
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", AssetUtils.otherAssetId, AssetUtils.goldAssetId, bobAmount, bobPrice);
 
-			AssetUtils.cancelOrder(repository, "alice", aliceOrderId);
+			assertCannotCancelClosedOrder(repository, "alice", aliceOrderId);
 			AssetUtils.cancelOrder(repository, "bob", bobOrderId);
 
 			// Check asset balances
@@ -245,6 +275,12 @@ public class CancellingTests extends Common {
 			expectedBalance = initialBalances.get("bob").get(AssetUtils.goldAssetId).add(bobReturn);
 			AccountUtils.assertBalance(repository, "bob", AssetUtils.goldAssetId, expectedBalance);
 		}
+	}
+
+	public void assertCannotCancelClosedOrder(Repository repository, String accountName, byte[] orderId) throws DataException {
+		Transaction transaction = AssetUtils.buildCancelOrder(repository, accountName, orderId);
+		ValidationResult validationResult = transaction.isValidUnconfirmed();
+		assertEquals("CANCEL_ASSET_ORDER should be invalid due to already closed order", ValidationResult.ORDER_ALREADY_CLOSED, validationResult);
 	}
 
 }
