@@ -10,6 +10,8 @@ import java.util.HashSet;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -24,6 +26,7 @@ import javax.xml.transform.stream.StreamSource;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bitcoinj.core.Base58;
 import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
@@ -37,6 +40,7 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
+import org.qora.utils.NTP;
 import org.qora.utils.StringLongMapXmlAdapter;
 
 import com.google.common.primitives.Bytes;
@@ -339,7 +343,7 @@ public class BlockChain {
 		if (!isGenesisBlockValid())
 			rebuildBlockchain();
 
-		// TODO: walk through blocks
+		// Walk through blocks
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Block parentBlock = GenesisBlock.getInstance(repository);
 			BlockData parentBlockData = parentBlock.getBlockData();
@@ -359,6 +363,60 @@ public class BlockChain {
 				parentBlockData = childBlockData;
 			}
 		}
+
+		// Potential repairs
+		repairCancelAssetOrderBugfix();
+	}
+
+	private static void repairCancelAssetOrderBugfix() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			byte[] INVALID_SIGNATURE = Base58.decode("26e21JyKTHcteozWK8sVstSk11fMq2UtULddTg6cBvTwTVRhdLfETsshwShVpDL5dPrzxQuB1xgh72kdQx6VdZyR");
+
+			if (!repository.getTransactionRepository().isConfirmed(INVALID_SIGNATURE))
+				return;
+		}
+
+		TimerTask rollbackTask = new TimerTask() {
+			public void run() {
+				final int targetBlockHeight = 5387;
+
+				LOGGER.info(String.format("Preparing to rollback for CANCEL_ASSET_ORDER bugfix"));
+
+				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+				blockchainLock.lock();
+
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					LOGGER.info(String.format("Rolling back to block %d for CANCEL_ASSET_ORDER bugfix", targetBlockHeight));
+
+					for (int height = repository.getBlockRepository().getBlockchainHeight(); height > targetBlockHeight; --height) {
+						BlockData blockData = repository.getBlockRepository().fromHeight(height);
+						Block block = new Block(repository, blockData);
+						block.orphan();
+						repository.saveChanges();
+					}
+				} catch (DataException e) {
+					LOGGER.warn(String.format("Rolled for CANCEL_ASSET_ORDER bugfix failed - will retry soon"));
+				} finally {
+					blockchainLock.unlock();
+				}
+
+				LOGGER.info(String.format("Rolled back to block %d for CANCEL_ASSET_ORDER bugfix", targetBlockHeight));
+				cancel();
+			}
+		};
+
+		// Set up time-based trigger for rollback
+		final long triggerTimestamp = 1561590000_000L; // Wed Jun 26 23:59:00.000 2019 UTC+0000
+
+		// How long to wait? (Minimum 0 seconds)
+		long delay = Math.max(0, triggerTimestamp - NTP.getTime());
+		LOGGER.info(String.format("Scheduling rollback for CANCEL_ASSET_ORDER bugfix in %d seconds", delay / 1000));
+
+		// If rollback failed - try again after 5 minutes
+		final long interval = 5 * 60 * 1000;
+
+		Timer timer = new Timer("RollbackTimer");
+		timer.schedule(rollbackTask, delay, interval);
 	}
 
 	private static boolean isGenesisBlockValid() throws DataException {
