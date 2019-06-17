@@ -32,7 +32,7 @@ public class ApplyUpdate {
 	private static final Logger LOGGER = LogManager.getLogger(ApplyUpdate.class);
 	private static final String JAR_FILENAME = AutoUpdate.JAR_FILENAME;
 	private static final String NEW_JAR_FILENAME = AutoUpdate.NEW_JAR_FILENAME;
-	private static final String WINDOWS_EXE_LAUNCHER = "qora-core.exe";
+	private static final String WINDOWS_EXE_LAUNCHER = "MCF.exe";
 
 	private static final long CHECK_INTERVAL = 5 * 1000; // ms
 	private static final int MAX_ATTEMPTS = 5;
