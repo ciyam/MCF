@@ -32,7 +32,6 @@ import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ApprovalStatus;
-import org.qora.utils.NTP;
 
 public class Synchronizer {
 
