@@ -13,6 +13,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.block.Block;
 import org.qora.block.Block.ValidationResult;
+import org.qora.block.BlockChain;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.BlockSummaryData;
 import org.qora.data.transaction.TransactionData;
@@ -188,7 +189,7 @@ public class Synchronizer {
 
 						// If our blockchain has a lower distance then don't synchronize with peer
 						if (ourBlockchainValue.compareTo(peerBlockchainValue) < 0) {
-							LOGGER.info(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
+							LOGGER.debug(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
 							NumberFormat formatter = new DecimalFormat("0.###E0");
 							LOGGER.debug(String.format("Our distance: %s, peer's distance: %s (lower is better)", formatter.format(ourBlockchainValue), formatter.format(peerBlockchainValue)));
 							return SynchronizationResult.INFERIOR_CHAIN;

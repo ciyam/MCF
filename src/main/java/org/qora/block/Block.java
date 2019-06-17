@@ -646,18 +646,18 @@ public class Block {
 		}
 	}
 
-	public static byte[] calcIdealGeneratorPublicKey(int height, byte[] blockSignature) {
-		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), blockSignature));
+	public static byte[] calcIdealGeneratorPublicKey(int parentBlockHeight, byte[] parentBlockSignature) {
+		return Crypto.digest(Bytes.concat(Longs.toByteArray(parentBlockHeight), parentBlockSignature));
 	}
 
-	public static byte[] calcHeightPerturbedGenerator(int height, byte[] generatorPublicKey) {
-		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), generatorPublicKey));
+	public static byte[] calcHeightPerturbedPublicKey(int height, byte[] publicKey) {
+		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), publicKey));
 	}
 
 	public static BigInteger calcGeneratorDistance(BlockData parentBlockData, byte[] generatorPublicKey) {
-		BigInteger idealGeneratorBI = new BigInteger(Block.calcIdealGeneratorPublicKey(parentBlockData.getHeight(), parentBlockData.getSignature()));
-		BigInteger ourGeneratorBI = new BigInteger(Block.calcHeightPerturbedGenerator(parentBlockData.getHeight() + 1, generatorPublicKey));
-		return idealGeneratorBI.subtract(ourGeneratorBI).abs();
+		BigInteger idealBI = new BigInteger(calcIdealGeneratorPublicKey(parentBlockData.getHeight(), parentBlockData.getSignature()));
+		BigInteger generatorBI = new BigInteger(calcHeightPerturbedPublicKey(parentBlockData.getHeight() + 1, generatorPublicKey));
+		return idealBI.subtract(generatorBI).abs();
 	}
 
 	public BigInteger calcGeneratorDistance(BlockData parentBlockData) {
@@ -685,20 +685,6 @@ public class Block {
 		long timeOffset = distance.multiply(BigInteger.valueOf((maxBlockTime - minBlockTime) * 1000L)).divide(MAX_DISTANCE).longValue();
 
 		return parentBlockData.getTimestamp() + (minBlockTime * 1000L) + timeOffset;
-	}
-
-	public long calcMinimumTimestamp(BlockData parentBlockData) {
-		return calcMinimumTimestamp(parentBlockData, this.generator.getPublicKey());
-	}
-
-	/**
-	 * Returns timestamp based on previous block and this block's generator.
-	 * <p>
-	 * For qora-core, we'll using the minimum from BlockChain config.
-	 */
-	public static long calcMinimumTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
-		long minBlockTime = BlockChain.getInstance().getMinBlockTime(); // seconds
-		return parentBlockData.getTimestamp() + (minBlockTime * 1000L);
 	}
 
 	public long calcMinimumTimestamp(BlockData parentBlockData) {
