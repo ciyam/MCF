@@ -739,15 +739,16 @@ public class Controller extends Thread {
 						// Do we have it already? (Before requesting transaction data itself)
 						if (repository.getTransactionRepository().exists(signature)) {
 							LOGGER.trace(String.format("Ignoring existing transaction %s from peer %s", Base58.encode(signature), peer));
-							break;
+							continue;
 						}
 
 						// Fetch actual transaction data from peer
 						Message getTransactionMessage = new GetTransactionMessage(signature);
 						Message responseMessage = peer.getResponse(getTransactionMessage);
 						if (responseMessage == null || !(responseMessage instanceof TransactionMessage)) {
-							peer.disconnect("failed to fetch unconfirmed transaction");
-							break;
+							// Maybe peer no longer has this transaction
+							LOGGER.trace(String.format("Peer %s didn't send transaction %s", peer, Base58.encode(signature)));
+							continue;
 						}
 
 						TransactionMessage transactionMessage = (TransactionMessage) responseMessage;
@@ -757,24 +758,25 @@ public class Controller extends Thread {
 						// Check signature
 						if (!transaction.isSignatureValid()) {
 							LOGGER.trace(String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-							break;
+							continue;
 						}
 
 						ValidationResult validationResult = transaction.importAsUnconfirmed();
 
 						if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
 							LOGGER.trace(String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
-							break;
+							continue;
 						}
 
 						if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
 							LOGGER.trace(String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+							// Some other thread (e.g. Synchronizer) might have blockchain lock for a while so might as well give up for now
 							break;
 						}
 
 						if (validationResult != ValidationResult.OK) {
 							LOGGER.trace(String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
-							break;
+							continue;
 						}
 
 						LOGGER.debug(String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
