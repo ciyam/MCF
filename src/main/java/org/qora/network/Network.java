@@ -377,6 +377,9 @@ public class Network extends Thread {
 	}
 
 	public void onDisconnect(Peer peer) {
+		// Notify Controller
+		Controller.getInstance().onPeerDisconnect(peer);
+
 		synchronized (this.connectedPeers) {
 			this.connectedPeers.remove(peer);
 		}

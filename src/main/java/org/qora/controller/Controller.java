@@ -35,6 +35,7 @@ import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.ArbitraryTransactionData.DataType;
 import org.qora.data.transaction.TransactionData;
 import org.qora.gui.Gui;
+import org.qora.gui.SysTray;
 import org.qora.network.Network;
 import org.qora.network.Peer;
 import org.qora.network.message.ArbitraryDataMessage;
@@ -304,15 +305,12 @@ public class Controller extends Thread {
 	private void potentiallySynchronize() {
 		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
 
-		// Check we have enough peers to potentially synchronize
-		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
-			return;
-
 		// Disregard peers that have "misbehaved" recently
 		peers.removeIf(hasPeerMisbehaved);
 
-		// Remove peers with unknown height, lower height or same height and same block signature (unless we don't have their block signature)
-		// peers.removeIf(hasShorterBlockchain());
+		// Check we have enough peers to potentially synchronize
+		if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
+			return;
 
 		// Disregard peers that don't have a recent block
 		final long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
@@ -361,6 +359,7 @@ public class Controller extends Thread {
 					break;
 
 				case OK:
+					updateSysTray();
 				case NOTHING_TO_DO:
 					LOGGER.debug(String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
 					break;
@@ -371,6 +370,15 @@ public class Controller extends Thread {
 			if (!Arrays.equals(newLatestBlockData.getSignature(), latestBlockData.getSignature()))
 				Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, newLatestBlockData));
 		}
+	}
+
+	public void updateSysTray() {
+		final int numberOfPeers = Network.getInstance().getUniqueHandshakedPeers().size();
+
+		final int height = getChainHeight();
+
+		String tooltip = String.format("qora-core - %d peer%s - height %d", numberOfPeers, (numberOfPeers != 1 ? "s" : ""), height);
+		SysTray.getInstance().setToolTipText(tooltip);
 	}
 
 	// Shutdown
@@ -492,6 +500,12 @@ public class Controller extends Thread {
 				return;
 			}
 		}
+
+		updateSysTray();
+	}
+
+	public void onPeerDisconnect(Peer peer) {
+		updateSysTray();
 	}
 
 	public void onNetworkMessage(Peer peer, Message message) {
