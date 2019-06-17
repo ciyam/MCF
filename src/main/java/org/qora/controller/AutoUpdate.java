@@ -49,6 +49,9 @@ public class AutoUpdate extends Thread {
 	private static final int GIT_COMMIT_HASH_LENGTH = 20; // SHA-1
 	private static final int EXPECTED_DATA_LENGTH = Transformer.TIMESTAMP_LENGTH + GIT_COMMIT_HASH_LENGTH + Transformer.SHA256_LENGTH;
 
+	/** This byte value used to hide contents from deep-inspection firewalls in case they block updates. */
+	private static final byte XOR_VALUE = (byte) 0x5a;
+
 	private static AutoUpdate instance;
 
 	private volatile boolean isStopping = false;
@@ -169,6 +172,9 @@ public class AutoUpdate extends Thread {
 					int nread = in.read(buffer);
 					if (nread == -1)
 						break;
+
+					for (int i = 0; i < nread; ++i)
+						buffer[i] ^= XOR_VALUE;
 
 					sha256.update(buffer, 0, nread);
 					out.write(buffer, 0, nread);
