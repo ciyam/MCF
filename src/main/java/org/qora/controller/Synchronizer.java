@@ -42,8 +42,6 @@ public class Synchronizer {
 	private static final int MAXIMUM_BLOCK_STEP = 500;
 	private static final int MAXIMUM_HEIGHT_DELTA = 300; // XXX move to blockchain config?
 	private static final int MAXIMUM_COMMON_DELTA = 60; // XXX move to blockchain config?
-	/** Maximum age for our latest block before we consider ditching our fork. */
-	private static final long MAXIMUM_TIP_AGE = BlockChain.getInstance().getMaxBlockTime() * 1000L * 10; // XXX move to blockchain config?
 	private static final int SYNC_BATCH_SIZE = 200;
 
 	private static Synchronizer instance;
@@ -107,9 +105,9 @@ public class Synchronizer {
 					byte[] peersLastBlockSignature = peer.getPeerData().getLastBlockSignature();
 					byte[] ourLastBlockSignature = ourLatestBlockData.getSignature();
 					if (peerHeight == ourHeight && (peersLastBlockSignature == null || !Arrays.equals(peersLastBlockSignature, ourLastBlockSignature)))
-						LOGGER.info(String.format("Synchronizing with peer %s at height %d, our height %d, signatures differ", peer, peerHeight, ourHeight));
+						LOGGER.debug(String.format("Synchronizing with peer %s at height %d, our height %d, signatures differ", peer, peerHeight, ourHeight));
 					else
-						LOGGER.info(String.format("Synchronizing with peer %s at height %d, our height %d", peer, peerHeight, ourHeight));
+						LOGGER.debug(String.format("Synchronizing with peer %s at height %d, our height %d", peer, peerHeight, ourHeight));
 
 					List<byte[]> signatures = findSignaturesFromCommonBlock(peer, ourHeight);
 					if (signatures == null) {
@@ -138,9 +136,9 @@ public class Synchronizer {
 					// If common block is peer's latest block then we simply have the same, or longer, chain to peer, so exit now
 					if (commonBlockHeight == peerHeight) {
 						if (peerHeight == ourHeight)
-							LOGGER.info(String.format("We have the same blockchain as peer %s", peer));
+							LOGGER.debug(String.format("We have the same blockchain as peer %s", peer));
 						else
-							LOGGER.info(String.format("We have the same blockchain as peer %s, but longer", peer));
+							LOGGER.debug(String.format("We have the same blockchain as peer %s, but longer", peer));
 
 						return SynchronizationResult.NOTHING_TO_DO;
 					}
@@ -155,9 +153,9 @@ public class Synchronizer {
 					// If we both have blocks after common block then decide whether we want to sync
 					int highestMutualHeight = Math.min(peerHeight, ourHeight);
 
-					// XXX This might be obsolete now
 					// If our latest block is very old, we're very behind and should ditch our fork.
-					if (ourInitialHeight > commonBlockHeight && ourLatestBlockData.getTimestamp() < NTP.getTime() - MAXIMUM_TIP_AGE) {
+					final long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+					if (ourInitialHeight > commonBlockHeight && ourLatestBlockData.getTimestamp() < minLatestBlockTimestamp) {
 						LOGGER.info(String.format("Ditching our chain after height %d as our latest block is very old", commonBlockHeight));
 						highestMutualHeight = commonBlockHeight;
 					}
@@ -192,7 +190,7 @@ public class Synchronizer {
 
 						// If our blockchain has a lower distance then don't synchronize with peer
 						if (ourBlockchainValue.compareTo(peerBlockchainValue) < 0) {
-							LOGGER.info(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
+							LOGGER.debug(String.format("Not synchronizing with peer %s as we have better blockchain", peer));
 							NumberFormat formatter = new DecimalFormat("0.###E0");
 							LOGGER.debug(String.format("Our distance: %s, peer's distance: %s (lower is better)", formatter.format(ourBlockchainValue), formatter.format(peerBlockchainValue)));
 							return SynchronizationResult.INFERIOR_CHAIN;

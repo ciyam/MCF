@@ -646,18 +646,18 @@ public class Block {
 		}
 	}
 
-	public static byte[] calcIdealGeneratorPublicKey(int height, byte[] blockSignature) {
-		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), blockSignature));
+	public static byte[] calcIdealGeneratorPublicKey(int parentBlockHeight, byte[] parentBlockSignature) {
+		return Crypto.digest(Bytes.concat(Longs.toByteArray(parentBlockHeight), parentBlockSignature));
 	}
 
-	public static byte[] calcHeightPerturbedGenerator(int height, byte[] generatorPublicKey) {
-		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), generatorPublicKey));
+	public static byte[] calcHeightPerturbedPublicKey(int height, byte[] publicKey) {
+		return Crypto.digest(Bytes.concat(Longs.toByteArray(height), publicKey));
 	}
 
 	public static BigInteger calcGeneratorDistance(BlockData parentBlockData, byte[] generatorPublicKey) {
-		BigInteger idealGeneratorBI = new BigInteger(Block.calcIdealGeneratorPublicKey(parentBlockData.getHeight(), parentBlockData.getSignature()));
-		BigInteger ourGeneratorBI = new BigInteger(Block.calcHeightPerturbedGenerator(parentBlockData.getHeight() + 1, generatorPublicKey));
-		return idealGeneratorBI.subtract(ourGeneratorBI).abs();
+		BigInteger idealBI = new BigInteger(calcIdealGeneratorPublicKey(parentBlockData.getHeight(), parentBlockData.getSignature()));
+		BigInteger generatorBI = new BigInteger(calcHeightPerturbedPublicKey(parentBlockData.getHeight() + 1, generatorPublicKey));
+		return idealBI.subtract(generatorBI).abs();
 	}
 
 	public BigInteger calcGeneratorDistance(BlockData parentBlockData) {
