@@ -53,7 +53,7 @@ public class SettingsTests {
 				BlockChain blockchain = unmarshaller.unmarshal(json, BlockChain.class).getValue();
 
 				System.out.println("BlockChain settings:");
-				System.out.println(String.format("TestNet: %s", yn(blockchain.isTestNet())));
+				System.out.println(String.format("TestChain: %s", yn(blockchain.isTestChain())));
 			}
 	}
 

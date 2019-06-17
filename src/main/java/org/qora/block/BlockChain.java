@@ -60,7 +60,7 @@ public class BlockChain {
 
 	// Properties
 
-	private boolean isTestNet = false;
+	private boolean isTestChain = false;
 	/** Maximum coin supply. */
 	private BigDecimal maxBalance;
 
@@ -216,8 +216,8 @@ public class BlockChain {
 
 	// Getters / setters
 
-	public boolean isTestNet() {
-		return this.isTestNet;
+	public boolean isTestChain() {
+		return this.isTestChain;
 	}
 
 	public BigDecimal getUnitFee() {

@@ -731,7 +731,7 @@ public class Block {
 	 * Returns whether Block's timestamp is valid.
 	 * <p>
 	 * Used by BlockGenerator to check whether it's time to forge new block,
-	 * and also used by Block.isValid for checks (if not testnet).
+	 * and also used by Block.isValid for checks (if not a testchain).
 	 * 
 	 * @return ValidationResult.OK if timestamp valid, or some other ValidationResult otherwise.
 	 * @throws DataException
@@ -786,8 +786,8 @@ public class Block {
 		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp())
 			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
 
-		// These checks are disabled for testnet
-		if (!BlockChain.getInstance().isTestNet()) {
+		// These checks are disabled for testchains
+		if (!BlockChain.getInstance().isTestChain()) {
 			ValidationResult timestampResult = this.isTimestampValid();
 
 			if (timestampResult != ValidationResult.OK)
