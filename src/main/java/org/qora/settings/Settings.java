@@ -26,6 +26,7 @@ import org.qora.block.BlockChain;
 public class Settings {
 
 	public static final int DEFAULT_LISTEN_PORT = 9889;
+	public static final int DEFAULT_TESTNET_PORT = 9989;
 
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -62,7 +63,8 @@ public class Settings {
 	private boolean autoUpdateEnabled = true;
 
 	// Peer-to-peer related
-	private int listenPort = DEFAULT_LISTEN_PORT;
+	private boolean isTestNet = false;
+	private Integer listenPort;
 	private String bindAddress = "::"; // Use IPv6 wildcard to listen on all local addresses
 	/** Minimum number of peers to allow block generation / synchronization. */
 	private int minBlockchainPeers = 3;
@@ -223,7 +225,7 @@ public class Settings {
 			return this.apiRestricted;
 
 		// Not set in config file, so restrict if not testnet
-		return !BlockChain.getInstance().isTestNet();
+		return !BlockChain.getInstance().isTestChain();
 	}
 
 	public boolean isApiLoggingEnabled() {
@@ -242,8 +244,15 @@ public class Settings {
 		return this.maxTransactionTimestampFuture;
 	}
 
+	public boolean isTestNet() {
+		return this.isTestNet;
+	}
+
 	public int getListenPort() {
-		return this.listenPort;
+		if (this.listenPort != null)
+			return this.listenPort;
+
+		return this.isTestNet ? DEFAULT_TESTNET_PORT : DEFAULT_LISTEN_PORT;
 	}
 
 	public String getBindAddress() {

@@ -2,8 +2,8 @@ package org.qora.network.message;
 
 import java.util.Map;
 
-import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
+import org.qora.network.Network;
 
 import com.google.common.primitives.Ints;
 
@@ -153,7 +153,7 @@ public abstract class Message {
 			byte[] messageMagic = new byte[MAGIC_LENGTH];
 			in.readFully(messageMagic);
 
-			if (!Arrays.equals(messageMagic, Controller.getInstance().getMessageMagic()))
+			if (!Arrays.equals(messageMagic, Network.getInstance().getMessageMagic()))
 				// Didn't receive correct Message "magic"
 				throw new MessageException("Received incorrect message 'magic'");
 
@@ -212,7 +212,7 @@ public abstract class Message {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
 			// Magic
-			bytes.write(Controller.getInstance().getMessageMagic());
+			bytes.write(Network.getInstance().getMessageMagic());
 
 			bytes.write(Ints.toByteArray(this.type.value));
 

@@ -152,13 +152,6 @@ public class Controller extends Thread {
 		return String.format(repositoryUrlTemplate, Settings.getInstance().getRepositoryPath());
 	}
 
-	public byte[] getMessageMagic() {
-		return new byte[] {
-			// "qMCF"
-			0x71, 0x4d, 0x43, 0x46
-		};
-	}
-
 	public long getBuildTimestamp() {
 		return this.buildTimestamp;
 	}
@@ -258,8 +251,8 @@ public class Controller extends Thread {
 		Controller.getInstance().start();
 
 		// Arbitrary transaction data manager
-		LOGGER.info("Starting arbitrary-transaction data manager");
-		ArbitraryDataManager.getInstance().start();
+		// LOGGER.info("Starting arbitrary-transaction data manager");
+		// ArbitraryDataManager.getInstance().start();
 
 		// Auto-update service
 		LOGGER.info("Starting auto-update");
@@ -394,8 +387,8 @@ public class Controller extends Thread {
 				AutoUpdate.getInstance().shutdown();
 
 				// Arbitrary transaction data manager
-				LOGGER.info("Shutting down arbitrary-transaction data manager");
-				ArbitraryDataManager.getInstance().shutdown();
+				// LOGGER.info("Shutting down arbitrary-transaction data manager");
+				// ArbitraryDataManager.getInstance().shutdown();
 
 				LOGGER.info("Shutting down controller");
 				this.interrupt();
