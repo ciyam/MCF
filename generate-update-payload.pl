@@ -18,15 +18,15 @@ $commit_hash = `git show --no-patch --format=%H`;
 die("Can't find commit hash\n") if ! defined $commit_hash;
 chomp $commit_hash;
 
-$sha256sum = `sha256sum MCF-core.jar 2>/dev/null || sha256 MCF-core.jar 2>/dev/null`;
+$sha256sum = `sha256sum MCF-core.update 2>/dev/null || sha256 MCF-core.update 2>/dev/null`;
 
-die("Can't calculate SHA256 of MCF-core.jar\n") unless $sha256sum =~ m/(\S{64})/;
+die("Can't calculate SHA256 of MCF-core.update\n") unless $sha256sum =~ m/(\S{64})/;
 
 $sha256 = $1;
 
 printf "timestamp (ms): %016x\n", $timestamp;
 printf "commit hash: %s\n", $commit_hash;
-printf "SHA256 of MCF-core.jar: %s\n", $sha256;
+printf "SHA256 of MCF-core.update: %s\n", $sha256;
 
 $data = sprintf "%016x%s%s", $timestamp * 1000, $commit_hash, $sha256;
 printf "data payload: %s\n", $data;
