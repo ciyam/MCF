@@ -79,9 +79,9 @@ public class GenesisBlock extends Block {
 
 		// Timestamp of zero means "now" but only valid for test nets!
 		if (info.timestamp == 0) {
-			if (!blockchain.isTestNet()) {
-				LOGGER.error("Genesis timestamp of zero (i.e. now) not valid for non-testnet blockchain configs");
-				throw new RuntimeException("Genesis timestamp of zero (i.e. now) not valid for non-testnet blockchain configs");
+			if (!blockchain.isTestChain()) {
+				LOGGER.error("Genesis timestamp of zero (i.e. now) not valid for non-test blockchain configs");
+				throw new RuntimeException("Genesis timestamp of zero (i.e. now) not valid for non-test blockchain configs");
 			}
 
 			// This will only take effect if there is no current genesis block in blockchain

@@ -66,6 +66,9 @@ public class Network extends Thread {
 	/** Maximum time since last successful connection before a peer is potentially considered "old", in milliseconds. */
 	private static final long OLD_PEER_CONNECTION_PERIOD = 7 * 24 * 60 * 60 * 1000; // ms
 
+	private static final byte[] MAINNET_MESSAGE_MAGIC = new byte[] {  0x12, 0x34, 0x56, 0x78 };
+	private static final byte[] TESTNET_MESSAGE_MAGIC = new byte[] { 0x78, 0x56, 0x34, 0x12 };
+
 	private static final String[] INITIAL_PEERS = new String[] {
 			"node1.qora.org",
 			"node2.qora.org",
@@ -162,6 +165,10 @@ public class Network extends Thread {
 		synchronized (this.selfPeers) {
 			this.selfPeers.add(peer.getPeerData().getAddress());
 		}
+	}
+
+	public byte[] getMessageMagic() {
+		return Settings.getInstance().isTestNet() ? TESTNET_MESSAGE_MAGIC : MAINNET_MESSAGE_MAGIC;
 	}
 
 	// Initial setup

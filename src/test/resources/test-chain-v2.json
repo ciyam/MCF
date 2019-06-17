@@ -1,5 +1,5 @@
 {
-	"isTestNet": true,
+	"isTestChain": true,
 	"maxBalance": "10000000000",
 	"blockDifficultyInterval": 10,
 	"minBlockTime": 30,

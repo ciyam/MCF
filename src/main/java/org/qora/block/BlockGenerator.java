@@ -150,7 +150,7 @@ public class BlockGenerator extends Thread {
 
 					for (Block testBlock : newBlocks) {
 						// Is new block's timestamp valid yet?
-						// We do a separate check as some timestamp checks are skipped for testnet
+						// We do a separate check as some timestamp checks are skipped for testchains
 						if (testBlock.isTimestampValid() != ValidationResult.OK)
 							continue;
 
@@ -308,8 +308,8 @@ public class BlockGenerator extends Thread {
 	}
 
 	public static void generateTestingBlock(Repository repository, PrivateKeyAccount generator) throws DataException {
-		if (!BlockChain.getInstance().isTestNet()) {
-			LOGGER.warn("Attempt to generating testing block but not in testnet mode!");
+		if (!BlockChain.getInstance().isTestChain()) {
+			LOGGER.warn("Ignoring attempt to generate testing block for non-test chain!");
 			return;
 		}
 
