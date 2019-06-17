@@ -198,7 +198,7 @@ public class AutoUpdate extends Thread {
 					return false;
 				}
 			} catch (IOException e) {
-				LOGGER.warn(String.format("Failed to save update from %s into %s", repoUri, newJar.toString()));
+				LOGGER.warn(String.format("Failed to save update from %s into %s: %s", repoUri, newJar.toString(), e.getMessage()));
 
 				try {
 					Files.deleteIfExists(newJar);
