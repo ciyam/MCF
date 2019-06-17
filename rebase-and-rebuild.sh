@@ -2,7 +2,7 @@
 
 set -e
 
-commit_msg="Rebased, auto-update JAR"
+commit_msg="Rebased, XORed, auto-update JAR"
 
 echo 'Checking for previous JAR commit to remove'
 top_commit=$(git log -n 1 --format=%s)
@@ -19,12 +19,12 @@ git rebase origin/master
 echo 'Pushing rebased branch'
 git push --force-with-lease
 
-echo 'Building new JAR'
+echo 'Building new XORed auto-update JAR'
 mvn clean
 mvn package
-cp target/MCF-core*.jar MCF-core.jar
+java -cp target/MCF-core*.jar org.qora.XorUpdate target/MCF-core*.jar MCF-core.update
 
 echo 'Pushing new JAR commit'
-git add MCF-core.jar
+git add MCF-core.update
 git commit -m "${commit_msg}"
 git push

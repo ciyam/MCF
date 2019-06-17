@@ -1,1 +1,1 @@
-MCF-core.jar filter=lfs diff=lfs merge=lfs -text
+MCF-core.update filter=lfs diff=lfs merge=lfs -text
