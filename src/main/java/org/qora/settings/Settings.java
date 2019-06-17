@@ -88,8 +88,8 @@ public class Settings {
 		"https://github.com/ciyam/MCF/raw/%s/MCF-core.update",
 		"https://raw.githubusercontent.com/ciyam/MCF/%s/MCF-core.update",
 		"https://raw.githubusercontent.com@151.101.16.133/ciyam/MCF/%s/MCF-core.update",
-		"https://mcfamily.io/updates/%s",
-		"https://mcfamily.io@47.75.186.105/updates/%s"
+		"https://www.mcfamily.io/updates/%s",
+		"https://www.mcfamily.io@47.246.1.213/updates/%s"
 	};
 
 	// Constructors
