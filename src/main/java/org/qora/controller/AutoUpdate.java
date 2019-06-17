@@ -173,10 +173,13 @@ public class AutoUpdate extends Thread {
 					if (nread == -1)
 						break;
 
+					// Hash is based on XORed version
+					sha256.update(buffer, 0, nread);
+
+					// ReXOR before writing
 					for (int i = 0; i < nread; ++i)
 						buffer[i] ^= XOR_VALUE;
 
-					sha256.update(buffer, 0, nread);
 					out.write(buffer, 0, nread);
 				} while (true);
 				out.flush();
