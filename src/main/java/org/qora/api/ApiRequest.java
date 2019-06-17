@@ -150,7 +150,7 @@ public class ApiRequest {
 
 		con.setRequestMethod("GET");
 		con.setConnectTimeout(5000);
-		con.setReadTimeout(5000);
+		con.setReadTimeout(3000);
 		ApiRequest.setConnectionSSL(con, ipAddress);
 
 		int status = con.getResponseCode();

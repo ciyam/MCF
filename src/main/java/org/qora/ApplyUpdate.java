@@ -32,6 +32,7 @@ public class ApplyUpdate {
 	private static final Logger LOGGER = LogManager.getLogger(ApplyUpdate.class);
 	private static final String JAR_FILENAME = AutoUpdate.JAR_FILENAME;
 	private static final String NEW_JAR_FILENAME = AutoUpdate.NEW_JAR_FILENAME;
+	private static final String WINDOWS_EXE_LAUNCHER = "MCF.exe";
 
 	private static final long CHECK_INTERVAL = 5 * 1000; // ms
 	private static final int MAX_ATTEMPTS = 5;
@@ -66,7 +67,7 @@ public class ApplyUpdate {
 		for (attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
 			LOGGER.debug(String.format("Attempt #%d out of %d to shutdown node", attempt + 1, MAX_ATTEMPTS));
 			String response = ApiRequest.perform(BASE_URI + "admin/stop", null);
-			if (response != null)
+			if (response == null)
 				break;
 
 			try {
@@ -89,6 +90,11 @@ public class ApplyUpdate {
 		// Assuming current working directory contains the JAR files
 		Path realJar = Paths.get(JAR_FILENAME);
 		Path newJar = Paths.get(NEW_JAR_FILENAME);
+
+		if (!Files.exists(newJar)) {
+			LOGGER.warn(String.format("Replacement JAR '%s' not found?", newJar));
+			return;
+		}
 
 		int attempt;
 		for (attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
@@ -118,8 +124,16 @@ public class ApplyUpdate {
 		Path javaBinary = Paths.get(javaHome, "bin", "java");
 		LOGGER.debug(String.format("Java binary: %s", javaBinary));
 
+		Path exeLauncher = Paths.get(WINDOWS_EXE_LAUNCHER);
+		LOGGER.debug(String.format("Windows EXE launcher: %s", exeLauncher));
+
+		List<String> javaCmd;
+		if (Files.exists(exeLauncher))
+			javaCmd = Arrays.asList(exeLauncher.toString());
+		else
+			javaCmd = Arrays.asList(javaBinary.toString(), "-jar", JAR_FILENAME);
+
 		try {
-			List<String> javaCmd = Arrays.asList(javaBinary.toString(), "-jar", JAR_FILENAME);
 			LOGGER.info(String.format("Restarting node with: %s", String.join(" ", javaCmd)));
 
 			new ProcessBuilder(javaCmd).start();
