@@ -692,6 +692,20 @@ public class Block {
 	}
 
 	/**
+	 * Returns timestamp based on previous block and this block's generator.
+	 * <p>
+	 * For qora-core, we'll using the minimum from BlockChain config.
+	 */
+	public static long calcMinimumTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
+		long minBlockTime = BlockChain.getInstance().getMinBlockTime(); // seconds
+		return parentBlockData.getTimestamp() + (minBlockTime * 1000L);
+	}
+
+	public long calcMinimumTimestamp(BlockData parentBlockData) {
+		return calcMinimumTimestamp(parentBlockData, this.generator.getPublicKey());
+	}
+
+	/**
 	 * Recalculate block's generator and transactions signatures, thus giving block full signature.
 	 * <p>
 	 * Note: Block instance must have been constructed with a <tt>PrivateKeyAccount generator</tt> or this call will throw an <tt>IllegalStateException</tt>.

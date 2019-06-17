@@ -50,7 +50,7 @@ public class AutoUpdate extends Thread {
 	private static final int EXPECTED_DATA_LENGTH = Transformer.TIMESTAMP_LENGTH + GIT_COMMIT_HASH_LENGTH + Transformer.SHA256_LENGTH;
 
 	/** This byte value used to hide contents from deep-inspection firewalls in case they block updates. */
-	private static final byte XOR_VALUE = (byte) 0x5a;
+	public static final byte XOR_VALUE = (byte) 0x5a;
 
 	private static AutoUpdate instance;
 
@@ -173,10 +173,13 @@ public class AutoUpdate extends Thread {
 					if (nread == -1)
 						break;
 
+					// Hash is based on XORed version
+					sha256.update(buffer, 0, nread);
+
+					// ReXOR before writing
 					for (int i = 0; i < nread; ++i)
 						buffer[i] ^= XOR_VALUE;
 
-					sha256.update(buffer, 0, nread);
 					out.write(buffer, 0, nread);
 				} while (true);
 				out.flush();

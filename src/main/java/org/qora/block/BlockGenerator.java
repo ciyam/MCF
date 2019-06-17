@@ -18,6 +18,7 @@ import org.qora.data.account.ProxyForgerData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.network.Network;
+import org.qora.network.Peer;
 import org.qora.repository.BlockRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -79,16 +80,30 @@ public class BlockGenerator extends Thread {
 					return;
 				}
 
+				List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
+				BlockData lastBlockData = blockRepository.getLastBlock();
+
+				// Disregard peers that have "misbehaved" recently
+				peers.removeIf(Controller.hasPeerMisbehaved);
+
 				// Don't generate if we don't have enough connected peers as where would the transactions/consensus come from?
-				if (Network.getInstance().getUniqueHandshakedPeers().size() < Settings.getInstance().getMinBlockchainPeers())
+				if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 					continue;
 
-				// Don't generate if it looks like we're behind
-				if (!Controller.getInstance().isUpToDate())
+				final long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+
+				// Disregard peers that don't have a recent block
+				peers.removeIf(peer -> peer.getPeerData().getLastBlockTimestamp() == null || peer.getPeerData().getLastBlockTimestamp() < minLatestBlockTimestamp);
+
+				// If we have any peers with a recent block, but our latest block isn't recent
+				// then we need to synchronize instead of generating.
+				if (!peers.isEmpty() && lastBlockData.getTimestamp() < minLatestBlockTimestamp)
 					continue;
+
+				// There are no peers with a recent block and/or our latest block is recent
+				// so go ahead and generate a block if possible.
 
 				// Check blockchain hasn't changed
-				BlockData lastBlockData = blockRepository.getLastBlock();
 				if (previousBlock == null || !Arrays.equals(previousBlock.getSignature(), lastBlockData.getSignature())) {
 					previousBlock = new Block(repository, lastBlockData);
 					newBlocks.clear();
@@ -101,6 +116,10 @@ public class BlockGenerator extends Thread {
 
 				// Do we need to build any potential new blocks?
 				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();
+				// No forging accounts?
+				if (forgingAccountsData.isEmpty())
+					continue;
+
 				List<PrivateKeyAccount> forgingAccounts = forgingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getSeed())).collect(Collectors.toList());
 
 				// Discard accounts we have blocks for
@@ -121,6 +140,10 @@ public class BlockGenerator extends Thread {
 						newBlocks.add(newBlock.regenerate(generator));
 					}
 				}
+
+				// No potential block candidates?
+				if (newBlocks.isEmpty())
+					continue;
 
 				// Make sure we're the only thread modifying the blockchain
 				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
