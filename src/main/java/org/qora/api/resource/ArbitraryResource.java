@@ -185,10 +185,13 @@ public class ArbitraryResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.INVALID_DATA, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
 	public String createArbitrary(ArbitraryTransactionData transactionData) {
 		if (Settings.getInstance().isApiRestricted())
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
+		if (transactionData.getDataType() == null)
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
