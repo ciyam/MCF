@@ -368,6 +368,9 @@ public class Network extends Thread {
 		if (!newPeer.connect())
 			return;
 
+		if (this.isInterrupted())
+			return;
+
 		synchronized (this.connectedPeers) {
 			this.connectedPeers.add(newPeer);
 		}
@@ -830,6 +833,11 @@ public class Network extends Thread {
 		peerExecutor.shutdownNow();
 
 		this.interrupt();
+		try {
+			this.join();
+		} catch (InterruptedException e) {
+			// We were interrupted while waiting for thread to join
+		}
 	}
 
 }
