@@ -2,10 +2,10 @@
 
 use POSIX;
 
-open(PROPS, '<', 'target/classes/build.properties') || die("Can't open target/classes/build.properties: $!\n");
+open(PROPS, '-|', 'unzip -p target/MCF-core*.jar build.properties') || die("Can't extract build.properties: $!\n");
 while (<PROPS>) {
 	if (m/build.timestamp=(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z/) {
-		$timestamp = strftime('%s', $6, $5, $4, $3, $2 - 1, $1 - 1900, 0, 0, 0);
+		$timestamp = strftime('%s', $6, $5, $4, $3, $2 - 1, $1 - 1900, 0, 0, 0) * 1000;
 		last;
 	}
 }
@@ -24,11 +24,11 @@ die("Can't calculate SHA256 of MCF-core.update\n") unless $sha256sum =~ m/(\S{64
 
 $sha256 = $1;
 
-printf "timestamp (ms): %016x\n", $timestamp;
+printf "timestamp (ms): %d / 0x%016x\n", $timestamp, $timestamp;
 printf "commit hash: %s\n", $commit_hash;
 printf "SHA256 of MCF-core.update: %s\n", $sha256;
 
-$data = sprintf "%016x%s%s", $timestamp * 1000, $commit_hash, $sha256;
+$data = sprintf "%016x%s%s", $timestamp, $commit_hash, $sha256;
 printf "data payload: %s\n", $data;
 
 $tx_type = 10;
