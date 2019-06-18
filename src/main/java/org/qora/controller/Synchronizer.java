@@ -43,6 +43,10 @@ public class Synchronizer {
 	private static final int MAXIMUM_COMMON_DELTA = 60; // XXX move to blockchain config?
 	private static final int SYNC_BATCH_SIZE = 200;
 
+	private static final List<byte[]> BANNED_BLOCK_SIGNATURES = Arrays.asList(
+		BlockChain.CANCEL_ASSET_ORDER_BLOCK_SIG
+	);
+
 	private static Synchronizer instance;
 
 	private Repository repository;
@@ -93,7 +97,6 @@ public class Synchronizer {
 					if (peerHeight == 1)
 						return SynchronizationResult.GENESIS_ONLY;
 
-					// XXX this may well be obsolete now
 					// If peer is too far behind us then don't them.
 					int minHeight = ourHeight - MAXIMUM_HEIGHT_DELTA;
 					if (!force && peerHeight < minHeight) {
@@ -131,7 +134,6 @@ public class Synchronizer {
 						peerHeight = commonBlockHeight;
 					}
 
-					// XXX This may well be obsolete now
 					// If common block is peer's latest block then we simply have the same, or longer, chain to peer, so exit now
 					if (commonBlockHeight == peerHeight) {
 						if (peerHeight == ourHeight)
@@ -235,6 +237,13 @@ public class Synchronizer {
 						signature = signatures.get(0);
 						signatures.remove(0);
 						++ourHeight;
+
+						// Is signature in our banned list?
+						for (byte[] bannedSignature : BANNED_BLOCK_SIGNATURES)
+							if (Arrays.equals(signature, bannedSignature)) {
+								LOGGER.info(String.format("Peer %s sent banned block for height %d", peer, ourHeight));
+								return SynchronizationResult.INFERIOR_CHAIN;
+							}
 
 						Block newBlock = this.fetchBlock(repository, peer, signature);
 

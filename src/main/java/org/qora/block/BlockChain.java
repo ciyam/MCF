@@ -56,6 +56,9 @@ public class BlockChain {
 
 	private static final Logger LOGGER = LogManager.getLogger(BlockChain.class);
 
+	public static final byte[] CANCEL_ASSET_ORDER_BLOCK_SIG = Base58.decode("DCYjHWLN3S4Ta7EVeGdxoTfAS9sBdp7Ldr2B6cuyXFqZecQbJT6WUP68kd2Xz31REXWPTvmXngWrMb7bFyMpMhkAtokfDr8vWXbmbPXeoTQi7EGfgpGrhVn45zejvG8iJWbKd7c3z8GGFz7yPYL4cU4HnyD6jqJDrAW6XqBi4nW2dWE");
+	public static final byte[] CANCEL_ASSET_ORDER_TX_SIG = Base58.decode("26e21JyKTHcteozWK8sVstSk11fMq2UtULddTg6cBvTwTVRhdLfETsshwShVpDL5dPrzxQuB1xgh72kdQx6VdZyR");
+
 	private static BlockChain instance = null;
 
 	// Properties
@@ -370,9 +373,10 @@ public class BlockChain {
 
 	private static void repairCancelAssetOrderBugfix() throws DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			byte[] INVALID_SIGNATURE = Base58.decode("26e21JyKTHcteozWK8sVstSk11fMq2UtULddTg6cBvTwTVRhdLfETsshwShVpDL5dPrzxQuB1xgh72kdQx6VdZyR");
+			final boolean hasPreRollbackBlock = repository.getBlockRepository().getHeightFromSignature(CANCEL_ASSET_ORDER_BLOCK_SIG) != 0;
+			final boolean hasInvalidTransaction = repository.getTransactionRepository().isConfirmed(CANCEL_ASSET_ORDER_TX_SIG);
 
-			if (!repository.getTransactionRepository().isConfirmed(INVALID_SIGNATURE))
+			if (!hasPreRollbackBlock && !hasInvalidTransaction)
 				return;
 		}
 
@@ -406,7 +410,7 @@ public class BlockChain {
 		};
 
 		// Set up time-based trigger for rollback
-		final long triggerTimestamp = 1560726000_000L; // Wed Jun 16 23:59:00.000 2019 UTC+0000
+		final long triggerTimestamp = 1560862800_000L; // Tue Jun 18 13:00:00.000 2019 UTC+0000
 
 		// How long to wait? (Minimum 0 seconds)
 		long delay = Math.max(0, triggerTimestamp - NTP.getTime());
