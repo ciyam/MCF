@@ -217,18 +217,8 @@ public class Controller extends Thread {
 			System.exit(2);
 		}
 
-		LOGGER.info("Starting block generator");
-		blockGenerator = new BlockGenerator();
-		blockGenerator.start();
-
-		LOGGER.info("Starting API on port " + Settings.getInstance().getApiPort());
-		try {
-			ApiService apiService = ApiService.getInstance();
-			apiService.start();
-		} catch (Exception e) {
-			LOGGER.error("Unable to start API", e);
-			System.exit(1);
-		}
+		LOGGER.info("Starting controller");
+		Controller.getInstance().start();
 
 		LOGGER.info("Starting networking");
 		try {
@@ -248,8 +238,9 @@ public class Controller extends Thread {
 			}
 		});
 
-		LOGGER.info("Starting controller");
-		Controller.getInstance().start();
+		LOGGER.info("Starting block generator");
+		blockGenerator = new BlockGenerator();
+		blockGenerator.start();
 
 		// Arbitrary transaction data manager
 		// LOGGER.info("Starting arbitrary-transaction data manager");
@@ -258,6 +249,15 @@ public class Controller extends Thread {
 		// Auto-update service
 		LOGGER.info("Starting auto-update");
 		AutoUpdate.getInstance().start();
+
+		LOGGER.info("Starting API on port " + Settings.getInstance().getApiPort());
+		try {
+			ApiService apiService = ApiService.getInstance();
+			apiService.start();
+		} catch (Exception e) {
+			LOGGER.error("Unable to start API", e);
+			System.exit(1);
+		}
 
 		LOGGER.info("Starting node management UI on port " + Settings.getInstance().getUiPort());
 		try {
@@ -284,25 +284,25 @@ public class Controller extends Thread {
 	public void run() {
 		Thread.currentThread().setName("Controller");
 
-		while (!isStopping) {
-			try {
+		try {
+			while (!isStopping) {
 				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				return;
-			}
 
-			if (requestSync) {
-				requestSync = false;
-				potentiallySynchronize();
-			}
+				if (requestSync) {
+					requestSync = false;
+					potentiallySynchronize();
+				}
 
-			// Clean up arbitrary data request cache
-			final long requestMinimumTimestamp = NTP.getTime() - ARBITRARY_REQUEST_TIMEOUT;
-			arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
+				// Clean up arbitrary data request cache
+				final long requestMinimumTimestamp = NTP.getTime() - ARBITRARY_REQUEST_TIMEOUT;
+				arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
+			}
+		} catch (InterruptedException e) {
+			// Fall-through to exit
 		}
 	}
 
-	private void potentiallySynchronize() {
+	private void potentiallySynchronize() throws InterruptedException {
 		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
 
 		// Disregard peers that have "misbehaved" recently
@@ -391,26 +391,15 @@ public class Controller extends Thread {
 				LOGGER.info("Shutting down node management UI");
 				UiService.getInstance().stop();
 
+				LOGGER.info("Shutting down API");
+				ApiService.getInstance().stop();
+
 				LOGGER.info("Shutting down auto-update");
 				AutoUpdate.getInstance().shutdown();
 
 				// Arbitrary transaction data manager
 				// LOGGER.info("Shutting down arbitrary-transaction data manager");
 				// ArbitraryDataManager.getInstance().shutdown();
-
-				LOGGER.info("Shutting down controller");
-				this.interrupt();
-				try {
-					this.join();
-				} catch (InterruptedException e) {
-					// We were interrupted while waiting for thread to join
-				}
-
-				LOGGER.info("Shutting down networking");
-				Network.getInstance().shutdown();
-
-				LOGGER.info("Shutting down API");
-				ApiService.getInstance().stop();
 
 				if (blockGenerator != null) {
 					LOGGER.info("Shutting down block generator");
@@ -420,6 +409,17 @@ public class Controller extends Thread {
 					} catch (InterruptedException e) {
 						// We were interrupted while waiting for thread to join
 					}
+				}
+
+				LOGGER.info("Shutting down networking");
+				Network.getInstance().shutdown();
+
+				LOGGER.info("Shutting down controller");
+				this.interrupt();
+				try {
+					this.join();
+				} catch (InterruptedException e) {
+					// We were interrupted while waiting for thread to join
 				}
 
 				try {
@@ -793,6 +793,9 @@ public class Controller extends Thread {
 					}
 				} catch (DataException e) {
 					LOGGER.error(String.format("Repository issue while processing unconfirmed transactions from peer %s", peer), e);
+				} catch (InterruptedException e) {
+					// Shutdown
+					return;
 				}
 
 				if (newSignatures.isEmpty())

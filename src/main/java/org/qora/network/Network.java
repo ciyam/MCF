@@ -17,6 +17,7 @@ import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
@@ -90,6 +91,7 @@ public class Network extends Thread {
 	public static final int PEER_ID_LENGTH = 128;
 
 	private final byte[] ourPeerId;
+	private volatile boolean isStopping = false;
 	private List<Peer> connectedPeers;
 	private List<PeerAddress> selfPeers;
 	private ServerSocket listenSocket;
@@ -97,6 +99,7 @@ public class Network extends Thread {
 	private int maxPeers;
 	private ExecutorService peerExecutor;
 	private ExecutorService mergePeersExecutor;
+	private ExecutorService broadcastExecutor;
 	private long nextBroadcast;
 	private Lock mergePeersLock;
 
@@ -134,6 +137,8 @@ public class Network extends Thread {
 		maxPeers = Settings.getInstance().getMaxPeers();
 
 		peerExecutor = Executors.newCachedThreadPool();
+
+		broadcastExecutor = Executors.newCachedThreadPool();
 		nextBroadcast = System.currentTimeMillis();
 
 		mergePeersLock = new ReentrantLock();
@@ -198,7 +203,7 @@ public class Network extends Thread {
 
 		// Maintain long-term connections to various peers' API applications
 		try {
-			while (true) {
+			while (!isStopping) {
 				acceptConnections();
 
 				pruneOldPeers();
@@ -221,14 +226,6 @@ public class Network extends Thread {
 			LOGGER.warn("Repository issue while running network", e);
 			// Fall-through to shutdown
 		}
-
-		// Shutdown
-		if (!this.listenSocket.isClosed())
-			try {
-				this.listenSocket.close();
-			} catch (IOException e) {
-				// Not important
-			}
 	}
 
 	@SuppressWarnings("resource")
@@ -246,6 +243,7 @@ public class Network extends Thread {
 				return;
 			}
 
+			Peer newPeer = null;
 			synchronized (this.connectedPeers) {
 				if (connectedPeers.size() >= maxPeers) {
 					// We have enough peers
@@ -261,9 +259,14 @@ public class Network extends Thread {
 				}
 
 				LOGGER.debug(String.format("Connection accepted from peer %s", socket.getRemoteSocketAddress()));
-				Peer newPeer = new Peer(socket);
+				newPeer = new Peer(socket);
 				this.connectedPeers.add(newPeer);
+			}
+
+			try {
 				peerExecutor.execute(newPeer);
+			} catch (RejectedExecutionException e) {
+				// Can't execute - probably because we're shutting down, so ignore
 			}
 		} while (true);
 	}
@@ -375,7 +378,11 @@ public class Network extends Thread {
 			this.connectedPeers.add(newPeer);
 		}
 
-		peerExecutor.execute(newPeer);
+		try {
+			peerExecutor.execute(newPeer);
+		} catch (RejectedExecutionException e) {
+			// Can't execute - probably because we're shutting down, so ignore
+		}
 	}
 
 	// Peer callbacks
@@ -592,8 +599,23 @@ public class Network extends Thread {
 			List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
 			// Filter out peers that we've not connected to ever or within X milliseconds
-			long connectionThreshold = NTP.getTime() - RECENT_CONNECTION_THRESHOLD;
-			knownPeers.removeIf(peerData -> peerData.getLastConnected() == null || peerData.getLastConnected() < connectionThreshold);
+			final long connectionThreshold = NTP.getTime() - RECENT_CONNECTION_THRESHOLD;
+			Predicate<PeerData> notRecentlyConnected = peerData -> {
+				final Long lastAttempted = peerData.getLastAttempted();
+				final Long lastConnected = peerData.getLastConnected();
+
+				if (lastAttempted == null || lastConnected == null)
+					return true;
+
+				if (lastConnected < lastAttempted)
+					return true;
+
+				if (lastConnected < connectionThreshold)
+					return true;
+
+				return false;
+			};
+			knownPeers.removeIf(notRecentlyConnected);
 
 			if (peer.getVersion() >= 2) {
 				List<PeerAddress> peerAddresses = new ArrayList<>();
@@ -784,7 +806,11 @@ public class Network extends Thread {
 			}
 		}
 
-		mergePeersExecutor.execute(new PeersMerger(peerAddresses));
+		try {
+			mergePeersExecutor.execute(new PeersMerger(peerAddresses));
+		} catch (RejectedExecutionException e) {
+			// Can't execute - probably because we're shutting down, so ignore
+		}
 	}
 
 	public void broadcast(Function<Peer, Message> peerMessageBuilder) {
@@ -823,21 +849,54 @@ public class Network extends Thread {
 		}
 
 		try {
-			peerExecutor.execute(new Broadcaster(this.getUniqueHandshakedPeers(), peerMessageBuilder));
+			broadcastExecutor.execute(new Broadcaster(this.getUniqueHandshakedPeers(), peerMessageBuilder));
 		} catch (RejectedExecutionException e) {
 			// Can't execute - probably because we're shutting down, so ignore
 		}
 	}
 
 	public void shutdown() {
-		peerExecutor.shutdownNow();
+		this.isStopping = true;
 
+		// Close listen socket to prevent more incoming connections
+		if (!this.listenSocket.isClosed())
+			try {
+				this.listenSocket.close();
+			} catch (IOException e) {
+				// Not important
+			}
+
+		// Stop our run() thread
 		this.interrupt();
 		try {
 			this.join();
 		} catch (InterruptedException e) {
-			// We were interrupted while waiting for thread to join
+			LOGGER.debug("Interrupted while waiting for networking thread to terminate");
 		}
-	}
+
+		// Give up merging peer lists
+		this.mergePeersExecutor.shutdownNow();
+		try {
+			if (!this.mergePeersExecutor.awaitTermination(1000, TimeUnit.MILLISECONDS))
+				LOGGER.debug("Peer-list merging threads failed to terminate");
+		} catch (InterruptedException e) {
+			LOGGER.debug("Interrupted while waiting for peer-list merging threads failed to terminate");
+		}
+
+		// Stop broadcasts
+		this.broadcastExecutor.shutdownNow();
+		try {
+			if (!this.broadcastExecutor.awaitTermination(1000, TimeUnit.MILLISECONDS))
+				LOGGER.debug("Broadcast threads failed to terminate");
+		} catch (InterruptedException e) {
+			LOGGER.debug("Interrupted while waiting for broadcast threads failed to terminate");
+		}
+
+		// Close all peer connections
+		synchronized (this.connectedPeers) {
+			for (Peer peer : this.connectedPeers)
+				peer.shutdown();
+		}
+}
 
 }
