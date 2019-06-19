@@ -31,6 +31,7 @@ import org.qora.network.PeerAddress;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.utils.NTP;
 
 @Path("/peers")
 @Tag(name = "Peers")
@@ -145,7 +146,7 @@ public class PeersResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			PeerAddress peerAddress = PeerAddress.fromString(address);
 
-			PeerData peerData = new PeerData(peerAddress);
+			PeerData peerData = new PeerData(peerAddress, NTP.getTime(), "API");
 			repository.getNetworkRepository().save(peerData);
 			repository.saveChanges();
 
@@ -193,15 +194,11 @@ public class PeersResource {
 	public String removePeer(String address) {
 		Security.checkApiCallAllowed(request);
 
-		try (final Repository repository = RepositoryManager.getRepository()) {
+		try {
 			PeerAddress peerAddress = PeerAddress.fromString(address);
 
-			PeerData peerData = new PeerData(peerAddress);
-
-			int numDeleted = repository.getNetworkRepository().delete(peerData);
-			repository.saveChanges();
-
-			return numDeleted != 0 ? "true" : "false";
+			boolean wasKnown = Network.getInstance().forgetPeer(peerAddress);
+			return wasKnown ? "true" : "false";
 		} catch (IllegalArgumentException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 		} catch (ApiException e) {
@@ -214,7 +211,7 @@ public class PeersResource {
 	@DELETE
 	@Path("/known")
 	@Operation(
-		summary = "Remove any known peers from database",
+		summary = "Remove all known peers from database",
 		responses = {
 			@ApiResponse(
 				description = "true if any peers were removed, false if there were no peers to delete",
@@ -232,9 +229,8 @@ public class PeersResource {
 	public String removeKnownPeers(String address) {
 		Security.checkApiCallAllowed(request);
 
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			int numDeleted = repository.getNetworkRepository().deleteAllPeers();
-			repository.saveChanges();
+		try {
+			int numDeleted = Network.getInstance().forgetAllPeers();
 
 			return numDeleted != 0 ? "true" : "false";
 		} catch (ApiException e) {

@@ -314,12 +314,12 @@ public class Controller extends Thread {
 
 		// Disregard peers that don't have a recent block
 		final long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
-		peers.removeIf(peer -> peer.getPeerData().getLastBlockTimestamp() == null || peer.getPeerData().getLastBlockTimestamp() < minLatestBlockTimestamp);
+		peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
 
 		BlockData latestBlockData = getChainTip();
 
 		// Disregard peers that have no block signature or the same block signature as us
-		peers.removeIf(peer -> peer.getPeerData().getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peer.getPeerData().getLastBlockSignature()));
+		peers.removeIf(peer -> peer.getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peer.getLastBlockSignature()));
 
 		if (!peers.isEmpty()) {
 			// Pick random peer to sync with
@@ -522,17 +522,7 @@ public class Controller extends Thread {
 					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
 						continue;
 
-					PeerData peerData = connectedPeer.getPeerData();
-					peerData.setLastHeight(heightMessage.getHeight());
-
-					// Only save to repository if outbound peer
-					if (connectedPeer.isOutbound())
-						try (final Repository repository = RepositoryManager.getRepository()) {
-							repository.getNetworkRepository().save(peerData);
-							repository.saveChanges();
-						} catch (DataException e) {
-							LOGGER.error(String.format("Repository issue while updating height of peer %s", connectedPeer), e);
-						}
+					connectedPeer.setLastHeight(heightMessage.getHeight());
 				}
 
 				// Potentially synchronize
@@ -551,28 +541,17 @@ public class Controller extends Thread {
 					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
 						continue;
 
-					PeerData peerData = connectedPeer.getPeerData();
-
 					// We want to update atomically so use lock
-					ReentrantLock peerDataLock = connectedPeer.getPeerDataLock();
-					peerDataLock.lock();
+					ReentrantLock peerLock = connectedPeer.getPeerLock();
+					peerLock.lock();
 					try {
-						peerData.setLastHeight(heightV2Message.getHeight());
-						peerData.setLastBlockSignature(heightV2Message.getSignature());
-						peerData.setLastBlockTimestamp(heightV2Message.getTimestamp());
-						peerData.setLastBlockGenerator(heightV2Message.getGenerator());
+						peer.setLastHeight(heightV2Message.getHeight());
+						peer.setLastBlockSignature(heightV2Message.getSignature());
+						peer.setLastBlockTimestamp(heightV2Message.getTimestamp());
+						peer.setLastBlockGenerator(heightV2Message.getGenerator());
 					} finally {
-						peerDataLock.unlock();
+						peerLock.unlock();
 					}
-
-					// Only save to repository if outbound peer
-					if (connectedPeer.isOutbound())
-						try (final Repository repository = RepositoryManager.getRepository()) {
-							repository.getNetworkRepository().save(peerData);
-							repository.saveChanges();
-						} catch (DataException e) {
-							LOGGER.error(String.format("Repository issue while updating info of peer %s", connectedPeer), e);
-						}
 				}
 
 				// Potentially synchronize
@@ -997,26 +976,6 @@ public class Controller extends Thread {
 		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
 	};
 
-	/** True if peer has unknown height, lower height or same height and same block signature (unless we don't have their block signature). */
-	public static Predicate<Peer> hasShorterBlockchain() {
-		BlockData highestBlockData = getInstance().getChainTip();
-		int ourHeight = highestBlockData.getHeight();
-
-		return peer -> {
-			PeerData peerData = peer.getPeerData();
-
-			Integer peerHeight = peerData.getLastHeight();
-			if (peerHeight == null || peerHeight < ourHeight)
-				return true;
-
-			if (peerHeight > ourHeight || peerData.getLastBlockSignature() == null)
-				return false;
-
-			// Remove if signatures match
-			return Arrays.equals(peerData.getLastBlockSignature(), highestBlockData.getSignature());
-		};
-	}
-
 	/** Returns whether we think our node has up-to-date blockchain based on our info about other peers. */
 	public boolean isUpToDate() {
 		final long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
@@ -1036,7 +995,7 @@ public class Controller extends Thread {
 			return false;
 
 		// Disregard peers that don't have a recent block
-		peers.removeIf(peer -> peer.getPeerData().getLastBlockTimestamp() == null || peer.getPeerData().getLastBlockTimestamp() < minLatestBlockTimestamp);
+		peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
 
 		// If we don't have any peers left then can't synchronize, therefore consider ourself not up to date
 		return !peers.isEmpty();

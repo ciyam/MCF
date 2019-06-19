@@ -83,7 +83,18 @@ public class Synchronizer {
 					final BlockData ourLatestBlockData = this.repository.getBlockRepository().getLastBlock();
 					final int ourInitialHeight = ourLatestBlockData.getHeight();
 					int ourHeight = ourInitialHeight;
-					int peerHeight = peer.getPeerData().getLastHeight();
+
+					int peerHeight;
+					byte[] peersLastBlockSignature;
+
+					ReentrantLock peerLock = peer.getPeerLock();
+					peerLock.lockInterruptibly();
+					try {
+						peerHeight = peer.getLastHeight();
+						peersLastBlockSignature = peer.getLastBlockSignature();
+					} finally {
+						peerLock.unlock();
+					}
 
 					// If peer is at genesis block then peer has no blocks so ignore them for a while
 					if (peerHeight == 1)
@@ -97,7 +108,6 @@ public class Synchronizer {
 						return SynchronizationResult.TOO_FAR_BEHIND;
 					}
 
-					byte[] peersLastBlockSignature = peer.getPeerData().getLastBlockSignature();
 					byte[] ourLastBlockSignature = ourLatestBlockData.getSignature();
 					if (peerHeight == ourHeight && (peersLastBlockSignature == null || !Arrays.equals(peersLastBlockSignature, ourLastBlockSignature)))
 						LOGGER.debug(String.format("Synchronizing with peer %s at height %d, our height %d, signatures differ", peer, peerHeight, ourHeight));

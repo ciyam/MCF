@@ -92,7 +92,7 @@ public class BlockGenerator extends Thread {
 				final long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 
 				// Disregard peers that don't have a recent block
-				peers.removeIf(peer -> peer.getPeerData().getLastBlockTimestamp() == null || peer.getPeerData().getLastBlockTimestamp() < minLatestBlockTimestamp);
+				peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
 
 				// If we have any peers with a recent block, but our latest block isn't recent
 				// then we need to synchronize instead of generating.

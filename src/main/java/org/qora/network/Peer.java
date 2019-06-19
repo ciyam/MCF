@@ -47,30 +47,54 @@ public class Peer extends Thread {
 	private static final int SOCKET_TIMEOUT = 10000; // ms
 	private static final int UNSOLICITED_MESSAGE_QUEUE_CAPACITY = 10;
 
-	private final boolean isOutbound;
 	private volatile boolean isStopping = false;
+
 	private Socket socket = null;
-	private PeerData peerData = null;
-	private final ReentrantLock peerDataLock = new ReentrantLock();
-	private Long connectionTimestamp = null;
+	private InetSocketAddress resolvedAddress = null;
+	/** True if remote address is loopback/link-local/site-local, false otherwise. */
+	private boolean isLocal;
 	private OutputStream out;
-	private Handshake handshakeStatus = Handshake.STARTED;
+
 	private Map<Integer, BlockingQueue<Message>> replyQueues;
+
 	private BlockingQueue<Message> unsolicitedQueue;
 	private ExecutorService messageExecutor;
-	private VersionMessage versionMessage = null;
-	private Integer version;
+
 	private ScheduledExecutorService pingExecutor;
-	private Long lastPing = null;
-	private InetSocketAddress resolvedAddress = null;
-	private boolean isLocal;
+
+	/** True if we created connection to peer, false if we accepted incoming connection from peer. */
+	private final boolean isOutbound;
+	/** Numeric protocol version, typically 1 or 2. */
+	private Integer version;
 	private byte[] peerId;
+
+	private Handshake handshakeStatus = Handshake.STARTED;
 
 	private byte[] pendingPeerId;
 	private byte[] verificationCodeSent;
 	private byte[] verificationCodeExpected;
 
-	/** Construct unconnected outbound Peer using socket address in peer data */
+	private PeerData peerData = null;
+	private final ReentrantLock peerLock = new ReentrantLock();
+
+	/** Timestamp of when socket was accepted, or connected. */
+	private Long connectionTimestamp = null;
+	/** Version info as reported by peer. */
+	private VersionMessage versionMessage = null;
+	/** Last PING message round-trip time (ms). */
+	private Long lastPing = null;
+	/** Latest block height as reported by peer. */
+	private Integer lastHeight;
+	/** Latest block signature as reported by peer. */
+	private byte[] lastBlockSignature;
+	/** Latest block timestamp as reported by peer. */
+	private Long lastBlockTimestamp;
+	/** Latest block generator public key as reported by peer. */
+	private byte[] lastBlockGenerator;
+
+	// Constructors
+
+	/** Construct unconnected, outbound Peer using socket address in peer data */
 	public Peer(PeerData peerData) {
 		this.isOutbound = true;
 		this.peerData = peerData;
@@ -91,13 +115,7 @@ public class Peer extends Thread {
 	// Getters / setters
 
 	public PeerData getPeerData() {
-		this.peerDataLock.lock();
-
-		try {
-			return this.peerData;
-		} finally {
-			this.peerDataLock.unlock();
-		}
+		return this.peerData;
 	}
 
 	public boolean isOutbound() {
@@ -179,9 +197,41 @@ public class Peer extends Thread {
 		this.verificationCodeExpected = expected;
 	}
 
-	/** Returns the lock used for synchronizing access to peer's PeerData. */
-	public ReentrantLock getPeerDataLock() {
-		return this.peerDataLock;
+	public Integer getLastHeight() {
+		return this.lastHeight;
+	}
+
+	public void setLastHeight(Integer lastHeight) {
+		this.lastHeight = lastHeight;
+	}
+
+	public byte[] getLastBlockSignature() {
+		return lastBlockSignature;
+	}
+
+	public void setLastBlockSignature(byte[] lastBlockSignature) {
+		this.lastBlockSignature = lastBlockSignature;
+	}
+
+	public Long getLastBlockTimestamp() {
+		return lastBlockTimestamp;
+	}
+
+	public void setLastBlockTimestamp(Long lastBlockTimestamp) {
+		this.lastBlockTimestamp = lastBlockTimestamp;
+	}
+
+	public byte[] getLastBlockGenerator() {
+		return lastBlockGenerator;
+	}
+
+	public void setLastBlockGenerator(byte[] lastBlockGenerator) {
+		this.lastBlockGenerator = lastBlockGenerator;
+	}
+
+	/** Returns the lock used for synchronizing access to peer info. */
+	public ReentrantLock getPeerLock() {
+		return this.peerLock;
 	}
 
 	// Easier, and nicer output, than peer.getRemoteSocketAddress()
@@ -488,6 +538,7 @@ public class Peer extends Thread {
 		return new InetSocketAddress(address, hostAndPort.getPortOrDefault(Settings.DEFAULT_LISTEN_PORT));
 	}
 
+	/** Returns true if address is loopback/link-local/site-local, false otherwise. */
 	public static boolean isAddressLocal(InetAddress address) {
 		return address.isLoopbackAddress() || address.isLinkLocalAddress() || address.isSiteLocalAddress();
 	}

@@ -766,6 +766,16 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ArbitraryTransactions ALTER COLUMN data_hash RENAME TO data");
 					break;
 
+				case 53:
+					// Change what we store about peers (again)
+					stmt.execute("ALTER TABLE Peers DROP COLUMN last_block_signature");
+					stmt.execute("ALTER TABLE Peers DROP COLUMN last_block_timestamp");
+					stmt.execute("ALTER TABLE Peers DROP COLUMN last_block_generator");
+					stmt.execute("ALTER TABLE Peers DROP COLUMN last_height");
+					stmt.execute("ALTER TABLE Peers ADD COLUMN added_when TIMESTAMP WITH TIME ZONE");
+					stmt.execute("ALTER TABLE Peers ADD COLUMN added_by VARCHAR(255)");
+					break;
+
 				default:
 					// nothing to do
 					return false;
