@@ -154,9 +154,15 @@ public class Network extends Thread {
 		return instance;
 	}
 
+	public byte[] getMessageMagic() {
+		return Settings.getInstance().isTestNet() ? TESTNET_MESSAGE_MAGIC : MAINNET_MESSAGE_MAGIC;
+	}
+
 	public byte[] getOurPeerId() {
 		return this.ourPeerId;
 	}
+
+	// Peer lists
 
 	public List<Peer> getConnectedPeers() {
 		synchronized (this.connectedPeers) {
@@ -170,16 +176,64 @@ public class Network extends Thread {
 		}
 	}
 
-	public void noteToSelf(Peer peer) {
-		LOGGER.info(String.format("No longer considering peer address %s as it connects to self", peer));
+	/** Returns list of connected peers that have completed handshaking. */
+	public List<Peer> getHandshakedPeers() {
+		List<Peer> peers = new ArrayList<>();
 
-		synchronized (this.selfPeers) {
-			this.selfPeers.add(peer.getPeerData().getAddress());
+		synchronized (this.connectedPeers) {
+			peers = this.connectedPeers.stream().filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED).collect(Collectors.toList());
+		}
+
+		return peers;
+	}
+
+	/** Returns list of connected peers that have completed handshaking, with inbound duplicates removed. */
+	public List<Peer> getUniqueHandshakedPeers() {
+		final List<Peer> peers;
+
+		synchronized (this.connectedPeers) {
+			peers = this.connectedPeers.stream().filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED).collect(Collectors.toList());
+		}
+
+		// Returns true if this [inbound] peer has corresponding outbound peer with same ID
+		Predicate<Peer> hasOutboundWithSameId = peer -> {
+			// Peer is outbound so return fast
+			if (peer.isOutbound())
+				return false;
+
+			return peers.stream().anyMatch(otherPeer -> otherPeer.isOutbound() && Arrays.equals(otherPeer.getPeerId(), peer.getPeerId()));
+		};
+
+		// Filter out [inbound] peers that have corresponding outbound peer with the same ID
+		peers.removeIf(hasOutboundWithSameId);
+
+		return peers;
+	}
+
+	/** Returns list of peers we connected to that have completed handshaking. */
+	public List<Peer> getOutboundHandshakedPeers() {
+		List<Peer> peers = new ArrayList<>();
+
+		synchronized (this.connectedPeers) {
+			peers = this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED)
+					.collect(Collectors.toList());
+		}
+
+		return peers;
+	}
+
+	/** Returns Peer with inbound connection and matching ID, or null if none found. */
+	public Peer getInboundPeerWithId(byte[] peerId) {
+		synchronized (this.connectedPeers) {
+			return this.connectedPeers.stream().filter(peer -> !peer.isOutbound() && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
 		}
 	}
 
-	public byte[] getMessageMagic() {
-		return Settings.getInstance().isTestNet() ? TESTNET_MESSAGE_MAGIC : MAINNET_MESSAGE_MAGIC;
+	/** Returns handshake-completed Peer with outbound connection and matching ID, or null if none found. */
+	public Peer getOutboundHandshakedPeerWithId(byte[] peerId) {
+		synchronized (this.connectedPeers) {
+			return this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
+		}
 	}
 
 	// Initial setup
@@ -188,7 +242,7 @@ public class Network extends Thread {
 		for (String address : INITIAL_PEERS) {
 			PeerAddress peerAddress = PeerAddress.fromString(address);
 
-			PeerData peerData = new PeerData(peerAddress);
+			PeerData peerData = new PeerData(peerAddress, NTP.getTime(), "INIT");
 			repository.getNetworkRepository().save(peerData);
 		}
 
@@ -294,7 +348,7 @@ public class Network extends Thread {
 
 			for (PeerData peerData : peers) {
 				LOGGER.debug(String.format("Deleting old peer %s from repository", peerData.getAddress().toString()));
-				repository.getNetworkRepository().delete(peerData);
+				repository.getNetworkRepository().delete(peerData.getAddress());
 			}
 
 			repository.saveChanges();
@@ -404,7 +458,7 @@ public class Network extends Thread {
 		// as remote port is not likely to be remote peer's listen port
 		if (!peer.isOutbound())
 			try (final Repository repository = RepositoryManager.getRepository()) {
-				repository.getNetworkRepository().delete(peer.getPeerData());
+				repository.getNetworkRepository().delete(peer.getPeerData().getAddress());
 				repository.saveChanges();
 			} catch (DataException e) {
 				LOGGER.warn(String.format("Repository issue while trying to delete inbound peer %s", peer));
@@ -505,7 +559,7 @@ public class Network extends Thread {
 				// Also add peer's details
 				peerAddresses.add(PeerAddress.fromString(peer.getPeerData().getAddress().getHost()));
 
-				mergePeers(peerAddresses);
+				mergePeers(peer.toString(), peerAddresses);
 				break;
 
 			case PEERS_V2:
@@ -524,7 +578,7 @@ public class Network extends Thread {
 					peerV2Addresses.add(0, sendingPeerAddress);
 				}
 
-				mergePeers(peerV2Addresses);
+				mergePeers(peer.toString(), peerV2Addresses);
 				break;
 
 			case GET_PEERS:
@@ -592,6 +646,8 @@ public class Network extends Thread {
 		// Ask Controller if they want to send anything
 		Controller.getInstance().onPeerHandshakeCompleted(peer);
 	}
+
+	// Message-building calls
 
 	/** Returns PEERS message made from peers we've connected to recently, and this node's details */
 	public Message buildPeersMessage(Peer peer) {
@@ -697,117 +753,115 @@ public class Network extends Thread {
 		return new GetUnconfirmedTransactionsMessage();
 	}
 
+	// Peer-management calls
+
+	public void noteToSelf(Peer peer) {
+		LOGGER.info(String.format("No longer considering peer address %s as it connects to self", peer));
+
+		synchronized (this.selfPeers) {
+			this.selfPeers.add(peer.getPeerData().getAddress());
+		}
+	}
+
+	public boolean forgetPeer(PeerAddress peerAddress) throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			int numDeleted = repository.getNetworkRepository().delete(peerAddress);
+			repository.saveChanges();
+
+			disconnectPeer(peerAddress);
+
+			return numDeleted != 0;
+		}
+	}
+
+	public int forgetAllPeers() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			int numDeleted = repository.getNetworkRepository().deleteAllPeers();
+			repository.saveChanges();
+
+			for (Peer peer : this.getConnectedPeers())
+				peer.disconnect("to be forgotten");
+
+			return numDeleted;
+		}
+	}
+
+	private void disconnectPeer(PeerAddress peerAddress) {
+		// Disconnect peer
+		try {
+			InetSocketAddress knownAddress = peerAddress.toSocketAddress();
+
+			List<Peer> peers = this.getConnectedPeers();
+			peers.removeIf(peer -> !Peer.addressEquals(knownAddress, peer.getResolvedAddress()));
+
+			for (Peer peer : peers)
+				peer.disconnect("to be forgotten");
+		} catch (UnknownHostException e) {
+			// Unknown host isn't going to match any of our connected peers so ignore
+		}
+	}
+
 	// Network-wide calls
 
-	/** Returns list of connected peers that have completed handshaking. */
-	public List<Peer> getHandshakedPeers() {
-		List<Peer> peers = new ArrayList<>();
-
-		synchronized (this.connectedPeers) {
-			peers = this.connectedPeers.stream().filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED).collect(Collectors.toList());
-		}
-
-		return peers;
-	}
-
-	/** Returns list of connected peers that have completed handshaking, with inbound duplicates removed. */
-	public List<Peer> getUniqueHandshakedPeers() {
-		final List<Peer> peers;
-
-		synchronized (this.connectedPeers) {
-			peers = this.connectedPeers.stream().filter(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED).collect(Collectors.toList());
-		}
-
-		// Returns true if this [inbound] peer has corresponding outbound peer with same ID
-		Predicate<Peer> hasOutboundWithSameId = peer -> {
-			// Peer is outbound so return fast
-			if (peer.isOutbound())
-				return false;
-
-			return peers.stream().anyMatch(otherPeer -> otherPeer.isOutbound() && Arrays.equals(otherPeer.getPeerId(), peer.getPeerId()));
-		};
-
-		// Filter out [inbound] peers that have corresponding outbound peer with the same ID
-		peers.removeIf(hasOutboundWithSameId);
-
-		return peers;
-	}
-
-	/** Returns list of peers we connected to that have completed handshaking. */
-	public List<Peer> getOutboundHandshakedPeers() {
-		List<Peer> peers = new ArrayList<>();
-
-		synchronized (this.connectedPeers) {
-			peers = this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED)
-					.collect(Collectors.toList());
-		}
-
-		return peers;
-	}
-
-	/** Returns Peer with inbound connection and matching ID, or null if none found. */
-	public Peer getInboundPeerWithId(byte[] peerId) {
-		synchronized (this.connectedPeers) {
-			return this.connectedPeers.stream().filter(peer -> !peer.isOutbound() && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
-		}
-	}
-
-	/** Returns handshake-completed Peer with outbound connection and matching ID, or null if none found. */
-	public Peer getOutboundHandshakedPeerWithId(byte[] peerId) {
-		synchronized (this.connectedPeers) {
-			return this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getHandshakeStatus() == Handshake.COMPLETED && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
-		}
-	}
-
-	private void mergePeers(List<PeerAddress> peerAddresses) {
+	private void mergePeers(String addedBy, List<PeerAddress> peerAddresses) {
 		// This can block (due to lock) so fire off in separate thread
 		class PeersMerger implements Runnable {
+			private String addedBy;
 			private List<PeerAddress> peerAddresses;
 
-			public PeersMerger(List<PeerAddress> peerAddresses) {
+			public PeersMerger(String addedBy, List<PeerAddress> peerAddresses) {
+				this.addedBy = addedBy;
 				this.peerAddresses = peerAddresses;
 			}
 
 			@Override
 			public void run() {
-				Thread.currentThread().setName("Merging peers");
+				Thread.currentThread().setName(String.format("Merging peers from %s", this.addedBy));
 
 				// Serialize using lock to prevent repository deadlocks
-				mergePeersLock.lock();
-
 				try {
-					try (final Repository repository = RepositoryManager.getRepository()) {
-						List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
+					mergePeersLock.lockInterruptibly();
 
-						for (PeerData peerData : knownPeers)
-							LOGGER.trace(String.format("Known peer %s", peerData.getAddress()));
+					final long addedWhen = NTP.getTime();
 
-						// Filter out duplicates
-						Predicate<PeerAddress> isKnownAddress = peerAddress -> {
-							return knownPeers.stream().anyMatch(knownPeerData -> knownPeerData.getAddress().equals(peerAddress));
-						};
+					try {
+						try (final Repository repository = RepositoryManager.getRepository()) {
+							List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
-						peerAddresses.removeIf(isKnownAddress);
+							for (PeerData peerData : knownPeers)
+								LOGGER.trace(String.format("Known peer %s", peerData.getAddress()));
 
-						// Save the rest into database
-						for (PeerAddress peerAddress : peerAddresses) {
-							PeerData peerData = new PeerData(peerAddress);
-							LOGGER.info(String.format("Adding new peer %s to repository", peerAddress));
-							repository.getNetworkRepository().save(peerData);
+							// Filter out duplicates
+							Predicate<PeerAddress> isKnownAddress = peerAddress -> {
+								return knownPeers.stream().anyMatch(knownPeerData -> knownPeerData.getAddress().equals(peerAddress));
+							};
+
+							peerAddresses.removeIf(isKnownAddress);
+
+							// Save the rest into database
+							for (PeerAddress peerAddress : peerAddresses) {
+								PeerData peerData = new PeerData(peerAddress, addedWhen, addedBy);
+								LOGGER.info(String.format("Adding new peer %s to repository", peerAddress));
+								repository.getNetworkRepository().save(peerData);
+							}
+
+							repository.saveChanges();
+						} catch (DataException e) {
+							LOGGER.error("Repository issue while merging peers list from remote node", e);
 						}
-
-						repository.saveChanges();
-					} catch (DataException e) {
-						LOGGER.error("Repository issue while merging peers list from remote node", e);
+					} finally {
+						mergePeersLock.unlock();
 					}
-				} finally {
-					mergePeersLock.unlock();
+				} catch (InterruptedException e1) {
+					// We're exiting anyway...
 				}
+
+				Thread.currentThread().setName("Merging peers (dormant)");
 			}
 		}
 
 		try {
-			mergePeersExecutor.execute(new PeersMerger(peerAddresses));
+			mergePeersExecutor.execute(new PeersMerger(addedBy, peerAddresses));
 		} catch (RejectedExecutionException e) {
 			// Can't execute - probably because we're shutting down, so ignore
 		}
@@ -855,6 +909,8 @@ public class Network extends Thread {
 		}
 	}
 
+	// Shutdown
+
 	public void shutdown() {
 		this.isStopping = true;
 
@@ -897,6 +953,6 @@ public class Network extends Thread {
 			for (Peer peer : this.connectedPeers)
 				peer.shutdown();
 		}
-}
+	}
 
 }

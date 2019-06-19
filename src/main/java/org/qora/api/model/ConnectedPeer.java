@@ -19,6 +19,7 @@ public class ConnectedPeer {
 	public Direction direction;
 	public Handshake handshakeStatus;
 	public Long lastPing;
+	public Long connectedWhen;
 
 	public String address;
 	public String version;
@@ -38,6 +39,7 @@ public class ConnectedPeer {
 		this.lastPing = peer.getLastPing();
 
 		PeerData peerData = peer.getPeerData();
+		this.connectedWhen = peerData.getLastConnected();
 
 		this.address = peerData.getAddress().toString();
 		if (peer.getVersionMessage() != null) {
@@ -45,9 +47,9 @@ public class ConnectedPeer {
 			this.buildTimestamp = peer.getVersionMessage().getBuildTimestamp();
 		}
 
-		this.lastHeight = peerData.getLastHeight();
-		this.lastBlockSignature = peerData.getLastBlockSignature();
-		this.lastBlockTimestamp = peerData.getLastBlockTimestamp();
+		this.lastHeight = peer.getLastHeight();
+		this.lastBlockSignature = peer.getLastBlockSignature();
+		this.lastBlockTimestamp = peer.getLastBlockTimestamp();
 	}
 
 }
