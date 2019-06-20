@@ -728,6 +728,10 @@ public class Controller extends Thread {
 							continue;
 						}
 
+						// Check isInterrupted() here and exit fast
+						if (Thread.currentThread().isInterrupted())
+							return;
+
 						// Fetch actual transaction data from peer
 						Message getTransactionMessage = new GetTransactionMessage(signature);
 						Message responseMessage = peer.getResponse(getTransactionMessage);
@@ -736,6 +740,10 @@ public class Controller extends Thread {
 							LOGGER.trace(String.format("Peer %s didn't send transaction %s", peer, Base58.encode(signature)));
 							continue;
 						}
+
+						// Check isInterrupted() here and exit fast
+						if (Thread.currentThread().isInterrupted())
+							return;
 
 						TransactionMessage transactionMessage = (TransactionMessage) responseMessage;
 						TransactionData transactionData = transactionMessage.getTransactionData();
