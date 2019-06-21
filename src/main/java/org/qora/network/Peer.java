@@ -41,10 +41,23 @@ public class Peer extends Thread {
 
 	private static final Logger LOGGER = LogManager.getLogger(Peer.class);
 
+	/** Maximum time to allow <tt>connect()</tt> to remote peer to complete. (ms) */
 	private static final int CONNECT_TIMEOUT = 1000; // ms
+
+	/** Maximum time to wait for a message reply to arrive from peer. (ms) */
 	private static final int RESPONSE_TIMEOUT = 5000; // ms
-	private static final int PING_INTERVAL = 20000; // ms - just under every 30s is usually ideal to keep NAT mappings refreshed
+
+	/**
+	 * Interval between PING messages to a peer. (ms)
+	 * <p>
+	 * Just under every 30s is usually ideal to keep NAT mappings refreshed,<br>
+	 * BUT must be lower than {@link Peer#SOCKET_TIMEOUT}!
+	 */
+	private static final int PING_INTERVAL = 8000; // ms
+
+	/** Maximum time a socket <tt>read()</tt> will block before closing connection due to timeout. (ms) */
 	private static final int SOCKET_TIMEOUT = 10000; // ms
+
 	private static final int UNSOLICITED_MESSAGE_QUEUE_CAPACITY = 10;
 
 	private volatile boolean isStopping = false;
