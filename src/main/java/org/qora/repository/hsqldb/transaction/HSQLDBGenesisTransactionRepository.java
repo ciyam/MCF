@@ -18,7 +18,7 @@ public class HSQLDBGenesisTransactionRepository extends HSQLDBTransactionReposit
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT recipient, amount, asset_id FROM GenesisTransactions WHERE signature = ?";
+		String sql = "SELECT recipient, amount, asset_id FROM GenesisTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

@@ -29,7 +29,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupData fromGroupId(int groupId) throws DataException {
-		final String sql = "SELECT group_name, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_id = ?";
+		String sql = "SELECT group_name, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_id = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
@@ -62,8 +62,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupData fromGroupName(String groupName) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_id, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_name = ?", groupName)) {
+		String sql = "SELECT group_id, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE group_name = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupName)) {
 			if (resultSet == null)
 				return null;
 
@@ -112,14 +113,17 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupData> getAllGroups(Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups ORDER BY group_name";
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT group_id, owner, group_name, description, created, updated, reference, is_open, "
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups ORDER BY group_name");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<GroupData> groups = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
 			if (resultSet == null)
 				return groups;
 
@@ -155,14 +159,17 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupData> getGroupsByOwner(String owner, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT group_id, group_name, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE owner = ? ORDER BY group_name";
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT group_id, group_name, description, created, updated, reference, is_open, "
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups WHERE owner = ? ORDER BY group_name");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<GroupData> groups = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, owner)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), owner)) {
 			if (resultSet == null)
 				return groups;
 
@@ -197,15 +204,18 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupData> getGroupsWithMember(String member, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups "
-				+ "JOIN GroupMembers USING (group_id) WHERE address = ? ORDER BY group_name";
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT group_id, owner, group_name, description, created, updated, reference, is_open, "
+				+ "approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups "
+				+ "JOIN GroupMembers USING (group_id) WHERE address = ? ORDER BY group_name");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<GroupData> groups = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, member)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), member)) {
 			if (resultSet == null)
 				return groups;
 
@@ -334,14 +344,16 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupAdminData> getGroupAdmins(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT admin, reference FROM GroupAdmins WHERE group_id = ? ORDER BY admin";
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT admin, reference FROM GroupAdmins WHERE group_id = ? ORDER BY admin");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<GroupAdminData> admins = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), groupId)) {
 			if (resultSet == null)
 				return admins;
 
@@ -399,7 +411,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupMemberData getMember(int groupId, String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT address, joined, reference FROM GroupMembers WHERE group_id = ?", groupId)) {
+		String sql = "SELECT address, joined, reference FROM GroupMembers WHERE group_id = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
 				return null;
 
@@ -424,14 +438,16 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupMemberData> getGroupMembers(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT address, joined, reference FROM GroupMembers WHERE group_id = ? ORDER BY address";
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT address, joined, reference FROM GroupMembers WHERE group_id = ? ORDER BY address");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<GroupMemberData> members = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), groupId)) {
 			if (resultSet == null)
 				return members;
 
@@ -491,8 +507,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupInviteData getInvite(int groupId, String invitee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT inviter, expiry, reference FROM GroupInvites WHERE group_id = ? AND invitee = ?",
-				groupId, invitee)) {
+		String sql = "SELECT inviter, expiry, reference FROM GroupInvites WHERE group_id = ? AND invitee = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId, invitee)) {
 			if (resultSet == null)
 				return null;
 
@@ -519,14 +536,16 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupInviteData> getInvitesByGroupId(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT inviter, invitee, expiry, reference FROM GroupInvites WHERE group_id = ? ORDER BY invitee";
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT inviter, invitee, expiry, reference FROM GroupInvites WHERE group_id = ? ORDER BY invitee");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<GroupInviteData> invites = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), groupId)) {
 			if (resultSet == null)
 				return invites;
 
@@ -550,14 +569,16 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupInviteData> getInvitesByInvitee(String invitee, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT group_id, inviter, expiry, reference FROM GroupInvites WHERE invitee = ? ORDER BY group_id";
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT group_id, inviter, expiry, reference FROM GroupInvites WHERE invitee = ? ORDER BY group_id");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<GroupInviteData> invites = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, invitee)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), invitee)) {
 			if (resultSet == null)
 				return invites;
 
@@ -610,8 +631,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupJoinRequestData getJoinRequest(Integer groupId, String joiner) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM GroupJoinRequests WHERE group_id = ? AND joiner = ?", groupId,
-				joiner)) {
+		String sql = "SELECT reference FROM GroupJoinRequests WHERE group_id = ? AND joiner = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId, joiner)) {
 			if (resultSet == null)
 				return null;
 
@@ -634,14 +656,16 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupJoinRequestData> getGroupJoinRequests(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT joiner, reference FROM GroupJoinRequests WHERE group_id = ? ORDER BY joiner";
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT joiner, reference FROM GroupJoinRequests WHERE group_id = ? ORDER BY joiner");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<GroupJoinRequestData> joinRequests = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), groupId)) {
 			if (resultSet == null)
 				return joinRequests;
 
@@ -685,8 +709,9 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public GroupBanData getBan(int groupId, String offender) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ? AND offender = ?", groupId, offender)) {
+		String sql = "SELECT admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ? AND offender = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId, offender)) {
 			String admin = resultSet.getString(1);
 			long banned = resultSet.getTimestamp(2, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			String reason = resultSet.getString(3);
@@ -713,14 +738,16 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupBanData> getGroupBans(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT offender, admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ? ORDER BY offender";
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT offender, admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ? ORDER BY offender");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<GroupBanData> bans = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), groupId)) {
 			if (resultSet == null)
 				return bans;
 

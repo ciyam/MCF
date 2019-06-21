@@ -12,7 +12,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.TimeZone;
@@ -391,9 +390,14 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
-		String sql = "SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " LIMIT 1";
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT TRUE FROM ");
+		sql.append(tableName);
+		sql.append(" WHERE ");
+		sql.append(whereClause);
+		sql.append(" LIMIT 1");
 
-		try (PreparedStatement preparedStatement = this.prepareStatement(sql);
+		try (PreparedStatement preparedStatement = this.prepareStatement(sql.toString());
 				ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects)) {
 			if (resultSet == null)
 				return false;
@@ -411,9 +415,13 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public int delete(String tableName, String whereClause, Object... objects) throws SQLException {
-		String sql = "DELETE FROM " + tableName + " WHERE " + whereClause;
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("DELETE FROM ");
+		sql.append(tableName);
+		sql.append(" WHERE ");
+		sql.append(whereClause);
 
-		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
+		try (PreparedStatement preparedStatement = this.prepareStatement(sql.toString())) {
 			return this.checkedExecuteUpdateCount(preparedStatement, objects);
 		}
 	}
@@ -425,32 +433,33 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public int delete(String tableName) throws SQLException {
-		String sql = "DELETE FROM " + tableName;
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("DELETE FROM ");
+		sql.append(tableName);
 
-		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
+		try (PreparedStatement preparedStatement = this.prepareStatement(sql.toString())) {
 			return this.checkedExecuteUpdateCount(preparedStatement);
 		}
 	}
 
 	/**
-	 * Returns additional SQL "LIMIT" and "OFFSET" clauses.
+	 * Appends additional SQL "LIMIT" and "OFFSET" clauses.
 	 * <p>
 	 * (Convenience method for HSQLDB repository subclasses).
 	 * 
 	 * @param limit
 	 * @param offset
-	 * @return SQL string, potentially empty but never null
 	 */
-	public static String limitOffsetSql(Integer limit, Integer offset) {
-		String sql = "";
+	public static void limitOffsetSql(StringBuilder stringBuilder, Integer limit, Integer offset) {
+		if (limit != null && limit > 0) {
+			stringBuilder.append(" LIMIT ");
+			stringBuilder.append(limit);
+		}
 
-		if (limit != null && limit > 0)
-			sql += " LIMIT " + limit;
-
-		if (offset != null)
-			sql += " OFFSET " + offset;
-
-		return sql;
+		if (offset != null) {
+			stringBuilder.append(" OFFSET ");
+			stringBuilder.append(offset);
+		}
 	}
 
 	/** Logs other HSQLDB sessions then re-throws passed exception */
@@ -460,8 +469,8 @@ public class HSQLDBRepository implements Repository {
 		logStatements();
 
 		// Serialization failure / potential deadlock - so list other sessions
-		try (ResultSet resultSet = this.checkedExecute(
-				"SELECT session_id, transaction, transaction_size, waiting_for_this, this_waiting_for, current_statement FROM Information_schema.system_sessions")) {
+		String sql = "SELECT session_id, transaction, transaction_size, waiting_for_this, this_waiting_for, current_statement FROM Information_schema.system_sessions";
+		try (ResultSet resultSet = this.checkedExecute(sql)) {
 			if (resultSet == null)
 				return e;
 
@@ -527,16 +536,6 @@ public class HSQLDBRepository implements Repository {
 			return null;
 
 		return offsetDateTime.toInstant().toEpochMilli();
-	}
-
-	/** Convenience method to return n comma-separated, placeholders as a string. */
-	public static String nPlaceholders(int n) {
-		return String.join(", ", Collections.nCopies(n, "?"));
-	}
-
-	/** Convenience method to return n comma-separated, bracketed, placeholders as a string. */
-	public static String nValuesPlaceholders(int n) {
-		return String.join(", ", Collections.nCopies(n, "(?)"));
 	}
 
 }

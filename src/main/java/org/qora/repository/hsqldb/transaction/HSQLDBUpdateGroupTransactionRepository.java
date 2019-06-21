@@ -18,7 +18,7 @@ public class HSQLDBUpdateGroupTransactionRepository extends HSQLDBTransactionRep
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT group_id, new_owner, new_description, new_is_open, new_approval_threshold, new_min_block_delay, new_max_block_delay, group_reference FROM UpdateGroupTransactions WHERE signature = ?";
+		String sql = "SELECT group_id, new_owner, new_description, new_is_open, new_approval_threshold, new_min_block_delay, new_max_block_delay, group_reference FROM UpdateGroupTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

@@ -131,14 +131,17 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public List<TransactionData> getTransactionsFromSignature(byte[] signature, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? ORDER BY sequence";
+		StringBuilder sql = new StringBuilder(256);
+
+		sql.append("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? ORDER BY sequence");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), signature)) {
 			if (resultSet == null)
 				return transactions; // No transactions in this block
 
@@ -183,27 +186,39 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	public List<BlockForgerSummary> getBlockForgers(List<String> addresses, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		String subquerySql = "SELECT generator, COUNT(signature) FROM Blocks GROUP BY generator";
 
-		String sql = "SELECT DISTINCT generator, n_blocks, forger, recipient FROM (" + subquerySql + ") AS Forgers (generator, n_blocks) "
-			+ " LEFT OUTER JOIN ProxyForgers ON proxy_public_key = generator ";
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT DISTINCT generator, n_blocks, forger, recipient FROM (");
+		sql.append(subquerySql);
+		sql.append(") AS Forgers (generator, n_blocks) LEFT OUTER JOIN ProxyForgers ON proxy_public_key = generator ");
 
 		if (addresses != null && !addresses.isEmpty()) {
-			sql += " LEFT OUTER JOIN Accounts AS GeneratorAccounts ON GeneratorAccounts.public_key = generator "
-				+ " LEFT OUTER JOIN Accounts AS ForgerAccounts ON ForgerAccounts.public_key = forger "
-				+ " JOIN (VALUES " + String.join(", ", Collections.nCopies(addresses.size(), "(?)")) + ") AS FilterAccounts (account) "
-				+ " ON FilterAccounts.account IN (recipient, GeneratorAccounts.account, ForgerAccounts.account) ";
+			sql.append(" LEFT OUTER JOIN Accounts AS GeneratorAccounts ON GeneratorAccounts.public_key = generator ");
+			sql.append(" LEFT OUTER JOIN Accounts AS ForgerAccounts ON ForgerAccounts.public_key = forger ");
+			sql.append(" JOIN (VALUES ");
+
+			final int addressesSize = addresses.size();
+			for (int ai = 0; ai < addressesSize; ++ai) {
+				if (ai != 0)
+					sql.append(", ");
+
+				sql.append("(?)");
+			}
+
+			sql.append(") AS FilterAccounts (account) ");
+			sql.append(" ON FilterAccounts.account IN (recipient, GeneratorAccounts.account, ForgerAccounts.account) ");
 		} else {
 			addresses = Collections.emptyList();
 		}
 
-		sql += "ORDER BY n_blocks ";
+		sql.append("ORDER BY n_blocks ");
 		if (reverse != null && reverse)
-			sql += "DESC ";
+			sql.append("DESC ");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<BlockForgerSummary> summaries = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, addresses.toArray())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), addresses.toArray())) {
 			if (resultSet == null)
 				return summaries;
 
@@ -224,15 +239,16 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public List<BlockData> getBlocksWithGenerator(byte[] generatorPublicKey, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE generator = ? ORDER BY height ";
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT " + BLOCK_DB_COLUMNS + " FROM Blocks WHERE generator = ? ORDER BY height ");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<BlockData> blockData = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, generatorPublicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), generatorPublicKey)) {
 			if (resultSet == null)
 				return blockData;
 

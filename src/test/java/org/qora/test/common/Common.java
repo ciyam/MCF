@@ -110,7 +110,7 @@ public class Common {
 			// Build snapshot of initial state in case we want to compare with post-test orphaning
 			initialAssets = repository.getAssetRepository().getAllAssets();
 			initialGroups = repository.getGroupRepository().getAllGroups();
-			initialBalances = repository.getAccountRepository().getAssetBalances(Collections.emptyList(), Collections.emptyList(), BalanceOrdering.ASSET_ACCOUNT, null, null, null);
+			initialBalances = repository.getAccountRepository().getAssetBalances(Collections.emptyList(), Collections.emptyList(), BalanceOrdering.ASSET_ACCOUNT, false, null, null, null);
 
 			// Check that each test account can fetch their last reference
 			for (TestAccount testAccount : getTestAccounts(repository))
@@ -137,7 +137,7 @@ public class Common {
 			List<GroupData> remainingGroups = repository.getGroupRepository().getAllGroups();
 			checkOrphanedLists("group", initialGroups, remainingGroups, GroupData::getGroupId);
 
-			List<AccountBalanceData> remainingBalances = repository.getAccountRepository().getAssetBalances(Collections.emptyList(), Collections.emptyList(), BalanceOrdering.ASSET_ACCOUNT, null, null, null);
+			List<AccountBalanceData> remainingBalances = repository.getAccountRepository().getAssetBalances(Collections.emptyList(), Collections.emptyList(), BalanceOrdering.ASSET_ACCOUNT, false, null, null, null);
 			checkOrphanedLists("account balance", initialBalances, remainingBalances, entry -> entry.getAssetName() + "-" + entry.getAddress());
 
 			assertEquals("remainingBalances is different size", initialBalances.size(), remainingBalances.size());

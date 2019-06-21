@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
@@ -29,9 +28,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public AssetData fromAssetId(long assetId) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT owner, asset_name, description, quantity, is_divisible, data, creation_group_id, reference FROM Assets WHERE asset_id = ?",
-				assetId)) {
+		String sql = "SELECT owner, asset_name, description, quantity, is_divisible, data, creation_group_id, reference FROM Assets WHERE asset_id = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetId)) {
 			if (resultSet == null)
 				return null;
 
@@ -53,9 +52,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public AssetData fromAssetName(String assetName) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT owner, asset_id, description, quantity, is_divisible, data, creation_group_id, reference FROM Assets WHERE asset_name = ?",
-				assetName)) {
+		String sql = "SELECT owner, asset_id, description, quantity, is_divisible, data, creation_group_id, reference FROM Assets WHERE asset_name = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetName)) {
 			if (resultSet == null)
 				return null;
 
@@ -95,14 +94,16 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public List<AssetData> getAllAssets(Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT asset_id, owner, asset_name, description, quantity, is_divisible, data, creation_group_id, reference FROM Assets ORDER BY asset_id";
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT asset_id, owner, asset_name, description, quantity, is_divisible, data, creation_group_id, reference FROM Assets ORDER BY asset_id");
 		if (reverse != null && reverse)
-			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+			sql.append(" DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<AssetData> assets = new ArrayList<AssetData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
 			if (resultSet == null)
 				return assets;
 
@@ -234,21 +235,21 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		if (wantAssetData == null)
 			return orders;
 
-		String sql = "SELECT creator, asset_order_id, amount, fulfilled, price, ordered "
-				+ "FROM AssetOrders "
-				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND NOT is_closed AND NOT is_fulfilled ";
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT creator, asset_order_id, amount, fulfilled, price, ordered " + "FROM AssetOrders "
+				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND NOT is_closed AND NOT is_fulfilled ");
 
-		sql += "ORDER BY price";
+		sql.append("ORDER BY price");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += ", ordered";
+		sql.append(", ordered");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, haveAssetId, wantAssetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), haveAssetId, wantAssetId)) {
 			if (resultSet == null)
 				return orders;
 
@@ -277,9 +278,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	public List<OrderData> getOpenOrdersForTrading(long haveAssetId, long wantAssetId, BigDecimal minimumPrice) throws DataException {
 		List<Object> bindParams = new ArrayList<>(3);
 
-		String sql = "SELECT creator, asset_order_id, amount, fulfilled, price, ordered "
-				+ "FROM AssetOrders "
-				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND NOT is_closed AND NOT is_fulfilled ";
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT creator, asset_order_id, amount, fulfilled, price, ordered " + "FROM AssetOrders "
+				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND NOT is_closed AND NOT is_fulfilled ");
 
 		Collections.addAll(bindParams, haveAssetId, wantAssetId);
 
@@ -287,22 +288,22 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			// 'new' pricing scheme implied
 			// NOTE: haveAssetId and wantAssetId are for TARGET orders, so different from Order.process() caller
 			if (haveAssetId < wantAssetId)
-				sql += "AND price >= ? ";
+				sql.append("AND price >= ? ");
 			else
-				sql += "AND price <= ? ";
+				sql.append("AND price <= ? ");
 
 			bindParams.add(minimumPrice);
 		}
 
-		sql += "ORDER BY price";
+		sql.append("ORDER BY price");
 		if (minimumPrice == null || haveAssetId < wantAssetId)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += ", ordered";
+		sql.append(", ordered");
 
 		List<OrderData> orders = new ArrayList<OrderData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return orders;
 
@@ -342,18 +343,18 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		if (wantAssetData == null)
 			return orders;
 
-		String sql = "SELECT price, SUM(amount - fulfilled), MAX(ordered) "
-				+ "FROM AssetOrders "
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT price, SUM(amount - fulfilled), MAX(ordered) " + "FROM AssetOrders "
 				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND NOT is_closed AND NOT is_fulfilled "
-				+ "GROUP BY price ";
+				+ "GROUP BY price ");
 
-		sql += "ORDER BY price";
+		sql.append("ORDER BY price");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, haveAssetId, wantAssetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), haveAssetId, wantAssetId)) {
 			if (resultSet == null)
 				return orders;
 
@@ -376,28 +377,32 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getAccountsOrders(byte[] publicKey, Boolean optIsClosed, Boolean optIsFulfilled,
 			Integer limit, Integer offset, Boolean reverse) throws DataException {
-		// We have to join for have/want asset data as it might vary
-		String sql = "SELECT asset_order_id, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled, HaveAsset.asset_name, WantAsset.asset_name "
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT asset_order_id, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled, HaveAsset.asset_name, WantAsset.asset_name "
 				+ "FROM AssetOrders "
 				+ "JOIN Assets AS HaveAsset ON HaveAsset.asset_id = have_asset_id "
 				+ "JOIN Assets AS WantAsset ON WantAsset.asset_id = want_asset_id "
-				+ "WHERE creator = ?";
+				+ "WHERE creator = ?");
 
-		if (optIsClosed != null)
-			sql += " AND is_closed = " + (optIsClosed ? "TRUE" : "FALSE");
+		if (optIsClosed != null) {
+			sql.append(" AND is_closed = ");
+			sql.append(optIsClosed ? "TRUE" : "FALSE");
+		}
 
-		if (optIsFulfilled != null)
-			sql += " AND is_fulfilled = " + (optIsFulfilled ? "TRUE" : "FALSE");
+		if (optIsFulfilled != null) {
+			sql.append(" AND is_fulfilled = ");
+			sql.append(optIsFulfilled ? "TRUE" : "FALSE");
+		}
 
-		sql += " ORDER BY ordered";
+		sql.append(" ORDER BY ordered");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<OrderData> orders = new ArrayList<OrderData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), publicKey)) {
 			if (resultSet == null)
 				return orders;
 
@@ -439,23 +444,28 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		if (wantAssetData == null)
 			return orders;
 
-		String sql = "SELECT asset_order_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled "
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT asset_order_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled "
 				+ "FROM AssetOrders "
-				+ "WHERE creator = ? AND have_asset_id = ? AND want_asset_id = ?";
+				+ "WHERE creator = ? AND have_asset_id = ? AND want_asset_id = ?");
 
-		if (optIsClosed != null)
-			sql += " AND is_closed = " + (optIsClosed ? "TRUE" : "FALSE");
+		if (optIsClosed != null) {
+			sql.append(" AND is_closed = ");
+			sql.append(optIsClosed ? "TRUE" : "FALSE");
+		}
 
-		if (optIsFulfilled != null)
-			sql += " AND is_fulfilled = " + (optIsFulfilled ? "TRUE" : "FALSE");
+		if (optIsFulfilled != null) {
+			sql.append(" AND is_fulfilled = ");
+			sql.append(optIsFulfilled ? "TRUE" : "FALSE");
+		}
 
-		sql += " ORDER BY ordered";
+		sql.append(" ORDER BY ordered");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey, haveAssetId, wantAssetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), publicKey, haveAssetId, wantAssetId)) {
 			if (resultSet == null)
 				return orders;
 
@@ -521,17 +531,18 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		if (wantAssetData == null)
 			return trades;
 
-		String sql = "SELECT initiating_order_id, target_order_id, target_amount, initiator_amount, initiator_saving, traded "
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT initiating_order_id, target_order_id, target_amount, initiator_amount, initiator_saving, traded "
 			+ "FROM AssetOrders JOIN AssetTrades ON initiating_order_id = asset_order_id "
-			+ "WHERE have_asset_id = ? AND want_asset_id = ? ";
+			+ "WHERE have_asset_id = ? AND want_asset_id = ? ");
 
-		sql += "ORDER BY traded";
+		sql.append("ORDER BY traded");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, haveAssetId, wantAssetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), haveAssetId, wantAssetId)) {
 			if (resultSet == null)
 				return trades;
 
@@ -558,25 +569,44 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	public List<RecentTradeData> getRecentTrades(List<Long> assetIds, List<Long> otherAssetIds, Integer limit,
 			Integer offset, Boolean reverse) throws DataException {
 		// Find assetID pairs that have actually been traded
-		String tradedAssetsSubquery = "SELECT have_asset_id, want_asset_id "
-				+ "FROM AssetTrades JOIN AssetOrders ON asset_order_id = initiating_order_id ";
+		StringBuilder tradedAssetsSubquery = new StringBuilder(1024);
+		tradedAssetsSubquery.append("SELECT have_asset_id, want_asset_id "
+				+ "FROM AssetTrades JOIN AssetOrders ON asset_order_id = initiating_order_id ");
 
 		// Optionally limit traded assetID pairs
-		if (!assetIds.isEmpty())
+		if (!assetIds.isEmpty()) {
 			// longs are safe enough to use literally
-			tradedAssetsSubquery += "WHERE have_asset_id IN (" + String.join(", ",
-					assetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList())) + ")";
+			tradedAssetsSubquery.append("WHERE have_asset_id IN (");
 
-		if (!otherAssetIds.isEmpty()) {
-			tradedAssetsSubquery += assetIds.isEmpty() ? " WHERE " : " AND ";
-			// longs are safe enough to use literally
-			tradedAssetsSubquery += "want_asset_id IN ("
-					+ String.join(", ",
-							otherAssetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList()))
-					+ ")";
+			final int assetIdsSize = assetIds.size();
+			for (int ai = 0; ai < assetIdsSize; ++ai) {
+				if (ai != 0)
+					tradedAssetsSubquery.append(", ");
+
+				tradedAssetsSubquery.append(assetIds.get(ai));
+			}
+
+			tradedAssetsSubquery.append(")");
 		}
 
-		tradedAssetsSubquery += " GROUP BY have_asset_id, want_asset_id";
+		if (!otherAssetIds.isEmpty()) {
+			tradedAssetsSubquery.append(assetIds.isEmpty() ? " WHERE " : " AND ");
+
+			// longs are safe enough to use literally
+			tradedAssetsSubquery.append("want_asset_id IN (");
+
+			final int otherAssetIdsSize = otherAssetIds.size();
+			for (int oai = 0; oai < otherAssetIdsSize; ++oai) {
+				if (oai != 0)
+					tradedAssetsSubquery.append(", ");
+
+				tradedAssetsSubquery.append(otherAssetIds.get(oai));
+			}
+
+			tradedAssetsSubquery.append(")");
+		}
+
+		tradedAssetsSubquery.append(" GROUP BY have_asset_id, want_asset_id");
 
 		// Find recent trades using "TradedAssets" assetID pairs
 		String recentTradesSubquery = "SELECT AssetTrades.target_amount, AssetTrades.initiator_amount, AssetTrades.traded "
@@ -585,23 +615,26 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				+ "ORDER BY traded DESC LIMIT 2";
 
 		// Put it all together
-		String sql = "SELECT have_asset_id, want_asset_id, RecentTrades.target_amount, RecentTrades.initiator_amount, RecentTrades.traded "
-				+ "FROM (" + tradedAssetsSubquery + ") AS TradedAssets " + ", LATERAL (" + recentTradesSubquery
-				+ ") AS RecentTrades (target_amount, initiator_amount, traded) " + "ORDER BY have_asset_id";
+		StringBuilder sql = new StringBuilder(4096);
+		sql.append("SELECT have_asset_id, want_asset_id, RecentTrades.target_amount, RecentTrades.initiator_amount, RecentTrades.traded FROM (");
+		sql.append(tradedAssetsSubquery);
+		sql.append(") AS TradedAssets, LATERAL (");
+		sql.append(recentTradesSubquery);
+		sql.append(") AS RecentTrades (target_amount, initiator_amount, traded) ORDER BY have_asset_id");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += ", want_asset_id";
+		sql.append(", want_asset_id");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += ", RecentTrades.traded DESC ";
+		sql.append(", RecentTrades.traded DESC ");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<RecentTradeData> recentTrades = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
 			if (resultSet == null)
 				return recentTrades;
 
@@ -624,25 +657,25 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<TradeData> getOrdersTrades(byte[] orderId, Integer limit, Integer offset, Boolean reverse)
-			throws DataException {
-		String sql = "SELECT initiating_order_id, target_order_id, target_amount, initiator_amount, initiator_saving, traded, "
-					+ "have_asset_id, HaveAsset.asset_name, want_asset_id, WantAsset.asset_name "
+	public List<TradeData> getOrdersTrades(byte[] orderId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT initiating_order_id, target_order_id, target_amount, initiator_amount, initiator_saving, traded, "
+				+ "have_asset_id, HaveAsset.asset_name, want_asset_id, WantAsset.asset_name "
 				+ "FROM AssetTrades "
 				+ "JOIN AssetOrders ON asset_order_id = initiating_order_id "
 				+ "JOIN Assets AS HaveAsset ON HaveAsset.asset_id = have_asset_id "
 				+ "JOIN Assets AS WantAsset ON WantAsset.asset_id = want_asset_id "
-				+ "WHERE ? IN (initiating_order_id, target_order_id)";
+				+ "WHERE ? IN (initiating_order_id, target_order_id) ");
 
-		sql += "ORDER BY traded";
+		sql.append("ORDER BY traded");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<TradeData> trades = new ArrayList<TradeData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, orderId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), orderId)) {
 			if (resultSet == null)
 				return trades;
 

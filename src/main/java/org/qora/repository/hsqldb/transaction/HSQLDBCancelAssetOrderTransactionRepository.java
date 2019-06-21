@@ -17,7 +17,7 @@ public class HSQLDBCancelAssetOrderTransactionRepository extends HSQLDBTransacti
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT asset_order_id FROM CancelAssetOrderTransactions WHERE signature = ?";
+		String sql = "SELECT asset_order_id FROM CancelAssetOrderTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
