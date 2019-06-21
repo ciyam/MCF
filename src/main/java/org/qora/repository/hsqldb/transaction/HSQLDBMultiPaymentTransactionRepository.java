@@ -19,7 +19,7 @@ public class HSQLDBMultiPaymentTransactionRepository extends HSQLDBTransactionRe
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT TRUE from MultiPaymentTransactions WHERE signature = ?";
+		String sql = "SELECT TRUE from MultiPaymentTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

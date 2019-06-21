@@ -17,7 +17,7 @@ public class HSQLDBAddGroupAdminTransactionRepository extends HSQLDBTransactionR
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT group_id, address FROM AddGroupAdminTransactions WHERE signature = ?";
+		String sql = "SELECT group_id, address FROM AddGroupAdminTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

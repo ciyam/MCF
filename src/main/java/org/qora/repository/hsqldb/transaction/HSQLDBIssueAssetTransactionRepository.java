@@ -17,7 +17,7 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT owner, asset_name, description, quantity, is_divisible, data, asset_id FROM IssueAssetTransactions WHERE signature = ?";
+		String sql = "SELECT owner, asset_name, description, quantity, is_divisible, data, asset_id FROM IssueAssetTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

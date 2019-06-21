@@ -6,7 +6,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -79,18 +78,39 @@ public class HSQLDBSaver {
 	 * @return String
 	 */
 	private String formatInsertWithPlaceholders() {
-		List<String> placeholders = Collections.nCopies(this.columns.size(), "?");
+		final int columnsSize = this.columns.size();
 
-		StringBuilder output = new StringBuilder();
+		StringBuilder output = new StringBuilder(1024);
 		output.append("INSERT INTO ");
 		output.append(this.table);
 		output.append(" (");
-		output.append(String.join(", ", this.columns));
+
+		for (int ci = 0; ci < columnsSize; ++ci) {
+			if (ci != 0)
+				output.append(", ");
+
+			output.append(this.columns.get(ci));
+		}
+
 		output.append(") VALUES (");
-		output.append(String.join(", ", placeholders));
+
+		for (int ci = 0; ci < columnsSize; ++ci) {
+			if (ci != 0)
+				output.append(", ");
+
+			output.append("?");
+		}
+
 		output.append(") ON DUPLICATE KEY UPDATE ");
-		output.append(String.join("=?, ", this.columns));
-		output.append("=?");
+
+		for (int ci = 0; ci < columnsSize; ++ci) {
+			if (ci != 0)
+				output.append(", ");
+
+			output.append(this.columns.get(ci));
+			output.append("=?");
+		}
+
 		return output.toString();
 	}
 

@@ -18,7 +18,7 @@ public class HSQLDBProxyForgingTransactionRepository extends HSQLDBTransactionRe
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT recipient, proxy_public_key, share, previous_share FROM ProxyForgingTransactions WHERE signature = ?";
+		String sql = "SELECT recipient, proxy_public_key, share, previous_share FROM ProxyForgingTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

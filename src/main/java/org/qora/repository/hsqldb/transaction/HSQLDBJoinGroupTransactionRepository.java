@@ -17,7 +17,7 @@ public class HSQLDBJoinGroupTransactionRepository extends HSQLDBTransactionRepos
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT group_id, invite_reference, previous_group_id FROM JoinGroupTransactions WHERE signature = ?";
+		String sql = "SELECT group_id, invite_reference, previous_group_id FROM JoinGroupTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

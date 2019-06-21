@@ -8,12 +8,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -128,7 +126,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromSignature(byte[] signature) throws DataException {
-		final String sql = "SELECT type, reference, creator, creation, fee, tx_group_id, block_height, approval_status, approval_height FROM Transactions WHERE signature = ?";
+		String sql = "SELECT type, reference, creator, creation, fee, tx_group_id, block_height, approval_status, approval_height "
+				+ "FROM Transactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			if (resultSet == null)
@@ -162,7 +161,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromReference(byte[] reference) throws DataException {
-		final String sql = "SELECT type, signature, creator, creation, fee, tx_group_id, block_height, approval_status, approval_height FROM Transactions WHERE reference = ?";
+		String sql = "SELECT type, signature, creator, creation, fee, tx_group_id, block_height, approval_status, approval_height "
+				+ "FROM Transactions WHERE reference = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, reference)) {
 			if (resultSet == null)
@@ -196,7 +196,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public TransactionData fromHeightAndSequence(int height, int sequence) throws DataException {
-		final String sql = "SELECT transaction_signature FROM BlockTransactions JOIN Blocks ON signature = block_signature WHERE height = ? AND sequence = ?";
+		String sql = "SELECT transaction_signature FROM BlockTransactions JOIN Blocks ON signature = block_signature "
+				+ "WHERE height = ? AND sequence = ?";
 		
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, height, sequence)) {
 			if (resultSet == null)
@@ -238,7 +239,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	 * @throws DataException
 	 */
 	protected List<PaymentData> getPaymentsFromSignature(byte[] signature) throws DataException {
-		final String sql = "SELECT recipient, amount, asset_id FROM SharedTransactionPayments WHERE signature = ?";
+		String sql = "SELECT recipient, amount, asset_id FROM SharedTransactionPayments WHERE signature = ?";
 
 		List<PaymentData> payments = new ArrayList<PaymentData>();
 
@@ -265,8 +266,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		for (PaymentData paymentData : payments) {
 			HSQLDBSaver saver = new HSQLDBSaver("SharedTransactionPayments");
 
-			saver.bind("signature", signature).bind("recipient", paymentData.getRecipient()).bind("amount", paymentData.getAmount()).bind("asset_id",
-					paymentData.getAssetId());
+			saver.bind("signature", signature).bind("recipient", paymentData.getRecipient())
+				.bind("amount", paymentData.getAmount()).bind("asset_id", paymentData.getAssetId());
 
 			try {
 				saver.execute(this.repository);
@@ -281,7 +282,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		if (signature == null)
 			return 0;
 
-		final String sql = "SELECT block_height from Transactions WHERE signature = ? LIMIT 1";
+		String sql = "SELECT block_height from Transactions WHERE signature = ? LIMIT 1";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			if (resultSet == null)
@@ -310,7 +311,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException {
-		final String sql = "SELECT signature FROM TransactionRecipients WHERE participant = ?";
+		String sql = "SELECT signature FROM TransactionRecipients WHERE participant = ?";
 
 		List<byte[]> signatures = new ArrayList<byte[]>();
 
@@ -398,21 +399,22 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		String signatureColumn = "Transactions.signature";
 		List<String> whereClauses = new ArrayList<String>();
-		String groupBy = "";
+		String groupBy = null;
 		List<Object> bindParams = new ArrayList<Object>();
 
 		// Tables, starting with Transactions
-		String tables = "Transactions";
+		StringBuilder tables = new StringBuilder(256);
+		tables.append("Transactions");
 
 		if (hasAddress) {
-			tables += " JOIN TransactionParticipants ON TransactionParticipants.signature = Transactions.signature";
+			tables.append(" JOIN TransactionParticipants ON TransactionParticipants.signature = Transactions.signature");
 			groupBy = " GROUP BY TransactionParticipants.signature, Transactions.creation";
 			signatureColumn = "TransactionParticipants.signature";
 		}
 
 		if (service != null) {
 			// This is for ARBITRARY transactions
-			tables += " LEFT OUTER JOIN ArbitraryTransactions ON ArbitraryTransactions.signature = Transactions.signature";
+			tables.append(" LEFT OUTER JOIN ArbitraryTransactions ON ArbitraryTransactions.signature = Transactions.signature");
 		}
 
 		// WHERE clauses next
@@ -445,8 +447,21 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 
 		if (hasTxTypes) {
-			whereClauses.add("Transactions.type IN (" + HSQLDBRepository.nPlaceholders(txTypes.size()) + ")");
-			bindParams.addAll(txTypes.stream().map(txType -> txType.value).collect(Collectors.toList()));
+			StringBuilder txTypesIn = new StringBuilder(256);
+			txTypesIn.append("Transactions.type IN (");
+
+			// ints are safe enough to use literally
+			final int txTypesSize = txTypes.size();
+			for (int tti = 0; tti < txTypesSize; ++tti) {
+				if (tti != 0)
+					txTypesIn.append(", ");
+
+				txTypesIn.append(txTypes.get(tti).value);
+			}
+
+			txTypesIn.append(")");
+
+			whereClauses.add(txTypesIn.toString());
 		}
 
 		if (service != null) {
@@ -459,22 +474,35 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			bindParams.add(address);
 		}
 
-		String sql = "SELECT " + signatureColumn + " FROM " + tables;
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT ");
+		sql.append(signatureColumn);
+		sql.append(" FROM ");
+		sql.append(tables);
 
-		if (!whereClauses.isEmpty())
-			sql += " WHERE " + String.join(" AND ", whereClauses);
+		if (!whereClauses.isEmpty()) {
+			sql.append(" WHERE ");
 
-		if (!groupBy.isEmpty())
-			sql += groupBy;
+			final int whereClausesSize = whereClauses.size();
+			for (int wci = 0; wci < whereClausesSize; ++wci) {
+				if (wci != 0)
+					sql.append(" AND ");
 
-		sql += " ORDER BY Transactions.creation";
-		sql += (reverse == null || !reverse) ? " ASC" : " DESC";
+				sql.append(whereClauses.get(wci));
+			}
+		}
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		if (groupBy != null)
+			sql.append(groupBy);
+
+		sql.append(" ORDER BY Transactions.creation");
+		sql.append((reverse == null || !reverse) ? " ASC" : " DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		LOGGER.trace(String.format("Transaction search SQL: %s", sql));
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return signatures;
 
@@ -497,17 +525,26 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			ISSUE_ASSET, TRANSFER_ASSET, CREATE_ASSET_ORDER, CANCEL_ASSET_ORDER
 		};
 
-		List<String> typeValueStrings = Arrays.asList(transactionTypes).stream().map(type -> String.valueOf(type.value)).collect(Collectors.toList());
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT Transactions.signature FROM Transactions");
 
-		String sql = "SELECT Transactions.signature FROM Transactions";
-
-		for (TransactionType type : transactionTypes)
-			sql += " LEFT OUTER JOIN " + type.className + "Transactions USING (signature)";
+		for (int ti = 0; ti < transactionTypes.length; ++ti) {
+			sql.append(" LEFT OUTER JOIN ");
+			sql.append(transactionTypes[ti].className);
+			sql.append("Transactions USING (signature)");
+		}
 
 		// assetID isn't in Cancel Asset Order so we need to join to the order
-		sql += " LEFT OUTER JOIN AssetOrders ON AssetOrders.asset_order_id = CancelAssetOrderTransactions.asset_order_id";
+		sql.append(" LEFT OUTER JOIN AssetOrders ON AssetOrders.asset_order_id = CancelAssetOrderTransactions.asset_order_id");
 
-		sql += " WHERE Transactions.type IN (" + String.join(", ", typeValueStrings) + ")";
+		sql.append(" WHERE Transactions.type IN (");
+		for (int ti = 0; ti < transactionTypes.length; ++ti) {
+			if (ti != 0)
+				sql.append(", ");
+
+			sql.append(transactionTypes[ti].value);
+		}
+		sql.append(")");
 
 		// Confirmation status
 		switch (confirmationStatus) {
@@ -515,34 +552,35 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				break;
 
 			case CONFIRMED:
-				sql += " AND Transactions.block_height IS NOT NULL";
+				sql.append(" AND Transactions.block_height IS NOT NULL");
 				break;
 
 			case UNCONFIRMED:
-				sql += " AND Transactions.block_height IS NULL";
+				sql.append(" AND Transactions.block_height IS NULL");
 				break;
 		}
 
-		sql += " AND (";
-		sql += "IssueAssetTransactions.asset_id = " + assetId;
-		sql += " OR ";
-		sql += "TransferAssetTransactions.asset_id = " + assetId;
-		sql += " OR ";
-		sql += "CreateAssetOrderTransactions.have_asset_id = " + assetId;
-		sql += " OR ";
-		sql += "CreateAssetOrderTransactions.want_asset_id = " + assetId;
-		sql += " OR ";
-		sql += "AssetOrders.have_asset_id = " + assetId;
-		sql += " OR ";
-		sql += "AssetOrders.want_asset_id = " + assetId;
-		sql += ") GROUP BY Transactions.signature, Transactions.creation ORDER BY Transactions.creation";
+		sql.append(" AND (IssueAssetTransactions.asset_id = ");
+		sql.append(assetId);
+		sql.append(" OR TransferAssetTransactions.asset_id = ");
+		sql.append(assetId);
+		sql.append(" OR CreateAssetOrderTransactions.have_asset_id = ");
+		sql.append(assetId);
+		sql.append(" OR CreateAssetOrderTransactions.want_asset_id = ");
+		sql.append(assetId);
+		sql.append(" OR AssetOrders.have_asset_id = ");
+		sql.append(assetId);
+		sql.append(" OR AssetOrders.want_asset_id = ");
+		sql.append(assetId);
 
-		sql += (reverse == null || !reverse) ? " ASC" : " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		sql.append(") GROUP BY Transactions.signature, Transactions.creation ORDER BY Transactions.creation");
+		sql.append((reverse == null || !reverse) ? " ASC" : " DESC");
+
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
 			if (resultSet == null)
 				return transactions;
 
@@ -569,28 +607,29 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			throws DataException {
 		List<Object> bindParams = new ArrayList<>(3);
 
-		String sql = "SELECT creation, tx_group_id, reference, fee, signature, sender, block_height, approval_status, approval_height, recipient, amount, asset_name "
-				+ "FROM TransferAssetTransactions JOIN Transactions USING (signature) ";
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT creation, tx_group_id, reference, fee, signature, sender, block_height, approval_status, approval_height, recipient, amount, asset_name "
+				+ "FROM TransferAssetTransactions JOIN Transactions USING (signature) ");
 
 		if (address != null)
-			sql += "JOIN Accounts ON public_key = sender ";
+			sql.append("JOIN Accounts ON public_key = sender ");
 
-		sql += "JOIN Assets USING (asset_id) WHERE asset_id = ? ";
+		sql.append("JOIN Assets USING (asset_id) WHERE asset_id = ?");
 		bindParams.add(assetId);
 
 		if (address != null) {
-			sql += "AND ? IN (account, recipient) ";
+			sql.append(" AND ? IN (account, recipient) ");
 			bindParams.add(address);
 		}
 
-		sql += "ORDER by creation ";
+		sql.append(" ORDER by creation ");
+		sql.append((reverse == null || !reverse) ? "ASC" : "DESC");
 
-		sql += (reverse == null || !reverse) ? "ASC" : "DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<TransferAssetTransactionData> assetTransfers = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams.toArray())) {
 			if (resultSet == null)
 				return assetTransfers;
 
@@ -629,30 +668,34 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<TransactionData> getApprovalPendingTransactions(Integer txGroupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT signature FROM Transactions WHERE Transactions.approval_status = ? ";
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT signature FROM Transactions WHERE Transactions.approval_status = ");
+		// Enum int value safe to use literally
+		sql.append(ApprovalStatus.PENDING.value);
 
-		List<Object> bindParams = new ArrayList<>();
-		bindParams.add(ApprovalStatus.PENDING.value);
+		Object[] bindParams;
 
 		if (txGroupId != null) {
-			sql += "AND Transactions.tx_group_id = ? ";
-			bindParams.add(txGroupId);
+			sql.append(" AND Transactions.tx_group_id = ?");
+			bindParams = new Object[] { txGroupId };
+		} else {
+			bindParams = new Object[0];
 		}
 
-		sql += "ORDER BY creation";
+		sql.append(" ORDER BY creation");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += ", signature";
+		sql.append(", signature");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
 		// Find transactions with no corresponding row in BlockTransactions
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), bindParams)) {
 			if (resultSet == null)
 				return transactions;
 
@@ -676,14 +719,18 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<TransactionData> getApprovalPendingTransactions(int blockHeight) throws DataException {
-		String sql = "SELECT signature FROM Transactions "
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT signature FROM Transactions "
 			+ "JOIN Groups on Groups.group_id = Transactions.tx_group_id "
-			+ "WHERE Transactions.approval_status = ? "
-			+ "AND Transactions.block_height < ? - Groups.min_block_delay";
+			+ "WHERE Transactions.approval_status = ");
+		// Enum int value safe to use literally
+		sql.append(ApprovalStatus.PENDING.value);
+
+		sql.append(" AND Transactions.block_height < ? - Groups.min_block_delay");
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, ApprovalStatus.PENDING.value, blockHeight)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), blockHeight)) {
 			if (resultSet == null)
 				return transactions;
 
@@ -707,14 +754,18 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<TransactionData> getApprovalExpiringTransactions(int blockHeight) throws DataException {
-		String sql = "SELECT signature FROM Transactions "
+		StringBuilder sql = new StringBuilder(512);
+		sql.append("SELECT signature FROM Transactions "
 			+ "JOIN Groups on Groups.group_id = Transactions.tx_group_id "
-			+ "WHERE Transactions.approval_status = ? "
-			+ "AND Transactions.block_height < ? - Groups.max_block_delay";
+			+ "WHERE Transactions.approval_status = ");
+		// Enum int value safe to use literally
+		sql.append(ApprovalStatus.PENDING.value);
+
+		sql.append(" AND Transactions.block_height < ? - Groups.max_block_delay");
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, ApprovalStatus.PENDING.value, blockHeight)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), blockHeight)) {
 			if (resultSet == null)
 				return transactions;
 
@@ -738,7 +789,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<TransactionData> getApprovalTransactionDecidedAtHeight(int approvalHeight) throws DataException {
-		final String sql = "SELECT signature from Transactions WHERE approval_height = ?";
+		String sql = "SELECT signature from Transactions WHERE approval_height = ?";
 
 		List<TransactionData> transactions = new ArrayList<>();
 
@@ -793,18 +844,20 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		String latestApprovalSql = "SELECT pending_signature, admin, approval, creation, signature FROM GroupApprovalTransactions "
 				+ "NATURAL JOIN Transactions WHERE pending_signature = ? AND block_height IS NOT NULL";
 
-		String sql = "SELECT GAT.admin, GAT.approval FROM "
-				+ "(" + latestApprovalSql + ") AS GAT "
-				+ "LEFT OUTER JOIN (" + latestApprovalSql + ") AS NewerGAT "
-					+ "ON NewerGAT.admin = GAT.admin AND (NewerGAT.creation > GAT.creation OR (NewerGAT.creation = GAT.creation AND NewerGat.signature > GAT.signature)) "
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT GAT.admin, GAT.approval FROM (");
+		sql.append(latestApprovalSql);
+		sql.append(") AS GAT LEFT OUTER JOIN (");
+		sql.append(latestApprovalSql);
+		sql.append(") AS NewerGAT ON NewerGAT.admin = GAT.admin AND (NewerGAT.creation > GAT.creation OR (NewerGAT.creation = GAT.creation AND NewerGat.signature > GAT.signature)) "
 				+ "JOIN Transactions AS PendingTransactions ON PendingTransactions.signature = GAT.pending_signature "
 				+ "LEFT OUTER JOIN Accounts ON Accounts.public_key = GAT.admin "
 				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.admin = Accounts.account AND GroupAdmins.group_id = PendingTransactions.tx_group_id "
-				+ "WHERE NewerGAT.admin IS NULL";
+				+ "WHERE NewerGAT.admin IS NULL");
 
 		GroupApprovalData groupApprovalData = new GroupApprovalData();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, pendingSignature, pendingSignature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), pendingSignature, pendingSignature)) {
 			if (resultSet == null)
 				return groupApprovalData;
 
@@ -858,22 +911,23 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 	@Override
 	public List<TransactionData> getUnconfirmedTransactions(Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT signature FROM UnconfirmedTransactions ";
+		StringBuilder sql = new StringBuilder(256);
+		sql.append("SELECT signature FROM UnconfirmedTransactions ");
 
-		sql += "ORDER BY creation";
+		sql.append("ORDER BY creation");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += ", signature";
+		sql.append(", signature");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
 		// Find transactions with no corresponding row in BlockTransactions
-		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString())) {
 			if (resultSet == null)
 				return transactions;
 

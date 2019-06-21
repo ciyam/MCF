@@ -18,7 +18,7 @@ public class HSQLDBAtTransactionRepository extends HSQLDBTransactionRepository {
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT AT_address, recipient, amount, asset_id, message FROM ATTransactions WHERE signature = ?";
+		String sql = "SELECT AT_address, recipient, amount, asset_id, message FROM ATTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
