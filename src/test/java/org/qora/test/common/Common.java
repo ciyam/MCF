@@ -114,7 +114,7 @@ public class Common {
 
 			// Check that each test account can fetch their last reference
 			for (TestAccount testAccount : getTestAccounts(repository))
-				assertNotNull(String.format("Test account '%s' should have existing transaction", testAccount.accountName), testAccount.getLastReference());
+				assertNotNull(String.format("Test account %s / %s should have last reference", testAccount.accountName, testAccount.getAddress()), testAccount.getLastReference());
 		}
 	}
 
