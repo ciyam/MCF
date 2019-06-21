@@ -655,13 +655,20 @@ public class Block {
 	}
 
 	public static BigInteger calcGeneratorDistance(BlockData parentBlockData, byte[] generatorPublicKey) {
-		BigInteger idealBI = new BigInteger(calcIdealGeneratorPublicKey(parentBlockData.getHeight(), parentBlockData.getSignature()));
-		BigInteger generatorBI = new BigInteger(calcHeightPerturbedPublicKey(parentBlockData.getHeight() + 1, generatorPublicKey));
-		return idealBI.subtract(generatorBI).abs();
-	}
+		final int parentHeight = parentBlockData.getHeight();
+		final int thisHeight = parentHeight + 1;
 
-	public BigInteger calcGeneratorDistance(BlockData parentBlockData) {
-		return calcGeneratorDistance(parentBlockData, this.generator.getPublicKey());
+		if (thisHeight >= BlockChain.getInstance().getNewBlockDistanceHeight()) {
+			// New code that converts all bits into unsigned BigInteger
+			BigInteger idealBI = new BigInteger(1, calcIdealGeneratorPublicKey(parentHeight, parentBlockData.getSignature()));
+			BigInteger generatorBI = new BigInteger(1, calcHeightPerturbedPublicKey(thisHeight, generatorPublicKey));
+			return idealBI.subtract(generatorBI).abs();
+		} else {
+			// Old code that incorrectly loses a bit when converting into (signed) BigInteger
+			BigInteger idealBI = new BigInteger(calcIdealGeneratorPublicKey(parentHeight, parentBlockData.getSignature()));
+			BigInteger generatorBI = new BigInteger(calcHeightPerturbedPublicKey(thisHeight, generatorPublicKey));
+			return idealBI.subtract(generatorBI).abs();
+		}
 	}
 
 	/**
@@ -679,10 +686,15 @@ public class Block {
 	public static long calcMinimumTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
 		BigInteger distance = calcGeneratorDistance(parentBlockData, generatorPublicKey);
 
-		long minBlockTime = BlockChain.getInstance().getMinBlockTime(); // seconds
-		long maxBlockTime = BlockChain.getInstance().getMaxBlockTime(); // seconds
+		final long minBlockTime = BlockChain.getInstance().getMinBlockTime(); // seconds
+		final long maxBlockTime = BlockChain.getInstance().getMaxBlockTime(); // seconds
 
 		long timeOffset = distance.multiply(BigInteger.valueOf((maxBlockTime - minBlockTime) * 1000L)).divide(MAX_DISTANCE).longValue();
+
+		// 'distance' is at most half the size of MAX_DISTANCE, so in new code we correct this oversight...
+		final int thisHeight = parentBlockData.getHeight() + 1;
+		if (thisHeight >= BlockChain.getInstance().getNewBlockDistanceHeight())
+			timeOffset *= 2;
 
 		return parentBlockData.getTimestamp() + (minBlockTime * 1000L) + timeOffset;
 	}
