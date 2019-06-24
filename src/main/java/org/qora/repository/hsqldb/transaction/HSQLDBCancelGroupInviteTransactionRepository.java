@@ -17,7 +17,7 @@ public class HSQLDBCancelGroupInviteTransactionRepository extends HSQLDBTransact
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT group_id, invitee, invite_reference FROM CancelGroupInviteTransactions WHERE signature = ?";
+		String sql = "SELECT group_id, invitee, invite_reference FROM CancelGroupInviteTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

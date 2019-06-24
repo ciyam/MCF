@@ -168,6 +168,7 @@ public class AssetsResource {
 	})
 	public List<AccountBalanceData> getAssetBalances(@QueryParam("address") List<String> addresses, @QueryParam("assetid") List<Long> assetIds,
 			@DefaultValue(value = "ASSET_BALANCE_ACCOUNT") @QueryParam("ordering") BalanceOrdering balanceOrdering,
+			@QueryParam("excludeZero") Boolean excludeZero,
 			@Parameter( ref = "limit" ) @QueryParam("limit") Integer limit,
 			@Parameter( ref = "offset" ) @QueryParam("offset") Integer offset,
 			@Parameter( ref = "reverse" ) @QueryParam("reverse") Boolean reverse) {
@@ -186,7 +187,7 @@ public class AssetsResource {
 				if (!repository.getAssetRepository().assetExists(assetId))
 					throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			return repository.getAccountRepository().getAssetBalances(addresses, assetIds, balanceOrdering, limit, offset, reverse);
+			return repository.getAccountRepository().getAssetBalances(addresses, assetIds, balanceOrdering, excludeZero, limit, offset, reverse);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

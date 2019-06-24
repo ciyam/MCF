@@ -77,7 +77,7 @@ public interface AccountRepository {
 		ASSET_ACCOUNT
 	}
 
-	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Boolean excludeZero, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
 

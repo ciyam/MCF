@@ -5,9 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
@@ -15,8 +13,6 @@ import org.qora.data.account.ForgingAccountData;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.repository.AccountRepository;
 import org.qora.repository.DataException;
-
-import static org.qora.repository.hsqldb.HSQLDBRepository.nValuesPlaceholders;
 
 public class HSQLDBAccountRepository implements AccountRepository {
 
@@ -30,8 +26,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountData getAccount(String address) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT reference, public_key, default_group_id, flags, forging_enabler FROM Accounts WHERE account = ?", address)) {
+		String sql = "SELECT reference, public_key, default_group_id, flags, forging_enabler FROM Accounts WHERE account = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
 				return null;
 
@@ -49,7 +46,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public byte[] getLastReference(String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", address)) {
+		String sql = "SELECT reference FROM Accounts WHERE account = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
 				return null;
 
@@ -61,7 +60,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public Integer getDefaultGroupId(String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT default_group_id FROM Accounts WHERE account = ?", address)) {
+		String sql = "SELECT default_group_id FROM Accounts WHERE account = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
 				return null;
 
@@ -74,7 +75,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public Integer getFlags(String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT flags FROM Accounts WHERE account = ?", address)) {
+		String sql = "SELECT flags FROM Accounts WHERE account = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
 				return null;
 
@@ -105,8 +108,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public void ensureAccount(AccountData accountData) throws DataException {
 		byte[] publicKey = accountData.getPublicKey();
+		String sql = "SELECT public_key FROM Accounts WHERE account = ?";
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT public_key FROM Accounts WHERE account = ?", accountData.getAddress())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, accountData.getAddress())) {
 			if (resultSet != null) {
 				// We know account record exists at this point.
 				// If accountData has no public key then we're done.
@@ -212,7 +216,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT balance FROM AccountBalances WHERE account = ? AND asset_id = ?", address, assetId)) {
+		String sql = "SELECT balance FROM AccountBalances WHERE account = ? AND asset_id = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address, assetId)) {
 			if (resultSet == null)
 				return null;
 
@@ -225,26 +231,48 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Integer limit, Integer offset, Boolean reverse)
-			throws DataException {
-		String sql = "SELECT account, asset_id, IFNULL(balance, 0), asset_name FROM ";
+	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Boolean excludeZero,
+			Integer limit, Integer offset, Boolean reverse) throws DataException {
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT account, asset_id, IFNULL(balance, 0), asset_name FROM ");
 
 		if (!addresses.isEmpty()) {
-			sql += "(VALUES " + String.join(", ", Collections.nCopies(addresses.size(), "(?)")) + ") AS Accounts (account) ";
-			sql += "CROSS JOIN Assets LEFT OUTER JOIN AccountBalances USING (asset_id, account) ";
+			sql.append("(VALUES ");
+
+			final int addressesSize = addresses.size();
+			for (int ai = 0; ai < addressesSize; ++ai) {
+				if (ai != 0)
+					sql.append(", ");
+
+				sql.append("(?)");
+			}
+
+			sql.append(") AS Accounts (account) ");
+			sql.append("CROSS JOIN Assets LEFT OUTER JOIN AccountBalances USING (asset_id, account) ");
 		} else {
 			// Simplier, no-address query
-			sql += "AccountBalances NATURAL JOIN Assets ";
+			sql.append("AccountBalances NATURAL JOIN Assets ");
 		}
 
-		if (!assetIds.isEmpty())
+		if (!assetIds.isEmpty()) {
 			// longs are safe enough to use literally
-			sql += "WHERE asset_id IN (" + String.join(", ", assetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList())) + ") ";
+			sql.append("WHERE asset_id IN (");
 
-		// For no-address queries, only return accounts with non-zero balance
-		if (addresses.isEmpty()) {
-			sql += assetIds.isEmpty() ? " WHERE " : " AND ";
-			sql += "balance != 0 ";
+			final int assetIdsSize = assetIds.size();
+			for (int ai = 0; ai < assetIdsSize; ++ai) {
+				if (ai != 0)
+					sql.append(", ");
+
+				sql.append(assetIds.get(ai));
+			}
+
+			sql.append(") ");
+		}
+
+		// For no-address queries, or unless specifically requested, only return accounts with non-zero balance
+		if (addresses.isEmpty() || (excludeZero != null && excludeZero == true)) {
+			sql.append(assetIds.isEmpty() ? " WHERE " : " AND ");
+			sql.append("balance != 0 ");
 		}
 
 		String[] orderingColumns;
@@ -265,17 +293,22 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				throw new DataException(String.format("Unsupported asset balance result ordering: %s", balanceOrdering.name()));
 		}
 
-		if (reverse != null && reverse)
-			orderingColumns = Arrays.stream(orderingColumns).map(column -> column + " DESC").toArray(size -> new String[size]);
+		sql.append("ORDER BY ");
+		for (int oi = 0; oi < orderingColumns.length; ++oi) {
+			if (oi != 0)
+				sql.append(", ");
 
-		sql += "ORDER BY " + String.join(", ", orderingColumns);
+			sql.append(orderingColumns[oi]);
+			if (reverse != null && reverse)
+				sql.append(" DESC");
+		}
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		String[] addressesArray = addresses.toArray(new String[addresses.size()]);
 		List<AccountBalanceData> accountBalances = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, (Object[]) addressesArray)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), (Object[]) addressesArray)) {
 			if (resultSet == null)
 				return accountBalances;
 
@@ -321,8 +354,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public ProxyForgerData getProxyForgeData(byte[] forgerPublicKey, String recipient) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT proxy_public_key, share FROM ProxyForgers WHERE forger = ? AND recipient = ?",
-				forgerPublicKey, recipient)) {
+		String sql = "SELECT proxy_public_key, share FROM ProxyForgers WHERE forger = ? AND recipient = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, forgerPublicKey, recipient)) {
 			if (resultSet == null)
 				return null;
 
@@ -337,8 +371,9 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public ProxyForgerData getProxyForgeData(byte[] proxyPublicKey) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT forger, recipient, share FROM ProxyForgers WHERE proxy_public_key = ?",
-				proxyPublicKey)) {
+		String sql = "SELECT forger, recipient, share FROM ProxyForgers WHERE proxy_public_key = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, proxyPublicKey)) {
 			if (resultSet == null)
 				return null;
 
@@ -400,7 +435,8 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	@Override
 	public List<ProxyForgerData> findProxyAccounts(List<String> recipients, List<String> forgers, List<String> involvedAddresses,
 			Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT DISTINCT forger, recipient, share, proxy_public_key FROM ProxyForgers ";
+		StringBuilder sql = new StringBuilder(1024);
+		sql.append("SELECT DISTINCT forger, recipient, share, proxy_public_key FROM ProxyForgers ");
 
 		List<Object> args = new ArrayList<>();
 
@@ -409,32 +445,63 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		final boolean hasInvolved = involvedAddresses != null && !involvedAddresses.isEmpty();
 
 		if (hasForgers || hasInvolved)
-			sql += "JOIN Accounts ON Accounts.public_key = ProxyForgers.forger ";
+			sql.append("JOIN Accounts ON Accounts.public_key = ProxyForgers.forger ");
 
 		if (hasRecipients) {
-			sql += "JOIN (VALUES " + nValuesPlaceholders(recipients.size()) + ") AS Recipients (address) ON ProxyForgers.recipient = Recipients.address ";
+			sql.append("JOIN (VALUES ");
+
+			final int recipientsSize = recipients.size();
+			for (int ri = 0; ri < recipientsSize; ++ri) {
+				if (ri != 0)
+					sql.append(", ");
+
+				sql.append("(?)");
+			}
+
+			sql.append(") AS Recipients (address) ON ProxyForgers.recipient = Recipients.address ");
 			args.addAll(recipients);
 		}
 
 		if (hasForgers) {
-			sql += "JOIN (VALUES " + nValuesPlaceholders(forgers.size()) + ") AS Forgers (address) ON Accounts.account = Forgers.address ";
+			sql.append("JOIN (VALUES ");
+
+			final int forgersSize = forgers.size();
+			for (int fi = 0; fi < forgersSize; ++fi) {
+				if (fi != 0)
+					sql.append(", ");
+
+				sql.append("(?)");
+			}
+
+			sql.append(") AS Forgers (address) ON Accounts.account = Forgers.address ");
 			args.addAll(forgers);
 		}
 
 		if (hasInvolved) {
-			sql += "JOIN (VALUES " + nValuesPlaceholders(involvedAddresses.size()) + ") AS Involved (address) ON Involved.address IN (ProxyForgers.recipient, Accounts.account) ";
+			sql.append("JOIN (VALUES ");
+
+
+			final int involvedAddressesSize = involvedAddresses.size();
+			for (int iai = 0; iai < involvedAddressesSize; ++iai) {
+				if (iai != 0)
+					sql.append(", ");
+
+				sql.append("(?)");
+			}
+
+			sql.append(") AS Involved (address) ON Involved.address IN (ProxyForgers.recipient, Accounts.account) ");
 			args.addAll(involvedAddresses);
 		}
 
-		sql += "ORDER BY recipient, share";
+		sql.append("ORDER BY recipient, share");
 		if (reverse != null && reverse)
-			sql += " DESC";
+			sql.append(" DESC");
 
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+		HSQLDBRepository.limitOffsetSql(sql, limit, offset);
 
 		List<ProxyForgerData> proxyAccounts = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, args.toArray())) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql.toString(), args.toArray())) {
 			if (resultSet == null)
 				return proxyAccounts;
 

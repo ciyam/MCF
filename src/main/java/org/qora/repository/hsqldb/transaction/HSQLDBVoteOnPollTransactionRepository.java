@@ -17,7 +17,7 @@ public class HSQLDBVoteOnPollTransactionRepository extends HSQLDBTransactionRepo
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT poll_name, option_index, previous_option_index FROM VoteOnPollTransactions WHERE signature = ?";
+		String sql = "SELECT poll_name, option_index, previous_option_index FROM VoteOnPollTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

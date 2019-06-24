@@ -20,7 +20,7 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT version, service, is_data_raw, data from ArbitraryTransactions WHERE signature = ?";
+		String sql = "SELECT version, service, is_data_raw, data from ArbitraryTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

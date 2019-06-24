@@ -17,7 +17,7 @@ public class HSQLDBUpdateAssetTransactionRepository extends HSQLDBTransactionRep
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT asset_id, new_owner, new_description, new_data, orphan_reference FROM UpdateAssetTransactions WHERE signature = ?";
+		String sql = "SELECT asset_id, new_owner, new_description, new_data, orphan_reference FROM UpdateAssetTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

@@ -17,7 +17,7 @@ public class HSQLDBGroupBanTransactionRepository extends HSQLDBTransactionReposi
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT group_id, address, reason, time_to_live, member_reference, admin_reference, join_invite_reference, previous_group_id FROM GroupBanTransactions WHERE signature = ?";
+		String sql = "SELECT group_id, address, reason, time_to_live, member_reference, admin_reference, join_invite_reference, previous_group_id FROM GroupBanTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

@@ -18,7 +18,7 @@ public class HSQLDBBuyNameTransactionRepository extends HSQLDBTransactionReposit
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT name, amount, seller, name_reference FROM BuyNameTransactions WHERE signature = ?";
+		String sql = "SELECT name, amount, seller, name_reference FROM BuyNameTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

@@ -25,7 +25,9 @@ public class HSQLDBVotingRepository implements VotingRepository {
 
 	@Override
 	public PollData fromPollName(String pollName) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT description, creator, owner, published FROM Polls WHERE poll_name = ?", pollName)) {
+		String sql = "SELECT description, creator, owner, published FROM Polls WHERE poll_name = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, pollName)) {
 			if (resultSet == null)
 				return null;
 
@@ -34,8 +36,8 @@ public class HSQLDBVotingRepository implements VotingRepository {
 			String owner = resultSet.getString(3);
 			long published = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
-			try (ResultSet optionsResultSet = this.repository
-					.checkedExecute("SELECT option_name FROM PollOptions WHERE poll_name = ? ORDER BY option_index ASC", pollName)) {
+			String optionsSql = "SELECT option_name FROM PollOptions WHERE poll_name = ? ORDER BY option_index ASC";
+			try (ResultSet optionsResultSet = this.repository.checkedExecute(optionsSql, pollName)) {
 				if (optionsResultSet == null)
 					return null;
 
@@ -96,8 +98,8 @@ public class HSQLDBVotingRepository implements VotingRepository {
 
 	@Override
 	public void delete(String pollName) throws DataException {
-		// NOTE: The corresponding rows in PollOptions are deleted automatically by the database thanks to "ON DELETE CASCADE" in the PollOptions' FOREIGN KEY
-		// definition.
+		// NOTE: The corresponding rows in PollOptions are deleted automatically by the database
+		// thanks to "ON DELETE CASCADE" in the PollOptions' FOREIGN KEY definition.
 		try {
 			this.repository.delete("Polls", "poll_name = ?", pollName);
 		} catch (SQLException e) {
@@ -109,9 +111,10 @@ public class HSQLDBVotingRepository implements VotingRepository {
 
 	@Override
 	public List<VoteOnPollData> getVotes(String pollName) throws DataException {
+		String sql = "SELECT voter, option_index FROM PollVotes WHERE poll_name = ?";
 		List<VoteOnPollData> votes = new ArrayList<VoteOnPollData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT voter, option_index FROM PollVotes WHERE poll_name = ?", pollName)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, pollName)) {
 			if (resultSet == null)
 				return votes;
 
@@ -131,8 +134,9 @@ public class HSQLDBVotingRepository implements VotingRepository {
 
 	@Override
 	public VoteOnPollData getVote(String pollName, byte[] voterPublicKey) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT option_index FROM PollVotes WHERE poll_name = ? AND voter = ?", pollName,
-				voterPublicKey)) {
+		String sql = "SELECT option_index FROM PollVotes WHERE poll_name = ? AND voter = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, pollName, voterPublicKey)) {
 			if (resultSet == null)
 				return null;
 
@@ -148,8 +152,8 @@ public class HSQLDBVotingRepository implements VotingRepository {
 	public void save(VoteOnPollData voteOnPollData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("PollVotes");
 
-		saveHelper.bind("poll_name", voteOnPollData.getPollName()).bind("voter", voteOnPollData.getVoterPublicKey()).bind("option_index",
-				voteOnPollData.getOptionIndex());
+		saveHelper.bind("poll_name", voteOnPollData.getPollName()).bind("voter", voteOnPollData.getVoterPublicKey())
+				.bind("option_index", voteOnPollData.getOptionIndex());
 
 		try {
 			saveHelper.execute(this.repository);

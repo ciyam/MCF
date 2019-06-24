@@ -18,7 +18,7 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT have_asset_id, amount, want_asset_id, price, HaveAsset.asset_name, WantAsset.asset_name "
+		String sql = "SELECT have_asset_id, amount, want_asset_id, price, HaveAsset.asset_name, WantAsset.asset_name "
 				+ "FROM CreateAssetOrderTransactions "
 				+ "JOIN Assets AS HaveAsset ON HaveAsset.asset_id = have_asset_id "
 				+ "JOIN Assets AS WantAsset ON WantAsset.asset_id = want_asset_id "

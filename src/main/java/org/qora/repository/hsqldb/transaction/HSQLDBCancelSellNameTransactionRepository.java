@@ -17,7 +17,7 @@ public class HSQLDBCancelSellNameTransactionRepository extends HSQLDBTransaction
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT name FROM CancelSellNameTransactions WHERE signature = ?";
+		String sql = "SELECT name FROM CancelSellNameTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)

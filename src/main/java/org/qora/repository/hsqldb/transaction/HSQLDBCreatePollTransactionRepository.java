@@ -20,7 +20,7 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 	}
 
 	TransactionData fromBase(BaseTransactionData baseTransactionData) throws DataException {
-		final String sql = "SELECT owner, poll_name, description FROM CreatePollTransactions WHERE signature = ?";
+		String sql = "SELECT owner, poll_name, description FROM CreatePollTransactions WHERE signature = ?";
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, baseTransactionData.getSignature())) {
 			if (resultSet == null)
@@ -30,7 +30,7 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 			String pollName = resultSet.getString(2);
 			String description = resultSet.getString(3);
 
-			final String optionsSql = "SELECT option_name FROM CreatePollTransactionOptions WHERE signature = ? ORDER BY option_index ASC";
+			String optionsSql = "SELECT option_name FROM CreatePollTransactionOptions WHERE signature = ? ORDER BY option_index ASC";
 
 			try (ResultSet optionsResultSet = this.repository.checkedExecute(optionsSql, baseTransactionData.getSignature())) {
 				if (optionsResultSet == null)
