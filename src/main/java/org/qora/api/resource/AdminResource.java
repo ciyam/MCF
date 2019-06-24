@@ -447,7 +447,7 @@ public class AdminResource {
 
 			// Try to grab blockchain lock
 			ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
-			if (!blockchainLock.tryLock(5000, TimeUnit.MILLISECONDS))
+			if (!blockchainLock.tryLock(30000, TimeUnit.MILLISECONDS))
 				return SynchronizationResult.NO_BLOCKCHAIN_LOCK.name();
 
 			SynchronizationResult syncResult;

@@ -480,6 +480,42 @@ public class BlocksResource {
 	}
 
 	@GET
+	@Path("/timestamp/{timestamp}")
+	@Operation(
+		summary = "Fetch nearest block before given timestamp",
+		responses = {
+			@ApiResponse(
+				description = "the block",
+				content = @Content(
+					schema = @Schema(
+						implementation = BlockData.class
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.BLOCK_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public BlockData getByTimestamp(@PathParam("timestamp") long timestamp) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			int height = repository.getBlockRepository().getHeightFromTimestamp(timestamp);
+			if (height == 0)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+
+			BlockData blockData = repository.getBlockRepository().fromHeight(height);
+			if (blockData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.BLOCK_NO_EXISTS);
+
+			return blockData;
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
 	@Path("/range/{height}")
 	@Operation(
 		summary = "Fetch blocks starting with given height",
