@@ -238,7 +238,7 @@
 	"featureTriggers": {
 		"messageHeight": 0,
 		"atHeight": 0,
-		"newBlockDistanceHeight": 1000000,
+		"newBlockDistanceHeight": 24400,
 		"assetsTimestamp": 0,
 		"votingTimestamp": 0,
 		"arbitraryTimestamp": 0,
