@@ -20,7 +20,7 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.at.AT;
-import org.qora.block.BlockChain.RewardByHeight;
+import org.qora.block.BlockChain.BlockTimingByHeight;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.at.ATData;
@@ -357,8 +357,10 @@ public class Block {
 		if (this.blockData.getHeight() == null)
 			throw new IllegalStateException("Can't calculate next block's generating balance as this block's height is unset");
 
+		final int blockDifficultyInterval = BlockChain.getInstance().getBlockDifficultyInterval();
+
 		// This block not at the start of an interval?
-		if (this.blockData.getHeight() % BlockChain.getInstance().getBlockDifficultyInterval() != 0)
+		if (this.blockData.getHeight() % blockDifficultyInterval != 0)
 			return this.blockData.getGeneratingBalance();
 
 		// Return cached calculation if we have one
@@ -373,7 +375,7 @@ public class Block {
 		BlockData firstBlock = this.blockData;
 
 		try {
-			for (int i = 1; firstBlock != null && i < BlockChain.getInstance().getBlockDifficultyInterval(); ++i)
+			for (int i = 1; firstBlock != null && i < blockDifficultyInterval; ++i)
 				firstBlock = blockRepo.fromSignature(firstBlock.getReference());
 		} catch (DataException e) {
 			firstBlock = null;
@@ -387,8 +389,7 @@ public class Block {
 		long previousGeneratingTime = this.blockData.getTimestamp() - firstBlock.getTimestamp();
 
 		// Calculate expected forging time (in ms) for a whole interval based on this block's generating balance.
-		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance()) * BlockChain.getInstance().getBlockDifficultyInterval()
-				* 1000;
+		long expectedGeneratingTime = Block.calcForgingDelay(this.blockData.getGeneratingBalance(), this.blockData.getHeight()) * blockDifficultyInterval;
 
 		// Finally, scale generating balance such that faster than expected previous intervals produce larger generating balances.
 		// NOTE: we have to use doubles and longs here to keep compatibility with Qora v1 results
@@ -401,14 +402,16 @@ public class Block {
 	}
 
 	/**
-	 * Return expected forging delay, in seconds, since previous block based on passed generating balance.
+	 * Return expected forging delay, in milliseconds, since previous block based on passed generating balance.
 	 */
-	public static long calcForgingDelay(BigDecimal generatingBalance) {
+	public static long calcForgingDelay(BigDecimal generatingBalance, int previousBlockHeight) {
 		generatingBalance = Block.minMaxBalance(generatingBalance);
 
 		double percentageOfTotal = generatingBalance.divide(BlockChain.getInstance().getMaxBalance()).doubleValue();
-		long actualBlockTime = (long) (BlockChain.getInstance().getMinBlockTime()
-				+ ((BlockChain.getInstance().getMaxBlockTime() - BlockChain.getInstance().getMinBlockTime()) * (1 - percentageOfTotal)));
+
+		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(previousBlockHeight + 1);
+
+		long actualBlockTime = (long) (blockTiming.target + (blockTiming.deviation * (1 - (2 * percentageOfTotal))));
 
 		return actualBlockTime;
 	}
@@ -685,18 +688,22 @@ public class Block {
 	 */
 	public static long calcMinimumTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
 		BigInteger distance = calcGeneratorDistance(parentBlockData, generatorPublicKey);
+		final int thisHeight = parentBlockData.getHeight() + 1;
+		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(thisHeight);
 
-		final long minBlockTime = BlockChain.getInstance().getMinBlockTime(); // seconds
-		final long maxBlockTime = BlockChain.getInstance().getMaxBlockTime(); // seconds
+		double ratio = new BigDecimal(distance).divide(new BigDecimal(MAX_DISTANCE), 40, RoundingMode.DOWN).doubleValue();
 
-		long timeOffset = distance.multiply(BigInteger.valueOf((maxBlockTime - minBlockTime) * 1000L)).divide(MAX_DISTANCE).longValue();
+		// Use power transform on ratio to spread out smaller values for bigger effect
+		double transformed = Math.pow(ratio, blockTiming.power);
+
+		long timeOffset = Double.valueOf(blockTiming.deviation * 2.0 * transformed).longValue();
 
 		// 'distance' is at most half the size of MAX_DISTANCE, so in new code we correct this oversight...
-		final int thisHeight = parentBlockData.getHeight() + 1;
-		if (thisHeight >= BlockChain.getInstance().getNewBlockDistanceHeight())
+		// ... but only until new block timing code kicks in
+		if (thisHeight >= BlockChain.getInstance().getNewBlockDistanceHeight() && thisHeight < BlockChain.getInstance().getNewBlockTimingHeight())
 			timeOffset *= 2;
 
-		return parentBlockData.getTimestamp() + (minBlockTime * 1000L) + timeOffset;
+		return parentBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation + timeOffset;
 	}
 
 	public long calcMinimumTimestamp(BlockData parentBlockData) {
@@ -1047,7 +1054,7 @@ public class Block {
 	}
 
 	protected void processBlockRewards() throws DataException {
-		BigDecimal reward = Block.getRewardAtHeight(this.blockData.getHeight());
+		BigDecimal reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
 
 		// No reward for our height?
 		if (reward == null)
@@ -1296,7 +1303,7 @@ public class Block {
 	}
 
 	protected void orphanBlockRewards() throws DataException {
-		BigDecimal reward = Block.getRewardAtHeight(this.blockData.getHeight());
+		BigDecimal reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
 
 		// No reward for our height?
 		if (reward == null)
@@ -1356,21 +1363,6 @@ public class Block {
 
 		// Delete ATStateData for this height
 		atRepository.deleteATStates(this.blockData.getHeight());
-	}
-
-	public static BigDecimal getRewardAtHeight(int ourHeight) {
-		List<RewardByHeight> rewardsByHeight = BlockChain.getInstance().getBlockRewardsByHeight();
-
-		// No rewards configured?
-		if (rewardsByHeight == null)
-			return null;
-
-		// Scan through for reward at our height
-		for (int i = rewardsByHeight.size() - 1; i >= 0; --i)
-			if (rewardsByHeight.get(i).height <= ourHeight)
-				return rewardsByHeight.get(i).reward;
-
-		return null;
 	}
 
 	/**

@@ -25,6 +25,7 @@ import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
 import org.qora.api.ApiService;
 import org.qora.block.Block;
 import org.qora.block.BlockChain;
+import org.qora.block.BlockChain.BlockTimingByHeight;
 import org.qora.block.BlockGenerator;
 import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.crypto.Crypto;
@@ -1010,7 +1011,20 @@ public class Controller extends Thread {
 	}
 
 	public static long getMinimumLatestBlockTimestamp() {
-		return NTP.getTime() - BlockChain.getInstance().getMaxBlockTime() * 1000L * MAX_BLOCKCHAIN_TIP_AGE;
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			int height = repository.getBlockRepository().getBlockchainHeight();
+
+			long offset = 0;
+			for (int ai = 0; ai < MAX_BLOCKCHAIN_TIP_AGE; ++ai) {
+				BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(height - ai);
+				offset += blockTiming.target + blockTiming.deviation;
+			}
+
+			return NTP.getTime() - offset;
+		} catch (DataException e) {
+			LOGGER.error("Repository issue when fetching blockchain height", e);
+			return 0;
+		}
 	}
 
 }

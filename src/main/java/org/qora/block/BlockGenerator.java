@@ -12,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.block.Block.ValidationResult;
+import org.qora.block.BlockChain.BlockTimingByHeight;
 import org.qora.controller.Controller;
 import org.qora.data.account.ForgingAccountData;
 import org.qora.data.account.ProxyForgerData;
@@ -111,7 +112,9 @@ public class BlockGenerator extends Thread {
 				}
 
 				// Too early to generate any new blocks?
-				boolean tooEarlyToForge = NTP.getTime() < lastBlockData.getTimestamp() + BlockChain.getInstance().getMinBlockTime() * 1000L;
+				BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(lastBlockData.getHeight() + 1);
+
+				boolean tooEarlyToForge = NTP.getTime() < lastBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation;
 				if (newBlocks.isEmpty() && tooEarlyToForge)
 					continue;
 

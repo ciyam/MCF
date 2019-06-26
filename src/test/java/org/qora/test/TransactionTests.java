@@ -1154,7 +1154,7 @@ public class TransactionTests extends Common {
 	}
 
 	private Block forgeBlock(TransactionData transactionData) throws DataException {
-		long newTimestamp = parentBlockData.getTimestamp() + BlockChain.getInstance().getMinBlockTime() + 1;
+		long newTimestamp = parentBlockData.getTimestamp() + 1;
 		Block block = new Block(repository, parentBlockData, generator, newTimestamp);
 		block.addTransaction(transactionData);
 		block.sign();
