@@ -19,7 +19,7 @@ import org.qora.account.PrivateKeyAccount;
 import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.at.AT;
-import org.qora.block.BlockChain.RewardByHeight;
+import org.qora.block.BlockChain;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.at.ATData;
@@ -1104,7 +1104,7 @@ public class Block {
 	}
 
 	protected void processBlockRewards() throws DataException {
-		BigDecimal reward = Block.getRewardAtHeight(this.blockData.getHeight());
+		BigDecimal reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
 
 		// No reward for our height?
 		if (reward == null)
@@ -1353,7 +1353,7 @@ public class Block {
 	}
 
 	protected void orphanBlockRewards() throws DataException {
-		BigDecimal reward = Block.getRewardAtHeight(this.blockData.getHeight());
+		BigDecimal reward = BlockChain.getInstance().getRewardAtHeight(this.blockData.getHeight());
 
 		// No reward for our height?
 		if (reward == null)
@@ -1413,21 +1413,6 @@ public class Block {
 
 		// Delete ATStateData for this height
 		atRepository.deleteATStates(this.blockData.getHeight());
-	}
-
-	public static BigDecimal getRewardAtHeight(int ourHeight) {
-		List<RewardByHeight> rewardsByHeight = BlockChain.getInstance().getBlockRewardsByHeight();
-
-		// No rewards configured?
-		if (rewardsByHeight == null)
-			return null;
-
-		// Scan through for reward at our height
-		for (int i = rewardsByHeight.size() - 1; i >= 0; --i)
-			if (rewardsByHeight.get(i).height <= ourHeight)
-				return rewardsByHeight.get(i).reward;
-
-		return null;
 	}
 
 	/**
