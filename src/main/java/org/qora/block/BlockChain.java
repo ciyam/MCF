@@ -321,6 +321,17 @@ public class BlockChain {
 		return featureTriggers.get("newAssetPricingTimestamp");
 	}
 
+	// More complex getters for aspects that change by height or timestamp
+
+	public BigDecimal getRewardAtHeight(int ourHeight) {
+		// Scan through for reward at our height
+		for (int i = rewardsByHeight.size() - 1; i >= 0; --i)
+			if (rewardsByHeight.get(i).height <= ourHeight)
+				return rewardsByHeight.get(i).reward;
+
+		return null;
+	}
+
 	/** Validate blockchain config read from JSON */
 	private void validateConfig() {
 		if (this.genesisInfo == null) {
