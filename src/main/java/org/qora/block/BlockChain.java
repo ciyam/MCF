@@ -73,10 +73,6 @@ public class BlockChain {
 
 	/** Number of blocks between recalculating block's generating balance. */
 	private int blockDifficultyInterval;
-	/** Minimum target time between blocks, in seconds. */
-	private long minBlockTime;
-	/** Maximum target time between blocks, in seconds. */
-	private long maxBlockTime;
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
 	private long blockTimestampMargin;
 
@@ -89,6 +85,7 @@ public class BlockChain {
 		messageHeight,
 		atHeight,
 		newBlockDistanceHeight,
+		newBlockTimingHeight,
 		assetsTimestamp,
 		votingTimestamp,
 		arbitraryTimestamp,
@@ -113,6 +110,15 @@ public class BlockChain {
 		public BigDecimal reward;
 	}
 	List<RewardByHeight> rewardsByHeight;
+
+	/** Block times by block height */
+	public static class BlockTimingByHeight {
+		public int height;
+		public long target; // ms
+		public long deviation; // ms
+		public double power;
+	}
+	List<BlockTimingByHeight> blockTimingsByHeight;
 
 	/** Forging right tiers */
 	public static class ForgingTier {
@@ -244,16 +250,6 @@ public class BlockChain {
 		return this.blockDifficultyInterval;
 	}
 
-	/** Returns minimum target time between blocks, in seconds. */
-	public long getMinBlockTime() {
-		return this.minBlockTime;
-	}
-
-	/** Returns maximum target time between blocks, in seconds. */
-	public long getMaxBlockTime() {
-		return this.maxBlockTime;
-	}
-
 	public long getBlockTimestampMargin() {
 		return this.blockTimestampMargin;
 	}
@@ -293,8 +289,12 @@ public class BlockChain {
 		return featureTriggers.get("atHeight");
 	}
 
-	public long getNewBlockDistanceHeight() {
-		return featureTriggers.get("newBlockDistanceHeight");
+	public int getNewBlockDistanceHeight() {
+		return featureTriggers.get("newBlockDistanceHeight").intValue();
+	}
+
+	public int getNewBlockTimingHeight() {
+		return featureTriggers.get("newBlockTimingHeight").intValue();
 	}
 
 	public long getPowFixReleaseTimestamp() {
@@ -332,6 +332,14 @@ public class BlockChain {
 		return null;
 	}
 
+	public BlockTimingByHeight getBlockTimingByHeight(int ourHeight) {
+		for (int i = blockTimingsByHeight.size() - 1; i >= 0; --i)
+			if (blockTimingsByHeight.get(i).height <= ourHeight)
+				return blockTimingsByHeight.get(i);
+
+		throw new IllegalStateException(String.format("No block timing info available for height %d", ourHeight));
+	}
+
 	/** Validate blockchain config read from JSON */
 	private void validateConfig() {
 		if (this.genesisInfo == null) {
@@ -350,6 +358,11 @@ public class BlockChain {
 				LOGGER.error(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
 				throw new RuntimeException("Missing feature trigger in blockchain config");
 			}
+
+		if (this.blockTimingsByHeight == null || this.blockTimingsByHeight.isEmpty()) {
+			LOGGER.error("No \"blockTimesByHeight\" entry found in blockchain config");
+			throw new RuntimeException("No \"blockTimesByHeight\" entry found in blockchain config");
+		}
 	}
 
 	/**

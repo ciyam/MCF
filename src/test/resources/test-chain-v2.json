@@ -2,8 +2,6 @@
 	"isTestChain": true,
 	"maxBalance": "10000000000",
 	"blockDifficultyInterval": 10,
-	"minBlockTime": 30,
-	"maxBlockTime": 60,
 	"blockTimestampMargin": 500,
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "0.1",
@@ -31,6 +29,10 @@
 		{ "height": 11, "reward": 10 },
 		{ "height": 21, "reward": 1 }
 	],
+	"blockTimingsByHeight": [
+		{ "height": 1, "target": 60000, "deviation": 30000, "power": 1.0 },
+		{ "height": 30000, "target": 60000, "deviation": 30000, "power": 0.2 }
+	],
 	"forgingTiers": [
 		{ "minBlocks": 5, "maxSubAccounts": 5 },
 		{ "minBlocks": 4, "maxSubAccounts": 3 },
@@ -40,6 +42,7 @@
 		"messageHeight": 0,
 		"atHeight": 0,
 		"newBlockDistanceHeight": 1000000,
+		"newBlockTimingHeight": 30000,
 		"assetsTimestamp": 0,
 		"votingTimestamp": 0,
 		"arbitraryTimestamp": 0,

@@ -29,6 +29,7 @@ import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.api.model.BlockForgerSummary;
 import org.qora.block.Block;
+import org.qora.controller.Controller;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
 import org.qora.data.block.BlockData;
@@ -343,7 +344,7 @@ public class BlocksResource {
 	public long getTimePerBlock() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			BlockData blockData = repository.getBlockRepository().getLastBlock();
-			return Block.calcForgingDelay(blockData.getGeneratingBalance());
+			return Block.calcForgingDelay(blockData.getGeneratingBalance(), blockData.getHeight());
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
@@ -354,7 +355,7 @@ public class BlocksResource {
 	@GET
 	@Path("/time/{generatingbalance}")
 	@Operation(
-		summary = "Estimated time to forge block given generating balance",
+		summary = "Estimated time to forge next block given generating balance",
 		description = "Calculates the time it should take for the network to generate blocks based on specified generating balance",
 		responses = {
 			@ApiResponse(
@@ -369,7 +370,7 @@ public class BlocksResource {
 		}
 	)
 	public long getTimePerBlock(@PathParam("generatingbalance") BigDecimal generatingbalance) {
-		return Block.calcForgingDelay(generatingbalance);
+		return Block.calcForgingDelay(generatingbalance, Controller.getInstance().getChainHeight());
 	}
 
 	@GET

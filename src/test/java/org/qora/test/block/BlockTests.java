@@ -1,4 +1,4 @@
-package org.qora.test;
+package org.qora.test.block;
 
 import java.math.BigDecimal;
 import java.util.List;

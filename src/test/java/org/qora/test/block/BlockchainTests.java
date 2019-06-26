@@ -1,4 +1,4 @@
-package org.qora.test;
+package org.qora.test.block;
 
 import static org.junit.Assert.*;
 
@@ -15,11 +15,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.qora.account.PrivateKeyAccount;
-import org.qora.block.Block;
 import org.qora.block.BlockChain;
-import org.qora.block.BlockGenerator;
 import org.qora.crypto.Crypto;
-import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockSummaryData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -222,41 +219,6 @@ public class BlockchainTests extends Common {
 
 		// Alice-related wins roughly twice Bob-related wins
 		assertTrue(Math.abs(wins[0] - wins[1] * 2) < (wins[0] * marginPct / 100));
-	}
-
-	@Test
-	public void testBlockIntervals() throws DataException {
-		final int numberRounds = 100000;
-
-		Random random = new Random();
-		byte[] randomKey = new byte[32];
-
-		// We need to generate enough blocks to trigger 'new' code...
-		for (int height = 2; height < BlockChain.getInstance().getNewBlockDistanceHeight(); ++height)
-			BlockGenerator.generateTestingBlock(repository, aliceAccount);
-
-		final BlockData previousBlockData = repository.getBlockRepository().getLastBlock();
-
-		long cumulativeTime = 0;
-		for (int i = 0; i < numberRounds; ++i) {
-			random.nextBytes(randomKey);
-			cumulativeTime += Block.calcMinimumTimestamp(previousBlockData, randomKey);
-		}
-
-		cumulativeTime -= previousBlockData.getTimestamp() * numberRounds;
-		final long meanTime = cumulativeTime / numberRounds;
-
-		// We're looking for between min/max block times, within a margin
-		final int marginPct = 25; // tolerance margin (percent)
-
-		final long minBlockTime = BlockChain.getInstance().getMinBlockTime() * 1000L;
-		final long maxBlockTime = BlockChain.getInstance().getMaxBlockTime() * 1000L;
-
-		final long targetBlockTime = (minBlockTime + maxBlockTime) / 2;
-
-		System.out.println(String.format("mean block period: %d", meanTime));
-
-		assertTrue(Math.abs(meanTime - targetBlockTime) < (targetBlockTime * marginPct / 100));
 	}
 
 }
