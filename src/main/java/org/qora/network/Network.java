@@ -623,6 +623,15 @@ public class Network extends Thread {
 		// Make a note that we've successfully completed handshake (and when)
 		peer.getPeerData().setLastConnected(NTP.getTime());
 
+		// Update connection info for outbound peers only
+		if (peer.isOutbound())
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				repository.getNetworkRepository().save(peer.getPeerData());
+				repository.saveChanges();
+			} catch (DataException e) {
+				LOGGER.warn(String.format("Repository issue while trying to update outbound peer %s", peer));
+			}
+
 		// Start regular pings
 		peer.startPings();
 
