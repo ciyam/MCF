@@ -1015,8 +1015,8 @@ public class Controller extends Thread {
 			int height = repository.getBlockRepository().getBlockchainHeight();
 
 			long offset = 0;
-			for (int ai = 0; ai < MAX_BLOCKCHAIN_TIP_AGE; ++ai) {
-				BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(height - ai);
+			for (int ai = 0; height >= 1 && ai < MAX_BLOCKCHAIN_TIP_AGE; ++ai, --height) {
+				BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(height);
 				offset += blockTiming.target + blockTiming.deviation;
 			}
 
