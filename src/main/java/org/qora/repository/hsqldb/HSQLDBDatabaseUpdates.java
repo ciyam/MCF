@@ -622,6 +622,14 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE GroupBanTransactions ADD previous_group_id INTEGER");
 					break;
 
+				case 40:
+					// Increase asset "data" size from 4K to 400K
+					stmt.execute("CREATE TYPE AssetDataLob AS CLOB(400K)");
+					stmt.execute("ALTER TABLE Assets ALTER COLUMN data AssetDataLob");
+					stmt.execute("ALTER TABLE IssueAssetTransactions ALTER COLUMN data AssetDataLob");
+					stmt.execute("ALTER TABLE UpdateAssetTransactions ALTER COLUMN new_data AssetDataLob");
+				break;
+
 				default:
 					// nothing to do
 					return false;
