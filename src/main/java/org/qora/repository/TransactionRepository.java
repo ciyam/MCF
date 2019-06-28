@@ -63,7 +63,7 @@ public interface TransactionRepository {
 			throws DataException;
 
 	/**
-	 * Returns list of TRANSFER_ASSET transactions relating to specific asset ID/address combination.
+	 * Returns list of TRANSFER_ASSET transactions relating to specific asset ID, with optional address filter.
 	 * 
 	 * @param assetId
 	 * @param address

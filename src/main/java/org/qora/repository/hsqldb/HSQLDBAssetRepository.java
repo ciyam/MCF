@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -191,9 +192,13 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public OrderData fromOrderId(byte[] orderId) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT creator, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE asset_order_id = ?",
-				orderId)) {
+		String sql = "SELECT creator, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled, HaveAsset.asset_name, WantAsset.asset_name "
+				+ "FROM AssetOrders "
+				+ "JOIN Assets AS HaveAsset ON HaveAsset.asset_id = have_asset_id "
+				+ "JOIN Assets AS WantAsset ON WantAsset.asset_id = want_asset_id "
+				+ "WHERE asset_order_id = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, orderId)) {
 			if (resultSet == null)
 				return null;
 
@@ -206,8 +211,10 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			boolean isClosed = resultSet.getBoolean(8);
 			boolean isFulfilled = resultSet.getBoolean(9);
+			String haveAssetName = resultSet.getString(10);
+			String wantAssetName = resultSet.getString(11);
 
-			return new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed, isFulfilled);
+			return new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed, isFulfilled, haveAssetName, wantAssetName);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch asset order from repository", e);
 		}
@@ -216,16 +223,30 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset,
 			Boolean reverse) throws DataException {
-		String sql = "SELECT creator, asset_order_id, amount, fulfilled, price, ordered FROM AssetOrders "
-				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE ORDER BY price";
+		List<OrderData> orders = new ArrayList<OrderData>();
+
+		// Cache have & want asset names for later use, which also saves a table join
+		AssetData haveAssetData = this.fromAssetId(haveAssetId);
+		if (haveAssetData == null)
+			return orders;
+
+		AssetData wantAssetData = this.fromAssetId(wantAssetId);
+		if (wantAssetData == null)
+			return orders;
+
+		String sql = "SELECT creator, asset_order_id, amount, fulfilled, price, ordered "
+				+ "FROM AssetOrders "
+				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND NOT is_closed AND NOT is_fulfilled ";
+
+		sql += "ORDER BY price";
 		if (reverse != null && reverse)
 			sql += " DESC";
+
 		sql += ", ordered";
 		if (reverse != null && reverse)
 			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		List<OrderData> orders = new ArrayList<OrderData>();
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, haveAssetId, wantAssetId)) {
 			if (resultSet == null)
@@ -242,7 +263,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				boolean isFulfilled = false;
 
 				OrderData order = new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled,
-						price, timestamp, isClosed, isFulfilled);
+						price, timestamp, isClosed, isFulfilled, haveAssetData.getName(), wantAssetData.getName());
 				orders.add(order);
 			} while (resultSet.next());
 
@@ -254,22 +275,24 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public List<OrderData> getOpenOrdersForTrading(long haveAssetId, long wantAssetId, BigDecimal minimumPrice) throws DataException {
-		Object[] bindParams;
-		String sql = "SELECT creator, asset_order_id, amount, fulfilled, price, ordered FROM AssetOrders "
+		List<Object> bindParams = new ArrayList<>(3);
+
+		String sql = "SELECT creator, asset_order_id, amount, fulfilled, price, ordered "
+				+ "FROM AssetOrders "
 				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND NOT is_closed AND NOT is_fulfilled ";
+
+		Collections.addAll(bindParams, haveAssetId, wantAssetId);
 
 		if (minimumPrice != null) {
 			sql += "AND price >= ? ";
-			bindParams = new Object[] {haveAssetId, wantAssetId, minimumPrice};
-		} else {
-			bindParams = new Object[] {haveAssetId, wantAssetId};
+			bindParams.add(minimumPrice);
 		}
 
 		sql += "ORDER BY price DESC, ordered";
 
 		List<OrderData> orders = new ArrayList<OrderData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
 			if (resultSet == null)
 				return orders;
 
@@ -283,6 +306,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				boolean isClosed = false;
 				boolean isFulfilled = false;
 
+				// We don't need asset names so we can use simpler constructor
 				OrderData order = new OrderData(orderId, creatorPublicKey, haveAssetId, wantAssetId, amount, fulfilled,
 						price, timestamp, isClosed, isFulfilled);
 				orders.add(order);
@@ -297,13 +321,27 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset,
 			Boolean reverse) throws DataException {
-		String sql = "SELECT price, SUM(amount - fulfilled), MAX(ordered) FROM AssetOrders "
-				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE GROUP BY price ORDER BY price";
+		List<OrderData> orders = new ArrayList<OrderData>();
+
+		// Cache have & want asset names for later use, which also saves a table join
+		AssetData haveAssetData = this.fromAssetId(haveAssetId);
+		if (haveAssetData == null)
+			return orders;
+
+		AssetData wantAssetData = this.fromAssetId(wantAssetId);
+		if (wantAssetData == null)
+			return orders;
+
+		String sql = "SELECT price, SUM(amount - fulfilled), MAX(ordered) "
+				+ "FROM AssetOrders "
+				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND NOT is_closed AND NOT is_fulfilled "
+				+ "GROUP BY price ";
+
+		sql += "ORDER BY price";
 		if (reverse != null && reverse)
 			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		List<OrderData> orders = new ArrayList<OrderData>();
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, haveAssetId, wantAssetId)) {
 			if (resultSet == null)
@@ -315,7 +353,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				long timestamp = resultSet.getTimestamp(3).getTime();
 
 				OrderData order = new OrderData(null, null, haveAssetId, wantAssetId, totalUnfulfilled, BigDecimal.ZERO,
-						price, timestamp, false, false);
+						price, timestamp, false, false, haveAssetData.getName(), wantAssetData.getName());
 				orders.add(order);
 			} while (resultSet.next());
 
@@ -328,15 +366,23 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getAccountsOrders(byte[] publicKey, Boolean optIsClosed, Boolean optIsFulfilled,
 			Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT asset_order_id, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled "
-				+ "FROM AssetOrders WHERE creator = ?";
+		// We have to join for have/want asset data as it might vary
+		String sql = "SELECT asset_order_id, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled, HaveAsset.asset_name, WantAsset.asset_name "
+				+ "FROM AssetOrders "
+				+ "JOIN Assets AS HaveAsset ON HaveAsset.asset_id = have_asset_id "
+				+ "JOIN Assets AS WantAsset ON WantAsset.asset_id = want_asset_id "
+				+ "WHERE creator = ?";
+
 		if (optIsClosed != null)
 			sql += " AND is_closed = " + (optIsClosed ? "TRUE" : "FALSE");
+
 		if (optIsFulfilled != null)
 			sql += " AND is_fulfilled = " + (optIsFulfilled ? "TRUE" : "FALSE");
+
 		sql += " ORDER BY ordered";
 		if (reverse != null && reverse)
 			sql += " DESC";
+
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
 		List<OrderData> orders = new ArrayList<OrderData>();
@@ -355,9 +401,11 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 				boolean isClosed = resultSet.getBoolean(8);
 				boolean isFulfilled = resultSet.getBoolean(9);
+				String haveAssetName = resultSet.getString(10);
+				String wantAssetName = resultSet.getString(11);
 
 				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled,
-						price, timestamp, isClosed, isFulfilled);
+						price, timestamp, isClosed, isFulfilled, haveAssetName, wantAssetName);
 				orders.add(order);
 			} while (resultSet.next());
 
@@ -370,18 +418,32 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	@Override
 	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, Boolean optIsClosed,
 			Boolean optIsFulfilled, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		List<OrderData> orders = new ArrayList<OrderData>();
+
+		// Cache have & want asset names for later use, which also saves a table join
+		AssetData haveAssetData = this.fromAssetId(haveAssetId);
+		if (haveAssetData == null)
+			return orders;
+
+		AssetData wantAssetData = this.fromAssetId(wantAssetId);
+		if (wantAssetData == null)
+			return orders;
+
 		String sql = "SELECT asset_order_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled "
-				+ "FROM AssetOrders WHERE creator = ? AND have_asset_id = ? AND want_asset_id = ?";
+				+ "FROM AssetOrders "
+				+ "WHERE creator = ? AND have_asset_id = ? AND want_asset_id = ?";
+
 		if (optIsClosed != null)
 			sql += " AND is_closed = " + (optIsClosed ? "TRUE" : "FALSE");
+
 		if (optIsFulfilled != null)
 			sql += " AND is_fulfilled = " + (optIsFulfilled ? "TRUE" : "FALSE");
+
 		sql += " ORDER BY ordered";
 		if (reverse != null && reverse)
 			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		List<OrderData> orders = new ArrayList<OrderData>();
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey, haveAssetId, wantAssetId)) {
 			if (resultSet == null)
@@ -397,7 +459,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				boolean isFulfilled = resultSet.getBoolean(7);
 
 				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled,
-						price, timestamp, isClosed, isFulfilled);
+						price, timestamp, isClosed, isFulfilled, haveAssetData.getName(), wantAssetData.getName());
 				orders.add(order);
 			} while (resultSet.next());
 

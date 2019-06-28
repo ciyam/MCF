@@ -9,6 +9,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 
 // All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -21,6 +22,10 @@ public class TransferAssetTransactionData extends TransactionData {
 	private BigDecimal amount;
 	private long assetId;
 
+	// Used by API - not always present
+	@Schema(accessMode = AccessMode.READ_ONLY)
+	protected String assetName;
+
 	// Constructors
 
 	// For JAXB
@@ -32,16 +37,25 @@ public class TransferAssetTransactionData extends TransactionData {
 		this.creatorPublicKey = this.senderPublicKey;
 	}
 
+	/** Constructs using data from repository, including optional assetName. */
 	public TransferAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
-			long assetId, BigDecimal fee, byte[] signature) {
+			long assetId, BigDecimal fee, String assetName, byte[] signature) {
 		super(TransactionType.TRANSFER_ASSET, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
 
 		this.senderPublicKey = senderPublicKey;
 		this.recipient = recipient;
 		this.amount = amount;
 		this.assetId = assetId;
+		this.assetName = assetName;
 	}
 
+	/** Constructs using data from repository, excluding optional assetName. */
+	public TransferAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
+			long assetId, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, assetId, fee, null, signature);
+	}
+
+	/** Constructs using data typically received over network. */
 	public TransferAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, String recipient, BigDecimal amount,
 			long assetId, BigDecimal fee) {
 		this(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, assetId, fee, null);

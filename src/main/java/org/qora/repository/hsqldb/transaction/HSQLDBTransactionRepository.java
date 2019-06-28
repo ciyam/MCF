@@ -535,18 +535,30 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	@Override
 	public List<TransferAssetTransactionData> getAssetTransfers(long assetId, String address, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
-		String sql = "SELECT creation, tx_group_id, reference, fee, signature, sender, recipient, amount FROM TransferAssetTransactions "
-				+ "JOIN Transactions USING (signature) "
-				+ "JOIN Accounts ON public_key = sender "
-				+ "WHERE asset_id = ? AND ? IN (account, recipient) "
-				+ "ORDER by creation ";
+		List<Object> bindParams = new ArrayList<>(3);
+
+		String sql = "SELECT creation, tx_group_id, reference, fee, signature, sender, recipient, amount, asset_name "
+				+ "FROM TransferAssetTransactions JOIN Transactions USING (signature) ";
+
+		if (address != null)
+			sql += "JOIN Accounts ON public_key = sender ";
+
+		sql += "JOIN Assets USING (asset_id) WHERE asset_id = ? ";
+		bindParams.add(assetId);
+
+		if (address != null) {
+			sql += "AND ? IN (account, recipient) ";
+			bindParams.add(address);
+		}
+
+		sql += "ORDER by creation ";
 
 		sql += (reverse == null || !reverse) ? "ASC" : "DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
 		List<TransferAssetTransactionData> assetTransfers = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetId, address)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
 			if (resultSet == null)
 				return assetTransfers;
 
@@ -559,8 +571,9 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 				byte[] creatorPublicKey = resultSet.getBytes(6);
 				String recipient = resultSet.getString(7);
 				BigDecimal amount = resultSet.getBigDecimal(8);
+				String assetName = resultSet.getString(9);
 
-				assetTransfers.add(new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, signature));
+				assetTransfers.add(new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, assetName, signature));
 			} while (resultSet.next());
 
 			return assetTransfers;

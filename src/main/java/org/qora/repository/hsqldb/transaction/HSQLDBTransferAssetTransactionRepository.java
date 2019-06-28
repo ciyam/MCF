@@ -17,16 +17,18 @@ public class HSQLDBTransferAssetTransactionRepository extends HSQLDBTransactionR
 	}
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT recipient, asset_id, amount FROM TransferAssetTransactions WHERE signature = ?", signature)) {
+		String sql = "SELECT recipient, asset_id, amount, asset_name FROM TransferAssetTransactions JOIN Assets USING (asset_id) WHERE signature = ?";
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			if (resultSet == null)
 				return null;
 
 			String recipient = resultSet.getString(1);
 			long assetId = resultSet.getLong(2);
 			BigDecimal amount = resultSet.getBigDecimal(3);
+			String assetName = resultSet.getString(4);
 
-			return new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, signature);
+			return new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, assetName, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transfer asset transaction from repository", e);
 		}
