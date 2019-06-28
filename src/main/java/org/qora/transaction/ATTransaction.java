@@ -15,7 +15,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.transform.TransformationException;
-import org.qora.transform.transaction.ATTransactionTransformer;
+import org.qora.transform.transaction.AtTransactionTransformer;
 
 import com.google.common.primitives.Bytes;
 
@@ -38,7 +38,7 @@ public class ATTransaction extends Transaction {
 		if (this.atTransactionData.getSignature() == null) {
 			// Signature is SHA2-256 of serialized transaction data, duplicated to make standard signature size of 64 bytes.
 			try {
-				byte[] digest = Crypto.digest(ATTransactionTransformer.toBytes(transactionData));
+				byte[] digest = Crypto.digest(AtTransactionTransformer.toBytes(transactionData));
 				byte[] signature = Bytes.concat(digest, digest);
 				this.atTransactionData.setSignature(signature);
 			} catch (TransformationException e) {

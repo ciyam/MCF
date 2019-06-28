@@ -45,7 +45,7 @@ import org.qora.repository.RepositoryManager;
 import org.qora.repository.hsqldb.HSQLDBRepositoryFactory;
 import org.qora.transform.TransformationException;
 import org.qora.transform.block.BlockTransformer;
-import org.qora.transform.transaction.ATTransactionTransformer;
+import org.qora.transform.transaction.AtTransactionTransformer;
 import org.qora.utils.Base58;
 import org.qora.utils.Pair;
 import org.qora.utils.Triple;
@@ -498,7 +498,7 @@ public class v1feeder extends Thread {
 					TransactionData transactionData = new ATTransactionData(sender, recipient, amount, Asset.QORA, message, fee, timestamp, reference);
 					byte[] digest;
 					try {
-						digest = Crypto.digest(ATTransactionTransformer.toBytes(transactionData));
+						digest = Crypto.digest(AtTransactionTransformer.toBytes(transactionData));
 						byte[] signature = Bytes.concat(digest, digest);
 
 						transactionData = new ATTransactionData(sender, recipient, amount, Asset.QORA, message, fee, timestamp, reference, signature);

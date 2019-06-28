@@ -10,9 +10,9 @@ import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
 import org.qora.repository.hsqldb.HSQLDBSaver;
 
-public class HSQLDBCancelOrderTransactionRepository extends HSQLDBTransactionRepository {
+public class HSQLDBCancelAssetOrderTransactionRepository extends HSQLDBTransactionRepository {
 
-	public HSQLDBCancelOrderTransactionRepository(HSQLDBRepository repository) {
+	public HSQLDBCancelAssetOrderTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
 	}
 

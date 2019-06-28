@@ -35,6 +35,7 @@ public abstract class Transaction {
 
 	// Transaction types
 	public enum TransactionType {
+		// NOTE: must be contiguous or reflection fails
 		GENESIS(1),
 		PAYMENT(2),
 		REGISTER_NAME(3),
@@ -71,6 +72,8 @@ public abstract class Transaction {
 		public final int value;
 		public final String valueString;
 		public final String className;
+		public final Class<?> clazz;
+		public final Constructor<?> constructor;
 
 		private final static Map<Integer, TransactionType> map = stream(TransactionType.values()).collect(toMap(type -> type.value, type -> type));
 
@@ -84,18 +87,29 @@ public abstract class Transaction {
 				classNameParts[i] = classNameParts[i].substring(0, 1).toUpperCase().concat(classNameParts[i].substring(1));
 
 			this.className = String.join("", classNameParts);
+
+			Class<?> clazz = null;
+			try {
+				clazz = Class.forName(String.join("", Transaction.class.getPackage().getName(), ".", this.className, "Transaction"));
+			} catch (ClassNotFoundException e) {
+				LOGGER.debug(String.format("Transaction subclass not found for transaction type \"%s\"", this.name()));
+				this.clazz = null;
+				this.constructor = null;
+				return;
+			}
+			this.clazz = clazz;
+
+			Constructor<?> constructor = null;
+			try {
+				constructor = this.clazz.getConstructor(Repository.class, TransactionData.class);
+			} catch (NoSuchMethodException | SecurityException e) {
+				LOGGER.debug(String.format("Transaction subclass constructor not found for transaction type \"%s\"", this.name()));
+			}
+			this.constructor = constructor;
 		}
 
 		public static TransactionType valueOf(int value) {
 			return map.get(value);
-		}
-	}
-
-	public static Class<?> getClassByTxType(TransactionType txType) {
-		try {
-			return Class.forName(String.join("", Transaction.class.getPackage().getName(), ".", txType.className, "Transaction"));
-		} catch (ClassNotFoundException e) {
-			return null;
 		}
 	}
 
@@ -207,13 +221,13 @@ public abstract class Transaction {
 		TransactionType type = transactionData.getType();
 
 		try {
-			Class<?> transactionClass = Transaction.getClassByTxType(type);
-			if (transactionClass == null)
+			Constructor<?> constructor = type.constructor;
+
+			if (constructor == null)
 				throw new IllegalStateException("Unsupported transaction type [" + type.value + "] during fetch from repository");
 
-			Constructor<?> constructor = transactionClass.getConstructor(Repository.class, TransactionData.class);
 			return (Transaction) constructor.newInstance(repository, transactionData);
-		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
+		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
 			throw new IllegalStateException("Internal error with transaction type [" + type.value + "] during fetch from repository");
 		}
 	}
