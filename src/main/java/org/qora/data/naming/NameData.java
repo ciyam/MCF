@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -15,6 +18,9 @@ public class NameData {
 	private String data;
 	private long registered;
 	private Long updated;
+	// No need to expose this via API
+	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] reference;
 	private boolean isForSale;
 	private BigDecimal salePrice;

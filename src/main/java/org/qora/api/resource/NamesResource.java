@@ -350,4 +350,34 @@ public class NamesResource {
 		}
 	}
 
+	@GET
+	@Path("/forsale")
+	@Operation(
+		summary = "List all registered names up for sale",
+		responses = {
+			@ApiResponse(
+				description = "registered name info",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					array = @ArraySchema(schema = @Schema(implementation = NameData.class))
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<NameData> getNamesForSale(@Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<NameData> names = repository.getNameRepository().getNamesForSale();
+
+			// Pagination would take effect here (or as part of the repository access)
+			int fromIndex = Integer.min(offset, names.size());
+			int toIndex = limit == 0 ? names.size() : Integer.min(fromIndex + limit, names.size());
+			names = names.subList(fromIndex, toIndex);
+
+			return names;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 }

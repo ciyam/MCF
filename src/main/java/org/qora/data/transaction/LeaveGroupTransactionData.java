@@ -24,10 +24,12 @@ public class LeaveGroupTransactionData extends TransactionData {
 	/** Reference to transaction that triggered membership. */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] memberReference;
 	/** Reference to transaction that triggered adminship. */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] adminReference;
 
 	// Constructors

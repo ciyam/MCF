@@ -28,6 +28,7 @@ public class GroupInviteTransactionData extends TransactionData {
 	/** Reference to JOIN_GROUP transaction, used to rebuild this join request during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] joinReference;
 
 	// Constructors

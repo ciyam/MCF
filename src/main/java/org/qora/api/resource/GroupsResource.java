@@ -680,7 +680,7 @@ public class GroupsResource {
 	}
 
 	@GET
-	@Path("/invites/{groupid}")
+	@Path("/invites/{address}")
 	@Operation(
 		summary = "Pending group invites",
 		responses = {
@@ -688,15 +688,38 @@ public class GroupsResource {
 				description = "group invite",
 				content = @Content(
 					mediaType = MediaType.APPLICATION_JSON,
-					schema = @Schema(implementation = GroupInviteData.class)
+					array = @ArraySchema(schema = @Schema(implementation = GroupInviteData.class))
 				)
 			)
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<GroupInviteData> getInvites(@PathParam("groupid") int groupId) {
+	public List<GroupInviteData> getInvitesByInvitee(@PathParam("address") String invitee) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getGroupRepository().getGroupInvites(groupId);
+			return repository.getGroupRepository().getInvitesByInvitee(invitee);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/invites/group/{groupid}")
+	@Operation(
+		summary = "Pending group invites",
+		responses = {
+			@ApiResponse(
+				description = "group invite",
+				content = @Content(
+					mediaType = MediaType.APPLICATION_JSON,
+					array = @ArraySchema(schema = @Schema(implementation = GroupInviteData.class))
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public List<GroupInviteData> getInvitesByGroupId(@PathParam("groupid") int groupId) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getGroupRepository().getInvitesByGroupId(groupId);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -711,7 +734,7 @@ public class GroupsResource {
 				description = "group join requests",
 				content = @Content(
 					mediaType = MediaType.APPLICATION_JSON,
-					schema = @Schema(implementation = GroupJoinRequestData.class)
+					array = @ArraySchema(schema = @Schema(implementation = GroupJoinRequestData.class))
 				)
 			)
 		}
@@ -734,7 +757,7 @@ public class GroupsResource {
 				description = "group bans",
 				content = @Content(
 					mediaType = MediaType.APPLICATION_JSON,
-					schema = @Schema(implementation = GroupJoinRequestData.class)
+					array = @ArraySchema(schema = @Schema(implementation = GroupJoinRequestData.class))
 				)
 			)
 		}

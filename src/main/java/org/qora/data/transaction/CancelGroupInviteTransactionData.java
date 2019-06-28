@@ -26,6 +26,7 @@ public class CancelGroupInviteTransactionData extends TransactionData {
 	/** Reference to GROUP_INVITE transaction, used to rebuild invite during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] inviteReference;
 
 	// Constructors

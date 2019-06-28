@@ -4,6 +4,8 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 public class GroupMemberData {
@@ -15,6 +17,7 @@ public class GroupMemberData {
 	/** Reference to transaction that triggered membership. Could be JOIN_GROUP, GROUP_INVITE, CREATE_GROUP or others... */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] reference;
 
 	// Constructors

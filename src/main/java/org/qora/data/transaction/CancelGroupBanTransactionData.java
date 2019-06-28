@@ -26,6 +26,7 @@ public class CancelGroupBanTransactionData extends TransactionData {
 	/** Reference to GROUP_BAN transaction, used to rebuild ban during orphaning. */
 	// No need to ever expose this via API
 	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] banReference;
 
 	// Constructors

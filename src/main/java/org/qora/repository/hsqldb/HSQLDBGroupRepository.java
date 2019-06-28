@@ -425,7 +425,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupInviteData> getGroupInvites(int groupId) throws DataException {
+	public List<GroupInviteData> getInvitesByGroupId(int groupId) throws DataException {
 		List<GroupInviteData> invites = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT inviter, invitee, expiry, reference FROM GroupInvites WHERE group_id = ?", groupId)) {
