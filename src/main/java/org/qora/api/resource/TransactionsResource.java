@@ -366,6 +366,8 @@ public class TransactionsResource {
 			byte[] rawBytes = Bytes.concat(signRequest.transactionBytes, new byte[TransactionTransformer.SIGNATURE_LENGTH]);
 
 			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 			PrivateKeyAccount signer = new PrivateKeyAccount(null, signRequest.privateKey);
 
@@ -417,6 +419,8 @@ public class TransactionsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			byte[] rawBytes = Base58.decode(rawBytes58);
 			TransactionData transactionData = TransactionTransformer.fromBytes(rawBytes);
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 			if (!transaction.isSignatureValid())
@@ -488,6 +492,9 @@ public class TransactionsResource {
 				hasSignature = false;
 				transactionData = TransactionTransformer.fromBytes(rawBytes);
 			}
+
+			if (transactionData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_DATA);
 
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 

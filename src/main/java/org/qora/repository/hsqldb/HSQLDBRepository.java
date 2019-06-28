@@ -340,6 +340,18 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	/**
+	 * Delete all rows from database table.
+	 * 
+	 * @param tableName
+	 * @throws SQLException
+	 */
+	public int delete(String tableName) throws SQLException {
+		try (PreparedStatement preparedStatement = this.connection.prepareStatement("DELETE FROM " + tableName)) {
+			return this.checkedExecuteUpdateCount(preparedStatement);
+		}
+	}
+
+	/**
 	 * Returns additional SQL "LIMIT" and "OFFSET" clauses.
 	 * <p>
 	 * (Convenience method for HSQLDB repository subclasses).

@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -93,7 +93,7 @@ public class BlockGenerator extends Thread {
 				}
 
 				// Make sure we're the only thread modifying the blockchain
-				Lock blockchainLock = Controller.getInstance().getBlockchainLock();
+				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 				if (blockchainLock.tryLock())
 					generation: try {
 						List<Block> goodBlocks = new ArrayList<>();
@@ -244,30 +244,30 @@ public class BlockGenerator extends Thread {
 		Block newBlock = new Block(repository, previousBlockData, generator);
 
 		// Make sure we're the only thread modifying the blockchain
-		Lock blockchainLock = Controller.getInstance().getBlockchainLock();
-		if (blockchainLock.tryLock())
-			try {
-				// Delete invalid transactions
-				deleteInvalidTransactions(repository);
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		blockchainLock.lock();
+		try {
+			// Delete invalid transactions
+			deleteInvalidTransactions(repository);
 
-				// Add unconfirmed transactions
-				addUnconfirmedTransactions(repository, newBlock);
+			// Add unconfirmed transactions
+			addUnconfirmedTransactions(repository, newBlock);
 
-				// Sign to create block's signature
-				newBlock.sign();
+			// Sign to create block's signature
+			newBlock.sign();
 
-				// Is newBlock still valid?
-				ValidationResult validationResult = newBlock.isValid();
-				if (validationResult != ValidationResult.OK)
-					throw new IllegalStateException(
-							"Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
+			// Is newBlock still valid?
+			ValidationResult validationResult = newBlock.isValid();
+			if (validationResult != ValidationResult.OK)
+				throw new IllegalStateException(
+						"Valid, generated block now invalid '" + validationResult.name() + "' after adding unconfirmed transactions?");
 
-				// Add to blockchain
-				newBlock.process();
-				repository.saveChanges();
-			} finally {
-				blockchainLock.unlock();
-			}
+			// Add to blockchain
+			newBlock.process();
+			repository.saveChanges();
+		} finally {
+			blockchainLock.unlock();
+		}
 	}
 
 }

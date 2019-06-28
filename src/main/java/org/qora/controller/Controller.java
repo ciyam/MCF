@@ -10,7 +10,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.logging.log4j.LogManager;
@@ -66,7 +65,7 @@ public class Controller extends Thread {
 	private final long buildTimestamp;
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly generated block. */
-	private final Lock blockchainLock;
+	private final ReentrantLock blockchainLock;
 
 	private Controller() {
 		Properties properties = new Properties();
@@ -126,7 +125,7 @@ public class Controller extends Thread {
 		}
 	}
 
-	public Lock getBlockchainLock() {
+	public ReentrantLock getBlockchainLock() {
 		return this.blockchainLock;
 	}
 

@@ -3,7 +3,7 @@ package org.qora.controller;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -48,7 +48,7 @@ public class Synchronizer {
 	public boolean synchronize(Peer peer) {
 		// Make sure we're the only thread modifying the blockchain
 		// If we're already synchronizing with another peer then this will also return fast
-		Lock blockchainLock = Controller.getInstance().getBlockchainLock();
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 		if (blockchainLock.tryLock())
 			try {
 				try (final Repository repository = RepositoryManager.getRepository()) {
@@ -67,6 +67,8 @@ public class Synchronizer {
 
 						// First signature is common block
 						BlockData commonBlockData = this.repository.getBlockRepository().fromSignature(signatures.get(0));
+						int commonBlockHeight = commonBlockData.getHeight();
+						LOGGER.info(String.format("Common block with peer %s is at height %d", peer, commonBlockHeight));
 						signatures.remove(0);
 
 						// If common block is too far behind us then we're on massively different forks so give up.
@@ -74,6 +76,42 @@ public class Synchronizer {
 						if (commonBlockData.getHeight() < minHeight) {
 							LOGGER.info(String.format("Blockchain too divergent with peer %s", peer));
 							return false;
+						}
+
+						// If we have blocks after common block then decide whether we want to sync (lowest block signature wins)
+						for (int height = commonBlockHeight + 1; height <= peerHeight && height <= this.ourHeight; ++height) {
+							int sigIndex = height - commonBlockHeight - 1;
+
+							// Do we need more signatures?
+							if (signatures.size() - 1 < sigIndex) {
+								// Grab more signatures
+								byte[] previousSignature = sigIndex == 0 ? commonBlockData.getSignature() : signatures.get(sigIndex - 1);
+								List<byte[]> moreSignatures = this.getBlockSignatures(peer, previousSignature, MAXIMUM_BLOCK_STEP);
+								if (moreSignatures == null || moreSignatures.isEmpty()) {
+									LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d", peer, height - 1));
+									return false;
+								}
+
+								signatures.addAll(moreSignatures);
+							}
+
+							byte[] ourSignature = this.repository.getBlockRepository().fromHeight(height).getSignature();
+							byte[] peerSignature = signatures.get(sigIndex);
+
+							for (int i = 0; i < ourSignature.length; ++i) {
+								/*
+								 * If our byte is lower, we don't synchronize with this peer,
+								 * if their byte is lower, check next height,
+								 * (if bytes are equal, try next byte).
+								 */
+								if (ourSignature[i] < peerSignature[i]) {
+									LOGGER.info(String.format("Not synchronizing with peer %s as we have better block at height %d", peer, height));
+									return false;
+								}
+
+								if (peerSignature[i] < ourSignature[i])
+									break;
+							}
 						}
 
 						if (this.ourHeight > commonBlockData.getHeight()) {
@@ -217,6 +255,7 @@ public class Synchronizer {
 			BlockData blockData = this.repository.getBlockRepository().fromSignature(blockSignatures.get(i));
 
 			if (blockData != null) {
+				// Note: index i isn't cleared: List.subList is fromIndex inclusive to toIndex exclusive
 				blockSignatures.subList(0, i).clear();
 				break;
 			}
