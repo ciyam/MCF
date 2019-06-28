@@ -8,6 +8,7 @@ import java.io.Reader;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
+import javax.xml.bind.UnmarshalException;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -15,6 +16,7 @@ import javax.xml.transform.stream.StreamSource;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.eclipse.persistence.exceptions.XMLMarshalException;
 import org.eclipse.persistence.jaxb.JAXBContextFactory;
 import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qora.block.BlockChain;
@@ -112,6 +114,16 @@ public class Settings {
 			} catch (FileNotFoundException e) {
 				LOGGER.error("Settings file not found: " + path + filename);
 				throw new RuntimeException("Settings file not found: " + path + filename);
+			} catch (UnmarshalException e) {
+				Throwable linkedException = e.getLinkedException();
+				if (linkedException instanceof XMLMarshalException) {
+					String message = ((XMLMarshalException) linkedException).getInternalException().getLocalizedMessage();
+					LOGGER.error(message);
+					throw new RuntimeException(message);
+				}
+
+				LOGGER.error("Unable to process settings file", e);
+				throw new RuntimeException("Unable to process settings file", e);
 			} catch (JAXBException e) {
 				LOGGER.error("Unable to process settings file", e);
 				throw new RuntimeException("Unable to process settings file", e);
