@@ -55,7 +55,7 @@ public class NewTradingTests extends Common {
 		// Alice should be -testAmount, +qoraAmount
 		// Bob should be -qoraAmount, +testAmount
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	@Test
@@ -90,7 +90,7 @@ public class NewTradingTests extends Common {
 		// Alice should be -testAmount, +otherAmount
 		// Bob should be -otherAmount, +testAmount
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	/**
@@ -145,7 +145,7 @@ public class NewTradingTests extends Common {
 		final BigDecimal aliceReturn = qoraAmount;
 		final BigDecimal bobReturn = otherAmount;
 
-		AssetUtils.genericTradeTest(otherAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(otherAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	/**
@@ -190,7 +190,7 @@ public class NewTradingTests extends Common {
 		final BigDecimal aliceReturn = bobAmount; // riches
 		final BigDecimal bobReturn = bobAmount.multiply(alicePrice).setScale(8); // rags
 
-		AssetUtils.genericTradeTest(ragsAssetId, richesAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(ragsAssetId, richesAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	/**
@@ -257,7 +257,7 @@ public class NewTradingTests extends Common {
 		final BigDecimal aliceReturn = aliceAmount; // riches
 		final BigDecimal bobReturn = aliceAmount.multiply(alicePrice).setScale(8);
 
-		AssetUtils.genericTradeTest(ragsAssetId, richesAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(ragsAssetId, richesAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	/**
@@ -292,7 +292,57 @@ public class NewTradingTests extends Common {
 		final BigDecimal aliceReturn = new BigDecimal("24.00000000").setScale(8); // OTHER
 		final BigDecimal bobReturn = new BigDecimal("1.99999992").setScale(8); // TEST
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
+	}
+
+	/**
+	 * Check matching of orders with price improvement.
+	 */
+	@Test
+	public void testSimplePriceImprovement() throws DataException {
+		long otherAssetId;
+		try (Repository repository = RepositoryManager.getRepository()) {
+			otherAssetId = AssetUtils.issueAsset(repository, "bob", "OTHER", 5000L, true);
+		}
+
+		// Alice is buying OTHER
+		final BigDecimal aliceAmount = new BigDecimal("100").setScale(8); // OTHER
+		final BigDecimal alicePrice = new BigDecimal("0.3").setScale(8); // TEST/OTHER
+		final BigDecimal aliceCommitment = new BigDecimal("30").setScale(8); // 100 * 0.3 = 30 TEST
+
+		// Bob is selling OTHER
+		final BigDecimal bobAmount = new BigDecimal("100").setScale(8); // OTHER
+		final BigDecimal bobPrice = new BigDecimal("0.2").setScale(8); // TEST/OTHER
+		final BigDecimal bobCommitment = new BigDecimal("100").setScale(8); // OTHER
+
+		// Expected traded amounts
+		final BigDecimal aliceReturn = new BigDecimal("100").setScale(8); // OTHER
+		final BigDecimal bobReturn = new BigDecimal("30").setScale(8); // TEST
+
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
+	}
+
+	/**
+	 * Check matching of orders with price improvement.
+	 */
+	@Test
+	public void testSimplePriceImprovementInverted() throws DataException {
+		// Alice is seller TEST
+		final BigDecimal aliceAmount = new BigDecimal("100").setScale(8); // TEST
+		final BigDecimal alicePrice = new BigDecimal("2").setScale(8); // QORA/TEST
+		final BigDecimal aliceCommitment = new BigDecimal("100").setScale(8); // TEST
+
+		// Bob is buying TEST
+		final BigDecimal bobAmount = new BigDecimal("50").setScale(8); // TEST
+		final BigDecimal bobPrice = new BigDecimal("3").setScale(8); // QORA/TEST
+		final BigDecimal bobCommitment = new BigDecimal("150").setScale(8); // 50 * 3 = 150 QORA
+
+		// Expected traded amounts
+		final BigDecimal aliceReturn = new BigDecimal("100").setScale(8); // 50 * 2 = 100 QORA
+		final BigDecimal bobReturn = new BigDecimal("50").setScale(8); // 50 TEST
+		final BigDecimal bobSaving = new BigDecimal("50").setScale(8); // 50 * (3 - 2) = 50 QORA
+
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, bobSaving);
 	}
 
 	/**
@@ -333,12 +383,12 @@ public class NewTradingTests extends Common {
 			// We're expecting Alice's order to match with Chloe's order (as Bob's and Dilberts's orders have worse prices)
 			BigDecimal matchedQoraAmount = matchingTestAssetAmount.multiply(bestPrice).setScale(8, RoundingMode.DOWN);
 			BigDecimal tradedTestAssetAmount = matchingTestAssetAmount;
-			// Due to price improvement, Alice should get back some of her TEST
-			BigDecimal testRefund = minimalPrice.subtract(bestPrice).abs().multiply(matchedQoraAmount).setScale(8, RoundingMode.DOWN);
+			// NO refund due to price improvement - Alice receives more QORA back than she was expecting
+			BigDecimal aliceSaving = BigDecimal.ZERO;
 
 			// Alice TEST
 			BigDecimal aliceCommitment = matchingTestAssetAmount;
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId).subtract(aliceCommitment).add(testRefund);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId).subtract(aliceCommitment).add(aliceSaving);
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
 
 			// Alice QORA
@@ -437,11 +487,11 @@ public class NewTradingTests extends Common {
 			BigDecimal matchedOtherAmount = aliceOtherAmount;
 			BigDecimal tradedTestAmount = aliceOtherAmount.multiply(bestPrice).setScale(8, RoundingMode.DOWN);
 			// Due to price improvement, Alice should get back some of her TEST
-			BigDecimal testRefund = maximalPrice.subtract(bestPrice).abs().multiply(matchedOtherAmount).setScale(8, RoundingMode.DOWN);
+			BigDecimal aliceSaving = maximalPrice.subtract(bestPrice).abs().multiply(matchedOtherAmount).setScale(8, RoundingMode.DOWN);
 
 			// Alice TEST
 			BigDecimal aliceCommitment = aliceOtherAmount.multiply(maximalPrice).setScale(8, RoundingMode.DOWN);
-			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId).subtract(aliceCommitment).add(testRefund);
+			expectedBalance = initialBalances.get("alice").get(AssetUtils.testAssetId).subtract(aliceCommitment).add(aliceSaving);
 			AccountUtils.assertBalance(repository, "alice", AssetUtils.testAssetId, expectedBalance);
 
 			// Alice OTHER
@@ -517,7 +567,7 @@ public class NewTradingTests extends Common {
 		final BigDecimal aliceReturn = BigDecimal.ZERO;
 		final BigDecimal bobReturn = BigDecimal.ZERO;
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 	/**
@@ -550,7 +600,7 @@ public class NewTradingTests extends Common {
 		final BigDecimal aliceReturn = BigDecimal.ZERO;
 		final BigDecimal bobReturn = BigDecimal.ZERO;
 
-		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, otherAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn, BigDecimal.ZERO);
 	}
 
 }

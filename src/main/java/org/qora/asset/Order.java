@@ -413,8 +413,8 @@ public class Order {
 			BigDecimal tradedWantAmount = (isOurOrderNewPricing && haveAssetId > wantAssetId) ? returnAmountTraded : matchedAmount;
 			BigDecimal tradedHaveAmount = (isOurOrderNewPricing && haveAssetId > wantAssetId) ? matchedAmount : returnAmountTraded;
 
-			// We also need to know how much have-asset to refund based on price improvement ('new' pricing only)
-			BigDecimal haveAssetRefund = !isOurOrderNewPricing ? BigDecimal.ZERO : ourPrice.subtract(theirPrice).abs().multiply(tradedWantAmount).setScale(8, RoundingMode.DOWN);
+			// We also need to know how much have-asset to refund based on price improvement ('new' pricing only and only one direction applies)
+			BigDecimal haveAssetRefund = isOurOrderNewPricing && haveAssetId < wantAssetId ? ourPrice.subtract(theirPrice).abs().multiply(matchedAmount).setScale(8, RoundingMode.DOWN) : BigDecimal.ZERO;
 
 			LOGGER.trace(String.format("We traded %s %s (have-asset) for %s %s (want-asset), saving %s %s (have-asset)",
 					tradedHaveAmount.toPlainString(), haveAssetData.getName(),
