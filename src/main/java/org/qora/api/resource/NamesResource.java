@@ -68,15 +68,12 @@ public class NamesResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<NameSummary> getAllNames(@Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+	public List<NameSummary> getAllNames(@Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<NameData> names = repository.getNameRepository().getAllNames();
+			List<NameData> names = repository.getNameRepository().getAllNames(limit, offset, reverse);
 
-			// Pagination would take effect here (or as part of the repository access)
-			int fromIndex = Integer.min(offset, names.size());
-			int toIndex = limit == 0 ? names.size() : Integer.min(fromIndex + limit, names.size());
-			names = names.subList(fromIndex, toIndex);
-
+			// Convert to summary
 			return names.stream().map(nameData -> new NameSummary(nameData)).collect(Collectors.toList());
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
@@ -98,12 +95,13 @@ public class NamesResource {
 		}
 	)
 	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public List<NameSummary> getNamesByAddress(@PathParam("address") String address) {
+	public List<NameSummary> getNamesByAddress(@PathParam("address") String address, @Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
 		if (!Crypto.isValidAddress(address))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<NameData> names = repository.getNameRepository().getNamesByOwner(address);
+			List<NameData> names = repository.getNameRepository().getNamesByOwner(address, limit, offset, reverse);
 
 			return names.stream().map(nameData -> new NameSummary(nameData)).collect(Collectors.toList());
 		} catch (DataException e) {
@@ -365,16 +363,10 @@ public class NamesResource {
 		}
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<NameData> getNamesForSale(@Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+	public List<NameData> getNamesForSale(@Parameter(ref = "limit") @QueryParam("limit") Integer limit, @Parameter(ref = "offset") @QueryParam("offset") Integer offset,
+			@Parameter(ref="reverse") @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<NameData> names = repository.getNameRepository().getNamesForSale();
-
-			// Pagination would take effect here (or as part of the repository access)
-			int fromIndex = Integer.min(offset, names.size());
-			int toIndex = limit == 0 ? names.size() : Integer.min(fromIndex + limit, names.size());
-			names = names.subList(fromIndex, toIndex);
-
-			return names;
+			return repository.getNameRepository().getNamesForSale(limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

@@ -95,11 +95,15 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupData> getAllGroups() throws DataException {
+	public List<GroupData> getAllGroups(Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open FROM Groups ORDER BY group_name";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<GroupData> groups = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_id, owner, group_name, description, created, updated, reference, is_open FROM Groups")) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return groups;
 
@@ -127,11 +131,15 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupData> getGroupsByOwner(String owner) throws DataException {
+	public List<GroupData> getGroupsByOwner(String owner, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT group_id, group_name, description, created, updated, reference, is_open FROM Groups WHERE owner = ? ORDER BY group_name";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<GroupData> groups = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_id, group_name, description, created, updated, reference, is_open FROM Groups WHERE owner = ?", owner)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, owner)) {
 			if (resultSet == null)
 				return groups;
 
@@ -158,12 +166,15 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupData> getGroupsWithMember(String member) throws DataException {
+	public List<GroupData> getGroupsWithMember(String member, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open FROM Groups JOIN GroupMembers USING (group_id) WHERE address = ? ORDER BY group_name";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<GroupData> groups = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT group_id, owner, group_name, description, created, updated, reference, is_open FROM Groups JOIN GroupMembers USING (group_id) WHERE address = ?",
-				member)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, member)) {
 			if (resultSet == null)
 				return groups;
 
@@ -266,10 +277,15 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupAdminData> getGroupAdmins(int groupId) throws DataException {
+	public List<GroupAdminData> getGroupAdmins(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT admin, reference FROM GroupAdmins WHERE group_id = ? ORDER BY admin";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<GroupAdminData> admins = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT admin, reference FROM GroupAdmins WHERE group_id = ?", groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
 				return admins;
 
@@ -283,6 +299,21 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			return admins;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group admins from repository", e);
+		}
+	}
+
+	@Override
+	public Integer countGroupAdmins(int groupId) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT COUNT(*) FROM GroupAdmins WHERE group_id = ?", groupId)) {
+			int count = resultSet.getInt(1);
+
+			if (count == 0)
+				// There must be at least one admin: the group owner
+				return null;
+
+			return count;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch group admin count from repository", e);
 		}
 	}
 
@@ -336,10 +367,15 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupMemberData> getGroupMembers(int groupId) throws DataException {
+	public List<GroupMemberData> getGroupMembers(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT address, joined, reference FROM GroupMembers WHERE group_id = ? ORDER BY address";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<GroupMemberData> members = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT address, joined, reference FROM GroupMembers WHERE group_id = ?", groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
 				return members;
 
@@ -359,13 +395,14 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public Integer countGroupMembers(int groupId) throws DataException {
-		// "GROUP BY" clause required to avoid error "expression not in aggregate or GROUP BY columns: PUBLIC.GROUPS.GROUP_ID"
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, COUNT(*) FROM GroupMembers WHERE group_id = ? GROUP BY group_id",
-				groupId)) {
-			if (resultSet == null)
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT COUNT(*) FROM GroupMembers WHERE group_id = ?", groupId)) {
+			int count = resultSet.getInt(1);
+
+			if (count == 0)
+				// There must be at least one member: the group owner
 				return null;
 
-			return resultSet.getInt(2);
+			return count;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group member count from repository", e);
 		}
@@ -425,10 +462,15 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupInviteData> getInvitesByGroupId(int groupId) throws DataException {
+	public List<GroupInviteData> getInvitesByGroupId(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT inviter, invitee, expiry, reference FROM GroupInvites WHERE group_id = ? ORDER BY invitee";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<GroupInviteData> invites = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT inviter, invitee, expiry, reference FROM GroupInvites WHERE group_id = ?", groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
 				return invites;
 
@@ -451,10 +493,15 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupInviteData> getInvitesByInvitee(String invitee) throws DataException {
+	public List<GroupInviteData> getInvitesByInvitee(String invitee, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT group_id, inviter, expiry, reference FROM GroupInvites WHERE invitee = ? ORDER BY group_id";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<GroupInviteData> invites = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, inviter, expiry, reference FROM GroupInvites WHERE invitee = ?", invitee)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, invitee)) {
 			if (resultSet == null)
 				return invites;
 
@@ -530,10 +577,15 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupJoinRequestData> getGroupJoinRequests(int groupId) throws DataException {
+	public List<GroupJoinRequestData> getGroupJoinRequests(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT joiner, reference FROM GroupJoinRequests WHERE group_id = ? ORDER BY joiner";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<GroupJoinRequestData> joinRequests = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT joiner, reference FROM GroupJoinRequests WHERE group_id = ?", groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
 				return joinRequests;
 
@@ -604,11 +656,15 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	}
 
 	@Override
-	public List<GroupBanData> getGroupBans(int groupId) throws DataException {
+	public List<GroupBanData> getGroupBans(int groupId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT offender, admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ? ORDER BY offender";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<GroupBanData> bans = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT offender, admin, banned, reason, expiry, reference FROM GroupBans WHERE group_id = ?",
-				groupId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, groupId)) {
 			if (resultSet == null)
 				return bans;
 

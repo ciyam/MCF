@@ -108,10 +108,15 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
-	public List<TransactionData> getTransactionsFromSignature(byte[] signature) throws DataException {
+	public List<TransactionData> getTransactionsFromSignature(byte[] signature, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ? ORDER BY sequence";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<TransactionData> transactions = new ArrayList<TransactionData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT transaction_signature FROM BlockTransactions WHERE block_signature = ?", signature)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, signature)) {
 			if (resultSet == null)
 				return transactions; // No transactions in this block
 

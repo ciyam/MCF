@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,13 +23,15 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.qora.account.Account;
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
+import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
-import org.qora.api.model.AssetWithHolders;
-import org.qora.api.model.OrderWithTrades;
 import org.qora.api.model.TradeWithOrderInfo;
+import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountBalanceData;
+import org.qora.data.account.AccountData;
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
 import org.qora.data.asset.TradeData;
@@ -47,8 +50,12 @@ import org.qora.transform.transaction.IssueAssetTransactionTransformer;
 import org.qora.utils.Base58;
 
 @Path("/assets")
-@Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
-@Tag(name = "Assets")
+@Produces({
+	MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN
+})
+@Tag(
+	name = "Assets"
+)
 public class AssetsResource {
 
 	@Context
@@ -60,21 +67,28 @@ public class AssetsResource {
 		responses = {
 			@ApiResponse(
 				description = "asset info",
-				content = @Content(array = @ArraySchema(schema = @Schema(implementation = AssetData.class)))
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = AssetData.class
+						)
+					)
+				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.REPOSITORY_ISSUE})
-	public List<AssetData> getAllAssets(@Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+	@ApiErrors({
+		ApiError.REPOSITORY_ISSUE
+	})
+	public List<AssetData> getAllAssets(@Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<AssetData> assets = repository.getAssetRepository().getAllAssets();
-
-			// Pagination would take effect here (or as part of the repository access)
-			int fromIndex = Integer.min(offset, assets.size());
-			int toIndex = limit == 0 ? assets.size() : Integer.min(fromIndex + limit, assets.size());
-			assets = assets.subList(fromIndex, toIndex);
-
-			return assets;
+			return repository.getAssetRepository().getAllAssets(limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -88,12 +102,18 @@ public class AssetsResource {
 		responses = {
 			@ApiResponse(
 				description = "asset info",
-				content = @Content(array = @ArraySchema(schema = @Schema(implementation = AssetWithHolders.class)))
+				content = @Content(
+					schema = @Schema(
+						implementation = AssetData.class
+					)
+				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_CRITERIA, ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE})
-	public AssetWithHolders getAssetInfo(@QueryParam("assetId") Integer assetId, @QueryParam("assetName") String assetName, @Parameter(ref = "includeHolders") @QueryParam("includeHolders") boolean includeHolders) {
+	@ApiErrors({
+		ApiError.INVALID_CRITERIA, ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
+	})
+	public AssetData getAssetInfo(@QueryParam("assetId") Integer assetId, @QueryParam("assetName") String assetName) {
 		if (assetId == null && (assetName == null || assetName.isEmpty()))
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
 
@@ -108,31 +128,81 @@ public class AssetsResource {
 			if (assetData == null)
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			List<AccountBalanceData> holders = null;
-			if (includeHolders)
-				holders = repository.getAccountRepository().getAssetBalances(assetData.getAssetId());
-
-			return new AssetWithHolders(assetData, holders);
+			return assetData;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	@GET
-	@Path("/orderbook/{assetId}/{otherAssetId}")
+	@Path("/holders/{assetid}")
+	@Operation(
+		summary = "List holders of an asset",
+		responses = {
+			@ApiResponse(
+				description = "asset holders",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = AccountBalanceData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_CRITERIA, ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
+	})
+	public List<AccountBalanceData> getAssetHolders(@PathParam("assetid") int assetId, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			if (!repository.getAssetRepository().assetExists(assetId))
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
+
+			return repository.getAccountRepository().getAssetBalances(assetId, limit, offset, reverse);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/orderbook/{assetid}/{otherassetid}")
 	@Operation(
 		summary = "Asset order book",
-		description = "Returns open orders, offering {assetId} for {otherAssetId} in return.",
+		description = "Returns open orders, offering {assetid} for {otherassetid} in return.",
 		responses = {
 			@ApiResponse(
 				description = "asset orders",
-				content = @Content(array = @ArraySchema(schema = @Schema(implementation = OrderData.class)))
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = OrderData.class
+						)
+					)
+				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE})
-	public List<OrderData> getAssetOrders(@Parameter(ref = "assetId") @PathParam("assetId") int assetId, @Parameter(ref = "otherAssetId") @PathParam("otherAssetId") int otherAssetId,
-			@Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+	@ApiErrors({
+		ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
+	})
+	public List<OrderData> getAssetOrders(@Parameter(
+		ref = "assetid"
+	) @PathParam("assetid") int assetId, @Parameter(
+		ref = "otherassetid"
+	) @PathParam("otherassetid") int otherAssetId, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			if (!repository.getAssetRepository().assetExists(assetId))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
@@ -140,36 +210,45 @@ public class AssetsResource {
 			if (!repository.getAssetRepository().assetExists(otherAssetId))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			List<OrderData> orders = repository.getAssetRepository().getOpenOrders(assetId, otherAssetId);
-
-			// Pagination would take effect here (or as part of the repository access)
-			int fromIndex = Integer.min(offset, orders.size());
-			int toIndex = limit == 0 ? orders.size() : Integer.min(fromIndex + limit, orders.size());
-			orders = orders.subList(fromIndex, toIndex);
-
-			return orders;
+			return repository.getAssetRepository().getOpenOrders(assetId, otherAssetId, limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
 	@GET
-	@Path("/trades/{assetId}/{otherAssetId}")
+	@Path("/trades/{assetid}/{otherassetid}")
 	@Operation(
 		summary = "Asset trades",
-		description = "Returns successful trades of {assetId} for {otherAssetId}.<br>" +
-						"Does NOT include trades of {otherAssetId} for {assetId}!<br>" +
-						"\"Initiating\" order is the order that caused the actual trade by matching up with the \"target\" order.",
+		description = "Returns successful trades of {assetid} for {otherassetid}.<br>" + "Does NOT include trades of {otherassetid} for {assetid}!<br>"
+				+ "\"Initiating\" order is the order that caused the actual trade by matching up with the \"target\" order.",
 		responses = {
 			@ApiResponse(
 				description = "asset trades",
-				content = @Content(array = @ArraySchema(schema = @Schema(implementation = TradeWithOrderInfo.class)))
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = TradeWithOrderInfo.class
+						)
+					)
+				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE})
-	public List<TradeWithOrderInfo> getAssetTrades(@Parameter(ref = "assetId") @PathParam("assetId") int assetId, @Parameter(ref = "otherAssetId") @PathParam("otherAssetId") int otherAssetId, 
-			@Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+	@ApiErrors({
+		ApiError.INVALID_ASSET_ID, ApiError.REPOSITORY_ISSUE
+	})
+	public List<TradeWithOrderInfo> getAssetTrades(@Parameter(
+		ref = "assetid"
+	) @PathParam("assetid") int assetId, @Parameter(
+		ref = "otherassetid"
+	) @PathParam("otherassetid") int otherAssetId, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			if (!repository.getAssetRepository().assetExists(assetId))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
@@ -177,12 +256,7 @@ public class AssetsResource {
 			if (!repository.getAssetRepository().assetExists(otherAssetId))
 				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ASSET_ID);
 
-			List<TradeData> trades = repository.getAssetRepository().getTrades(assetId, otherAssetId);
-
-			// Pagination would take effect here (or as part of the repository access)
-			int fromIndex = Integer.min(offset, trades.size());
-			int toIndex = limit == 0 ? trades.size() : Integer.min(fromIndex + limit, trades.size());
-			trades = trades.subList(fromIndex, toIndex);
+			List<TradeData> trades = repository.getAssetRepository().getTrades(assetId, otherAssetId, limit, offset, reverse);
 
 			// Expanding remaining entries
 			List<TradeWithOrderInfo> fullTrades = new ArrayList<>();
@@ -199,19 +273,25 @@ public class AssetsResource {
 	}
 
 	@GET
-	@Path("/order/{orderId}")
+	@Path("/order/{orderid}")
 	@Operation(
 		summary = "Fetch asset order",
 		description = "Returns asset order info.",
 		responses = {
 			@ApiResponse(
 				description = "asset order",
-				content = @Content(schema = @Schema(implementation = OrderData.class))
+				content = @Content(
+					schema = @Schema(
+						implementation = OrderData.class
+					)
+				)
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_ORDER_ID, ApiError.ORDER_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
-	public OrderWithTrades getAssetOrder(@PathParam("orderId") String orderId58) {
+	@ApiErrors({
+		ApiError.INVALID_ORDER_ID, ApiError.ORDER_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public OrderData getAssetOrder(@PathParam("orderid") String orderId58) {
 		// Decode orderID
 		byte[] orderId;
 		try {
@@ -223,11 +303,180 @@ public class AssetsResource {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			OrderData orderData = repository.getAssetRepository().fromOrderId(orderId);
 			if (orderData == null)
-				throw  ApiExceptionFactory.INSTANCE.createException(request, ApiError.ORDER_NO_EXISTS);
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ORDER_NO_EXISTS);
 
-			List<TradeData> trades = repository.getAssetRepository().getOrdersTrades(orderId);
+			return orderData;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
 
-			return new OrderWithTrades(orderData, trades);
+	@GET
+	@Path("/order/{orderid}/trades")
+	@Operation(
+		summary = "Fetch asset order's matching trades",
+		description = "Returns asset order trades",
+		responses = {
+			@ApiResponse(
+				description = "asset trades",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = TradeData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_ORDER_ID, ApiError.ORDER_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public List<TradeData> getAssetOrderTrades(@PathParam("orderid") String orderId58, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		// Decode orderID
+		byte[] orderId;
+		try {
+			orderId = Base58.decode(orderId58);
+		} catch (NumberFormatException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ORDER_ID, e);
+		}
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			OrderData orderData = repository.getAssetRepository().fromOrderId(orderId);
+			if (orderData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ORDER_NO_EXISTS);
+
+			return repository.getAssetRepository().getOrdersTrades(orderId, limit, offset, reverse);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/address/{address}")
+	@Operation(
+		summary = "All assets owned by this address",
+		description = "Returns the list of assets for this address, with balances.",
+		responses = {
+			@ApiResponse(
+				description = "the list of assets",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = AccountBalanceData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE
+	})
+	public List<AccountBalanceData> getAssets(@PathParam("address") String address, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		if (!Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getAccountRepository().getAllBalances(address, limit, offset, reverse);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/balance/{assetid}/{address}")
+	@Operation(
+		summary = "Asset-specific balance request",
+		description = "Returns the confirmed balance of the given address for the given asset key.",
+		responses = {
+			@ApiResponse(
+				description = "the balance",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string",
+						format = "number"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE
+	})
+	public BigDecimal getAssetBalance(@PathParam("assetid") long assetid, @PathParam("address") String address) {
+		if (!Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Account account = new Account(repository, address);
+			return account.getConfirmedBalance(assetid);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/orders/{address}")
+	@Operation(
+		summary = "Asset orders created by this address",
+		responses = {
+			@ApiResponse(
+				description = "Asset orders",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = OrderData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.INVALID_ADDRESS, ApiError.ADDRESS_NO_EXISTS, ApiError.REPOSITORY_ISSUE
+	})
+	public List<OrderData> getAssetOrders(@PathParam("address") String address, @QueryParam("includeClosed") boolean includeClosed,
+			@QueryParam("includeFulfilled") boolean includeFulfilled, @Parameter(
+				ref = "limit"
+			) @QueryParam("limit") Integer limit, @Parameter(
+				ref = "offset"
+			) @QueryParam("offset") Integer offset, @Parameter(
+				ref = "reverse"
+			) @QueryParam("reverse") Boolean reverse) {
+		if (!Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			AccountData accountData = repository.getAccountRepository().getAccount(address);
+
+			if (accountData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+
+			byte[] publicKey = accountData.getPublicKey();
+			if (publicKey == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+
+			return repository.getAssetRepository().getAccountsOrders(publicKey, includeClosed, includeFulfilled, limit, offset, reverse);
+		} catch (ApiException e) {
+			throw e;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -237,11 +486,13 @@ public class AssetsResource {
 	@Path("/order/delete")
 	@Operation(
 		summary = "Cancel existing asset order",
-			requestBody = @RequestBody(
+		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
-				schema = @Schema(implementation = CancelAssetOrderTransactionData.class)
+				schema = @Schema(
+					implementation = CancelAssetOrderTransactionData.class
+				)
 			)
 		),
 		responses = {
@@ -256,7 +507,9 @@ public class AssetsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID})
+	@ApiErrors({
+		ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID
+	})
 	public String cancelOrder(CancelAssetOrderTransactionData transactionData) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
@@ -282,7 +535,9 @@ public class AssetsResource {
 			required = true,
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
-				schema = @Schema(implementation = IssueAssetTransactionData.class)
+				schema = @Schema(
+					implementation = IssueAssetTransactionData.class
+				)
 			)
 		),
 		responses = {
@@ -297,7 +552,9 @@ public class AssetsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID})
+	@ApiErrors({
+		ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID
+	})
 	public String issueAsset(IssueAssetTransactionData transactionData) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
@@ -323,7 +580,9 @@ public class AssetsResource {
 			required = true,
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
-				schema = @Schema(implementation = CreateAssetOrderTransactionData.class)
+				schema = @Schema(
+					implementation = CreateAssetOrderTransactionData.class
+				)
 			)
 		),
 		responses = {
@@ -338,7 +597,9 @@ public class AssetsResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID})
+	@ApiErrors({
+		ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID
+	})
 	public String createOrder(CreateAssetOrderTransactionData transactionData) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);

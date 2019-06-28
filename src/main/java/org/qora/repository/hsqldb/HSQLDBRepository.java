@@ -287,4 +287,25 @@ public class HSQLDBRepository implements Repository {
 		}
 	}
 
+	/**
+	 * Returns additional SQL "LIMIT" and "OFFSET" clauses.
+	 * <p>
+	 * (Convenience method for HSQLDB repository subclasses).
+	 * 
+	 * @param limit
+	 * @param offset
+	 * @return SQL string, potentially empty but never null
+	 */
+	public static String limitOffsetSql(Integer limit, Integer offset) {
+		String sql = "";
+
+		if (limit != null && limit > 0)
+			sql += " LIMIT " + limit;
+
+		if (offset != null)
+			sql += " OFFSET " + offset;
+
+		return sql;
+	}
+
 }

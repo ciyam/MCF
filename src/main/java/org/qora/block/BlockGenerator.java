@@ -50,7 +50,7 @@ public class BlockGenerator extends Thread {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			if (Settings.getInstance().getWipeUnconfirmedOnStart()) {
 				// Wipe existing unconfirmed transactions
-				List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
+				List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
 				for (TransactionData transactionData : unconfirmedTransactions) {
 					LOGGER.trace(String.format("Deleting unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));

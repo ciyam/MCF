@@ -55,11 +55,15 @@ public class HSQLDBNameRepository implements NameRepository {
 	}
 
 	@Override
-	public List<NameData> getAllNames() throws DataException {
+	public List<NameData> getAllNames(Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT name, data, owner, registered, updated, reference, is_for_sale, sale_price FROM Names ORDER BY name";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<NameData> names = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT name, data, owner, registered, updated, reference, is_for_sale, sale_price FROM Names")) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return names;
 
@@ -87,11 +91,15 @@ public class HSQLDBNameRepository implements NameRepository {
 	}
 
 	@Override
-	public List<NameData> getNamesForSale() throws DataException {
+	public List<NameData> getNamesForSale(Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT name, data, owner, registered, updated, reference, sale_price FROM Names WHERE is_for_sale = TRUE ORDER BY name";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<NameData> names = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT name, data, owner, registered, updated, reference, sale_price FROM Names WHERE is_for_sale = TRUE")) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return names;
 
@@ -119,11 +127,15 @@ public class HSQLDBNameRepository implements NameRepository {
 	}
 
 	@Override
-	public List<NameData> getNamesByOwner(String owner) throws DataException {
+	public List<NameData> getNamesByOwner(String owner, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT name, data, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE owner = ? ORDER BY name";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<NameData> names = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT name, data, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE owner = ?", owner)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, owner)) {
 			if (resultSet == null)
 				return names;
 
@@ -157,9 +169,9 @@ public class HSQLDBNameRepository implements NameRepository {
 		Long updated = nameData.getUpdated();
 		Timestamp updatedTimestamp = updated == null ? null : new Timestamp(updated);
 
-		saveHelper.bind("owner", nameData.getOwner()).bind("name", nameData.getName())
-				.bind("data", nameData.getData()).bind("registered", new Timestamp(nameData.getRegistered())).bind("updated", updatedTimestamp)
-				.bind("reference", nameData.getReference()).bind("is_for_sale", nameData.getIsForSale()).bind("sale_price", nameData.getSalePrice());
+		saveHelper.bind("owner", nameData.getOwner()).bind("name", nameData.getName()).bind("data", nameData.getData())
+				.bind("registered", new Timestamp(nameData.getRegistered())).bind("updated", updatedTimestamp).bind("reference", nameData.getReference())
+				.bind("is_for_sale", nameData.getIsForSale()).bind("sale_price", nameData.getSalePrice());
 
 		try {
 			saveHelper.execute(this.repository);

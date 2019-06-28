@@ -2,6 +2,7 @@ package org.qora.repository;
 
 import java.util.List;
 
+import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -20,7 +21,7 @@ public interface TransactionRepository {
 
 	// Transaction participants
 
-	public List<byte[]> getAllSignaturesInvolvingAddress(String address) throws DataException;
+	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException;
 
 	public void saveParticipants(TransactionData transactionData, List<String> participants) throws DataException;
 
@@ -28,7 +29,21 @@ public interface TransactionRepository {
 
 	// Searching transactions
 
-	public List<byte[]> getAllSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, TransactionType txType, String address) throws DataException;
+	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, TransactionType txType, String address,
+			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	/**
+	 * Returns list of unconfirmed transactions in timestamp-else-signature order.
+	 * <p>
+	 * This is typically called by the API.
+	 * 
+	 * @param limit
+	 * @param offset
+	 * @param reverse
+	 * @return list of transactions, or empty if none.
+	 * @throws DataException
+	 */
+	public List<TransactionData> getUnconfirmedTransactions(Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/**
 	 * Returns list of unconfirmed transactions in timestamp-else-signature order.
@@ -36,7 +51,9 @@ public interface TransactionRepository {
 	 * @return list of transactions, or empty if none.
 	 * @throws DataException
 	 */
-	public List<TransactionData> getAllUnconfirmedTransactions() throws DataException;
+	public default List<TransactionData> getUnconfirmedTransactions() throws DataException {
+		return getUnconfirmedTransactions(null, null, null);
+	}
 
 	/**
 	 * Remove transaction from unconfirmed transactions pile.

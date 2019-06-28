@@ -28,16 +28,13 @@ public class AdminResource {
 
 	@GET
 	@Path("/unused")
-	@Parameter(in = ParameterIn.PATH, name = "blockSignature", description = "Block signature", schema = @Schema(type = "string", format = "byte"), example = "very_long_block_signature_in_base58")
-	@Parameter(in = ParameterIn.PATH, name = "assetId", description = "Asset ID, 0 is native coin", schema = @Schema(type = "string", format = "byte"))
-	@Parameter(in = ParameterIn.PATH, name = "otherAssetId", description = "Asset ID, 0 is native coin", schema = @Schema(type = "string", format = "byte"))
+	@Parameter(in = ParameterIn.PATH, name = "assetid", description = "Asset ID, 0 is native coin", schema = @Schema(type = "integer"))
+	@Parameter(in = ParameterIn.PATH, name = "otherassetid", description = "Asset ID, 0 is native coin", schema = @Schema(type = "integer"))
 	@Parameter(in = ParameterIn.PATH, name = "address", description = "an account address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
 	@Parameter(in = ParameterIn.QUERY, name = "count", description = "Maximum number of entries to return, 0 means none", schema = @Schema(type = "integer", defaultValue = "20"))
 	@Parameter(in = ParameterIn.QUERY, name = "limit", description = "Maximum number of entries to return, 0 means unlimited", schema = @Schema(type = "integer", defaultValue = "20"))
 	@Parameter(in = ParameterIn.QUERY, name = "offset", description = "Starting entry in results, 0 is first entry", schema = @Schema(type = "integer"))
-	@Parameter(in = ParameterIn.QUERY, name = "includeTransactions", description = "Include associated transactions in results", schema = @Schema(type = "boolean"))
-	@Parameter(in = ParameterIn.QUERY, name = "includeHolders", description = "Include asset holders in results", schema = @Schema(type = "boolean"))
-	@Parameter(in = ParameterIn.QUERY, name = "queryAssetId", description = "Asset ID, 0 is native coin", schema = @Schema(type = "string", format = "byte"))
+	@Parameter(in = ParameterIn.QUERY, name = "reverse", description = "Reverse results", schema = @Schema(type = "boolean"))
 	public String globalParameters() {
 		return "";
 	}

@@ -468,7 +468,7 @@ public abstract class Transaction {
 	}
 
 	private int countUnconfirmedByCreator(PublicKeyAccount creator) throws DataException {
-		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
 		int count = 0;
 		for (TransactionData transactionData : unconfirmedTransactions) {
@@ -495,7 +495,7 @@ public abstract class Transaction {
 	public static List<TransactionData> getUnconfirmedTransactions(Repository repository) throws DataException {
 		BlockData latestBlockData = repository.getBlockRepository().getLastBlock();
 
-		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
+		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 		List<TransactionData> invalidTransactions = new ArrayList<>();
 
 		unconfirmedTransactions.sort(getDataComparator());

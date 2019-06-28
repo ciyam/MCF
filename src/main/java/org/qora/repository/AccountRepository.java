@@ -21,9 +21,17 @@ public interface AccountRepository {
 
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException;
 
-	public List<AccountBalanceData> getAllBalances(String address) throws DataException;
+	public List<AccountBalanceData> getAllBalances(String address, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public List<AccountBalanceData> getAssetBalances(long assetId) throws DataException;
+	public default List<AccountBalanceData> getAllBalances(String address) throws DataException {
+		return getAllBalances(address, null, null, null);
+	}
+
+	public List<AccountBalanceData> getAssetBalances(long assetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
+	public default List<AccountBalanceData> getAssetBalances(long assetId) throws DataException {
+		return getAssetBalances(assetId, null, null, null);
+	}
 
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
 

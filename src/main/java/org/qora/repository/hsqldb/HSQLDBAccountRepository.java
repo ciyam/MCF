@@ -94,10 +94,15 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public List<AccountBalanceData> getAllBalances(String address) throws DataException {
+	public List<AccountBalanceData> getAllBalances(String address, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT asset_id, balance FROM AccountBalances WHERE account = ? ORDER BY asset_id";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<AccountBalanceData> balances = new ArrayList<AccountBalanceData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT asset_id, balance FROM AccountBalances WHERE account = ?", address)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
 			if (resultSet == null)
 				return balances;
 
@@ -115,10 +120,15 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public List<AccountBalanceData> getAssetBalances(long assetId) throws DataException {
+	public List<AccountBalanceData> getAssetBalances(long assetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT account, balance FROM AccountBalances WHERE asset_id = ? ORDER BY account";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
 		List<AccountBalanceData> balances = new ArrayList<AccountBalanceData>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT account, balance FROM AccountBalances WHERE asset_id = ?", assetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetId)) {
 			if (resultSet == null)
 				return balances;
 
