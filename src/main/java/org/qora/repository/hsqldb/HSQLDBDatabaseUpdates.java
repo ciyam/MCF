@@ -685,6 +685,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("SET TIME ZONE LOCAL");
 					break;
 
+				case 43:
+					// More work on 'new' asset pricing - refunds due to price improvement
+					stmt.execute("ALTER TABLE AssetTrades ADD initiator_saving QoraAmount NOT NULL DEFAULT 0");
+					break;
+
 				default:
 					// nothing to do
 					return false;

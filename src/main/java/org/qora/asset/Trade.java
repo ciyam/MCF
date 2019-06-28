@@ -17,36 +17,54 @@ public class Trade {
 	private Repository repository;
 	private TradeData tradeData;
 
+	private boolean isNewPricing;
+	private AssetRepository assetRepository;
+
+	private OrderData initiatingOrder;
+	private OrderData targetOrder;
+	private BigDecimal newPricingFulfilled;
+
 	// Constructors
 
 	public Trade(Repository repository, TradeData tradeData) {
 		this.repository = repository;
 		this.tradeData = tradeData;
+
+		this.isNewPricing = this.tradeData.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
+		this.assetRepository = this.repository.getAssetRepository();
 	}
 
 	// Processing
 
-	public void process() throws DataException {
-		AssetRepository assetRepository = this.repository.getAssetRepository();
+	private void commonPrep() throws DataException {
+		this.initiatingOrder = assetRepository.fromOrderId(this.tradeData.getInitiator());
+		this.targetOrder = assetRepository.fromOrderId(this.tradeData.getTarget());
 
+		// Note: targetAmount is amount traded FROM target order
+		// Note: initiatorAmount is amount traded FROM initiating order
+
+		// Under 'new' pricing scheme, "amount" and "fulfilled" are the same asset for both orders
+		// which is the matchedAmount in asset with highest assetID
+		this.newPricingFulfilled = (initiatingOrder.getHaveAssetId() < initiatingOrder.getWantAssetId()) ? this.tradeData.getTargetAmount() : this.tradeData.getInitiatorAmount();
+	}
+
+	public void process() throws DataException {
 		// Save trade into repository
 		assetRepository.save(tradeData);
 
+		// Note: targetAmount is amount traded FROM target order
+		// Note: initiatorAmount is amount traded FROM initiating order
+
 		// Update corresponding Orders on both sides of trade
-		OrderData initiatingOrder = assetRepository.fromOrderId(this.tradeData.getInitiator());
-		OrderData targetOrder = assetRepository.fromOrderId(this.tradeData.getTarget());
+		commonPrep();
 
-		// Under 'new' pricing scheme, "amount" and "fulfilled" are the same asset for both orders
-		boolean isNewPricing = initiatingOrder.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
-		BigDecimal newPricingAmount = (initiatingOrder.getHaveAssetId() < initiatingOrder.getWantAssetId()) ? this.tradeData.getTargetAmount() : this.tradeData.getInitiatorAmount();
-
-		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().add(isNewPricing ? newPricingAmount : tradeData.getInitiatorAmount()));
+		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().add(isNewPricing ? newPricingFulfilled : tradeData.getInitiatorAmount()));
 		initiatingOrder.setIsFulfilled(Order.isFulfilled(initiatingOrder));
 		// Set isClosed to true if isFulfilled now true
 		initiatingOrder.setIsClosed(initiatingOrder.getIsFulfilled());
 		assetRepository.save(initiatingOrder);
 
-		targetOrder.setFulfilled(targetOrder.getFulfilled().add(isNewPricing ? newPricingAmount : tradeData.getTargetAmount()));
+		targetOrder.setFulfilled(targetOrder.getFulfilled().add(isNewPricing ? newPricingFulfilled : tradeData.getTargetAmount()));
 		targetOrder.setIsFulfilled(Order.isFulfilled(targetOrder));
 		// Set isClosed to true if isFulfilled now true
 		targetOrder.setIsClosed(targetOrder.getIsFulfilled());
@@ -54,32 +72,33 @@ public class Trade {
 
 		// Actually transfer asset balances
 		Account initiatingCreator = new PublicKeyAccount(this.repository, initiatingOrder.getCreatorPublicKey());
-		initiatingCreator.setConfirmedBalance(initiatingOrder.getWantAssetId(),
-				initiatingCreator.getConfirmedBalance(initiatingOrder.getWantAssetId()).add(tradeData.getTargetAmount()));
+		initiatingCreator.setConfirmedBalance(initiatingOrder.getWantAssetId(), initiatingCreator.getConfirmedBalance(initiatingOrder.getWantAssetId()).add(tradeData.getTargetAmount()));
 
 		Account targetCreator = new PublicKeyAccount(this.repository, targetOrder.getCreatorPublicKey());
-		targetCreator.setConfirmedBalance(targetOrder.getWantAssetId(),
-				targetCreator.getConfirmedBalance(targetOrder.getWantAssetId()).add(tradeData.getInitiatorAmount()));
+		targetCreator.setConfirmedBalance(targetOrder.getWantAssetId(), targetCreator.getConfirmedBalance(targetOrder.getWantAssetId()).add(tradeData.getInitiatorAmount()));
+
+		// Possible partial saving to refund to initiator
+		BigDecimal initiatorSaving = this.tradeData.getInitiatorSaving();
+		if (initiatorSaving.compareTo(BigDecimal.ZERO) > 0)
+			initiatingCreator.setConfirmedBalance(initiatingOrder.getHaveAssetId(), initiatingCreator.getConfirmedBalance(initiatingOrder.getHaveAssetId()).add(initiatorSaving));
 	}
 
 	public void orphan() throws DataException {
 		AssetRepository assetRepository = this.repository.getAssetRepository();
 
+		// Note: targetAmount is amount traded FROM target order
+		// Note: initiatorAmount is amount traded FROM initiating order
+
 		// Revert corresponding Orders on both sides of trade
-		OrderData initiatingOrder = assetRepository.fromOrderId(this.tradeData.getInitiator());
-		OrderData targetOrder = assetRepository.fromOrderId(this.tradeData.getTarget());
+		commonPrep();
 
-		// Under 'new' pricing scheme, "amount" and "fulfilled" are the same asset for both orders
-		boolean isNewPricing = initiatingOrder.getTimestamp() > BlockChain.getInstance().getNewAssetPricingTimestamp();
-		BigDecimal newPricingAmount = (initiatingOrder.getHaveAssetId() < initiatingOrder.getWantAssetId()) ? this.tradeData.getTargetAmount() : this.tradeData.getInitiatorAmount();
-
-		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().subtract(isNewPricing ? newPricingAmount : tradeData.getInitiatorAmount()));
+		initiatingOrder.setFulfilled(initiatingOrder.getFulfilled().subtract(isNewPricing ? newPricingFulfilled : tradeData.getInitiatorAmount()));
 		initiatingOrder.setIsFulfilled(Order.isFulfilled(initiatingOrder));
 		// Set isClosed to false if isFulfilled now false
 		initiatingOrder.setIsClosed(initiatingOrder.getIsFulfilled());
 		assetRepository.save(initiatingOrder);
 
-		targetOrder.setFulfilled(targetOrder.getFulfilled().subtract(isNewPricing ? newPricingAmount : tradeData.getTargetAmount()));
+		targetOrder.setFulfilled(targetOrder.getFulfilled().subtract(isNewPricing ? newPricingFulfilled : tradeData.getTargetAmount()));
 		targetOrder.setIsFulfilled(Order.isFulfilled(targetOrder));
 		// Set isClosed to false if isFulfilled now false
 		targetOrder.setIsClosed(targetOrder.getIsFulfilled());
@@ -87,12 +106,15 @@ public class Trade {
 
 		// Reverse asset transfers
 		Account initiatingCreator = new PublicKeyAccount(this.repository, initiatingOrder.getCreatorPublicKey());
-		initiatingCreator.setConfirmedBalance(initiatingOrder.getWantAssetId(),
-				initiatingCreator.getConfirmedBalance(initiatingOrder.getWantAssetId()).subtract(tradeData.getTargetAmount()));
+		initiatingCreator.setConfirmedBalance(initiatingOrder.getWantAssetId(), initiatingCreator.getConfirmedBalance(initiatingOrder.getWantAssetId()).subtract(tradeData.getTargetAmount()));
 
 		Account targetCreator = new PublicKeyAccount(this.repository, targetOrder.getCreatorPublicKey());
-		targetCreator.setConfirmedBalance(targetOrder.getWantAssetId(),
-				targetCreator.getConfirmedBalance(targetOrder.getWantAssetId()).subtract(tradeData.getInitiatorAmount()));
+		targetCreator.setConfirmedBalance(targetOrder.getWantAssetId(), targetCreator.getConfirmedBalance(targetOrder.getWantAssetId()).subtract(tradeData.getInitiatorAmount()));
+
+		// Possible partial saving to claw back from  initiator
+		BigDecimal initiatorSaving = this.tradeData.getInitiatorSaving();
+		if (initiatorSaving.compareTo(BigDecimal.ZERO) > 0)
+			initiatingCreator.setConfirmedBalance(initiatingOrder.getHaveAssetId(), initiatingCreator.getConfirmedBalance(initiatingOrder.getHaveAssetId()).subtract(initiatorSaving));
 
 		// Remove trade from repository
 		assetRepository.delete(tradeData);

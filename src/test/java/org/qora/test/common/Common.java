@@ -5,6 +5,7 @@ import static org.junit.Assert.*;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.security.Security;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -138,6 +139,18 @@ public class Common {
 
 			List<AccountBalanceData> remainingBalances = repository.getAccountRepository().getAssetBalances(Collections.emptyList(), Collections.emptyList(), BalanceOrdering.ASSET_ACCOUNT, null, null, null);
 			checkOrphanedLists("account balance", initialBalances, remainingBalances, entry -> entry.getAssetName() + "-" + entry.getAddress());
+
+			assertEquals("remainingBalances is different size", initialBalances.size(), remainingBalances.size());
+			// Actually compare balances
+			for (int i = 0; i < initialBalances.size(); ++i) {
+				AccountBalanceData initialBalance = initialBalances.get(i);
+				AccountBalanceData remainingBalance = remainingBalances.get(i);
+
+				assertEquals("Remaining balance's asset differs", initialBalance.getAssetId(), remainingBalance.getAssetId());
+				assertEquals("Remaining balance's address differs", initialBalance.getAddress(), remainingBalance.getAddress());
+
+				assertEqualBigDecimals("Remaining balance differs", initialBalance.getBalance(), remainingBalance.getBalance());
+			}
 		}
 	}
 
@@ -150,9 +163,10 @@ public class Common {
 			assertTrue(String.format("Genesis %s %s missing", typeName, keyExtractor.apply(initialEntry)), isRemaining.test(initialEntry));
 
 		// Remove initial entries from remaining to see there are any leftover
-		remaining.removeIf(isInitial);
+		List<T> remainingClone = new ArrayList<T>(remaining);
+		remainingClone.removeIf(isInitial);
 
-		assertTrue(String.format("Non-genesis %s remains", typeName), remaining.isEmpty());
+		assertTrue(String.format("Non-genesis %s remains", typeName), remainingClone.isEmpty());
 	}
 
 	@BeforeClass
