@@ -2,11 +2,13 @@ package controller;
 
 import api.ApiService;
 import qora.block.BlockChain;
+import qora.block.BlockGenerator;
 import repository.DataException;
 import repository.RepositoryFactory;
 import repository.RepositoryManager;
 import repository.hsqldb.HSQLDBRepositoryFactory;
 import settings.Settings;
+import utils.Base58;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,6 +22,8 @@ public class Controller {
 	public static final long startTime = System.currentTimeMillis();
 	private static final Object shutdownLock = new Object();
 	private static boolean isStopping = false;
+
+	private static BlockGenerator blockGenerator;
 
 	public static void main(String args[]) {
 		LOGGER.info("Starting up...");
@@ -36,12 +40,18 @@ public class Controller {
 			System.exit(1);
 		}
 
+		LOGGER.info("Validating blockchain");
 		try {
 			BlockChain.validate();
 		} catch (DataException e) {
-			LOGGER.error("Couldn't validate repository", e);
+			LOGGER.error("Couldn't validate blockchain", e);
 			System.exit(2);
 		}
+
+		LOGGER.info("Starting block generator");
+		byte[] privateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
+		blockGenerator = new BlockGenerator(privateKey);
+		blockGenerator.start();
 
 		LOGGER.info("Starting API");
 		try {
@@ -67,6 +77,14 @@ public class Controller {
 
 				LOGGER.info("Shutting down API");
 				ApiService.getInstance().stop();
+
+				LOGGER.info("Shutting down block generator");
+				blockGenerator.shutdown();
+				try {
+					blockGenerator.join();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 
 				try {
 					LOGGER.info("Shutting down repository");
