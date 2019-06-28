@@ -9,7 +9,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<bouncycastle.version>1.61</bouncycastle.version>
 		<dagger.version>1.2.2</dagger.version>
-		<hsqldb.version>r5836</hsqldb.version>
+		<hsqldb.version>r5970</hsqldb.version>
 		<sqltool.version>2.4.1</sqltool.version>
 		<jetty.version>9.4.12.v20180830</jetty.version>
 		<jersey.version>2.27</jersey.version>
