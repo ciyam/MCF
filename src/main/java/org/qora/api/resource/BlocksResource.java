@@ -28,7 +28,10 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
+import org.qora.api.model.BlockForgeSummary;
 import org.qora.block.Block;
+import org.qora.crypto.Crypto;
+import org.qora.data.account.AccountData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.EnableForgingTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -521,6 +524,78 @@ public class BlocksResource {
 			return blocks;
 		} catch (ApiException e) {
 			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/forger/{address}")
+	@Operation(
+		summary = "Fetch blocks forged by address",
+		responses = {
+			@ApiResponse(
+				description = "blocks",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = BlockData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.PUBLIC_KEY_NOT_FOUND, ApiError.REPOSITORY_ISSUE})
+	public List<BlockData> getBlocksByForger(@PathParam("address") String address, @Parameter(
+			ref = "limit"
+			) @QueryParam("limit") Integer limit, @Parameter(
+				ref = "offset"
+			) @QueryParam("offset") Integer offset, @Parameter(
+				ref = "reverse"
+			) @QueryParam("reverse") Boolean reverse) {
+		if (!Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			// Get public key from address
+			AccountData accountData = repository.getAccountRepository().getAccount(address);
+			if (accountData == null || accountData.getPublicKey() == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.PUBLIC_KEY_NOT_FOUND);
+
+			return repository.getBlockRepository().getBlocksWithGenerator(accountData.getPublicKey(), limit, offset, reverse);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/forgers")
+	@Operation(
+		summary = "Show summary of block forgers",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = BlockForgeSummary.class
+						)
+					)
+				)
+			)
+		}
+	)
+	public List<BlockForgeSummary> getBlockForgers(@Parameter(
+			ref = "limit"
+			) @QueryParam("limit") Integer limit, @Parameter(
+				ref = "offset"
+			) @QueryParam("offset") Integer offset, @Parameter(
+				ref = "reverse"
+			) @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getBlockRepository().getBlockForgers(limit, offset, reverse);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

@@ -90,11 +90,20 @@ public class BlockChain {
 	private boolean oneNamePerAccount = false;
 
 	/** Block rewards by block height */
-	public static class RewardsByHeight {
+	public static class RewardByHeight {
 		public int height;
 		public BigDecimal reward;
 	}
-	List<RewardsByHeight> rewardsByHeight;
+	List<RewardByHeight> rewardsByHeight;
+
+	/** Forging right tiers */
+	public static class ForgingTier {
+		/** Minimum number of blocks forged before account can enable minting on other accounts. */
+		public int minBlocks;
+		/** Maximum number of other accounts that can be enabled. */
+		public int maxSubAccounts;
+	}
+	List<ForgingTier> forgingTiers;
 
 	// Constructors, etc.
 
@@ -230,8 +239,12 @@ public class BlockChain {
 		return this.oneNamePerAccount;
 	}
 
-	public List<RewardsByHeight> getBlockRewardsByHeight() {
+	public List<RewardByHeight> getBlockRewardsByHeight() {
 		return this.rewardsByHeight;
+	}
+
+	public List<ForgingTier> getForgingTiers() {
+		return this.forgingTiers;
 	}
 
 	// Convenience methods for specific blockchain feature triggers

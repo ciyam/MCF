@@ -30,6 +30,10 @@ public class EnableForgingTransactionData extends TransactionData {
 		this.target = target;
 	}
 
+	public EnableForgingTransactionData(long timestamp, int groupId, byte[] reference, byte[] creatorPublicKey, String target, BigDecimal fee) {
+		this(timestamp, groupId, reference, creatorPublicKey, target, fee, null);
+	}
+
 	// Getters / setters
 
 	public String getTarget() {
