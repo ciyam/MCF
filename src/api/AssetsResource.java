@@ -8,9 +8,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import qora.transaction.Transaction;
+import qora.transaction.Transaction.ValidationResult;
 import repository.DataException;
 import repository.Repository;
 import repository.RepositoryManager;
+import transform.TransformationException;
+import transform.transaction.IssueAssetTransactionTransformer;
 import utils.Base58;
 
 import java.util.ArrayList;
@@ -27,13 +31,13 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import api.models.AssetWithHolders;
-import api.models.IssueAssetRequest;
 import api.models.OrderWithTrades;
 import api.models.TradeWithOrderInfo;
 import data.account.AccountBalanceData;
 import data.assets.AssetData;
 import data.assets.OrderData;
 import data.assets.TradeData;
+import data.transaction.IssueAssetTransactionData;
 
 @Path("/assets")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
@@ -226,15 +230,36 @@ public class AssetsResource {
 			required = true,
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
-				schema = @Schema(implementation = IssueAssetRequest.class)
+				schema = @Schema(implementation = IssueAssetTransactionData.class)
 			)
-		)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned payment transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
 	)
-	public String issueAsset(IssueAssetRequest issueAssetRequest) {
-		// required: issuer (pubkey), name, description, quantity, isDivisible, fee
-		// optional: reference
-		// returns: raw tx
-		return "";
+	public String issueAsset(IssueAssetTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValid();
+			if (result != ValidationResult.OK)
+				throw new ApiException(400, ApiError.INVALID_DATA.getCode(), "Transaction invalid: " + result.name());
+
+			byte[] bytes = IssueAssetTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiErrorFactory.getInstance().createError(ApiError.UNKNOWN, e);
+		} catch (DataException e) {
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
+		}
 	}
 
 }
