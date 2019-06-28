@@ -2,9 +2,16 @@ package data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 import qora.assets.Asset;
 import qora.transaction.Transaction.TransactionType;
 
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
+@Schema(allOf = { TransactionData.class })
 public class MessageTransactionData extends TransactionData {
 
 	// Properties
@@ -18,6 +25,10 @@ public class MessageTransactionData extends TransactionData {
 	private boolean isEncrypted;
 
 	// Constructors
+
+	// For JAX-RS
+	protected MessageTransactionData() {
+	}
 
 	public MessageTransactionData(int version, byte[] senderPublicKey, String recipient, Long assetId, BigDecimal amount, byte[] data, boolean isText,
 			boolean isEncrypted, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {

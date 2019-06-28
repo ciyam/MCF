@@ -1,3 +1,7 @@
 /db*
 /bin/
 /target/
+/log.txt.*
+/arbitrary*
+/Qora-BTC*
+/.factorypath

@@ -6,10 +6,27 @@ import java.util.Arrays;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlSeeAlso;
 
+import org.eclipse.persistence.oxm.annotations.XmlClassExtractor;
+
+import api.models.TransactionClassExtractor;
 import qora.transaction.Transaction.TransactionType;
 
-// All properties to be converted to JSON via JAX-RS
+/*
+ * If you encounter an error like:
+ * 
+ * MessageBodyWriter not found for <some class>
+ * 
+ * then chances are that class is missing a no-argument constructor!
+ */
+
+@XmlClassExtractor(TransactionClassExtractor.class)
+@XmlSeeAlso({ArbitraryTransactionData.class, ATTransactionData.class, BuyNameTransactionData.class, CancelOrderTransactionData.class, CancelSellNameTransactionData.class,
+	CreateOrderTransactionData.class, CreatePollTransactionData.class, DeployATTransactionData.class, GenesisTransactionData.class, IssueAssetTransactionData.class,
+	MessageTransactionData.class, MultiPaymentTransactionData.class, PaymentTransactionData.class, RegisterNameTransactionData.class, SellNameTransactionData.class,
+	TransferAssetTransactionData.class, UpdateNameTransactionData.class, VoteOnPollTransactionData.class})
+//All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 public abstract class TransactionData {
 
