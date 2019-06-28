@@ -89,22 +89,21 @@ public abstract class Transaction {
 			this.className = String.join("", classNameParts);
 
 			Class<?> clazz = null;
+			Constructor<?> constructor = null;
+
 			try {
 				clazz = Class.forName(String.join("", Transaction.class.getPackage().getName(), ".", this.className, "Transaction"));
+
+				try {
+					constructor = clazz.getConstructor(Repository.class, TransactionData.class);
+				} catch (NoSuchMethodException | SecurityException e) {
+					LOGGER.debug(String.format("Transaction subclass constructor not found for transaction type \"%s\"", this.name()));
+				}
 			} catch (ClassNotFoundException e) {
 				LOGGER.debug(String.format("Transaction subclass not found for transaction type \"%s\"", this.name()));
-				this.clazz = null;
-				this.constructor = null;
-				return;
 			}
-			this.clazz = clazz;
 
-			Constructor<?> constructor = null;
-			try {
-				constructor = this.clazz.getConstructor(Repository.class, TransactionData.class);
-			} catch (NoSuchMethodException | SecurityException e) {
-				LOGGER.debug(String.format("Transaction subclass constructor not found for transaction type \"%s\"", this.name()));
-			}
+			this.clazz = clazz;
 			this.constructor = constructor;
 		}
 
