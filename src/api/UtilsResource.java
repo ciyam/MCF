@@ -7,24 +7,28 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import qora.crypto.Crypto;
+import utils.BIP39;
 import utils.Base58;
 
-import java.math.BigInteger;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.UUID;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
+
+import globalization.BIP39WordList;
 
 @Path("/utils")
 @Produces({
@@ -38,47 +42,65 @@ public class UtilsResource {
 	@Context
 	HttpServletRequest request;
 
-	@GET
-	@Path("/base58from64/{base64}")
+	@POST
+	@Path("/base58from64")
 	@Operation(
 		summary = "Convert base64 data to base58",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string"
+				)
+			)
+		),
 		responses = {
 			@ApiResponse(
 				description = "base58 data",
 				content = @Content(
 					schema = @Schema(
-						implementation = String.class
+						type = "string"
 					)
 				)
 			)
 		}
 	)
-	public String base58from64(@PathParam("base64") String base64) {
+	public String base58from64(String base64) {
 		try {
-			return Base58.encode(Base64.getDecoder().decode(base64));
+			return Base58.encode(Base64.getDecoder().decode(base64.trim()));
 		} catch (IllegalArgumentException e) {
 			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_DATA);
 		}
 	}
 
-	@GET
-	@Path("/base64from58/{base58}")
+	@POST
+	@Path("/base64from58")
 	@Operation(
 		summary = "Convert base58 data to base64",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.TEXT_PLAIN,
+				schema = @Schema(
+					type = "string"
+				)
+			)
+		),
 		responses = {
 			@ApiResponse(
 				description = "base64 data",
 				content = @Content(
 					schema = @Schema(
-						implementation = String.class
+						type = "string"
 					)
 				)
 			)
 		}
 	)
-	public String base64from58(@PathParam("base58") String base58) {
+	public String base64from58(String base58) {
 		try {
-			return Base64.getEncoder().encodeToString(Base58.decode(base58));
+			return Base64.getEncoder().encodeToString(Base58.decode(base58.trim()));
 		} catch (NumberFormatException e) {
 			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_DATA);
 		}
@@ -87,7 +109,8 @@ public class UtilsResource {
 	@GET
 	@Path("/seed")
 	@Operation(
-		summary = "Generate random 32-byte seed",
+		summary = "Generate random seed",
+		description = "Optionally pass seed length, defaults to 32 bytes.",
 		responses = {
 			@ApiResponse(
 				description = "base58 data",
@@ -100,8 +123,11 @@ public class UtilsResource {
 			)
 		}
 	)
-	public String seed() {
-		byte[] seed = new byte[32];
+	public String seed(@QueryParam("length") Integer length) {
+		if (length == null)
+			length = 32;
+
+		byte[] seed = new byte[length];
 		new SecureRandom().nextBytes(seed);
 		return Base58.encode(seed);
 	}
@@ -110,6 +136,8 @@ public class UtilsResource {
 	@Path("/seedPhrase")
 	@Operation(
 		summary = "Generate random 12-word BIP39 seed phrase",
+		description = "Optionally pass 16-byte, base58-encoded entropy input or entropy will be internally generated.<br>"
+				+ "Example entropy input: YcVfxkQb6JRzqk5kF2tNLv",
 		responses = {
 			@ApiResponse(
 				description = "seed phrase",
@@ -122,47 +150,52 @@ public class UtilsResource {
 			)
 		}
 	)
-	public String seedPhrase() {
+	public String seedPhrase(@QueryParam("entropy") String input) {
 		/*
 		 * BIP39 word lists have 2048 entries so can be represented by 11 bits.
 		 * UUID (128bits) and another 4 bits gives 132 bits.
 		 * 132 bits, divided by 11, gives 12 words.
 		 */
-		final int WORD_MASK = 2048 - 1;
+		final int BITS_PER_WORD = 11;
 
-		UUID uuid = UUID.randomUUID();
+		byte[] message;
+		if (input != null) {
+			// Use caller-supplied entropy input
+			try {
+				message = Base58.decode(input);
+			} catch (NumberFormatException e) {
+				throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_DATA);
+			}
 
-		System.out.println("UUID: " + uuid.toString());
+			// Must be 16-bytes
+			if (message.length != 16)
+				throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_DATA);
+		} else {
+			// Generate entropy internally
+			UUID uuid = UUID.randomUUID();
 
-		byte[] uuidMSB = Longs.toByteArray(uuid.getMostSignificantBits());
-		byte[] uuidLSB = Longs.toByteArray(uuid.getLeastSignificantBits());
-		byte[] message = Bytes.concat(uuidMSB, uuidLSB);
+			byte[] uuidMSB = Longs.toByteArray(uuid.getMostSignificantBits());
+			byte[] uuidLSB = Longs.toByteArray(uuid.getLeastSignificantBits());
+			message = Bytes.concat(uuidMSB, uuidLSB);
+		}
 
 		// Use SHA256 to generate more bits
 		byte[] hash = Crypto.digest(message);
 
-		// Append last 4 bits from hash to end. (Actually 8 bits but we only use 4).
+		// Append first 4 bits from hash to end. (Actually 8 bits but we only use 4).
+		byte checksum = (byte) (hash[0] & 0xf0);
 		message = Bytes.concat(message, new byte[] {
-			hash[hash.length - 1]
+			checksum
 		});
 
-		BigInteger wordBits = new BigInteger(message);
-
-		String[] phraseWords = new String[12];
-		for (int i = phraseWords.length; i >= 0; --i) {
-			int wordListIndex = wordBits.intValue() & WORD_MASK;
-			wordBits = wordBits.shiftRight(11);
-			// phraseWords[i] = wordList.get(wordListIndex);
-		}
-
-		return String.join(" ", phraseWords);
+		return BIP39.encode(message, "en");
 	}
 
 	@POST
-	@Path("/privateKey")
+	@Path("/seedPhrase")
 	@Operation(
-		summary = "Calculate private key from 12-word BIP39 seed phrase",
-		description = "Returns the base58-encoded private key, or \"false\" if phrase is invalid.",
+		summary = "Calculate binary form of 12-word BIP39 seed phrase",
+		description = "Returns the base58-encoded binary form, or \"false\" if phrase is invalid.",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
@@ -184,9 +217,25 @@ public class UtilsResource {
 			)
 		}
 	)
-	public String getPublicKey(String seedPhrase) {
-		// TODO: convert BIP39 seed phrase to private key
-		return seedPhrase;
+	public String getBinarySeed(String seedPhrase) {
+		if (seedPhrase.isEmpty())
+			return "false";
+
+		// Strip leading/trailing whitespace if any
+		seedPhrase = seedPhrase.trim();
+
+		String[] phraseWords = seedPhrase.split(" ");
+		if (phraseWords.length != 12)
+			return "false";
+
+		// Convert BIP39 seed phrase to binary
+		byte[] binary = BIP39.decode(phraseWords, "en");
+		if (binary == null)
+			return "false";
+
+		byte[] message = Arrays.copyOf(binary, 16); // 132 bits is 16.5 bytes, but we're discarding checksum nybble
+
+		return Base58.encode(message);
 	}
 
 }

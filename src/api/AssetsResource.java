@@ -225,7 +225,7 @@ public class AssetsResource {
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
-				mediaType = "application/json",
+				mediaType = MediaType.APPLICATION_JSON,
 				schema = @Schema(implementation = IssueAssetRequest.class)
 			)
 		)
