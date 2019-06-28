@@ -23,6 +23,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 import org.qora.account.Account;
+import org.qora.account.PrivateKeyAccount;
 import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
@@ -30,7 +31,6 @@ import org.qora.api.ApiExceptionFactory;
 import org.qora.api.resource.TransactionsResource;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
-import org.qora.crypto.Ed25519;
 import org.qora.data.account.AccountData;
 import org.qora.data.account.ProxyForgerData;
 import org.qora.data.transaction.ProxyForgingTransactionData;
@@ -316,10 +316,10 @@ public class AddressesResource {
 		}
 	)
 	public String calculateProxyKey(@PathParam("generatorprivatekey") String generatorKey58, @PathParam("recipientpublickey") String recipientKey58) {
-		byte[] generatorKey = Base58.decode(generatorKey58);
+		PrivateKeyAccount generator = new PrivateKeyAccount(null, Base58.decode(generatorKey58));
 		byte[] recipientKey = Base58.decode(recipientKey58);
 
-		byte[] sharedSecret = Ed25519.getSharedSecret(recipientKey, generatorKey);
+		byte[] sharedSecret = generator.getSharedSecret(recipientKey);
 
 		byte[] proxySeed = Crypto.digest(sharedSecret);
 

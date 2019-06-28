@@ -15,6 +15,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
@@ -36,6 +37,7 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.data.account.ForgingAccountData;
+import org.qora.data.account.ProxyForgerData;
 import org.qora.utils.Base58;
 
 @Path("/admin")
@@ -150,7 +152,8 @@ public class AdminResource {
 	@GET
 	@Path("/forgingaccounts")
 	@Operation(
-		summary = "List accounts used to forge by BlockGenerator",
+		summary = "List public keys of accounts used to forge by BlockGenerator",
+		description = "Returns PUBLIC keys of accounts for safety.",
 		responses = {
 			@ApiResponse(
 				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = ForgingAccountData.class)))
@@ -160,7 +163,23 @@ public class AdminResource {
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public List<ForgingAccountData> getForgingAccounts() {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getAccountRepository().getForgingAccounts();
+			List<ForgingAccountData> forgingAccounts = repository.getAccountRepository().getForgingAccounts();
+
+			// Expand with proxy forging data where appropriate
+			forgingAccounts = forgingAccounts.stream().map(forgingAccountData -> {
+				byte[] publicKey = forgingAccountData.getPublicKey();
+
+				ProxyForgerData proxyForgerData = null;
+				try {
+					proxyForgerData = repository.getAccountRepository().getProxyForgeData(publicKey);
+				} catch (DataException e) {
+					// ignore
+				}
+
+				return new ForgingAccountData(forgingAccountData.getSeed(), proxyForgerData);
+			}).collect(Collectors.toList());
+
+			return forgingAccounts;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -169,13 +188,13 @@ public class AdminResource {
 	@POST
 	@Path("/forgingaccounts")
 	@Operation(
-		summary = "Add account to use to forge by BlockGenerator",
+		summary = "Add private key of account to use to forge by BlockGenerator",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
-					type = "string"
+					type = "string", example = "private key"
 				)
 			)
 		),
@@ -187,20 +206,17 @@ public class AdminResource {
 	)
 	@ApiErrors({ApiError.REPOSITORY_ISSUE})
 	public String addForgingAccount(String seed58) {
-		byte[] seed = Base58.decode(seed58.trim());
-
-		// Check seed is valid
-		try {
-			new PrivateKeyAccount(null, seed);
-		} catch (IllegalArgumentException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
-		}
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			byte[] seed = Base58.decode(seed58.trim());
+			// Check seed is valid
+			new PrivateKeyAccount(null, seed);
+
 			ForgingAccountData forgingAccountData = new ForgingAccountData(seed);
 
 			repository.getAccountRepository().save(forgingAccountData);
 			repository.saveChanges();
+		} catch (IllegalArgumentException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
@@ -211,13 +227,13 @@ public class AdminResource {
 	@DELETE
 	@Path("/forgingaccounts")
 	@Operation(
-		summary = "Delete account to use to forge by BlockGenerator",
+		summary = "Remove account from use to forge by BlockGenerator, using private key",
 		requestBody = @RequestBody(
 			required = true,
 			content = @Content(
 				mediaType = MediaType.TEXT_PLAIN,
 				schema = @Schema(
-					type = "string"
+					type = "string", example = "private key"
 				)
 			)
 		),
@@ -228,13 +244,15 @@ public class AdminResource {
 		}
 	)
 	public String deleteForgingAccount(String seed58) {
-		byte[] seed = Base58.decode(seed58.trim());
-
 		try (final Repository repository = RepositoryManager.getRepository()) {
+			byte[] seed = Base58.decode(seed58.trim());
+
 			if (repository.getAccountRepository().delete(seed) == 0)
 				return "false";
 
 			repository.saveChanges();
+		} catch (IllegalArgumentException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_PRIVATE_KEY, e);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

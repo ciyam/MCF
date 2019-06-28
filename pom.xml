@@ -7,7 +7,7 @@
 	<packaging>jar</packaging>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<bouncycastle.version>1.60</bouncycastle.version>
+		<bouncycastle.version>1.61</bouncycastle.version>
 		<dagger.version>1.2.2</dagger.version>
 		<hsqldb.version>r5836</hsqldb.version>
 		<sqltool.version>2.4.1</sqltool.version>
