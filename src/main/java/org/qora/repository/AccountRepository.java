@@ -9,11 +9,35 @@ public interface AccountRepository {
 
 	// General account
 
-	public void create(AccountData accountData) throws DataException;
-
+	/** Returns all general information about account, e.g. public key, last reference, default group ID. */
 	public AccountData getAccount(String address) throws DataException;
 
-	public void save(AccountData accountData) throws DataException;
+	/** Returns account's last reference or null if not set or account not found. */
+	public byte[] getLastReference(String address) throws DataException;
+
+	/** Returns account's default groupID or null if account not found. */
+	public Integer getDefaultGroupId(String address) throws DataException;
+
+	/**
+	 * Ensures at least minimal account info in repository.
+	 * <p>
+	 * Saves account address, and public key if present.
+	 */
+	public void ensureAccount(AccountData accountData) throws DataException;
+
+	/**
+	 * Saves account's last reference, and public key if present, in repository.
+	 * <p>
+	 * Note: ignores other fields like default group ID.
+	 */
+	public void setLastReference(AccountData accountData) throws DataException;
+
+	/**
+	 * Saves account's default groupID, and public key if present, in repository.
+	 * <p>
+	 * Note: ignores other fields like last reference.
+	 */
+	public void setDefaultGroupId(AccountData accountData) throws DataException;
 
 	public void delete(String address) throws DataException;
 

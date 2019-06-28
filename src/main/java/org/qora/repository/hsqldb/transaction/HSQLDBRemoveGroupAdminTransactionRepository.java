@@ -16,7 +16,7 @@ public class HSQLDBRemoveGroupAdminTransactionRepository extends HSQLDBTransacti
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT group_id, admin, admin_reference FROM RemoveGroupAdminTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -26,7 +26,7 @@ public class HSQLDBRemoveGroupAdminTransactionRepository extends HSQLDBTransacti
 			String admin = resultSet.getString(2);
 			byte[] adminReference = resultSet.getBytes(3);
 
-			return new RemoveGroupAdminTransactionData(creatorPublicKey, groupId, admin, adminReference, fee, timestamp, reference, signature);
+			return new RemoveGroupAdminTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, admin, adminReference, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch remove group admin transaction from repository", e);
 		}

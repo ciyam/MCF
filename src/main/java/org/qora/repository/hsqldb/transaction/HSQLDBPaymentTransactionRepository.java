@@ -16,16 +16,15 @@ public class HSQLDBPaymentTransactionRepository extends HSQLDBTransactionReposit
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT sender, recipient, amount FROM PaymentTransactions WHERE signature = ?", signature)) {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT recipient, amount FROM PaymentTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
-			byte[] senderPublicKey = resultSet.getBytes(1);
-			String recipient = resultSet.getString(2);
-			BigDecimal amount = resultSet.getBigDecimal(3);
+			String recipient = resultSet.getString(1);
+			BigDecimal amount = resultSet.getBigDecimal(2);
 
-			return new PaymentTransactionData(senderPublicKey, recipient, amount, fee, timestamp, reference, signature);
+			return new PaymentTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch payment transaction from repository", e);
 		}

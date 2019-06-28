@@ -8,9 +8,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
 import org.qora.block.BlockChain;
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.ArbitraryTransactionData;
@@ -20,23 +17,17 @@ import org.qora.transaction.ArbitraryTransaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.PaymentTransformer;
 import org.qora.transform.TransformationException;
-import org.qora.utils.Base58;
 import org.qora.utils.Serialization;
 
-import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 
 public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int SENDER_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int SERVICE_LENGTH = INT_LENGTH;
 	private static final int DATA_SIZE_LENGTH = INT_LENGTH;
-	private static final int PAYMENTS_COUNT_LENGTH = INT_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH_V1 = BASE_TYPELESS_LENGTH + SENDER_LENGTH + SERVICE_LENGTH + DATA_SIZE_LENGTH;
-	private static final int TYPELESS_DATALESS_LENGTH_V3 = BASE_TYPELESS_LENGTH + SENDER_LENGTH + PAYMENTS_COUNT_LENGTH + SERVICE_LENGTH + DATA_SIZE_LENGTH;
+	private static final int EXTRAS_LENGTH = SERVICE_LENGTH + DATA_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -44,6 +35,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.ARBITRARY.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
 		layout.add("number of payments", TransformationType.INT);
@@ -63,6 +55,10 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		long timestamp = byteBuffer.getLong();
 
 		int version = ArbitraryTransaction.getVersionByTimestamp(timestamp);
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -93,17 +89,20 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new ArbitraryTransactionData(version, senderPublicKey, service, data, DataType.RAW_DATA, payments, fee, timestamp, reference, signature);
+		return new ArbitraryTransactionData(timestamp, txGroupId, reference, senderPublicKey, version, service, data, DataType.RAW_DATA, payments, fee,
+				signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
 
-		if (arbitraryTransactionData.getVersion() == 1)
-			return TYPE_LENGTH + TYPELESS_DATALESS_LENGTH_V1 + arbitraryTransactionData.getData().length;
-		else
-			return TYPE_LENGTH + TYPELESS_DATALESS_LENGTH_V3 + arbitraryTransactionData.getData().length
-					+ arbitraryTransactionData.getPayments().size() * PaymentTransformer.getDataLength();
+		int length = getBaseLength(transactionData) + EXTRAS_LENGTH;
+
+		// V3+ transactions have optional payments
+		if (arbitraryTransactionData.getVersion() >= 3)
+			length += arbitraryTransactionData.getData().length + arbitraryTransactionData.getPayments().size() * PaymentTransformer.getDataLength();
+
+		return length;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -112,11 +111,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(arbitraryTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(arbitraryTransactionData.getTimestamp()));
-			bytes.write(arbitraryTransactionData.getReference());
-
-			bytes.write(arbitraryTransactionData.getSenderPublicKey());
+			transformCommonBytes(transactionData, bytes);
 
 			if (arbitraryTransactionData.getVersion() != 1) {
 				List<PaymentData> payments = arbitraryTransactionData.getPayments();
@@ -168,38 +163,6 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		int v1Start = bytes.length - v1Length;
 
 		return Arrays.copyOfRange(bytes, v1Start, bytes.length);
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			ArbitraryTransactionData arbitraryTransactionData = (ArbitraryTransactionData) transactionData;
-
-			byte[] senderPublicKey = arbitraryTransactionData.getSenderPublicKey();
-
-			json.put("version", arbitraryTransactionData.getVersion());
-			json.put("sender", PublicKeyAccount.getAddress(senderPublicKey));
-			json.put("senderPublicKey", HashCode.fromBytes(senderPublicKey).toString());
-
-			json.put("service", arbitraryTransactionData.getService());
-			json.put("data", Base58.encode(arbitraryTransactionData.getData()));
-
-			if (arbitraryTransactionData.getVersion() != 1) {
-				List<PaymentData> payments = arbitraryTransactionData.getPayments();
-				JSONArray paymentsJson = new JSONArray();
-
-				for (PaymentData paymentData : payments)
-					paymentsJson.add(PaymentTransformer.toJSON(paymentData));
-
-				json.put("payments", paymentsJson);
-			}
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

@@ -22,11 +22,14 @@ import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
 import org.qora.asset.Asset;
+import org.qora.block.BlockChain;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountData;
+import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.settings.Settings;
 import org.qora.transform.Transformer;
 import org.qora.utils.Base58;
 
@@ -38,6 +41,41 @@ public class AddressesResource {
 	@Context
 	HttpServletRequest request;
 	
+	@GET
+	@Path("/{address}")
+	@Operation(
+		summary = "Return general account information for the given address",
+		responses = {
+			@ApiResponse(
+				description = "general account information",
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = AccountData.class))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public AccountData getAccountInfo(@PathParam("address") String address) {
+		if (!Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			AccountData accountData = repository.getAccountRepository().getAccount(address);
+
+			// Not found?
+			if (accountData == null)
+				accountData = new AccountData(address, null, null, BlockChain.getInstance().getDefaultGroupId());
+
+			// If Blockchain config doesn't allow NO_GROUP then change this to blockchain's default groupID
+			if (accountData.getDefaultGroupId() == Group.NO_GROUP && !BlockChain.getInstance().getGrouplessAllowed())
+				accountData.setDefaultGroupId(BlockChain.getInstance().getDefaultGroupId());
+
+			return accountData;
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 	@GET
 	@Path("/lastreference/{address}")
 	@Operation(
@@ -202,8 +240,11 @@ public class AddressesResource {
 			)
 		}
 	)
-	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.REPOSITORY_ISSUE})
+	@ApiErrors({ApiError.INVALID_PUBLIC_KEY, ApiError.NON_PRODUCTION, ApiError.REPOSITORY_ISSUE})
 	public String fromPublicKey(@PathParam("publickey") String publicKey58) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		// Decode public key
 		byte[] publicKey;
 		try {

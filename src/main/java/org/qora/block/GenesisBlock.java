@@ -98,9 +98,9 @@ public class GenesisBlock extends Block {
 				// We're into version 4 genesis block territory now
 				version = 4;
 
-				transactions.add(new GenesisTransactionData(recipient, amount, assetId, timestamp));
+				transactions.add(new GenesisTransactionData(timestamp, recipient, amount, assetId));
 			} else {
-				transactions.add(new GenesisTransactionData(recipient, amount, timestamp));
+				transactions.add(new GenesisTransactionData(timestamp, recipient, amount));
 			}
 		}
 

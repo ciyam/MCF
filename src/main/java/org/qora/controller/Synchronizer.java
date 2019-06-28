@@ -136,7 +136,7 @@ public class Synchronizer {
 
 						return true;
 					} finally {
-						repository.discardChanges();
+						repository.discardChanges(); // Free repository locks, if any, also in case anything went wrong
 						this.repository = null;
 					}
 				}

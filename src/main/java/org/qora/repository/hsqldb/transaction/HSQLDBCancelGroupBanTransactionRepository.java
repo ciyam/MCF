@@ -16,7 +16,7 @@ public class HSQLDBCancelGroupBanTransactionRepository extends HSQLDBTransaction
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT group_id, address, ban_reference FROM CancelGroupBanTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
@@ -26,7 +26,7 @@ public class HSQLDBCancelGroupBanTransactionRepository extends HSQLDBTransaction
 			String member = resultSet.getString(2);
 			byte[] banReference = resultSet.getBytes(3);
 
-			return new CancelGroupBanTransactionData(creatorPublicKey, groupId, member, banReference, fee, timestamp, reference, signature);
+			return new CancelGroupBanTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, member, banReference, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group unban transaction from repository", e);
 		}

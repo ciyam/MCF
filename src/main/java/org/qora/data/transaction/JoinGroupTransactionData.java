@@ -11,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class JoinGroupTransactionData extends TransactionData {
@@ -29,7 +29,7 @@ public class JoinGroupTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected JoinGroupTransactionData() {
 		super(TransactionType.JOIN_GROUP);
 	}
@@ -38,8 +38,8 @@ public class JoinGroupTransactionData extends TransactionData {
 		this.creatorPublicKey = this.joinerPublicKey;
 	}
 
-	public JoinGroupTransactionData(byte[] joinerPublicKey, int groupId, byte[] inviteReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.JOIN_GROUP, fee, joinerPublicKey, timestamp, reference, signature);
+	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, byte[] inviteReference, BigDecimal fee, byte[] signature) {
+		super(TransactionType.JOIN_GROUP, timestamp, txGroupId, reference, joinerPublicKey, fee, signature);
 
 		this.joinerPublicKey = joinerPublicKey;
 		this.groupId = groupId;
@@ -47,8 +47,8 @@ public class JoinGroupTransactionData extends TransactionData {
 	}
 
 	/** Constructor typically used after deserialization */
-	public JoinGroupTransactionData(byte[] joinerPublicKey, int groupId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(joinerPublicKey, groupId, null, fee, timestamp, reference, signature);
+	public JoinGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] joinerPublicKey, int groupId, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, joinerPublicKey, groupId, null, fee, signature);
 	}
 
 	// Getters / setters

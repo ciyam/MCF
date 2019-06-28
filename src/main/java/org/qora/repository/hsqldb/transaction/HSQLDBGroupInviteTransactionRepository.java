@@ -16,7 +16,7 @@ public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRep
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT group_id, invitee, time_to_live, join_reference FROM GroupInviteTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -27,7 +27,7 @@ public class HSQLDBGroupInviteTransactionRepository extends HSQLDBTransactionRep
 			int timeToLive = resultSet.getInt(3);
 			byte[] joinReference = resultSet.getBytes(4);
 
-			return new GroupInviteTransactionData(creatorPublicKey, groupId, invitee, timeToLive, joinReference, fee, timestamp, reference, signature);
+			return new GroupInviteTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, invitee, timeToLive, joinReference, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group invite transaction from repository", e);
 		}

@@ -11,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class CancelGroupBanTransactionData extends TransactionData {
@@ -31,7 +31,7 @@ public class CancelGroupBanTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected CancelGroupBanTransactionData() {
 		super(TransactionType.CANCEL_GROUP_BAN);
 	}
@@ -40,8 +40,8 @@ public class CancelGroupBanTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public CancelGroupBanTransactionData(byte[] adminPublicKey, int groupId, String member, byte[] banReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.CANCEL_GROUP_BAN, fee, adminPublicKey, timestamp, reference, signature);
+	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, byte[] banReference, BigDecimal fee, byte[] signature) {
+		super(TransactionType.CANCEL_GROUP_BAN, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
 
 		this.adminPublicKey = adminPublicKey;
 		this.groupId = groupId;
@@ -50,8 +50,8 @@ public class CancelGroupBanTransactionData extends TransactionData {
 	}
 
 	/** Constructor typically used after deserialization */
-	public CancelGroupBanTransactionData(byte[] adminPublicKey, int groupId, String member, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(adminPublicKey, groupId, member, null, fee, timestamp, reference, signature);
+	public CancelGroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, null, fee, signature);
 	}
 
 	// Getters / setters

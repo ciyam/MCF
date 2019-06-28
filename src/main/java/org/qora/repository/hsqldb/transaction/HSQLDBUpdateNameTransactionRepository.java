@@ -16,7 +16,7 @@ public class HSQLDBUpdateNameTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] ownerPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT new_owner, name, new_data, name_reference FROM UpdateNameTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -27,7 +27,7 @@ public class HSQLDBUpdateNameTransactionRepository extends HSQLDBTransactionRepo
 			String newData = resultSet.getString(3);
 			byte[] nameReference = resultSet.getBytes(4);
 
-			return new UpdateNameTransactionData(ownerPublicKey, newOwner, name, newData, nameReference, fee, timestamp, reference, signature);
+			return new UpdateNameTransactionData(timestamp, txGroupId, reference, creatorPublicKey, newOwner, name, newData, nameReference, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch update name transaction from repository", e);
 		}

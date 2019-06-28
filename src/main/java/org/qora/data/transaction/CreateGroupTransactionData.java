@@ -6,12 +6,13 @@ import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElement;
 
+import org.qora.group.Group.ApprovalThreshold;
 import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(
 	allOf = {
@@ -47,23 +48,34 @@ public class CreateGroupTransactionData extends TransactionData {
 		example = "true"
 	)
 	private boolean isOpen;
+	@Schema(
+		description = "how many group admins are required to approve group member transactions"
+	)
+	private ApprovalThreshold approvalThreshold;
+	@Schema(description = "minimum block delay before approval takes effect")
+	private int minimumBlockDelay;
+	@Schema(description = "maximum block delay before which transaction approval must be reached")
+	private int maximumBlockDelay;
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected CreateGroupTransactionData() {
 		super(TransactionType.CREATE_GROUP);
 	}
 
-	public CreateGroupTransactionData(byte[] creatorPublicKey, String owner, String groupName, String description, boolean isOpen, Integer groupId,
-			BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.CREATE_GROUP, fee, creatorPublicKey, timestamp, reference, signature);
+	public CreateGroupTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String owner, String groupName, String description,
+			boolean isOpen, ApprovalThreshold approvalThreshold, int minimumBlockDelay, int maximumBlockDelay, Integer groupId, BigDecimal fee, byte[] signature) {
+		super(TransactionType.CREATE_GROUP, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 
 		this.creatorPublicKey = creatorPublicKey;
 		this.owner = owner;
 		this.groupName = groupName;
 		this.description = description;
 		this.isOpen = isOpen;
+		this.approvalThreshold = approvalThreshold;
+		this.minimumBlockDelay = minimumBlockDelay;
+		this.maximumBlockDelay = maximumBlockDelay;
 		this.groupId = groupId;
 	}
 
@@ -83,6 +95,18 @@ public class CreateGroupTransactionData extends TransactionData {
 
 	public boolean getIsOpen() {
 		return this.isOpen;
+	}
+
+	public ApprovalThreshold getApprovalThreshold() {
+		return this.approvalThreshold;
+	}
+
+	public int getMinimumBlockDelay() {
+		return this.minimumBlockDelay;
+	}
+
+	public int getMaximumBlockDelay() {
+		return this.maximumBlockDelay;
 	}
 
 	public Integer getGroupId() {

@@ -11,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class RemoveGroupAdminTransactionData extends TransactionData {
@@ -31,7 +31,7 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected RemoveGroupAdminTransactionData() {
 		super(TransactionType.REMOVE_GROUP_ADMIN);
 	}
@@ -40,8 +40,8 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 		this.creatorPublicKey = this.ownerPublicKey;
 	}
 
-	public RemoveGroupAdminTransactionData(byte[] ownerPublicKey, int groupId, String admin, byte[] adminReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.REMOVE_GROUP_ADMIN, fee, ownerPublicKey, timestamp, reference, signature);
+	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, byte[] adminReference, BigDecimal fee, byte[] signature) {
+		super(TransactionType.REMOVE_GROUP_ADMIN, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
 		this.groupId = groupId;
@@ -50,8 +50,8 @@ public class RemoveGroupAdminTransactionData extends TransactionData {
 	}
 
 	/** Constructor typically used after deserialization */
-	public RemoveGroupAdminTransactionData(byte[] ownerPublicKey, int groupId, String admin, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(ownerPublicKey, groupId, admin, null, fee, timestamp, reference, signature);
+	public RemoveGroupAdminTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, int groupId, String admin, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, groupId, admin, null, fee, signature);
 	}
 
 	// Getters / setters

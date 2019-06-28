@@ -2,7 +2,6 @@ package org.qora.account;
 
 import org.qora.crypto.Crypto;
 import org.qora.crypto.Ed25519;
-import org.qora.data.account.AccountData;
 import org.qora.repository.Repository;
 import org.qora.utils.Pair;
 
@@ -16,15 +15,16 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 	 * 
 	 * @param seed
 	 *            byte[32] used to create private/public key pair
-	 * @throws IllegalArgumentException if passed invalid seed
+	 * @throws IllegalArgumentException
+	 *             if passed invalid seed
 	 */
 	public PrivateKeyAccount(Repository repository, byte[] seed) {
 		this.repository = repository;
 		this.seed = seed;
 		this.keyPair = Ed25519.createKeyPair(seed);
 
-		byte[] publicKey = keyPair.getB();
-		this.accountData = new AccountData(Crypto.toAddress(publicKey), null, publicKey);
+		this.publicKey = keyPair.getB();
+		this.address = Crypto.toAddress(publicKey);
 	}
 
 	public byte[] getSeed() {

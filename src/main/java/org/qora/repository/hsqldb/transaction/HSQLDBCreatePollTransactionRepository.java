@@ -19,7 +19,7 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT owner, poll_name, description FROM CreatePollTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
@@ -43,7 +43,7 @@ public class HSQLDBCreatePollTransactionRepository extends HSQLDBTransactionRepo
 					pollOptions.add(new PollOptionData(optionName));
 				} while (optionsResultSet.next());
 
-				return new CreatePollTransactionData(creatorPublicKey, owner, pollName, description, pollOptions, fee, timestamp, reference, signature);
+				return new CreatePollTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, pollName, description, pollOptions, fee, signature);
 			}
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create poll transaction from repository", e);

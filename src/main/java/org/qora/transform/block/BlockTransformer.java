@@ -8,17 +8,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
-import org.qora.asset.Order;
 import org.qora.block.Block;
-import org.qora.data.asset.TradeData;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
-import org.qora.transaction.CreateAssetOrderTransaction;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
@@ -28,7 +23,6 @@ import org.qora.utils.Base58;
 import org.qora.utils.Serialization;
 import org.qora.utils.Triple;
 
-import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
@@ -281,87 +275,6 @@ public class BlockTransformer extends Transformer {
 		} catch (IOException | DataException e) {
 			throw new TransformationException("Unable to serialize block", e);
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(Block block) throws TransformationException {
-		BlockData blockData = block.getBlockData();
-
-		JSONObject json = new JSONObject();
-
-		json.put("version", blockData.getVersion());
-		json.put("timestamp", blockData.getTimestamp());
-		json.put("generatingBalance", blockData.getGeneratingBalance());
-		json.put("generator", PublicKeyAccount.getAddress(blockData.getGeneratorPublicKey()));
-		json.put("generatorPublicKey", Base58.encode(blockData.getGeneratorPublicKey()));
-		json.put("fee", blockData.getTotalFees().toPlainString());
-		json.put("transactionsSignature", Base58.encode(blockData.getTransactionsSignature()));
-		json.put("generatorSignature", Base58.encode(blockData.getGeneratorSignature()));
-		json.put("signature", Base58.encode(blockData.getSignature()));
-
-		if (blockData.getReference() != null)
-			json.put("reference", Base58.encode(blockData.getReference()));
-
-		json.put("height", blockData.getHeight());
-
-		// Add transaction info
-		JSONArray transactionsJson = new JSONArray();
-
-		// XXX this should be moved out to API as it requires repository access
-		boolean tradesHappened = false;
-
-		try {
-			for (Transaction transaction : block.getTransactions()) {
-				transactionsJson.add(TransactionTransformer.toJSON(transaction.getTransactionData()));
-
-				// If this is an asset CreateOrderTransaction then check to see if any trades happened
-				if (transaction.getTransactionData().getType() == Transaction.TransactionType.CREATE_ASSET_ORDER) {
-					CreateAssetOrderTransaction orderTransaction = (CreateAssetOrderTransaction) transaction;
-					Order order = orderTransaction.getOrder();
-					List<TradeData> trades = order.getTrades();
-
-					if (trades.stream().anyMatch(tradeData -> Arrays.equals(tradeData.getInitiator(), order.getOrderData().getOrderId()))) {
-						tradesHappened = true;
-						// No need to check any further
-						break;
-					}
-				}
-			}
-		} catch (DataException e) {
-			throw new TransformationException("Unable to transform block into JSON", e);
-		}
-		json.put("transactions", transactionsJson);
-
-		// Add asset trade activity flag
-		json.put("assetTrades", tradesHappened);
-
-		// Add CIYAM AT info (if any)
-		if (blockData.getATCount() > 0) {
-			JSONArray atsJson = new JSONArray();
-
-			try {
-				for (ATStateData atStateData : block.getATStates()) {
-					JSONObject atJson = new JSONObject();
-
-					atJson.put("AT", atStateData.getATAddress());
-					atJson.put("stateHash", HashCode.fromBytes(atStateData.getStateHash()).toString());
-
-					if (blockData.getVersion() >= 4)
-						atJson.put("fees", atStateData.getFees().toPlainString());
-
-					atsJson.add(atJson);
-				}
-			} catch (DataException e) {
-				throw new TransformationException("Unable to transform block into JSON", e);
-			}
-
-			json.put("ATs", atsJson);
-
-			if (blockData.getVersion() >= 2)
-				json.put("atFees", blockData.getATFees());
-		}
-
-		return json;
 	}
 
 	public static byte[] getBytesForGeneratorSignature(BlockData blockData) throws TransformationException {

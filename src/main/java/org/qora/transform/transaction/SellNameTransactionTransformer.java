@@ -5,8 +5,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
+import org.qora.block.BlockChain;
 import org.qora.data.transaction.SellNameTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.naming.Name;
@@ -15,18 +14,14 @@ import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
 import com.google.common.base.Utf8;
-import com.google.common.hash.HashCode;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 
 public class SellNameTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int OWNER_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + AMOUNT_LENGTH;
+	private static final int EXTRAS_LENGTH = NAME_SIZE_LENGTH + AMOUNT_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -34,6 +29,7 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.SELL_NAME.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("name owner's public key", TransformationType.PUBLIC_KEY);
 		layout.add("name length", TransformationType.INT);
@@ -45,6 +41,10 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -60,15 +60,13 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new SellNameTransactionData(ownerPublicKey, name, amount, fee, timestamp, reference, signature);
+		return new SellNameTransactionData(timestamp, txGroupId, reference, ownerPublicKey, name, amount, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		SellNameTransactionData sellNameTransactionData = (SellNameTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(sellNameTransactionData.getName());
-
-		return dataLength;
+		return getBaseLength(transactionData) + EXTRAS_LENGTH + Utf8.encodedLength(sellNameTransactionData.getName());
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -77,12 +75,10 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(sellNameTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(sellNameTransactionData.getTimestamp()));
-			bytes.write(sellNameTransactionData.getReference());
+			transformCommonBytes(transactionData, bytes);
 
-			bytes.write(sellNameTransactionData.getOwnerPublicKey());
 			Serialization.serializeSizedString(bytes, sellNameTransactionData.getName());
+
 			Serialization.serializeBigDecimal(bytes, sellNameTransactionData.getAmount());
 
 			Serialization.serializeBigDecimal(bytes, sellNameTransactionData.getFee());
@@ -94,27 +90,6 @@ public class SellNameTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			SellNameTransactionData sellNameTransactionData = (SellNameTransactionData) transactionData;
-
-			byte[] ownerPublicKey = sellNameTransactionData.getOwnerPublicKey();
-
-			json.put("owner", PublicKeyAccount.getAddress(ownerPublicKey));
-			json.put("ownerPublicKey", HashCode.fromBytes(ownerPublicKey).toString());
-
-			json.put("name", sellNameTransactionData.getName());
-			json.put("amount", sellNameTransactionData.getAmount().toPlainString());
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

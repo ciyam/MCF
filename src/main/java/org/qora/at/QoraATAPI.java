@@ -22,9 +22,10 @@ import org.qora.data.block.BlockData;
 import org.qora.data.transaction.ATTransactionData;
 import org.qora.data.transaction.MessageTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
-import org.qora.transaction.ATTransaction;
+import org.qora.transaction.AtTransaction;
 
 import com.google.common.primitives.Bytes;
 
@@ -42,20 +43,20 @@ public class QoraATAPI extends API {
 	long blockTimestamp;
 
 	/** List of generated AT transactions */
-	List<ATTransaction> transactions;
+	List<AtTransaction> transactions;
 
 	// Constructors
 
 	public QoraATAPI(Repository repository, ATData atData, long blockTimestamp) {
 		this.repository = repository;
 		this.atData = atData;
-		this.transactions = new ArrayList<ATTransaction>();
+		this.transactions = new ArrayList<AtTransaction>();
 		this.blockTimestamp = blockTimestamp;
 	}
 
 	// Methods specific to Qora AT processing, not inherited
 
-	public List<ATTransaction> getTransactions() {
+	public List<AtTransaction> getTransactions() {
 		return this.transactions;
 	}
 
@@ -248,9 +249,9 @@ public class QoraATAPI extends API {
 
 	@Override
 	public long getCurrentBalance(MachineState state) {
-		Account atAccount = this.getATAccount();
-
 		try {
+			Account atAccount = this.getATAccount();
+
 			return atAccount.getConfirmedBalance(Asset.QORA).unscaledValue().longValue();
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch AT's current balance?", e);
@@ -267,9 +268,9 @@ public class QoraATAPI extends API {
 		byte[] reference = this.getLastReference();
 		BigDecimal amount = BigDecimal.valueOf(unscaledAmount, 8);
 
-		ATTransactionData atTransactionData = new ATTransactionData(this.atData.getATAddress(), recipient.getAddress(), amount, this.atData.getAssetId(),
-				new byte[0], BigDecimal.ZERO.setScale(8), timestamp, reference);
-		ATTransaction atTransaction = new ATTransaction(this.repository, atTransactionData);
+		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference, this.atData.getATAddress(),
+				recipient.getAddress(), amount, this.atData.getAssetId(), new byte[0], BigDecimal.ZERO.setScale(8));
+		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions
 		this.transactions.add(atTransaction);
@@ -285,9 +286,9 @@ public class QoraATAPI extends API {
 		long timestamp = this.getNextTransactionTimestamp();
 		byte[] reference = this.getLastReference();
 
-		ATTransactionData atTransactionData = new ATTransactionData(this.atData.getATAddress(), recipient.getAddress(), BigDecimal.ZERO,
-				this.atData.getAssetId(), message, BigDecimal.ZERO.setScale(8), timestamp, reference);
-		ATTransaction atTransaction = new ATTransaction(this.repository, atTransactionData);
+		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference,
+				this.atData.getATAddress(), recipient.getAddress(), BigDecimal.ZERO, this.atData.getAssetId(), message, BigDecimal.ZERO.setScale(8));
+		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions
 		this.transactions.add(atTransaction);
@@ -311,9 +312,9 @@ public class QoraATAPI extends API {
 		byte[] reference = this.getLastReference();
 		BigDecimal amount = BigDecimal.valueOf(finalBalance, 8);
 
-		ATTransactionData atTransactionData = new ATTransactionData(this.atData.getATAddress(), creator.getAddress(), amount, this.atData.getAssetId(),
-				new byte[0], BigDecimal.ZERO.setScale(8), timestamp, reference);
-		ATTransaction atTransaction = new ATTransaction(this.repository, atTransactionData);
+		ATTransactionData atTransactionData = new ATTransactionData(timestamp, Group.NO_GROUP, reference, this.atData.getATAddress(),
+				creator.getAddress(), amount, this.atData.getAssetId(), new byte[0], BigDecimal.ZERO.setScale(8));
+		AtTransaction atTransaction = new AtTransaction(this.repository, atTransactionData);
 
 		// Add to our transactions
 		this.transactions.add(atTransaction);
@@ -422,10 +423,10 @@ public class QoraATAPI extends API {
 		if (!this.transactions.isEmpty())
 			return this.transactions.get(this.transactions.size() - 1).getTransactionData().getSignature();
 
-		// No transactions yet, so look up AT's account's last reference from repository
-		Account atAccount = this.getATAccount();
-
 		try {
+			// No transactions yet, so look up AT's account's last reference from repository
+			Account atAccount = this.getATAccount();
+
 			return atAccount.getLastReference();
 		} catch (DataException e) {
 			throw new RuntimeException("AT API unable to fetch AT's last reference from repository?", e);

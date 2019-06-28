@@ -5,8 +5,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
 import org.qora.asset.Asset;
 import org.qora.block.BlockChain;
 import org.qora.data.transaction.DeployAtTransactionData;
@@ -17,14 +15,12 @@ import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
 import com.google.common.base.Utf8;
-import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 
 public class DeployAtTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int CREATOR_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int AT_TYPE_SIZE_LENGTH = INT_LENGTH;
@@ -33,9 +29,8 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 	private static final int AMOUNT_LENGTH = LONG_LENGTH;
 	private static final int ASSET_ID_LENGTH = LONG_LENGTH;
 
-	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + AT_TYPE_SIZE_LENGTH
-			+ TAGS_SIZE_LENGTH + CREATION_BYTES_SIZE_LENGTH + AMOUNT_LENGTH;
-	private static final int V4_TYPELESS_LENGTH = TYPELESS_LENGTH + ASSET_ID_LENGTH;
+	private static final int EXTRAS_LENGTH = NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + AT_TYPE_SIZE_LENGTH + TAGS_SIZE_LENGTH + CREATION_BYTES_SIZE_LENGTH
+			+ AMOUNT_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -43,6 +38,7 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.DEPLOY_AT.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("AT creator's public key", TransformationType.PUBLIC_KEY);
 		layout.add("AT name length", TransformationType.INT);
@@ -63,6 +59,10 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 		long timestamp = byteBuffer.getLong();
 
 		int version = DeployAtTransaction.getVersionByTimestamp(timestamp);
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -95,24 +95,23 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new DeployAtTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference,
-				signature);
+		return new DeployAtTransactionData(timestamp, txGroupId, reference, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId,
+				fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		DeployAtTransactionData deployATTransactionData = (DeployAtTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH;
+		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH;
 
 		int version = DeployAtTransaction.getVersionByTimestamp(transactionData.getTimestamp());
 
+		// V4+ have assetId too
 		if (version >= 4)
-			dataLength += V4_TYPELESS_LENGTH;
-		else
-			dataLength += TYPELESS_LENGTH;
+			dataLength += ASSET_ID_LENGTH;
 
 		dataLength += Utf8.encodedLength(deployATTransactionData.getName()) + Utf8.encodedLength(deployATTransactionData.getDescription())
-				+ Utf8.encodedLength(deployATTransactionData.getATType()) + Utf8.encodedLength(deployATTransactionData.getTags())
+				+ Utf8.encodedLength(deployATTransactionData.getAtType()) + Utf8.encodedLength(deployATTransactionData.getTags())
 				+ deployATTransactionData.getCreationBytes().length;
 
 		return dataLength;
@@ -126,17 +125,13 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(deployATTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(deployATTransactionData.getTimestamp()));
-			bytes.write(deployATTransactionData.getReference());
-
-			bytes.write(deployATTransactionData.getCreatorPublicKey());
+			transformCommonBytes(transactionData, bytes);
 
 			Serialization.serializeSizedString(bytes, deployATTransactionData.getName());
 
 			Serialization.serializeSizedString(bytes, deployATTransactionData.getDescription());
 
-			Serialization.serializeSizedString(bytes, deployATTransactionData.getATType());
+			Serialization.serializeSizedString(bytes, deployATTransactionData.getAtType());
 
 			Serialization.serializeSizedString(bytes, deployATTransactionData.getTags());
 
@@ -205,31 +200,6 @@ public class DeployAtTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			DeployAtTransactionData deployATTransactionData = (DeployAtTransactionData) transactionData;
-
-			byte[] creatorPublicKey = deployATTransactionData.getCreatorPublicKey();
-
-			json.put("creator", PublicKeyAccount.getAddress(creatorPublicKey));
-			json.put("creatorPublicKey", HashCode.fromBytes(creatorPublicKey).toString());
-			json.put("name", deployATTransactionData.getName());
-			json.put("description", deployATTransactionData.getDescription());
-			json.put("atType", deployATTransactionData.getATType());
-			json.put("tags", deployATTransactionData.getTags());
-			json.put("creationBytes", HashCode.fromBytes(deployATTransactionData.getCreationBytes()).toString());
-			json.put("amount", deployATTransactionData.getAmount().toPlainString());
-			json.put("assetId", deployATTransactionData.getAssetId());
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

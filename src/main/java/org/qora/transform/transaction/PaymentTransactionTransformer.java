@@ -5,26 +5,20 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
+import org.qora.block.BlockChain;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
-import com.google.common.hash.HashCode;
-import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
-
 public class PaymentTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int SENDER_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int RECIPIENT_LENGTH = ADDRESS_LENGTH;
 	private static final int AMOUNT_LENGTH = BIG_DECIMAL_LENGTH;
 
-	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + AMOUNT_LENGTH;
+	private static final int EXTRAS_LENGTH = RECIPIENT_LENGTH + AMOUNT_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -32,6 +26,7 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.PAYMENT.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("sender's public key", TransformationType.PUBLIC_KEY);
 		layout.add("recipient", TransformationType.ADDRESS);
@@ -42,6 +37,10 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -57,11 +56,11 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new PaymentTransactionData(senderPublicKey, recipient, amount, fee, timestamp, reference, signature);
+		return new PaymentTransactionData(timestamp, txGroupId, reference, senderPublicKey, recipient, amount, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		return TYPE_LENGTH + TYPELESS_LENGTH;
+		return getBaseLength(transactionData) + EXTRAS_LENGTH;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -70,12 +69,10 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(paymentTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(paymentTransactionData.getTimestamp()));
-			bytes.write(paymentTransactionData.getReference());
+			transformCommonBytes(transactionData, bytes);
 
-			bytes.write(paymentTransactionData.getSenderPublicKey());
 			Serialization.serializeAddress(bytes, paymentTransactionData.getRecipient());
+
 			Serialization.serializeBigDecimal(bytes, paymentTransactionData.getAmount());
 
 			Serialization.serializeBigDecimal(bytes, paymentTransactionData.getFee());
@@ -87,26 +84,6 @@ public class PaymentTransactionTransformer extends TransactionTransformer {
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			PaymentTransactionData paymentTransactionData = (PaymentTransactionData) transactionData;
-
-			byte[] senderPublicKey = paymentTransactionData.getSenderPublicKey();
-
-			json.put("sender", PublicKeyAccount.getAddress(senderPublicKey));
-			json.put("senderPublicKey", HashCode.fromBytes(senderPublicKey).toString());
-			json.put("recipient", paymentTransactionData.getRecipient());
-			json.put("amount", paymentTransactionData.getAmount().toPlainString());
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

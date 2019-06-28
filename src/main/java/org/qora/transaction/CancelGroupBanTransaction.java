@@ -84,6 +84,10 @@ public class CancelGroupBanTransaction extends Transaction {
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
+		// Check transaction's groupID matches group's ID
+		if (groupData.getGroupId() != groupUnbanTransactionData.getTxGroupId())
+			return ValidationResult.GROUP_ID_MISMATCH;
+
 		Account admin = getAdmin();
 
 		// Can't unban if not an admin

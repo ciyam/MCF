@@ -7,9 +7,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
 import org.qora.block.BlockChain;
 import org.qora.data.transaction.CreatePollTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -20,21 +17,17 @@ import org.qora.utils.Serialization;
 import org.qora.voting.Poll;
 
 import com.google.common.base.Utf8;
-import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 
 public class CreatePollTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int CREATOR_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int OWNER_LENGTH = ADDRESS_LENGTH;
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 	private static final int DESCRIPTION_SIZE_LENGTH = INT_LENGTH;
 	private static final int OPTIONS_SIZE_LENGTH = INT_LENGTH;
 
-	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + CREATOR_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH
-			+ OPTIONS_SIZE_LENGTH;
+	private static final int EXTRAS_LENGTH = OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH + OPTIONS_SIZE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -42,6 +35,7 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.CREATE_POLL.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("poll creator's public key", TransformationType.PUBLIC_KEY);
 		layout.add("poll name length", TransformationType.INT);
@@ -57,6 +51,10 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -92,13 +90,13 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new CreatePollTransactionData(creatorPublicKey, owner, pollName, description, pollOptions, fee, timestamp, reference, signature);
+		return new CreatePollTransactionData(timestamp, txGroupId, reference, creatorPublicKey, owner, pollName, description, pollOptions, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
 		CreatePollTransactionData createPollTransactionData = (CreatePollTransactionData) transactionData;
 
-		int dataLength = TYPE_LENGTH + TYPELESS_DATALESS_LENGTH + Utf8.encodedLength(createPollTransactionData.getPollName())
+		int dataLength = getBaseLength(transactionData) + EXTRAS_LENGTH + Utf8.encodedLength(createPollTransactionData.getPollName())
 				+ Utf8.encodedLength(createPollTransactionData.getDescription());
 
 		// Add lengths for each poll options
@@ -120,16 +118,12 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(createPollTransactionData.getType().value));
-
-			bytes.write(Longs.toByteArray(createPollTransactionData.getTimestamp()));
-
-			bytes.write(createPollTransactionData.getReference());
-
-			bytes.write(createPollTransactionData.getCreatorPublicKey());
+			transformCommonBytes(transactionData, bytes);
 
 			Serialization.serializeAddress(bytes, createPollTransactionData.getOwner());
+
 			Serialization.serializeSizedString(bytes, createPollTransactionData.getPollName());
+
 			Serialization.serializeSizedString(bytes, createPollTransactionData.getDescription());
 
 			List<PollOptionData> pollOptions = createPollTransactionData.getPollOptions();
@@ -176,34 +170,6 @@ public class CreatePollTransactionTransformer extends TransactionTransformer {
 		System.arraycopy(Ints.toByteArray(TransactionType.REGISTER_NAME.value), 0, bytes, 0, INT_LENGTH);
 
 		return bytes;
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			CreatePollTransactionData createPollTransactionData = (CreatePollTransactionData) transactionData;
-
-			byte[] creatorPublicKey = createPollTransactionData.getCreatorPublicKey();
-
-			json.put("creator", PublicKeyAccount.getAddress(creatorPublicKey));
-			json.put("creatorPublicKey", HashCode.fromBytes(creatorPublicKey).toString());
-
-			json.put("owner", createPollTransactionData.getOwner());
-			json.put("name", createPollTransactionData.getPollName());
-			json.put("description", createPollTransactionData.getDescription());
-
-			JSONArray options = new JSONArray();
-			for (PollOptionData optionData : createPollTransactionData.getPollOptions())
-				options.add(optionData.getOptionName());
-
-			json.put("options", options);
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

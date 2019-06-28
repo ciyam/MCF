@@ -11,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class CancelAssetOrderTransactionData extends TransactionData {
@@ -22,19 +22,19 @@ public class CancelAssetOrderTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected CancelAssetOrderTransactionData() {
 		super(TransactionType.CANCEL_ASSET_ORDER);
 	}
 
-	public CancelAssetOrderTransactionData(byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(Transaction.TransactionType.CANCEL_ASSET_ORDER, fee, creatorPublicKey, timestamp, reference, signature);
+	public CancelAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, byte[] signature) {
+		super(Transaction.TransactionType.CANCEL_ASSET_ORDER, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 
 		this.orderId = orderId;
 	}
 
-	public CancelAssetOrderTransactionData(byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, long timestamp, byte[] reference) {
-		this(creatorPublicKey, orderId, fee, timestamp, reference, null);
+	public CancelAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, byte[] orderId, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, orderId, fee, null);
 	}
 
 	// Getters/Setters

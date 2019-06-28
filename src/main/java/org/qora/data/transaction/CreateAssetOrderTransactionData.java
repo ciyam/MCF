@@ -10,7 +10,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class CreateAssetOrderTransactionData extends TransactionData {
@@ -27,14 +27,14 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected CreateAssetOrderTransactionData() {
 		super(TransactionType.CREATE_ASSET_ORDER);
 	}
 
-	public CreateAssetOrderTransactionData(byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, BigDecimal fee,
-			long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.CREATE_ASSET_ORDER, fee, creatorPublicKey, timestamp, reference, signature);
+	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
+			BigDecimal amount, BigDecimal price, BigDecimal fee, byte[] signature) {
+		super(TransactionType.CREATE_ASSET_ORDER, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 
 		this.haveAssetId = haveAssetId;
 		this.wantAssetId = wantAssetId;
@@ -42,9 +42,9 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 		this.price = price;
 	}
 
-	public CreateAssetOrderTransactionData(byte[] creatorPublicKey, long haveAssetId, long wantAssetId, BigDecimal amount, BigDecimal price, BigDecimal fee,
-			long timestamp, byte[] reference) {
-		this(creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, timestamp, reference, null);
+	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
+			BigDecimal amount, BigDecimal price, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, null);
 	}
 
 	// Getters/Setters

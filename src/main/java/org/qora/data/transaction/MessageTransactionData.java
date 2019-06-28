@@ -2,6 +2,7 @@ package org.qora.data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
@@ -10,14 +11,14 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class MessageTransactionData extends TransactionData {
 
 	// Properties
-	private int version;
 	private byte[] senderPublicKey;
+	private int version;
 	private String recipient;
 	private Long assetId;
 	private BigDecimal amount;
@@ -27,16 +28,21 @@ public class MessageTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected MessageTransactionData() {
+		super(TransactionType.MESSAGE);
 	}
 
-	public MessageTransactionData(int version, byte[] senderPublicKey, String recipient, Long assetId, BigDecimal amount, byte[] data, boolean isText,
-			boolean isEncrypted, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.MESSAGE, fee, senderPublicKey, timestamp, reference, signature);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = this.senderPublicKey;
+	}
 
-		this.version = version;
+	public MessageTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, String recipient, Long assetId,
+			BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted, BigDecimal fee, byte[] signature) {
+		super(TransactionType.MESSAGE, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
+
 		this.senderPublicKey = senderPublicKey;
+		this.version = version;
 		this.recipient = recipient;
 
 		if (assetId != null)
@@ -50,19 +56,19 @@ public class MessageTransactionData extends TransactionData {
 		this.isEncrypted = isEncrypted;
 	}
 
-	public MessageTransactionData(int version, byte[] senderPublicKey, String recipient, Long assetId, BigDecimal amount, byte[] data, boolean isText,
-			boolean isEncrypted, BigDecimal fee, long timestamp, byte[] reference) {
-		this(version, senderPublicKey, recipient, assetId, amount, data, isText, isEncrypted, fee, timestamp, reference, null);
+	public MessageTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, String recipient, Long assetId,
+			BigDecimal amount, byte[] data, boolean isText, boolean isEncrypted, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, senderPublicKey, version, recipient, assetId, amount, data, isText, isEncrypted, fee, null);
 	}
 
 	// Getters/Setters
 
-	public int getVersion() {
-		return this.version;
-	}
-
 	public byte[] getSenderPublicKey() {
 		return this.senderPublicKey;
+	}
+
+	public int getVersion() {
+		return this.version;
 	}
 
 	public String getRecipient() {

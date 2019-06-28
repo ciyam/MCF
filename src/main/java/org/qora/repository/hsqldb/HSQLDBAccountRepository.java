@@ -22,7 +22,48 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	// General account
 
 	@Override
-	public void create(AccountData accountData) throws DataException {
+	public AccountData getAccount(String address) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference, public_key, default_group_id FROM Accounts WHERE account = ?", address)) {
+			if (resultSet == null)
+				return null;
+
+			byte[] reference = resultSet.getBytes(1);
+			byte[] publicKey = resultSet.getBytes(2);
+			int defaultGroupId = resultSet.getInt(3);
+
+			return new AccountData(address, reference, publicKey, defaultGroupId);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account info from repository", e);
+		}
+	}
+
+	@Override
+	public byte[] getLastReference(String address) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference FROM Accounts WHERE account = ?", address)) {
+			if (resultSet == null)
+				return null;
+
+			return resultSet.getBytes(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's last reference from repository", e);
+		}
+	}
+
+	@Override
+	public Integer getDefaultGroupId(String address) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT default_group_id FROM Accounts WHERE account = ?", address)) {
+			if (resultSet == null)
+				return null;
+
+			// Column is NOT NULL so this should never implicitly convert to 0
+			return resultSet.getInt(1); 
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's default groupID from repository", e);
+		}
+	}
+
+	@Override
+	public void ensureAccount(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 
 		saveHelper.bind("account", accountData.getAddress());
@@ -34,35 +75,41 @@ public class HSQLDBAccountRepository implements AccountRepository {
 		try {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
-			throw new DataException("Unable to create account in repository", e);
+			throw new DataException("Unable to ensure minimal account in repository", e);
 		}
 	}
 
 	@Override
-	public AccountData getAccount(String address) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT reference, public_key FROM Accounts WHERE account = ?", address)) {
-			if (resultSet == null)
-				return null;
-
-			byte[] reference = resultSet.getBytes(1);
-			byte[] publicKey = resultSet.getBytes(2);
-
-			return new AccountData(address, reference, publicKey);
-		} catch (SQLException e) {
-			throw new DataException("Unable to fetch account info from repository", e);
-		}
-	}
-
-	@Override
-	public void save(AccountData accountData) throws DataException {
+	public void setLastReference(AccountData accountData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
 
-		saveHelper.bind("account", accountData.getAddress()).bind("reference", accountData.getReference()).bind("public_key", accountData.getPublicKey());
+		saveHelper.bind("account", accountData.getAddress()).bind("reference", accountData.getReference());
+
+		byte[] publicKey = accountData.getPublicKey();
+		if (publicKey != null)
+			saveHelper.bind("public_key", publicKey);
 
 		try {
 			saveHelper.execute(this.repository);
 		} catch (SQLException e) {
-			throw new DataException("Unable to save account info into repository", e);
+			throw new DataException("Unable to save account's last reference into repository", e);
+		}
+	}
+
+	@Override
+	public void setDefaultGroupId(AccountData accountData) throws DataException {
+		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
+		saveHelper.bind("account", accountData.getAddress()).bind("default_group_id", accountData.getDefaultGroupId());
+
+		byte[] publicKey = accountData.getPublicKey();
+		if (publicKey != null)
+			saveHelper.bind("public_key", publicKey);
+
+		try {
+			saveHelper.execute(this.repository);
+		} catch (SQLException e) {
+			throw new DataException("Unable to save account's default group ID into repository", e);
 		}
 	}
 

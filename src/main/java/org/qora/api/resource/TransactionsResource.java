@@ -34,6 +34,7 @@ import org.qora.globalization.Translator;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.settings.Settings;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transaction.Transaction.ValidationResult;
@@ -225,6 +226,43 @@ public class TransactionsResource {
 		}
 	}
 
+	@GET
+	@Path("/pending")
+	@Operation(
+		summary = "List transactions pending group approval",
+		description = "Returns transactions that are pending group-admin approval",
+		responses = {
+			@ApiResponse(
+				description = "transactions",
+				content = @Content(
+					array = @ArraySchema(
+						schema = @Schema(
+							implementation = TransactionData.class
+						)
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({
+		ApiError.REPOSITORY_ISSUE
+	})
+	public List<TransactionData> getPendingTransactions(@QueryParam("txGroupId") Integer txGroupId, @Parameter(
+		ref = "limit"
+	) @QueryParam("limit") Integer limit, @Parameter(
+		ref = "offset"
+	) @QueryParam("offset") Integer offset, @Parameter(
+		ref = "reverse"
+	) @QueryParam("reverse") Boolean reverse) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getTransactionRepository().getPendingTransactions(txGroupId, limit, offset, reverse);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
 	public enum ConfirmationStatus {
 		CONFIRMED,
 		UNCONFIRMED,
@@ -314,9 +352,12 @@ public class TransactionsResource {
 		}
 	)
 	@ApiErrors({
-		ApiError.INVALID_PRIVATE_KEY, ApiError.TRANSFORMATION_ERROR
+		ApiError.NON_PRODUCTION, ApiError.INVALID_PRIVATE_KEY, ApiError.TRANSFORMATION_ERROR
 	})
 	public String signTransaction(SimpleTransactionSignRequest signRequest) {
+		if (Settings.getInstance().isRestrictedApi())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
 		if (signRequest.transactionBytes.length == 0)
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.JSON);
 

@@ -3,6 +3,7 @@ package org.qora.data.transaction;
 import java.math.BigDecimal;
 import java.util.List;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
@@ -11,7 +12,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class ArbitraryTransactionData extends TransactionData {
@@ -32,17 +33,22 @@ public class ArbitraryTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected ArbitraryTransactionData() {
+		super(TransactionType.ARBITRARY);
+	}
+
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = this.senderPublicKey;
 	}
 
 	/** Reconstructing a V3 arbitrary transaction with signature */
-	public ArbitraryTransactionData(int version, byte[] senderPublicKey, int service, byte[] data, DataType dataType, List<PaymentData> payments,
-			BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.ARBITRARY, fee, senderPublicKey, timestamp, reference, signature);
+	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service,
+			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee, byte[] signature) {
+		super(TransactionType.ARBITRARY, timestamp, txGroupId, reference, senderPublicKey, fee, signature);
 
-		this.version = version;
 		this.senderPublicKey = senderPublicKey;
+		this.version = version;
 		this.service = service;
 		this.data = data;
 		this.dataType = dataType;
@@ -50,31 +56,31 @@ public class ArbitraryTransactionData extends TransactionData {
 	}
 
 	/** Constructing a new V3 arbitrary transaction without signature */
-	public ArbitraryTransactionData(int version, byte[] senderPublicKey, int service, byte[] data, DataType dataType, List<PaymentData> payments,
-			BigDecimal fee, long timestamp, byte[] reference) {
-		this(version, senderPublicKey, service, data, dataType, payments, fee, timestamp, reference, null);
+	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service,
+			byte[] data, DataType dataType, List<PaymentData> payments, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, payments, fee, null);
 	}
 
 	/** Reconstructing a V1 arbitrary transaction with signature */
-	public ArbitraryTransactionData(int version, byte[] senderPublicKey, int service, byte[] data, DataType dataType, BigDecimal fee, long timestamp,
-			byte[] reference, byte[] signature) {
-		this(version, senderPublicKey, service, data, dataType, null, fee, timestamp, reference, signature);
+	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
+			DataType dataType, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, null, fee, signature);
 	}
 
 	/** Constructing a new V1 arbitrary transaction without signature */
-	public ArbitraryTransactionData(int version, byte[] senderPublicKey, int service, byte[] data, DataType dataType, BigDecimal fee, long timestamp,
-			byte[] reference) {
-		this(version, senderPublicKey, service, data, dataType, null, fee, timestamp, reference, null);
+	public ArbitraryTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] senderPublicKey, int version, int service, byte[] data,
+			DataType dataType, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, senderPublicKey, version, service, data, dataType, null, fee, null);
 	}
 
 	// Getters/Setters
 
-	public int getVersion() {
-		return this.version;
-	}
-
 	public byte[] getSenderPublicKey() {
 		return this.senderPublicKey;
+	}
+
+	public int getVersion() {
+		return this.version;
 	}
 
 	public int getService() {

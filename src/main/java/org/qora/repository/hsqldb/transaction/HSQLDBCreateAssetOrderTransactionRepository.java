@@ -16,7 +16,7 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT have_asset_id, amount, want_asset_id, price FROM CreateAssetOrderTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -27,7 +27,7 @@ public class HSQLDBCreateAssetOrderTransactionRepository extends HSQLDBTransacti
 			long wantAssetId = resultSet.getLong(3);
 			BigDecimal price = resultSet.getBigDecimal(4);
 
-			return new CreateAssetOrderTransactionData(creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, timestamp, reference, signature);
+			return new CreateAssetOrderTransactionData(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create order transaction from repository", e);
 		}

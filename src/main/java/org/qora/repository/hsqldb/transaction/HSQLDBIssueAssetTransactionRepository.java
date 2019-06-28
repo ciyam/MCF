@@ -16,26 +16,25 @@ public class HSQLDBIssueAssetTransactionRepository extends HSQLDBTransactionRepo
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute(
-				"SELECT issuer, owner, asset_name, description, quantity, is_divisible, asset_id FROM IssueAssetTransactions WHERE signature = ?", signature)) {
+				"SELECT owner, asset_name, description, quantity, is_divisible, asset_id FROM IssueAssetTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
-			byte[] issuerPublicKey = resultSet.getBytes(1);
-			String owner = resultSet.getString(2);
-			String assetName = resultSet.getString(3);
-			String description = resultSet.getString(4);
-			long quantity = resultSet.getLong(5);
-			boolean isDivisible = resultSet.getBoolean(6);
+			String owner = resultSet.getString(1);
+			String assetName = resultSet.getString(2);
+			String description = resultSet.getString(3);
+			long quantity = resultSet.getLong(4);
+			boolean isDivisible = resultSet.getBoolean(5);
 
 			// Special null-checking for asset ID
-			Long assetId = resultSet.getLong(7);
+			Long assetId = resultSet.getLong(6);
 			if (resultSet.wasNull())
 				assetId = null;
 
-			return new IssueAssetTransactionData(assetId, issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference,
-					signature);
+			return new IssueAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, assetId, owner, assetName, description, quantity, isDivisible,
+					fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch issue asset transaction from repository", e);
 		}

@@ -5,26 +5,22 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 
-import org.json.simple.JSONObject;
-import org.qora.account.PublicKeyAccount;
+import org.qora.block.BlockChain;
 import org.qora.data.transaction.CancelGroupInviteTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
-import com.google.common.hash.HashCode;
 import com.google.common.primitives.Ints;
-import com.google.common.primitives.Longs;
 
 public class CancelGroupInviteTransactionTransformer extends TransactionTransformer {
 
 	// Property lengths
-	private static final int ADMIN_LENGTH = PUBLIC_KEY_LENGTH;
 	private static final int GROUPID_LENGTH = INT_LENGTH;
 	private static final int INVITEE_LENGTH = ADDRESS_LENGTH;
 
-	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + GROUPID_LENGTH + INVITEE_LENGTH;
+	private static final int EXTRAS_LENGTH = GROUPID_LENGTH + INVITEE_LENGTH;
 
 	protected static final TransactionLayout layout;
 
@@ -32,6 +28,7 @@ public class CancelGroupInviteTransactionTransformer extends TransactionTransfor
 		layout = new TransactionLayout();
 		layout.add("txType: " + TransactionType.CANCEL_GROUP_INVITE.valueString, TransformationType.INT);
 		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("transaction's groupID", TransformationType.INT);
 		layout.add("reference", TransformationType.SIGNATURE);
 		layout.add("group admin's public key", TransformationType.PUBLIC_KEY);
 		layout.add("group ID", TransformationType.INT);
@@ -42,6 +39,10 @@ public class CancelGroupInviteTransactionTransformer extends TransactionTransfor
 
 	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
+
+		int txGroupId = 0;
+		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
+			txGroupId = byteBuffer.getInt();
 
 		byte[] reference = new byte[REFERENCE_LENGTH];
 		byteBuffer.get(reference);
@@ -57,11 +58,11 @@ public class CancelGroupInviteTransactionTransformer extends TransactionTransfor
 		byte[] signature = new byte[SIGNATURE_LENGTH];
 		byteBuffer.get(signature);
 
-		return new CancelGroupInviteTransactionData(adminPublicKey, groupId, invitee, fee, timestamp, reference, signature);
+		return new CancelGroupInviteTransactionData(timestamp, txGroupId, reference, adminPublicKey, groupId, invitee, fee, signature);
 	}
 
 	public static int getDataLength(TransactionData transactionData) throws TransformationException {
-		return TYPE_LENGTH + TYPELESS_LENGTH;
+		return getBaseLength(transactionData) + EXTRAS_LENGTH;
 	}
 
 	public static byte[] toBytes(TransactionData transactionData) throws TransformationException {
@@ -70,12 +71,10 @@ public class CancelGroupInviteTransactionTransformer extends TransactionTransfor
 
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
-			bytes.write(Ints.toByteArray(cancelGroupInviteTransactionData.getType().value));
-			bytes.write(Longs.toByteArray(cancelGroupInviteTransactionData.getTimestamp()));
-			bytes.write(cancelGroupInviteTransactionData.getReference());
+			transformCommonBytes(transactionData, bytes);
 
-			bytes.write(cancelGroupInviteTransactionData.getCreatorPublicKey());
 			bytes.write(Ints.toByteArray(cancelGroupInviteTransactionData.getGroupId()));
+
 			Serialization.serializeAddress(bytes, cancelGroupInviteTransactionData.getInvitee());
 
 			Serialization.serializeBigDecimal(bytes, cancelGroupInviteTransactionData.getFee());
@@ -87,27 +86,6 @@ public class CancelGroupInviteTransactionTransformer extends TransactionTransfor
 		} catch (IOException | ClassCastException e) {
 			throw new TransformationException(e);
 		}
-	}
-
-	@SuppressWarnings("unchecked")
-	public static JSONObject toJSON(TransactionData transactionData) throws TransformationException {
-		JSONObject json = TransactionTransformer.getBaseJSON(transactionData);
-
-		try {
-			CancelGroupInviteTransactionData cancelGroupInviteTransactionData = (CancelGroupInviteTransactionData) transactionData;
-
-			byte[] adminPublicKey = cancelGroupInviteTransactionData.getAdminPublicKey();
-
-			json.put("admin", PublicKeyAccount.getAddress(adminPublicKey));
-			json.put("adminPublicKey", HashCode.fromBytes(adminPublicKey).toString());
-
-			json.put("groupId", cancelGroupInviteTransactionData.getGroupId());
-			json.put("invitee", cancelGroupInviteTransactionData.getInvitee());
-		} catch (ClassCastException e) {
-			throw new TransformationException(e);
-		}
-
-		return json;
 	}
 
 }

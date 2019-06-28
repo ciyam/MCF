@@ -2,6 +2,7 @@ package org.qora.data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
@@ -10,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class IssueAssetTransactionData extends TransactionData {
@@ -34,14 +35,18 @@ public class IssueAssetTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected IssueAssetTransactionData() {
 		super(TransactionType.ISSUE_ASSET);
 	}
 
-	public IssueAssetTransactionData(Long assetId, byte[] issuerPublicKey, String owner, String assetName, String description, long quantity,
-			boolean isDivisible, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.ISSUE_ASSET, fee, issuerPublicKey, timestamp, reference, signature);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = this.issuerPublicKey;
+	}
+
+	public IssueAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] issuerPublicKey, Long assetId, String owner,
+			String assetName, String description, long quantity, boolean isDivisible, BigDecimal fee, byte[] signature) {
+		super(TransactionType.ISSUE_ASSET, timestamp, txGroupId, reference, issuerPublicKey, fee, signature);
 
 		this.assetId = assetId;
 		this.issuerPublicKey = issuerPublicKey;
@@ -52,14 +57,14 @@ public class IssueAssetTransactionData extends TransactionData {
 		this.isDivisible = isDivisible;
 	}
 
-	public IssueAssetTransactionData(byte[] issuerPublicKey, String owner, String assetName, String description, long quantity, boolean isDivisible,
-			BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(null, issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference, signature);
+	public IssueAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] issuerPublicKey, String owner, String assetName,
+			String description, long quantity, boolean isDivisible, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, issuerPublicKey, null, owner, assetName, description, quantity, isDivisible, fee, signature);
 	}
 
-	public IssueAssetTransactionData(byte[] issuerPublicKey, String owner, String assetName, String description, long quantity, boolean isDivisible,
-			BigDecimal fee, long timestamp, byte[] reference) {
-		this(null, issuerPublicKey, owner, assetName, description, quantity, isDivisible, fee, timestamp, reference, null);
+	public IssueAssetTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] issuerPublicKey, String owner, String assetName,
+			String description, long quantity, boolean isDivisible, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, issuerPublicKey, null, owner, assetName, description, quantity, isDivisible, fee, null);
 	}
 
 	// Getters/Setters

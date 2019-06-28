@@ -11,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(
 	allOf = {
@@ -58,7 +58,7 @@ public class GroupKickTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected GroupKickTransactionData() {
 		super(TransactionType.GROUP_KICK);
 	}
@@ -67,9 +67,9 @@ public class GroupKickTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public GroupKickTransactionData(byte[] adminPublicKey, int groupId, String member, String reason, byte[] memberReference, byte[] adminReference,
-			byte[] joinReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.GROUP_KICK, fee, adminPublicKey, timestamp, reference, signature);
+	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member,
+			String reason, byte[] memberReference, byte[] adminReference, byte[] joinReference, BigDecimal fee, byte[] signature) {
+		super(TransactionType.GROUP_KICK, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
 
 		this.adminPublicKey = adminPublicKey;
 		this.groupId = groupId;
@@ -81,9 +81,9 @@ public class GroupKickTransactionData extends TransactionData {
 	}
 
 	/** Constructor typically used after deserialization */
-	public GroupKickTransactionData(byte[] adminPublicKey, int groupId, String member, String reason, BigDecimal fee, long timestamp, byte[] reference,
-			byte[] signature) {
-		this(adminPublicKey, groupId, member, reason, null, null, null, fee, timestamp, reference, signature);
+	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, String reason,
+			BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, reason, null, null, null, fee, signature);
 	}
 
 	// Getters / setters

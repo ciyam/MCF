@@ -86,7 +86,7 @@ public class DeployAtTransaction extends Transaction {
 
 	/** Make sure deployATTransactionData has an ATAddress */
 	private void ensureATAddress() throws DataException {
-		if (this.deployATTransactionData.getATAddress() != null)
+		if (this.deployATTransactionData.getAtAddress() != null)
 			return;
 
 		int blockHeight = this.getHeight();
@@ -112,7 +112,7 @@ public class DeployAtTransaction extends Transaction {
 
 			String atAddress = Crypto.toATAddress(byteBuffer.array());
 
-			this.deployATTransactionData.setATAddress(atAddress);
+			this.deployATTransactionData.setAtAddress(atAddress);
 		} catch (UnsupportedEncodingException e) {
 			throw new DataException("Unable to generate AT account from Deploy AT transaction data", e);
 		}
@@ -123,7 +123,7 @@ public class DeployAtTransaction extends Transaction {
 	public Account getATAccount() throws DataException {
 		ensureATAddress();
 
-		return new Account(this.repository, this.deployATTransactionData.getATAddress());
+		return new Account(this.repository, this.deployATTransactionData.getAtAddress());
 	}
 
 	// Processing
@@ -144,7 +144,7 @@ public class DeployAtTransaction extends Transaction {
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
 		// Check AT-type size bounds
-		int ATTypeLength = Utf8.encodedLength(deployATTransactionData.getATType());
+		int ATTypeLength = Utf8.encodedLength(deployATTransactionData.getAtType());
 		if (ATTypeLength < 1 || ATTypeLength > MAX_AT_TYPE_SIZE)
 			return ValidationResult.INVALID_AT_TYPE_LENGTH;
 
@@ -257,7 +257,7 @@ public class DeployAtTransaction extends Transaction {
 		creator.setLastReference(deployATTransactionData.getReference());
 
 		// Delete AT's account (and hence its balance)
-		this.repository.getAccountRepository().delete(this.deployATTransactionData.getATAddress());
+		this.repository.getAccountRepository().delete(this.deployATTransactionData.getAtAddress());
 	}
 
 }

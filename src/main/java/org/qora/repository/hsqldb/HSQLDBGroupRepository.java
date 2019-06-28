@@ -13,6 +13,7 @@ import org.qora.data.group.GroupData;
 import org.qora.data.group.GroupInviteData;
 import org.qora.data.group.GroupJoinRequestData;
 import org.qora.data.group.GroupMemberData;
+import org.qora.group.Group.ApprovalThreshold;
 import org.qora.repository.DataException;
 import org.qora.repository.GroupRepository;
 
@@ -29,7 +30,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public GroupData fromGroupId(int groupId) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_name, owner, description, created, updated, reference, is_open FROM Groups WHERE group_id = ?", groupId)) {
+				.checkedExecute("SELECT group_name, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay FROM Groups WHERE group_id = ?", groupId)) {
 			if (resultSet == null)
 				return null;
 
@@ -45,7 +46,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			byte[] reference = resultSet.getBytes(6);
 			boolean isOpen = resultSet.getBoolean(7);
 
-			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference);
+			ApprovalThreshold approvalThreshold = ApprovalThreshold.valueOf(resultSet.getInt(8));
+
+			int minBlockDelay = resultSet.getInt(9);
+			int maxBlockDelay = resultSet.getInt(10);
+
+			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group info from repository", e);
 		}
@@ -54,7 +60,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 	@Override
 	public GroupData fromGroupName(String groupName) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_id, owner, description, created, updated, reference, is_open FROM Groups WHERE group_name = ?", groupName)) {
+				.checkedExecute("SELECT group_id, owner, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay FROM Groups WHERE group_name = ?", groupName)) {
 			if (resultSet == null)
 				return null;
 
@@ -70,7 +76,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 			byte[] reference = resultSet.getBytes(6);
 			boolean isOpen = resultSet.getBoolean(7);
 
-			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference);
+			ApprovalThreshold approvalThreshold = ApprovalThreshold.valueOf(resultSet.getInt(8));
+
+			int minBlockDelay = resultSet.getInt(9);
+			int maxBlockDelay = resultSet.getInt(10);
+
+			return new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch group info from repository", e);
 		}
@@ -96,7 +107,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupData> getAllGroups(Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open FROM Groups ORDER BY group_name";
+		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay FROM Groups ORDER BY group_name";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
@@ -121,7 +132,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				byte[] reference = resultSet.getBytes(7);
 				boolean isOpen = resultSet.getBoolean(8);
 
-				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference));
+				ApprovalThreshold approvalThreshold = ApprovalThreshold.valueOf(resultSet.getInt(9));
+
+				int minBlockDelay = resultSet.getInt(10);
+				int maxBlockDelay = resultSet.getInt(11);
+
+				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference));
 			} while (resultSet.next());
 
 			return groups;
@@ -132,7 +148,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupData> getGroupsByOwner(String owner, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT group_id, group_name, description, created, updated, reference, is_open FROM Groups WHERE owner = ? ORDER BY group_name";
+		String sql = "SELECT group_id, group_name, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay FROM Groups WHERE owner = ? ORDER BY group_name";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
@@ -156,7 +172,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				byte[] reference = resultSet.getBytes(6);
 				boolean isOpen = resultSet.getBoolean(7);
 
-				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference));
+				ApprovalThreshold approvalThreshold = ApprovalThreshold.valueOf(resultSet.getInt(8));
+
+				int minBlockDelay = resultSet.getInt(9);
+				int maxBlockDelay = resultSet.getInt(10);
+
+				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference));
 			} while (resultSet.next());
 
 			return groups;
@@ -167,7 +188,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupData> getGroupsWithMember(String member, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open FROM Groups JOIN GroupMembers USING (group_id) WHERE address = ? ORDER BY group_name";
+		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open, approval_threshold min_block_delay, max_block_delay FROM Groups "
+				+ "JOIN GroupMembers USING (group_id) WHERE address = ? ORDER BY group_name";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
@@ -192,7 +214,12 @@ public class HSQLDBGroupRepository implements GroupRepository {
 				byte[] reference = resultSet.getBytes(7);
 				boolean isOpen = resultSet.getBoolean(8);
 
-				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, reference));
+				ApprovalThreshold approvalThreshold = ApprovalThreshold.valueOf(resultSet.getInt(9));
+
+				int minBlockDelay = resultSet.getInt(10);
+				int maxBlockDelay = resultSet.getInt(11);
+
+				groups.add(new GroupData(groupId, owner, groupName, description, created, updated, isOpen, approvalThreshold, minBlockDelay, maxBlockDelay, reference));
 			} while (resultSet.next());
 
 			return groups;
@@ -211,7 +238,8 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 		saveHelper.bind("group_id", groupData.getGroupId()).bind("owner", groupData.getOwner()).bind("group_name", groupData.getGroupName())
 				.bind("description", groupData.getDescription()).bind("created", new Timestamp(groupData.getCreated())).bind("updated", updatedTimestamp)
-				.bind("reference", groupData.getReference()).bind("is_open", groupData.getIsOpen());
+				.bind("reference", groupData.getReference()).bind("is_open", groupData.getIsOpen()).bind("approval_threshold", groupData.getApprovalThreshold().value)
+				.bind("min_block_delay", groupData.getMinimumBlockDelay()).bind("max_block_delay", groupData.getMaximumBlockDelay());
 
 		try {
 			saveHelper.execute(this.repository);

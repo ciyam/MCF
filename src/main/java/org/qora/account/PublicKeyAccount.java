@@ -2,25 +2,35 @@ package org.qora.account;
 
 import org.qora.crypto.Crypto;
 import org.qora.crypto.Ed25519;
+import org.qora.data.account.AccountData;
 import org.qora.repository.Repository;
 
 public class PublicKeyAccount extends Account {
 
+	protected byte[] publicKey;
+
 	public PublicKeyAccount(Repository repository, byte[] publicKey) {
 		super(repository, Crypto.toAddress(publicKey));
 
-		this.accountData.setPublicKey(publicKey);
+		this.publicKey = publicKey;
 	}
 
 	protected PublicKeyAccount() {
 	}
 
 	public byte[] getPublicKey() {
-		return this.accountData.getPublicKey();
+		return this.publicKey;
+	}
+
+	@Override
+	protected AccountData buildAccountData() {
+		AccountData accountData = super.buildAccountData();
+		accountData.setPublicKey(this.publicKey);
+		return accountData;
 	}
 
 	public boolean verify(byte[] signature, byte[] message) {
-		return PublicKeyAccount.verify(this.accountData.getPublicKey(), signature, message);
+		return PublicKeyAccount.verify(this.publicKey, signature, message);
 	}
 
 	public static boolean verify(byte[] publicKey, byte[] signature, byte[] message) {

@@ -7,8 +7,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.TimeZone;
 
 import org.apache.logging.log4j.LogManager;
@@ -36,13 +36,13 @@ public class HSQLDBRepository implements Repository {
 	public static final TimeZone UTC = TimeZone.getTimeZone("UTC");
 
 	protected Connection connection;
-	protected List<Savepoint> savepoints;
+	protected Deque<Savepoint> savepoints;
 	protected boolean debugState = false;
 
 	// NB: no visibility modifier so only callable from within same package
 	HSQLDBRepository(Connection connection) {
 		this.connection = connection;
-		this.savepoints = new ArrayList<>();
+		this.savepoints = new ArrayDeque<>(3);
 	}
 
 	@Override
@@ -116,7 +116,7 @@ public class HSQLDBRepository implements Repository {
 	public void setSavepoint() throws DataException {
 		try {
 			Savepoint savepoint = this.connection.setSavepoint();
-			this.savepoints.add(savepoint);
+			this.savepoints.push(savepoint);
 		} catch (SQLException e) {
 			throw new DataException("savepoint error", e);
 		}
@@ -127,8 +127,7 @@ public class HSQLDBRepository implements Repository {
 		if (this.savepoints.isEmpty())
 			throw new DataException("no savepoint to rollback");
 
-		Savepoint savepoint = this.savepoints.get(0);
-		this.savepoints.remove(0);
+		Savepoint savepoint = this.savepoints.pop();
 
 		try {
 			this.connection.rollback(savepoint);

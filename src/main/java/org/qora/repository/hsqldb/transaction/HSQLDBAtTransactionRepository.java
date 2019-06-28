@@ -16,7 +16,7 @@ public class HSQLDBAtTransactionRepository extends HSQLDBTransactionRepository {
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
 				.checkedExecute("SELECT AT_address, recipient, amount, asset_id, message FROM ATTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
@@ -37,7 +37,7 @@ public class HSQLDBAtTransactionRepository extends HSQLDBTransactionRepository {
 			if (resultSet.wasNull())
 				message = null;
 
-			return new ATTransactionData(atAddress, recipient, amount, assetId, message, fee, timestamp, reference, signature);
+			return new ATTransactionData(timestamp, txGroupId, reference, atAddress, recipient, amount, assetId, message, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch AT transaction from repository", e);
 		}

@@ -11,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(
 	allOf = {
@@ -61,7 +61,7 @@ public class GroupBanTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected GroupBanTransactionData() {
 		super(TransactionType.GROUP_BAN);
 	}
@@ -70,9 +70,9 @@ public class GroupBanTransactionData extends TransactionData {
 		this.creatorPublicKey = this.adminPublicKey;
 	}
 
-	public GroupBanTransactionData(byte[] adminPublicKey, int groupId, String member, String reason, int timeToLive, byte[] memberReference,
-			byte[] adminReference, byte[] joinInviteReference, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.GROUP_BAN, fee, adminPublicKey, timestamp, reference, signature);
+	public GroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member,
+			String reason, int timeToLive, byte[] memberReference, byte[] adminReference, byte[] joinInviteReference, BigDecimal fee, byte[] signature) {
+		super(TransactionType.GROUP_BAN, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
 
 		this.adminPublicKey = adminPublicKey;
 		this.groupId = groupId;
@@ -85,9 +85,9 @@ public class GroupBanTransactionData extends TransactionData {
 	}
 
 	/** Constructor typically used after deserialization */
-	public GroupBanTransactionData(byte[] adminPublicKey, int groupId, String offender, String reason, int timeToLive, BigDecimal fee, long timestamp,
-			byte[] reference, byte[] signature) {
-		this(adminPublicKey, groupId, offender, reason, timeToLive, null, null, null, fee, timestamp, reference, signature);
+	public GroupBanTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String offender, String reason,
+			int timeToLive, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, offender, reason, timeToLive, null, null, null, fee, signature);
 	}
 
 	// Getters / setters

@@ -1,6 +1,10 @@
 package org.qora.group;
 
+import static java.util.Arrays.stream;
+import static java.util.stream.Collectors.toMap;
+
 import java.util.Arrays;
+import java.util.Map;
 
 import org.qora.account.Account;
 import org.qora.account.PublicKeyAccount;
@@ -28,12 +32,70 @@ import org.qora.repository.Repository;
 
 public class Group {
 
+	/** Group-admin quora threshold for approving transactions */
+	public enum ApprovalThreshold {
+		// NOTE: value needs to fit into byte
+		NONE(0, false),
+		ONE(1, false),
+		PCT20(20, true),
+		PCT40(40, true),
+		PCT60(60, true),
+		PCT80(80, true),
+		PCT100(100, true);
+
+		public final int value;
+		public final boolean isPercentage;
+
+		private final static Map<Integer, ApprovalThreshold> map = stream(ApprovalThreshold.values())
+				.collect(toMap(threshold -> threshold.value, threshold -> threshold));
+
+		ApprovalThreshold(int value, boolean isPercentage) {
+			this.value = value;
+			this.isPercentage = isPercentage;
+		}
+
+		public static ApprovalThreshold valueOf(int value) {
+			return map.get(value);
+		}
+
+		private boolean meetsTheshold(int currentApprovals, int totalAdmins) {
+			if (!this.isPercentage)
+				return currentApprovals >= this.value;
+
+			return currentApprovals >= (totalAdmins * 100 / this.value);
+		}
+
+		/**
+		 * Returns whether transaction meets approval threshold.
+		 * 
+		 * @param repository
+		 * @param txGroupId
+		 *            transaction's groupID
+		 * @param signature
+		 *            transaction's signature
+		 * @return true if approval still needed, false if transaction can be included in block
+		 * @throws DataException
+		 */
+		public boolean meetsApprovalThreshold(Repository repository, int txGroupId, byte[] signature) throws DataException {
+			// Fetch total number of admins in group
+			final int totalAdmins = repository.getGroupRepository().countGroupAdmins(txGroupId);
+
+			// Fetch total number of approvals for signature
+			// NOT simply number of GROUP_APPROVE transactions as some may be rejecting transaction, or changed opinions
+			final int currentApprovals = repository.getTransactionRepository().countTransactionApprovals(txGroupId, signature);
+
+			return meetsTheshold(currentApprovals, totalAdmins);
+		}
+	}
+
 	// Properties
 	private Repository repository;
 	private GroupRepository groupRepository;
 	private GroupData groupData;
 
 	// Useful constants
+	public static final int NO_GROUP = 0;
+
 	public static final int MAX_NAME_SIZE = 32;
 	public static final int MAX_DESCRIPTION_SIZE = 128;
 	/** Max size of kick/ban reason */
@@ -53,7 +115,8 @@ public class Group {
 
 		this.groupData = new GroupData(createGroupTransactionData.getOwner(), createGroupTransactionData.getGroupName(),
 				createGroupTransactionData.getDescription(), createGroupTransactionData.getTimestamp(), createGroupTransactionData.getIsOpen(),
-				createGroupTransactionData.getSignature());
+				createGroupTransactionData.getApprovalThreshold(), createGroupTransactionData.getMinimumBlockDelay(),
+				createGroupTransactionData.getMaximumBlockDelay(), createGroupTransactionData.getSignature());
 	}
 
 	/**
@@ -253,6 +316,7 @@ public class Group {
 		this.groupData.setOwner(updateGroupTransactionData.getNewOwner());
 		this.groupData.setDescription(updateGroupTransactionData.getNewDescription());
 		this.groupData.setIsOpen(updateGroupTransactionData.getNewIsOpen());
+		this.groupData.setApprovalThreshold(updateGroupTransactionData.getNewApprovalThreshold());
 		this.groupData.setUpdated(updateGroupTransactionData.getTimestamp());
 
 		// Save updated group data
@@ -311,6 +375,7 @@ public class Group {
 				this.groupData.setOwner(previousCreateGroupTransactionData.getOwner());
 				this.groupData.setDescription(previousCreateGroupTransactionData.getDescription());
 				this.groupData.setIsOpen(previousCreateGroupTransactionData.getIsOpen());
+				this.groupData.setApprovalThreshold(previousCreateGroupTransactionData.getApprovalThreshold());
 				this.groupData.setUpdated(null);
 				break;
 
@@ -319,6 +384,7 @@ public class Group {
 				this.groupData.setOwner(previousUpdateGroupTransactionData.getNewOwner());
 				this.groupData.setDescription(previousUpdateGroupTransactionData.getNewDescription());
 				this.groupData.setIsOpen(previousUpdateGroupTransactionData.getNewIsOpen());
+				this.groupData.setApprovalThreshold(previousUpdateGroupTransactionData.getNewApprovalThreshold());
 				this.groupData.setUpdated(previousUpdateGroupTransactionData.getTimestamp());
 				break;
 

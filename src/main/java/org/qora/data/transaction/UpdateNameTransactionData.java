@@ -2,6 +2,7 @@ package org.qora.data.transaction;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlTransient;
@@ -10,7 +11,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class UpdateNameTransactionData extends TransactionData {
@@ -31,14 +32,18 @@ public class UpdateNameTransactionData extends TransactionData {
 
 	// Constructors
 
-	// For JAX-RS
+	// For JAXB
 	protected UpdateNameTransactionData() {
 		super(TransactionType.UPDATE_NAME);
 	}
 
-	public UpdateNameTransactionData(byte[] ownerPublicKey, String newOwner, String name, String newData, byte[] nameReference, BigDecimal fee, long timestamp,
-			byte[] reference, byte[] signature) {
-		super(TransactionType.UPDATE_NAME, fee, ownerPublicKey, timestamp, reference, signature);
+	public void afterUnmarshal(Unmarshaller u, Object parent) {
+		this.creatorPublicKey = this.ownerPublicKey;
+	}
+
+	public UpdateNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String newOwner, String name, String newData,
+			byte[] nameReference, BigDecimal fee, byte[] signature) {
+		super(TransactionType.UPDATE_NAME, timestamp, txGroupId, reference, ownerPublicKey, fee, signature);
 
 		this.ownerPublicKey = ownerPublicKey;
 		this.newOwner = newOwner;
@@ -47,14 +52,14 @@ public class UpdateNameTransactionData extends TransactionData {
 		this.nameReference = nameReference;
 	}
 
-	public UpdateNameTransactionData(byte[] ownerPublicKey, String newOwner, String name, String newData, BigDecimal fee, long timestamp, byte[] reference,
-			byte[] signature) {
-		this(ownerPublicKey, newOwner, name, newData, null, fee, timestamp, reference, signature);
+	public UpdateNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String newOwner, String name, String newData,
+			BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, newOwner, name, newData, null, fee, signature);
 	}
 
-	public UpdateNameTransactionData(byte[] ownerPublicKey, String newOwner, String name, String newData, byte[] nameReference, BigDecimal fee, long timestamp,
-			byte[] reference) {
-		this(ownerPublicKey, newOwner, name, newData, nameReference, fee, timestamp, reference, null);
+	public UpdateNameTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] ownerPublicKey, String newOwner, String name, String newData,
+			byte[] nameReference, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, ownerPublicKey, newOwner, name, newData, nameReference, fee, null);
 	}
 
 	// Getters / setters

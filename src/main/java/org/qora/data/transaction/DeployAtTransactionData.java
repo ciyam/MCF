@@ -9,7 +9,7 @@ import org.qora.transaction.Transaction.TransactionType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-// All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
 public class DeployAtTransactionData extends TransactionData {
@@ -17,41 +17,42 @@ public class DeployAtTransactionData extends TransactionData {
 	// Properties
 	private String name;
 	private String description;
-	private String ATType;
+	private String aTType;
 	private String tags;
 	private byte[] creationBytes;
 	private BigDecimal amount;
 	private long assetId;
-	private String ATAddress;
+	private String aTAddress;
 
 	// Constructors
 
 	// For JAX-RS
 	protected DeployAtTransactionData() {
+		super(TransactionType.DEPLOY_AT);
 	}
 
-	public DeployAtTransactionData(String ATAddress, byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
-			BigDecimal amount, long assetId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(TransactionType.DEPLOY_AT, fee, creatorPublicKey, timestamp, reference, signature);
+	public DeployAtTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String aTAddress, String name, String description,
+			String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId, BigDecimal fee, byte[] signature) {
+		super(TransactionType.DEPLOY_AT, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 
+		this.aTAddress = aTAddress;
 		this.name = name;
 		this.description = description;
-		this.ATType = ATType;
+		this.aTType = aTType;
 		this.tags = tags;
+		this.creationBytes = creationBytes;
 		this.amount = amount;
 		this.assetId = assetId;
-		this.creationBytes = creationBytes;
-		this.ATAddress = ATAddress;
 	}
 
-	public DeployAtTransactionData(byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
-			BigDecimal amount, long assetId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		this(null, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference, signature);
+	public DeployAtTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String name, String description,
+			String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId, BigDecimal fee, byte[] signature) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, null, name, description, aTType, tags, creationBytes, amount, assetId, fee, signature);
 	}
 
-	public DeployAtTransactionData(byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
-			BigDecimal amount, long assetId, BigDecimal fee, long timestamp, byte[] reference) {
-		this(null, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference, null);
+	public DeployAtTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, String name, String description,
+			String aTType, String tags, byte[] creationBytes, BigDecimal amount, long assetId, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, null, name, description, aTType, tags, creationBytes, amount, assetId, fee, null);
 	}
 
 	// Getters/Setters
@@ -64,8 +65,8 @@ public class DeployAtTransactionData extends TransactionData {
 		return this.description;
 	}
 
-	public String getATType() {
-		return this.ATType;
+	public String getAtType() {
+		return this.aTType;
 	}
 
 	public String getTags() {
@@ -84,12 +85,12 @@ public class DeployAtTransactionData extends TransactionData {
 		return this.assetId;
 	}
 
-	public String getATAddress() {
-		return this.ATAddress;
+	public String getAtAddress() {
+		return this.aTAddress;
 	}
 
-	public void setATAddress(String ATAddress) {
-		this.ATAddress = ATAddress;
+	public void setAtAddress(String AtAddress) {
+		this.aTAddress = AtAddress;
 	}
 
 }

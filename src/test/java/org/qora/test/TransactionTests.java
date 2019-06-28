@@ -32,6 +32,7 @@ import org.qora.data.transaction.VoteOnPollTransactionData;
 import org.qora.data.voting.PollData;
 import org.qora.data.voting.PollOptionData;
 import org.qora.data.voting.VoteOnPollData;
+import org.qora.group.Group;
 import org.qora.repository.AccountRepository;
 import org.qora.repository.AssetRepository;
 import org.qora.repository.DataException;
@@ -120,7 +121,7 @@ public class TransactionTests {
 
 		// Create test generator account
 		generator = new PrivateKeyAccount(repository, generatorSeed);
-		accountRepository.save(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey()));
+		accountRepository.setLastReference(new AccountData(generator.getAddress(), generatorSeed, generator.getPublicKey(), Group.NO_GROUP));
 		accountRepository.save(new AccountBalanceData(generator.getAddress(), Asset.QORA, initialGeneratorBalance));
 
 		// Create test sender account
@@ -128,7 +129,7 @@ public class TransactionTests {
 
 		// Mock account
 		reference = senderSeed;
-		accountRepository.save(new AccountData(sender.getAddress(), reference, sender.getPublicKey()));
+		accountRepository.setLastReference(new AccountData(sender.getAddress(), reference, sender.getPublicKey(), Group.NO_GROUP));
 
 		// Mock balance
 		accountRepository.save(new AccountBalanceData(sender.getAddress(), Asset.QORA, initialSenderBalance));
@@ -146,7 +147,7 @@ public class TransactionTests {
 		BigDecimal amount = genericPaymentAmount;
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(sender.getPublicKey(), recipient, amount, fee, timestamp, reference);
+		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), recipient, amount, fee);
 
 		Transaction paymentTransaction = new PaymentTransaction(repository, paymentTransactionData);
 		paymentTransaction.sign(sender);
@@ -163,8 +164,8 @@ public class TransactionTests {
 		BigDecimal amount = BigDecimal.valueOf(1_000L);
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(sender.getPublicKey(), recipient.getAddress(), amount, fee, timestamp,
-				reference);
+		PaymentTransactionData paymentTransactionData = new PaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), recipient.getAddress(),
+				amount, fee);
 
 		Transaction paymentTransaction = new PaymentTransaction(repository, paymentTransactionData);
 		paymentTransaction.sign(sender);
@@ -224,8 +225,8 @@ public class TransactionTests {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		RegisterNameTransactionData registerNameTransactionData = new RegisterNameTransactionData(sender.getPublicKey(), sender.getAddress(), name, data, fee,
-				timestamp, reference);
+		RegisterNameTransactionData registerNameTransactionData = new RegisterNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), sender.getAddress(),
+				name, data, fee);
 
 		Transaction registerNameTransaction = new RegisterNameTransaction(repository, registerNameTransactionData);
 		registerNameTransaction.sign(sender);
@@ -280,8 +281,8 @@ public class TransactionTests {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		UpdateNameTransactionData updateNameTransactionData = new UpdateNameTransactionData(sender.getPublicKey(), newOwner.getAddress(), name, newData,
-				nameReference, fee, timestamp, reference);
+		UpdateNameTransactionData updateNameTransactionData = new UpdateNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
+				newOwner.getAddress(), name, newData, nameReference, fee);
 
 		Transaction updateNameTransaction = new UpdateNameTransaction(repository, updateNameTransactionData);
 		updateNameTransaction.sign(sender);
@@ -326,7 +327,7 @@ public class TransactionTests {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		SellNameTransactionData sellNameTransactionData = new SellNameTransactionData(sender.getPublicKey(), name, amount, fee, timestamp, reference);
+		SellNameTransactionData sellNameTransactionData = new SellNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), name, amount, fee);
 
 		Transaction sellNameTransaction = new SellNameTransaction(repository, sellNameTransactionData);
 		sellNameTransaction.sign(sender);
@@ -377,7 +378,7 @@ public class TransactionTests {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		CancelSellNameTransactionData cancelSellNameTransactionData = new CancelSellNameTransactionData(sender.getPublicKey(), name, fee, timestamp, reference);
+		CancelSellNameTransactionData cancelSellNameTransactionData = new CancelSellNameTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), name, fee);
 
 		Transaction cancelSellNameTransaction = new CancelSellNameTransaction(repository, cancelSellNameTransactionData);
 		cancelSellNameTransaction.sign(sender);
@@ -442,8 +443,8 @@ public class TransactionTests {
 
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		BuyNameTransactionData buyNameTransactionData = new BuyNameTransactionData(buyer.getPublicKey(), name, originalNameData.getSalePrice(), seller,
-				nameReference, fee, timestamp, buyersReference);
+		BuyNameTransactionData buyNameTransactionData = new BuyNameTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(),
+				name, originalNameData.getSalePrice(), seller, nameReference, fee);
 
 		Transaction buyNameTransaction = new BuyNameTransaction(repository, buyNameTransactionData);
 		buyNameTransaction.sign(buyer);
@@ -495,8 +496,8 @@ public class TransactionTests {
 		Account recipient = new PublicKeyAccount(repository, recipientSeed);
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
-		CreatePollTransactionData createPollTransactionData = new CreatePollTransactionData(sender.getPublicKey(), recipient.getAddress(), pollName,
-				description, pollOptions, fee, timestamp, reference);
+		CreatePollTransactionData createPollTransactionData = new CreatePollTransactionData(timestamp, Group.NO_GROUP, reference,
+				sender.getPublicKey(), recipient.getAddress(), pollName, description, pollOptions, fee);
 
 		Transaction createPollTransaction = new CreatePollTransaction(repository, createPollTransactionData);
 		createPollTransaction.sign(sender);
@@ -549,8 +550,8 @@ public class TransactionTests {
 
 		for (int optionIndex = 0; optionIndex <= pollOptionsSize; ++optionIndex) {
 			// Make a vote-on-poll transaction
-			VoteOnPollTransactionData voteOnPollTransactionData = new VoteOnPollTransactionData(sender.getPublicKey(), pollName, optionIndex, fee, timestamp,
-					reference);
+			VoteOnPollTransactionData voteOnPollTransactionData = new VoteOnPollTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), pollName,
+					optionIndex, fee);
 
 			Transaction voteOnPollTransaction = new VoteOnPollTransaction(repository, voteOnPollTransactionData);
 			voteOnPollTransaction.sign(sender);
@@ -621,8 +622,8 @@ public class TransactionTests {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 
-		IssueAssetTransactionData issueAssetTransactionData = new IssueAssetTransactionData(sender.getPublicKey(), sender.getAddress(), assetName, description,
-				quantity, isDivisible, fee, timestamp, reference);
+		IssueAssetTransactionData issueAssetTransactionData = new IssueAssetTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(),
+				sender.getAddress(), assetName, description, quantity, isDivisible, fee);
 
 		Transaction issueAssetTransaction = new IssueAssetTransaction(repository, issueAssetTransactionData);
 		issueAssetTransaction.sign(sender);
@@ -711,8 +712,8 @@ public class TransactionTests {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 
-		TransferAssetTransactionData transferAssetTransactionData = new TransferAssetTransactionData(sender.getPublicKey(), recipient.getAddress(), amount,
-				assetId, fee, timestamp, reference);
+		TransferAssetTransactionData transferAssetTransactionData = new TransferAssetTransactionData(timestamp, Group.NO_GROUP, reference,
+				sender.getPublicKey(), recipient.getAddress(), amount, assetId, fee);
 
 		Transaction transferAssetTransaction = new TransferAssetTransaction(repository, transferAssetTransactionData);
 		transferAssetTransaction.sign(sender);
@@ -816,8 +817,8 @@ public class TransactionTests {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 
-		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(buyer.getPublicKey(), haveAssetId, wantAssetId, amount, price,
-				fee, timestamp, buyersReference);
+		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(), haveAssetId,
+				wantAssetId, amount, price, fee);
 		Transaction createOrderTransaction = new CreateAssetOrderTransaction(this.repository, createOrderTransactionData);
 		createOrderTransaction.sign(buyer);
 		assertTrue(createOrderTransaction.isSignatureValid());
@@ -897,7 +898,7 @@ public class TransactionTests {
 		BigDecimal fee = BigDecimal.ONE;
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		byte[] buyersReference = buyer.getLastReference();
-		CancelAssetOrderTransactionData cancelOrderTransactionData = new CancelAssetOrderTransactionData(buyer.getPublicKey(), orderId, fee, timestamp, buyersReference);
+		CancelAssetOrderTransactionData cancelOrderTransactionData = new CancelAssetOrderTransactionData(timestamp, Group.NO_GROUP, buyersReference, buyer.getPublicKey(), orderId, fee);
 
 		Transaction cancelOrderTransaction = new CancelAssetOrderTransaction(this.repository, cancelOrderTransactionData);
 		cancelOrderTransaction.sign(buyer);
@@ -972,8 +973,8 @@ public class TransactionTests {
 		long timestamp = parentBlockData.getTimestamp() + 1_000;
 		BigDecimal senderPreTradeWantBalance = sender.getConfirmedBalance(wantAssetId);
 
-		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(sender.getPublicKey(), haveAssetId, wantAssetId, amount, price,
-				fee, timestamp, reference);
+		CreateAssetOrderTransactionData createOrderTransactionData = new CreateAssetOrderTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), haveAssetId,
+				wantAssetId, amount, price, fee);
 		Transaction createOrderTransaction = new CreateAssetOrderTransaction(this.repository, createOrderTransactionData);
 		createOrderTransaction.sign(sender);
 		assertTrue(createOrderTransaction.isSignatureValid());
@@ -1081,7 +1082,7 @@ public class TransactionTests {
 			payments.add(paymentData);
 		}
 
-		MultiPaymentTransactionData multiPaymentTransactionData = new MultiPaymentTransactionData(sender.getPublicKey(), payments, fee, timestamp, reference);
+		MultiPaymentTransactionData multiPaymentTransactionData = new MultiPaymentTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), payments, fee);
 
 		Transaction multiPaymentTransaction = new MultiPaymentTransaction(repository, multiPaymentTransactionData);
 		multiPaymentTransaction.sign(sender);
@@ -1150,8 +1151,8 @@ public class TransactionTests {
 		boolean isText = true;
 		boolean isEncrypted = false;
 
-		MessageTransactionData messageTransactionData = new MessageTransactionData(version, sender.getPublicKey(), recipient.getAddress(), Asset.QORA, amount,
-				data, isText, isEncrypted, fee, timestamp, reference);
+		MessageTransactionData messageTransactionData = new MessageTransactionData(timestamp, Group.NO_GROUP, reference, sender.getPublicKey(), version,
+				recipient.getAddress(), Asset.QORA, amount, data, isText, isEncrypted, fee);
 
 		Transaction messageTransaction = new MessageTransaction(repository, messageTransactionData);
 		messageTransaction.sign(sender);

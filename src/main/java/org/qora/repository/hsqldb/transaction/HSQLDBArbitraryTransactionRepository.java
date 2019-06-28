@@ -19,21 +19,20 @@ public class HSQLDBArbitraryTransactionRepository extends HSQLDBTransactionRepos
 		this.repository = repository;
 	}
 
-	TransactionData fromBase(byte[] signature, byte[] reference, byte[] creatorPublicKey, long timestamp, BigDecimal fee) throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT sender, version, service, data_hash from ArbitraryTransactions WHERE signature = ?",
+	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT version, service, data_hash from ArbitraryTransactions WHERE signature = ?",
 				signature)) {
 			if (resultSet == null)
 				return null;
 
-			byte[] senderPublicKey = resultSet.getBytes(1);
-			int version = resultSet.getInt(2);
-			int service = resultSet.getInt(3);
-			byte[] dataHash = resultSet.getBytes(4);
+			int version = resultSet.getInt(1);
+			int service = resultSet.getInt(2);
+			byte[] dataHash = resultSet.getBytes(3);
 
 			List<PaymentData> payments = this.getPaymentsFromSignature(signature);
 
-			return new ArbitraryTransactionData(version, senderPublicKey, service, dataHash, DataType.DATA_HASH, payments, fee, timestamp, reference,
-					signature);
+			return new ArbitraryTransactionData(timestamp, txGroupId, reference, creatorPublicKey, version, service, dataHash, DataType.DATA_HASH, payments,
+					fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch arbitrary transaction from repository", e);
 		}
