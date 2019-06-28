@@ -29,10 +29,15 @@ public class AccountUtils {
 		return balances;
 	}
 
-	public static void assertBalance(Repository repository, String accountName, long assetId, BigDecimal expectedBalance) throws DataException {
-		BigDecimal actualBalance = Common.getTestAccount(repository, accountName).getConfirmedBalance(assetId);
+	public static BigDecimal getBalance(Repository repository, String accountName, long assetId) throws DataException {
+		return Common.getTestAccount(repository, accountName).getConfirmedBalance(assetId);
+	}
 
-		Common.assertEqualBigDecimals(String.format("Test account '%s' asset %d balance incorrect", accountName, assetId), expectedBalance, actualBalance);
+	public static void assertBalance(Repository repository, String accountName, long assetId, BigDecimal expectedBalance) throws DataException {
+		BigDecimal actualBalance = getBalance(repository, accountName, assetId);
+		String assetName = repository.getAssetRepository().fromAssetId(assetId).getName();
+
+		Common.assertEqualBigDecimals(String.format("%s's %s [%d] balance incorrect", accountName, assetName, assetId), expectedBalance, actualBalance);
 	}
 
 }

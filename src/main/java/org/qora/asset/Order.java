@@ -147,6 +147,7 @@ public class Order {
 			cachedPricePair = haveAssetData.getName() + "/" + wantAssetData.getName();
 	}
 
+	/** Returns amount of have-asset to remove from order's creator's balance on placing this order. */
 	private BigDecimal calcHaveAssetCommittment() {
 		BigDecimal committedCost = this.orderData.getAmount();
 
@@ -155,6 +156,17 @@ public class Order {
 			committedCost = committedCost.multiply(this.orderData.getPrice()).setScale(8, RoundingMode.HALF_UP);
 
 		return committedCost;
+	}
+
+	/** Returns amount of remaining have-asset to refund to order's creator's balance on cancelling this order. */
+	private BigDecimal calcHaveAssetRefund() {
+		BigDecimal refund = getAmountLeft();
+
+		// If 'new' pricing and "amount" is in want-asset then we need to convert
+		if (isOurOrderNewPricing && haveAssetId < wantAssetId)
+			refund = refund.multiply(this.orderData.getPrice()).setScale(8, RoundingMode.HALF_UP);
+
+		return refund;
 	}
 
 	// Navigation
@@ -249,8 +261,6 @@ public class Order {
 	public void process() throws DataException {
 		AssetRepository assetRepository = this.repository.getAssetRepository();
 
-		long haveAssetId = this.orderData.getHaveAssetId();
-		long wantAssetId = this.orderData.getWantAssetId();
 		AssetData haveAssetData = getHaveAsset();
 		AssetData wantAssetData = getWantAsset();
 
@@ -452,8 +462,6 @@ public class Order {
 		this.repository.getAssetRepository().delete(this.orderData.getOrderId());
 
 		// Return asset to creator
-		long haveAssetId = this.orderData.getHaveAssetId();
-
 		Account creator = new PublicKeyAccount(this.repository, this.orderData.getCreatorPublicKey());
 		creator.setConfirmedBalance(haveAssetId, creator.getConfirmedBalance(haveAssetId).add(this.calcHaveAssetCommittment()));
 	}
@@ -462,10 +470,18 @@ public class Order {
 	public void cancel() throws DataException {
 		this.orderData.setIsClosed(true);
 		this.repository.getAssetRepository().save(this.orderData);
+
+		// Update creator's balance with unfulfilled amount
+		Account creator = new PublicKeyAccount(this.repository, this.orderData.getCreatorPublicKey());
+		creator.setConfirmedBalance(haveAssetId, creator.getConfirmedBalance(haveAssetId).add(calcHaveAssetRefund()));
 	}
 
 	// Opposite of cancel() above for use during orphaning
 	public void reopen() throws DataException {
+		// Update creator's balance with unfulfilled amount
+		Account creator = new PublicKeyAccount(this.repository, this.orderData.getCreatorPublicKey());
+		creator.setConfirmedBalance(haveAssetId, creator.getConfirmedBalance(haveAssetId).subtract(calcHaveAssetRefund()));
+
 		this.orderData.setIsClosed(false);
 		this.repository.getAssetRepository().save(this.orderData);
 	}

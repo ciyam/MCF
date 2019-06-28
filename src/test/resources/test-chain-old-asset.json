@@ -18,7 +18,9 @@
 			{ "type": "GENESIS", "recipient": "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK", "amount": "1000000", "fee": 0 },
 			{ "type": "GENESIS", "recipient": "QaUpHNhT3Ygx6avRiKobuLdusppR5biXjL", "amount": "1000000", "fee": 0 },
 			{ "type": "GENESIS", "recipient": "Qci5m9k4rcwe4ruKrZZQKka4FzUUMut3er", "amount": "1000000", "fee": 0 },
-			{ "type": "ISSUE_ASSET", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "assetName": "test", "description": "test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 }
+			{ "type": "ISSUE_ASSET", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "assetName": "TEST", "description": "test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 },
+			{ "type": "ISSUE_ASSET", "owner": "QixPbJUwsaHsVEofJdozU9zgVqkK6aYhrK", "assetName": "OTHER", "description": "other test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 },
+			{ "type": "ISSUE_ASSET", "owner": "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v", "assetName": "GOLD", "description": "gold test asset", "data": "", "quantity": 1000000, "isDivisible": true, "fee": 0 }
 		]
 	},
 	"featureTriggers": {
