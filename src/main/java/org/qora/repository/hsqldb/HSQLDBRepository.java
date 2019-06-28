@@ -44,15 +44,33 @@ public class HSQLDBRepository implements Repository {
 	protected boolean debugState = false;
 	protected Long slowQueryThreshold = null;
 	protected List<String> sqlStatements;
+	protected long sessionId;
 
 	// NB: no visibility modifier so only callable from within same package
-	HSQLDBRepository(Connection connection) {
+	HSQLDBRepository(Connection connection) throws DataException {
 		this.connection = connection;
 		this.savepoints = new ArrayDeque<>(3);
 
 		this.slowQueryThreshold = Settings.getInstance().getSlowQueryThreshold();
 		if (this.slowQueryThreshold != null)
 			this.sqlStatements = new ArrayList<String>();
+
+		// Find out our session ID
+		try (Statement stmt = this.connection.createStatement()) {
+			if (!stmt.execute("SELECT SESSION_ID()"))
+				throw new DataException("Unable to fetch session ID from repository");
+
+			try (ResultSet resultSet = stmt.getResultSet()) {
+				if (resultSet == null || !resultSet.next())
+					LOGGER.warn("Unable to fetch session ID from repository");
+
+				this.sessionId = resultSet.getLong(1);
+			}
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch session ID from repository", e);
+		}
+
+		assertEmptyTransaction("connection creation");
 	}
 
 	@Override
@@ -109,6 +127,9 @@ public class HSQLDBRepository implements Repository {
 		} finally {
 			this.savepoints.clear();
 
+			// Before clearing statements so we can log what led to assertion error
+			assertEmptyTransaction("transaction commit");
+
 			if (this.sqlStatements != null)
 				this.sqlStatements.clear();
 		}
@@ -122,6 +143,9 @@ public class HSQLDBRepository implements Repository {
 			throw new DataException("rollback error", e);
 		} finally {
 			this.savepoints.clear();
+
+			// Before clearing statements so we can log what led to assertion error
+			assertEmptyTransaction("transaction commit");
 
 			if (this.sqlStatements != null)
 				this.sqlStatements.clear();
@@ -172,21 +196,7 @@ public class HSQLDBRepository implements Repository {
 		}
 
 		try (Statement stmt = this.connection.createStatement()) {
-			// Diagnostic check for uncommitted changes
-			if (!stmt.execute("SELECT transaction, transaction_size FROM information_schema.system_sessions")) // TRANSACTION_SIZE() broken?
-				throw new DataException("Unable to check repository status during close");
-
-			try (ResultSet resultSet = stmt.getResultSet()) {
-				if (resultSet == null || !resultSet.next())
-					LOGGER.warn("Unable to check repository status during close");
-
-				boolean inTransaction = resultSet.getBoolean(1);
-				int transactionCount = resultSet.getInt(2);
-				if (inTransaction && transactionCount != 0) {
-					LOGGER.warn("Uncommitted changes (" + transactionCount + ") during repository close", new Exception("Uncommitted repository changes"));
-					logStatements();
-				}
-			}
+			assertEmptyTransaction("connection close");
 
 			// give connection back to the pool
 			this.connection.close();
@@ -201,6 +211,11 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
+	public boolean getDebug() {
+		return this.debugState;
+	}
+
+	@Override
 	public void setDebug(boolean debugState) {
 		this.debugState = debugState;
 	}
@@ -210,7 +225,7 @@ public class HSQLDBRepository implements Repository {
 	 */
 	public PreparedStatement prepareStatement(String sql) throws SQLException {
 		if (this.debugState)
-			LOGGER.debug(sql);
+			LOGGER.debug(String.format("[%d] %s", this.sessionId, sql));
 
 		if (this.sqlStatements != null)
 			this.sqlStatements.add(sql);
@@ -226,6 +241,8 @@ public class HSQLDBRepository implements Repository {
 	public void logStatements() {
 		if (this.sqlStatements == null)
 			return;
+
+		LOGGER.info("HSQLDB SQL statements leading up to this were:");
 
 		for (String sql : this.sqlStatements)
 			LOGGER.info(sql);
@@ -459,6 +476,29 @@ public class HSQLDBRepository implements Repository {
 		}
 
 		return e;
+	}
+
+	private void assertEmptyTransaction(String context) throws DataException {
+		try (Statement stmt = this.connection.createStatement()) {
+			// Diagnostic check for uncommitted changes
+			if (!stmt.execute("SELECT transaction, transaction_size FROM information_schema.system_sessions WHERE session_id = " + this.sessionId)) // TRANSACTION_SIZE() broken?
+				throw new DataException("Unable to check repository status after " + context);
+
+			try (ResultSet resultSet = stmt.getResultSet()) {
+				if (resultSet == null || !resultSet.next())
+					LOGGER.warn("Unable to check repository status after " + context);
+
+				boolean inTransaction = resultSet.getBoolean(1);
+				int transactionCount = resultSet.getInt(2);
+
+				if (inTransaction && transactionCount != 0) {
+					LOGGER.warn(String.format("Uncommitted changes (%d) after %s, session [%d]", transactionCount, context, this.sessionId), new Exception("Uncommitted repository changes"));
+					logStatements();
+				}
+			}
+		} catch (SQLException e) {
+			throw new DataException("Error checking repository status after " + context, e);
+		}
 	}
 
 	/** Converts milliseconds from epoch to OffsetDateTime needed for TIMESTAMP WITH TIME ZONE columns. */

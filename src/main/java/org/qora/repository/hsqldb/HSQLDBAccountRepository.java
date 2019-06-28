@@ -86,6 +86,15 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
+	public boolean accountExists(String address) throws DataException {
+		try {
+			return this.repository.exists("Accounts", "account = ?", address);
+		} catch (SQLException e) {
+			throw new DataException("Unable to check for account in repository", e);
+		}
+	}
+
+	@Override
 	public int countForgingAccountsEnabledByAddress(String address) throws DataException {
 		try (ResultSet resultSet = this.repository.checkedExecute("SELECT COUNT(*) FROM Accounts WHERE forging_enabler = ? LIMIT 1", address)) {
 			return resultSet.getInt(1);
@@ -96,16 +105,33 @@ public class HSQLDBAccountRepository implements AccountRepository {
 
 	@Override
 	public void ensureAccount(AccountData accountData) throws DataException {
-		HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
-
-		saveHelper.bind("account", accountData.getAddress());
-
 		byte[] publicKey = accountData.getPublicKey();
-		if (publicKey != null)
-			saveHelper.bind("public_key", publicKey);
 
-		try {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT public_key FROM Accounts WHERE account = ?", accountData.getAddress())) {
+			if (resultSet != null) {
+				// We know account record exists at this point.
+				// If accountData has no public key then we're done.
+				// If accountData's public key matches repository's public key then we're done.
+				if (publicKey == null || Arrays.equals(resultSet.getBytes(1), publicKey))
+					return;
+			}
+
+			// No record exists, or we have a public key to set
+			HSQLDBSaver saveHelper = new HSQLDBSaver("Accounts");
+
+			saveHelper.bind("account", accountData.getAddress());
+
+			if (publicKey != null)
+				saveHelper.bind("public_key", publicKey);
+
+			// XXX TMP DEBUGGING
+			boolean priorDebug = this.repository.getDebug();
+			this.repository.setDebug(true);
+
 			saveHelper.execute(this.repository);
+
+			// XXX TMP DEBUGGING
+			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to ensure minimal account in repository", e);
 		}
@@ -122,7 +148,14 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.bind("public_key", publicKey);
 
 		try {
+			// XXX TMP DEBUGGING
+			boolean priorDebug = this.repository.getDebug();
+			this.repository.setDebug(true);
+
 			saveHelper.execute(this.repository);
+
+			// XXX TMP DEBUGGING
+			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's last reference into repository", e);
 		}
@@ -139,7 +172,14 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.bind("public_key", publicKey);
 
 		try {
+			// XXX TMP DEBUGGING
+			boolean priorDebug = this.repository.getDebug();
+			this.repository.setDebug(true);
+
 			saveHelper.execute(this.repository);
+
+			// XXX TMP DEBUGGING
+			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's default group ID into repository", e);
 		}
@@ -156,7 +196,14 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.bind("public_key", publicKey);
 
 		try {
+			// XXX TMP DEBUGGING
+			boolean priorDebug = this.repository.getDebug();
+			this.repository.setDebug(true);
+
 			saveHelper.execute(this.repository);
+
+			// XXX TMP DEBUGGING
+			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's flags into repository", e);
 		}
@@ -173,7 +220,14 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.bind("public_key", publicKey);
 
 		try {
+			// XXX TMP DEBUGGING
+			boolean priorDebug = this.repository.getDebug();
+			this.repository.setDebug(true);
+
 			saveHelper.execute(this.repository);
+
+			// XXX TMP DEBUGGING
+			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's forging enabler into repository", e);
 		}
