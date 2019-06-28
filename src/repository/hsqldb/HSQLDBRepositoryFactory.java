@@ -20,6 +20,12 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		// one-time initialization goes in here
 		this.connectionUrl = connectionUrl;
 
+		// Check no-one else is accessing database
+		try (Connection connection = DriverManager.getConnection(this.connectionUrl)) {
+		} catch (SQLException e) {
+			throw new DataException("Unable to open repository: " + e.getMessage());
+		}
+
 		this.connectionPool = new JDBCPool();
 		this.connectionPool.setUrl(this.connectionUrl);
 

@@ -23,6 +23,10 @@ public abstract class TransactionData {
 
 	// Constructors
 
+	// For JAX-RS
+	protected TransactionData() {
+	}
+
 	public TransactionData(TransactionType type, BigDecimal fee, byte[] creatorPublicKey, long timestamp, byte[] reference, byte[] signature) {
 		this.fee = fee;
 		this.type = type;

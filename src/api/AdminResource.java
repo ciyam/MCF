@@ -1,7 +1,8 @@
 package api;
 
-import globalization.Translator;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.extensions.Extension;
 import io.swagger.v3.oas.annotations.extensions.ExtensionProperty;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -30,16 +31,14 @@ public class AdminResource {
 	@Context
 	HttpServletRequest request;
 
-	private static final long startTime = System.currentTimeMillis();
-
-	private ApiErrorFactory apiErrorFactory;
-
-	public AdminResource() {
-		this(new ApiErrorFactory(Translator.getInstance()));
-	}
-
-	public AdminResource(ApiErrorFactory apiErrorFactory) {
-		this.apiErrorFactory = apiErrorFactory;
+	@GET
+	@Path("/dud")
+	@Parameter(name = "blockSignature", description = "Block signature", schema = @Schema(type = "string", format = "byte", minLength = 84, maxLength=88))
+	@Parameter(in = ParameterIn.QUERY, name = "limit", description = "Maximum number of entries to return", schema = @Schema(type = "integer", defaultValue = "10"))
+	@Parameter(in = ParameterIn.QUERY, name = "offset", description = "Starting entry in results", schema = @Schema(type = "integer"))
+	@Parameter(in = ParameterIn.QUERY, name = "includeTransactions", description = "Include associated transactions in results", schema = @Schema(type = "boolean"))
+	public String globalParameters() {
+		return "";
 	}
 
 	@GET
@@ -65,9 +64,7 @@ public class AdminResource {
 		}
 	)
 	public String uptime() {
-		Security.checkApiCallAllowed("GET admin/uptime", request);
-
-		return Long.toString(System.currentTimeMillis() - startTime);
+		return Long.toString(System.currentTimeMillis() - Controller.startTime);
 	}
 
 	@GET
@@ -93,16 +90,16 @@ public class AdminResource {
 		}
 	)
 	public String shutdown() {
-		Security.checkApiCallAllowed("GET admin/stop", request);
+		Security.checkApiCallAllowed(request);
 
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
 				Controller.shutdown();
 			}
-		}); // disabled for now: .start();
+		}).start();
 
-		return "false";
+		return "true";
 	}
 
 }

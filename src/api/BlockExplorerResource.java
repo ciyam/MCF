@@ -7,12 +7,11 @@ import java.nio.file.Files;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
+
+import io.swagger.v3.oas.annotations.Operation;
 
 @Path("/")
-@Produces({ MediaType.TEXT_HTML })
 public class BlockExplorerResource {
 
 	@Context
@@ -23,6 +22,7 @@ public class BlockExplorerResource {
 
 	@GET
 	@Path("/block-explorer.html")
+	@Operation(hidden = true)
 	public String getBlockExplorer() {
 		try {
 			byte[] htmlBytes = Files.readAllBytes(FileSystems.getDefault().getPath("block-explorer.html"));

@@ -29,8 +29,7 @@ public class BlockData implements Serializable {
 	private BigDecimal atFees;
 
 	// necessary for JAX-RS serialization
-	@SuppressWarnings("unused")
-	private BlockData() {
+	protected BlockData() {
 	}
 
 	public BlockData(int version, byte[] reference, int transactionCount, BigDecimal totalFees, byte[] transactionsSignature, Integer height, long timestamp,
