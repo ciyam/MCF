@@ -32,10 +32,6 @@ public class IssueAssetTransaction extends Transaction {
 		super(repository, transactionData);
 
 		this.issueAssetTransactionData = (IssueAssetTransactionData) this.transactionData;
-
-		// XXX This is horrible - thanks to JAXB unmarshalling not calling constructor
-		if (this.transactionData.getCreatorPublicKey() == null)
-			this.transactionData.setCreatorPublicKey(this.issueAssetTransactionData.getIssuerPublicKey());
 	}
 
 	// More information

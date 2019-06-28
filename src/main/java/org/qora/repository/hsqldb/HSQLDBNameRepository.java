@@ -23,7 +23,7 @@ public class HSQLDBNameRepository implements NameRepository {
 	@Override
 	public NameData fromName(String name) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT owner, data, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE name = ?", name)) {
+				.checkedExecute("SELECT owner, data, registered, updated, reference, is_for_sale, sale_price, creation_group_id FROM Names WHERE name = ?", name)) {
 			if (resultSet == null)
 				return null;
 
@@ -38,8 +38,9 @@ public class HSQLDBNameRepository implements NameRepository {
 			byte[] reference = resultSet.getBytes(5);
 			boolean isForSale = resultSet.getBoolean(6);
 			BigDecimal salePrice = resultSet.getBigDecimal(7);
+			int creationGroupId = resultSet.getInt(8);
 
-			return new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice);
+			return new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch name info from repository", e);
 		}
@@ -56,7 +57,7 @@ public class HSQLDBNameRepository implements NameRepository {
 
 	@Override
 	public List<NameData> getAllNames(Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT name, data, owner, registered, updated, reference, is_for_sale, sale_price FROM Names ORDER BY name";
+		String sql = "SELECT name, data, owner, registered, updated, reference, is_for_sale, sale_price, creation_group_id FROM Names ORDER BY name";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
@@ -80,8 +81,9 @@ public class HSQLDBNameRepository implements NameRepository {
 				byte[] reference = resultSet.getBytes(6);
 				boolean isForSale = resultSet.getBoolean(7);
 				BigDecimal salePrice = resultSet.getBigDecimal(8);
+				int creationGroupId = resultSet.getInt(9);
 
-				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice));
+				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId));
 			} while (resultSet.next());
 
 			return names;
@@ -92,7 +94,7 @@ public class HSQLDBNameRepository implements NameRepository {
 
 	@Override
 	public List<NameData> getNamesForSale(Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT name, data, owner, registered, updated, reference, sale_price FROM Names WHERE is_for_sale = TRUE ORDER BY name";
+		String sql = "SELECT name, data, owner, registered, updated, reference, sale_price, creation_group_id FROM Names WHERE is_for_sale = TRUE ORDER BY name";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
@@ -116,8 +118,9 @@ public class HSQLDBNameRepository implements NameRepository {
 				byte[] reference = resultSet.getBytes(6);
 				boolean isForSale = true;
 				BigDecimal salePrice = resultSet.getBigDecimal(7);
+				int creationGroupId = resultSet.getInt(8);
 
-				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice));
+				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId));
 			} while (resultSet.next());
 
 			return names;
@@ -128,7 +131,7 @@ public class HSQLDBNameRepository implements NameRepository {
 
 	@Override
 	public List<NameData> getNamesByOwner(String owner, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT name, data, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE owner = ? ORDER BY name";
+		String sql = "SELECT name, data, registered, updated, reference, is_for_sale, sale_price, creation_group_id FROM Names WHERE owner = ? ORDER BY name";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
@@ -151,8 +154,9 @@ public class HSQLDBNameRepository implements NameRepository {
 				byte[] reference = resultSet.getBytes(5);
 				boolean isForSale = resultSet.getBoolean(6);
 				BigDecimal salePrice = resultSet.getBigDecimal(7);
+				int creationGroupId = resultSet.getInt(8);
 
-				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice));
+				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice, creationGroupId));
 			} while (resultSet.next());
 
 			return names;
@@ -171,7 +175,8 @@ public class HSQLDBNameRepository implements NameRepository {
 
 		saveHelper.bind("owner", nameData.getOwner()).bind("name", nameData.getName()).bind("data", nameData.getData())
 				.bind("registered", new Timestamp(nameData.getRegistered())).bind("updated", updatedTimestamp).bind("reference", nameData.getReference())
-				.bind("is_for_sale", nameData.getIsForSale()).bind("sale_price", nameData.getSalePrice());
+				.bind("is_for_sale", nameData.getIsForSale()).bind("sale_price", nameData.getSalePrice())
+				.bind("creation_group_id", nameData.getCreationGroupId());
 
 		try {
 			saveHelper.execute(this.repository);

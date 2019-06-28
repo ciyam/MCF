@@ -84,10 +84,6 @@ public class RemoveGroupAdminTransaction extends Transaction {
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
-		// Check transaction's groupID matches group's ID
-		if (groupData.getGroupId() != removeGroupAdminTransactionData.getTxGroupId())
-			return ValidationResult.GROUP_ID_MISMATCH;
-
 		Account owner = getOwner();
 
 		// Check transaction's public key matches group's current owner

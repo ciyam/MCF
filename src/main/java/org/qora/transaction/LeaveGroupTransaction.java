@@ -72,10 +72,6 @@ public class LeaveGroupTransaction extends Transaction {
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
-		// Check transaction's groupID matches group's ID
-		if (groupData.getGroupId() != leaveGroupTransactionData.getTxGroupId())
-			return ValidationResult.GROUP_ID_MISMATCH;
-
 		Account leaver = getLeaver();
 
 		// Can't leave if group owner

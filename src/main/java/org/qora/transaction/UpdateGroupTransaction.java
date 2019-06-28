@@ -95,9 +95,9 @@ public class UpdateGroupTransaction extends Transaction {
 		if (groupData == null)
 			return ValidationResult.GROUP_DOES_NOT_EXIST;
 
-		// Check transaction's groupID matches group's ID
-		if (groupData.getGroupId() != updateGroupTransactionData.getTxGroupId())
-			return ValidationResult.GROUP_ID_MISMATCH;
+		// As this transaction type could require approval, check txGroupId matches groupID at creation
+		if (groupData.getCreationGroupId() != updateGroupTransactionData.getTxGroupId())
+			return ValidationResult.TX_GROUP_ID_MISMATCH;
 
 		Account owner = getOwner();
 

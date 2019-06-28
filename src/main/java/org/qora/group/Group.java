@@ -116,7 +116,7 @@ public class Group {
 		this.groupData = new GroupData(createGroupTransactionData.getOwner(), createGroupTransactionData.getGroupName(),
 				createGroupTransactionData.getDescription(), createGroupTransactionData.getTimestamp(), createGroupTransactionData.getIsOpen(),
 				createGroupTransactionData.getApprovalThreshold(), createGroupTransactionData.getMinimumBlockDelay(),
-				createGroupTransactionData.getMaximumBlockDelay(), createGroupTransactionData.getSignature());
+				createGroupTransactionData.getMaximumBlockDelay(), createGroupTransactionData.getSignature(), createGroupTransactionData.getTxGroupId());
 	}
 
 	/**

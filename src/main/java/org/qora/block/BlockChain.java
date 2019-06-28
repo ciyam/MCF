@@ -84,8 +84,11 @@ public class BlockChain {
 	@XmlJavaTypeAdapter(StringLongMapXmlAdapter.class)
 	private Map<String, Long> featureTriggers;
 
-	// This property is slightly different as we need it early and we want to avoid getInstance() loop
-	private static boolean useBrokenMD160ForAddresses = false;
+	/** Whether to use legacy, broken RIPEMD160 implementation when converting public keys to addresses. */
+	private boolean useBrokenMD160ForAddresses = false;
+
+	/** Whether only one registered name is allowed per account. */
+	private boolean oneNamePerAccount = false;
 
 	// Constructors, etc.
 
@@ -217,8 +220,12 @@ public class BlockChain {
 		return this.defaultGroupId;
 	}
 
-	public static boolean getUseBrokenMD160ForAddresses() {
-		return useBrokenMD160ForAddresses;
+	public boolean getUseBrokenMD160ForAddresses() {
+		return this.useBrokenMD160ForAddresses;
+	}
+
+	public boolean oneNamePerAccount() {
+		return this.oneNamePerAccount;
 	}
 
 	// Convenience methods for specific blockchain feature triggers

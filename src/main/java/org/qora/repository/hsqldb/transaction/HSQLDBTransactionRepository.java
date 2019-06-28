@@ -508,7 +508,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		String sql = "SELECT signature FROM UnconfirmedTransactions "
 				+ "NATURAL JOIN Transactions "
 				+ "LEFT OUTER JOIN Accounts ON Accounts.public_key = Transactions.creator "
-				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.admin = Accounts.account "
+				+ "LEFT OUTER JOIN GroupAdmins ON GroupAdmins.admin = Accounts.account AND GroupAdmins.group_id = Transactions.tx_group_id "
 				+ "WHERE Transactions.tx_group_id != ? AND GroupAdmins.admin IS NULL "
 				+ "AND Transactions.type IN (" + txTypes + ") "
 				+ "ORDER BY creation";
