@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -887,6 +888,7 @@ public class Block {
 		this.repository.getBlockRepository().save(this.blockData);
 
 		// Link transactions to this block, thus removing them from unconfirmed transactions list.
+		// Also update "transaction participants" in repository for "transactions involving X" support in API
 		for (int sequence = 0; sequence < transactions.size(); ++sequence) {
 			Transaction transaction = transactions.get(sequence);
 
@@ -897,6 +899,10 @@ public class Block {
 
 			// No longer unconfirmed
 			this.repository.getTransactionRepository().confirmTransaction(transaction.getTransactionData().getSignature());
+
+			List<Account> participants = transaction.getInvolvedAccounts();
+			List<String> participantAddresses = participants.stream().map(account -> account.getAddress()).collect(Collectors.toList());
+			this.repository.getTransactionRepository().saveParticipants(transaction.getTransactionData(), participantAddresses);
 		}
 	}
 
@@ -918,6 +924,8 @@ public class Block {
 			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence,
 					transaction.getTransactionData().getSignature());
 			this.repository.getBlockRepository().delete(blockTransactionData);
+
+			this.repository.getTransactionRepository().deleteParticipants(transaction.getTransactionData());
 		}
 
 		// If fees are non-zero then remove fees from generator's balance

@@ -61,7 +61,8 @@ public class AT {
 			this.atStateData = new ATStateData(atAddress, height, creation, stateData, stateHash, BigDecimal.ZERO.setScale(8));
 		} else {
 			// Legacy v1 AT
-			// We deploy these in 'dead' state as they will never be run on Qora2
+			// We would deploy these in 'dead' state as they will never be run on Qora2
+			// but this breaks import from Qora1 so something else will have to mark them dead at hard-fork
 
 			// Extract code bytes length
 			ByteBuffer byteBuffer = ByteBuffer.wrap(deployATTransactionData.getCreationBytes());
@@ -89,10 +90,10 @@ public class AT {
 			byte[] codeBytes = new byte[codeLen];
 			byteBuffer.get(codeBytes);
 
-			// Create AT but in dead state
+			// Create AT
 			boolean isSleeping = false;
 			Integer sleepUntilHeight = null;
-			boolean isFinished = true;
+			boolean isFinished = false;
 			boolean hadFatalError = false;
 			boolean isFrozen = false;
 			Long frozenBalance = null;

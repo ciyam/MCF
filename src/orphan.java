@@ -1,3 +1,4 @@
+import controller.Controller;
 import data.block.BlockData;
 import qora.block.Block;
 import qora.block.BlockChain;
@@ -9,8 +10,6 @@ import repository.hsqldb.HSQLDBRepositoryFactory;
 
 public class orphan {
 
-	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
-
 	public static void main(String[] args) {
 		if (args.length == 0) {
 			System.err.println("usage: orphan <new-blockchain-tip-height>");
@@ -20,7 +19,7 @@ public class orphan {
 		int targetHeight = Integer.parseInt(args[0]);
 
 		try {
-			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
+			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.connectionUrl);
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
 		} catch (DataException e) {
 			System.err.println("Couldn't connect to repository: " + e.getMessage());

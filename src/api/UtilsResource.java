@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import utils.Base58;
 
+import java.security.SecureRandom;
 import java.util.Base64;
 
 import javax.servlet.http.HttpServletRequest;
@@ -19,7 +20,7 @@ import javax.ws.rs.core.MediaType;
 
 @Path("/utils")
 @Produces({MediaType.TEXT_PLAIN})
-@Tag(name = "utils")
+@Tag(name = "Utilities")
 public class UtilsResource {
 
 	@Context
@@ -61,6 +62,23 @@ public class UtilsResource {
 		} catch (NumberFormatException e) {
 			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_DATA);
 		}
+	}
+
+	@GET
+	@Path("/seed")
+	@Operation(
+		summary = "Generate random 32-byte seed",
+		responses = {
+			@ApiResponse(
+				description = "base64 data",
+				content = @Content(schema = @Schema(implementation = String.class))
+			)
+		}
+	)
+	public String seed() {
+		byte[] seed = new byte[32];
+		new SecureRandom().nextBytes(seed);
+		return Base64.getEncoder().encodeToString(seed);
 	}
 
 }

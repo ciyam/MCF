@@ -13,7 +13,7 @@ public class Controller {
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
 
-	private static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
+	public static final String connectionUrl = "jdbc:hsqldb:file:db/blockchain;create=true";
 
 	public static final long startTime = System.currentTimeMillis();
 	private static final Object shutdownLock = new Object();

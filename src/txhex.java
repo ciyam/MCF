@@ -1,5 +1,6 @@
 import com.google.common.hash.HashCode;
 
+import controller.Controller;
 import data.transaction.TransactionData;
 import qora.block.BlockChain;
 import repository.DataException;
@@ -13,8 +14,6 @@ import utils.Base58;
 
 public class txhex {
 
-	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
-
 	public static void main(String[] args) {
 		if (args.length == 0) {
 			System.err.println("usage: txhex <base58-tx-signature>");
@@ -24,7 +23,7 @@ public class txhex {
 		byte[] signature = Base58.decode(args[0]);
 
 		try {
-			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
+			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(Controller.connectionUrl);
 			RepositoryManager.setRepositoryFactory(repositoryFactory);
 		} catch (DataException e) {
 			System.err.println("Couldn't connect to repository: " + e.getMessage());

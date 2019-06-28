@@ -14,7 +14,7 @@ import utils.Base58;
 public class blockgenerator {
 
 	private static final Logger LOGGER = LogManager.getLogger(blockgenerator.class);
-	public static final String connectionUrl = "jdbc:hsqldb:file:db/test;create=true";
+	public static final String connectionUrl = "jdbc:hsqldb:file:db/blockchain;create=true";
 
 	public static void main(String[] args) {
 		if (args.length != 1) {

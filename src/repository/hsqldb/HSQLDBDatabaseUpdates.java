@@ -73,8 +73,11 @@ public class HSQLDBDatabaseUpdates {
 			switch (databaseVersion) {
 				case 0:
 					// create from new
+					stmt.execute("SET DATABASE SQL NAMES TRUE"); // SQL keywords cannot be used as DB object names, e.g. table names
+					stmt.execute("SET DATABASE SQL SYNTAX MYS TRUE"); // Required for our use of INSERT ... ON DUPLICATE KEY UPDATE ... syntax
+					stmt.execute("SET DATABASE SQL RESTRICT EXEC TRUE"); // No multiple-statement execute() or DDL/DML executeQuery()
 					stmt.execute("SET DATABASE DEFAULT TABLE TYPE CACHED");
-					stmt.execute("SET DATABASE COLLATION SQL_TEXT NO PAD");
+					stmt.execute("SET DATABASE COLLATION SQL_TEXT NO PAD"); // Do not pad strings to same length before comparison
 					stmt.execute("CREATE COLLATION SQL_TEXT_UCC_NO_PAD FOR SQL_TEXT FROM SQL_TEXT_UCC NO PAD");
 					stmt.execute("CREATE COLLATION SQL_TEXT_NO_PAD FOR SQL_TEXT FROM SQL_TEXT NO PAD");
 					stmt.execute("SET FILES SPACE TRUE"); // Enable per-table block space within .data file, useful for CACHED table types
@@ -149,11 +152,12 @@ public class HSQLDBDatabaseUpdates {
 					// Index to allow quick sorting by creation-else-signature
 					stmt.execute("CREATE INDEX UnconfirmedTransactionsIndex ON UnconfirmedTransactions (creation, signature)");
 
-					// Transaction recipients
-					stmt.execute("CREATE TABLE TransactionRecipients (signature Signature, recipient QoraAddress NOT NULL, "
+					// Transaction participants
+					// To allow lookup of all activity by an address
+					stmt.execute("CREATE TABLE TransactionParticipants (signature Signature, participant QoraAddress NOT NULL, "
 							+ "FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					// Use a separate table space as this table will be very large.
-					stmt.execute("SET TABLE TransactionRecipients NEW SPACE");
+					stmt.execute("SET TABLE TransactionParticipants NEW SPACE");
 					break;
 
 				case 3:
@@ -306,9 +310,11 @@ public class HSQLDBDatabaseUpdates {
 
 				case 22:
 					// Accounts
-					stmt.execute("CREATE TABLE Accounts (account QoraAddress, reference Signature, PRIMARY KEY (account))");
+					stmt.execute("CREATE TABLE Accounts (account QoraAddress, reference Signature, public_key QoraPublicKey, PRIMARY KEY (account))");
 					stmt.execute("CREATE TABLE AccountBalances (account QoraAddress, asset_id AssetID, balance QoraAmount NOT NULL, "
 							+ "PRIMARY KEY (account, asset_id), FOREIGN KEY (account) REFERENCES Accounts (account) ON DELETE CASCADE)");
+					// For looking up an account by public key
+					stmt.execute("CREATE INDEX AccountPublicKeyIndex on Accounts (public_key)");
 					break;
 
 				case 23:

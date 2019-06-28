@@ -21,8 +21,9 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 		this.repository = repository;
 		this.seed = seed;
 		this.keyPair = Ed25519.createKeyPair(seed);
-		this.publicKey = keyPair.getB();
-		this.accountData = new AccountData(Crypto.toAddress(this.publicKey));
+
+		byte[] publicKey = keyPair.getB();
+		this.accountData = new AccountData(Crypto.toAddress(publicKey), null, publicKey);
 	}
 
 	public byte[] getSeed() {
