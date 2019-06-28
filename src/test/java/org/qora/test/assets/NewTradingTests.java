@@ -209,10 +209,12 @@ public class NewTradingTests extends Common {
 
 		// "amount" will be in riches, "price" will be in rags/riches
 
+		// Buying 3 riches @ 1 rags/riches max, so expecting to pay 3 rags max
 		final BigDecimal aliceAmount = new BigDecimal("3").setScale(8);
 		final BigDecimal alicePrice = new BigDecimal("1").setScale(8);
 		final BigDecimal aliceCommitment = aliceAmount.multiply(alicePrice).setScale(8); // rags
 
+		// Selling 8 riches @ 0.25 rags/riches min, so expecting 2 rags min
 		final BigDecimal bobAmount = new BigDecimal("8").setScale(8);
 		final BigDecimal bobPrice = new BigDecimal("0.25").setScale(8);
 		final BigDecimal bobCommitment = bobAmount; // riches
@@ -263,28 +265,31 @@ public class NewTradingTests extends Common {
 	 */
 	@Test
 	public void testPriceImprovement() throws DataException {
+		// Amounts are in "test
+		// Prices are in "qora/test"
+
 		final BigDecimal initialTestAssetAmount = new BigDecimal("24.00000000").setScale(8);
 
 		final BigDecimal basePrice = new BigDecimal("1.00000000").setScale(8);
 		final BigDecimal betterPrice = new BigDecimal("2.10000000").setScale(8);
 		final BigDecimal bestPrice = new BigDecimal("2.40000000").setScale(8);
 
-		final BigDecimal minimalPrice = new BigDecimal("0.00000001").setScale(8);
+		final BigDecimal minimalPrice = new BigDecimal("1.5000000").setScale(8);
 		final BigDecimal matchingTestAssetAmount = new BigDecimal("12.00000000").setScale(8);
 
 		try (Repository repository = RepositoryManager.getRepository()) {
 			Map<String, Map<Long, BigDecimal>> initialBalances = AccountUtils.getBalances(repository, Asset.QORA, AssetUtils.testAssetId);
 
-			// Create 'better' initial order
+			// Create 'better' initial order: buying TEST @ betterPrice
 			byte[] bobOrderId = AssetUtils.createOrder(repository, "bob", Asset.QORA, AssetUtils.testAssetId, initialTestAssetAmount, betterPrice);
 
 			// Create 'best' initial - surrounded by other orders so price improvement code should re-order results
 			byte[] chloeOrderId = AssetUtils.createOrder(repository, "chloe", Asset.QORA, AssetUtils.testAssetId, initialTestAssetAmount, bestPrice);
 
-			// Create 'base' initial order
+			// Create 'base' initial order: buying TEST @ basePrice (shouldn't even match)
 			byte[] dilbertOrderId = AssetUtils.createOrder(repository, "dilbert", Asset.QORA, AssetUtils.testAssetId, initialTestAssetAmount, basePrice);
 
-			// Create matching order
+			// Create matching order: selling TEST @ minimalPrice which would match at least one buy order
 			byte[] aliceOrderId = AssetUtils.createOrder(repository, "alice", AssetUtils.testAssetId, Asset.QORA, matchingTestAssetAmount, minimalPrice);
 
 			// Check balances to check expected outcome
@@ -344,6 +349,67 @@ public class NewTradingTests extends Common {
 			// Dilbert's fulfilled should be zero
 			Common.assertEqualBigDecimals("Dilbert's order should be totally unfulfilled", BigDecimal.ZERO, dilbertOrderData.getFulfilled());
 		}
+	}
+
+	/**
+	 * Check that orders don't match.
+	 * <p>
+	 * "target" order with have-asset = amount-asset
+	 */
+	@Test
+	public void testWorsePriceNoMatch() throws DataException {
+		// amounts are in test-asset
+		// prices are in qora/test
+
+		// Selling 10 TEST @ 2 QORA/TEST min so wants 20 QORA minimum
+		final BigDecimal aliceAmount = new BigDecimal("10").setScale(8);
+		final BigDecimal alicePrice = new BigDecimal("2").setScale(8);
+
+		// Buying 10 TEST @ 1 QORA/TEST max, paying 10 QORA maximum
+		final BigDecimal bobAmount = new BigDecimal("10").setScale(8);
+		final BigDecimal bobPrice = new BigDecimal("1").setScale(8);
+
+		final BigDecimal aliceCommitment = new BigDecimal("10").setScale(8); // 10 test
+		final BigDecimal bobCommitment = new BigDecimal("10").setScale(8); // 10 test * 1 qora/test = 10 qora
+
+		// Orders should not match!
+		final BigDecimal aliceReturn = BigDecimal.ZERO;
+		final BigDecimal bobReturn = BigDecimal.ZERO;
+
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, Asset.QORA, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
+	}
+
+	/**
+	 * Check that orders don't match.
+	 * <p>
+	 * "target" order with want-asset = amount-asset
+	 */
+	@Test
+	public void testWorsePriceNoMatchInverted() throws DataException {
+		long atnlAssetId;
+		try (Repository repository = RepositoryManager.getRepository()) {
+			atnlAssetId = AssetUtils.issueAsset(repository, "bob", "ATNL", 100000000L, true);
+		}
+
+		// amounts are in ATNL
+		// prices are in test/ATNL
+
+		// Buying 10 ATNL @ 1 TEST/ATNL max, paying 10 TEST maximum
+		final BigDecimal aliceAmount = new BigDecimal("10").setScale(8);
+		final BigDecimal alicePrice = new BigDecimal("1").setScale(8);
+
+		// Selling 10 ATNL @ 2 TEST/ATNL min, so wants 20 TEST minimum
+		final BigDecimal bobAmount = new BigDecimal("10").setScale(8); // ATNL
+		final BigDecimal bobPrice = new BigDecimal("2").setScale(8);
+
+		final BigDecimal aliceCommitment = new BigDecimal("10").setScale(8); // 10 ATNL * 1 test/ATNL = 10 test
+		final BigDecimal bobCommitment = new BigDecimal("10").setScale(8); // 10 ATNL
+
+		// Orders should not match!
+		final BigDecimal aliceReturn = BigDecimal.ZERO;
+		final BigDecimal bobReturn = BigDecimal.ZERO;
+
+		AssetUtils.genericTradeTest(AssetUtils.testAssetId, atnlAssetId, aliceAmount, alicePrice, bobAmount, bobPrice, aliceCommitment, bobCommitment, aliceReturn, bobReturn);
 	}
 
 }

@@ -284,11 +284,21 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		Collections.addAll(bindParams, haveAssetId, wantAssetId);
 
 		if (minimumPrice != null) {
-			sql += "AND price >= ? ";
+			// 'new' pricing scheme implied
+			// NOTE: haveAssetId and wantAssetId are for TARGET orders, so different from Order.process() caller
+			if (haveAssetId < wantAssetId)
+				sql += "AND price >= ? ";
+			else
+				sql += "AND price <= ? ";
+
 			bindParams.add(minimumPrice);
 		}
 
-		sql += "ORDER BY price DESC, ordered";
+		sql += "ORDER BY price";
+		if (minimumPrice == null || haveAssetId < wantAssetId)
+			sql += " DESC";
+
+		sql += ", ordered";
 
 		List<OrderData> orders = new ArrayList<OrderData>();
 
