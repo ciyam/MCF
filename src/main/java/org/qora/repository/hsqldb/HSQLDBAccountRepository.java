@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
@@ -56,7 +58,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 				return null;
 
 			// Column is NOT NULL so this should never implicitly convert to 0
-			return resultSet.getInt(1); 
+			return resultSet.getInt(1);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch account's default groupID from repository", e);
 		}
@@ -141,54 +143,48 @@ public class HSQLDBAccountRepository implements AccountRepository {
 	}
 
 	@Override
-	public List<AccountBalanceData> getAllBalances(String address, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT asset_id, balance FROM AccountBalances WHERE account = ? ORDER BY asset_id";
+	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, Integer limit, Integer offset, Boolean reverse)
+			throws DataException {
+		String sql = "SELECT account, asset_id, balance, asset_name FROM AccountBalances NATURAL JOIN Assets " + "WHERE ";
+
+		if (!addresses.isEmpty())
+			sql += "account IN (" + String.join(", ", Collections.nCopies(addresses.size(), "?")) + ") ";
+
+		if (!addresses.isEmpty() && !assetIds.isEmpty())
+			sql += "AND ";
+
+		if (!assetIds.isEmpty())
+			sql += "asset_id IN (" + String.join(", ", assetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList())) + ") ";
+
+		sql += "ORDER BY account";
 		if (reverse != null && reverse)
 			sql += " DESC";
-		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		List<AccountBalanceData> balances = new ArrayList<AccountBalanceData>();
-
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, address)) {
-			if (resultSet == null)
-				return balances;
-
-			do {
-				long assetId = resultSet.getLong(1);
-				BigDecimal balance = resultSet.getBigDecimal(2).setScale(8);
-
-				balances.add(new AccountBalanceData(address, assetId, balance));
-			} while (resultSet.next());
-
-			return balances;
-		} catch (SQLException e) {
-			throw new DataException("Unable to fetch account balances from repository", e);
-		}
-	}
-
-	@Override
-	public List<AccountBalanceData> getAssetBalances(long assetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT account, balance FROM AccountBalances WHERE asset_id = ? ORDER BY account";
+		sql += ", asset_id";
 		if (reverse != null && reverse)
 			sql += " DESC";
+
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		List<AccountBalanceData> balances = new ArrayList<AccountBalanceData>();
+		String[] addressesArray = addresses.toArray(new String[addresses.size()]);
+		List<AccountBalanceData> accountBalances = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetId)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, (Object[]) addressesArray)) {
 			if (resultSet == null)
-				return balances;
+				return accountBalances;
 
 			do {
 				String address = resultSet.getString(1);
-				BigDecimal balance = resultSet.getBigDecimal(2).setScale(8);
+				long assetId = resultSet.getLong(2);
+				BigDecimal balance = resultSet.getBigDecimal(3).setScale(8);
+				String assetName = resultSet.getString(4);
 
-				balances.add(new AccountBalanceData(address, assetId, balance));
+				accountBalances.add(new AccountBalanceData(address, assetId, balance, assetName));
 			} while (resultSet.next());
 
-			return balances;
+			return accountBalances;
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch asset account balances from repository", e);
+			throw new DataException("Unable to fetch asset balances from repository", e);
 		}
 	}
 

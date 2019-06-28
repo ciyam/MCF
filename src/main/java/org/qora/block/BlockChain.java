@@ -56,9 +56,9 @@ public class BlockChain {
 
 	/** Number of blocks between recalculating block's generating balance. */
 	private int blockDifficultyInterval;
-	/** Minimum target time between blocks, in milliseconds. */
+	/** Minimum target time between blocks, in seconds. */
 	private long minBlockTime;
-	/** Maximum target time between blocks, in milliseconds. */
+	/** Maximum target time between blocks, in seconds. */
 	private long maxBlockTime;
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
 	private long blockTimestampMargin;

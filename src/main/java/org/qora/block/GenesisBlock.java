@@ -3,6 +3,7 @@ package org.qora.block;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -85,7 +86,7 @@ public class GenesisBlock extends Block {
 			info.timestamp = System.currentTimeMillis();
 		}
 
-		transactionsData = Arrays.asList(info.transactions);
+		transactionsData = new ArrayList<TransactionData>(Arrays.asList(info.transactions));
 
 		// Add default values to transactions
 		transactionsData.stream().forEach(transactionData -> {
@@ -112,7 +113,7 @@ public class GenesisBlock extends Block {
 			}
 
 			// Convert ISSUE_ASSET transactions into initial assets
-			issueAssetTransactions.stream().map(transactionData -> {
+			initialAssets = issueAssetTransactions.stream().map(transactionData -> {
 				IssueAssetTransactionData issueAssetTransactionData = (IssueAssetTransactionData) transactionData;
 
 				return new AssetData(issueAssetTransactionData.getOwner(), issueAssetTransactionData.getAssetName(), issueAssetTransactionData.getDescription(),

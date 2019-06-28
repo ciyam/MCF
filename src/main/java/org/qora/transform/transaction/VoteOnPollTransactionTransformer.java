@@ -80,8 +80,6 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 
 			transformCommonBytes(transactionData, bytes);
 
-			bytes.write(voteOnPollTransactionData.getVoterPublicKey());
-
 			Serialization.serializeSizedString(bytes, voteOnPollTransactionData.getPollName());
 
 			bytes.write(Ints.toByteArray(voteOnPollTransactionData.getOptionIndex()));

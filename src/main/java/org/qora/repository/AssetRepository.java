@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
+import org.qora.data.asset.RecentTradeData;
 import org.qora.data.asset.TradeData;
 
 public interface AssetRepository {
@@ -42,14 +43,14 @@ public interface AssetRepository {
 
 	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled, Integer limit, Integer offset, Boolean reverse)
+	public List<OrderData> getAccountsOrders(byte[] publicKey, Boolean optIsClosed, Boolean optIsFulfilled, Integer limit, Integer offset, Boolean reverse)
 			throws DataException;
 
-	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, boolean includeClosed, boolean includeFulfilled,
+	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, Boolean optIsClosed, Boolean optIsFulfilled,
 			Integer limit, Integer offset, Boolean reverse) throws DataException;
 
-	public default List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled) throws DataException {
-		return getAccountsOrders(publicKey, includeClosed, includeFulfilled, null, null, null);
+	public default List<OrderData> getAccountsOrders(byte[] publicKey, Boolean optIsClosed, Boolean optIsFulfilled) throws DataException {
+		return getAccountsOrders(publicKey, optIsClosed, optIsFulfilled, null, null, null);
 	}
 
 	public void save(OrderData orderData) throws DataException;
@@ -63,6 +64,8 @@ public interface AssetRepository {
 	public default List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException {
 		return getTrades(haveAssetId, wantAssetId, null, null, null);
 	}
+
+	public List<RecentTradeData> getRecentTrades(List<Long> assetIds, Long otherAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/** Returns TradeData for trades where orderId was involved, i.e. either initiating OR target order */
 	public List<TradeData> getOrdersTrades(byte[] orderId, Integer limit, Integer offset, Boolean reverse) throws DataException;

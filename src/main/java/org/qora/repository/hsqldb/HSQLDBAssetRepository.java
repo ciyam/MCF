@@ -6,10 +6,12 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
+import org.qora.data.asset.RecentTradeData;
 import org.qora.data.asset.TradeData;
 import org.qora.repository.AssetRepository;
 import org.qora.repository.DataException;
@@ -213,7 +215,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT price, sum(amount - fulfilled), max(ordered) FROM AssetOrders "
+		String sql = "SELECT price, SUM(amount - fulfilled), MAX(ordered) FROM AssetOrders "
 				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE GROUP BY price ORDER BY price";
 		if (reverse != null && reverse)
 			sql += " DESC";
@@ -241,12 +243,13 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<OrderData> getAccountsOrders(byte[] publicKey, Boolean optIsClosed, Boolean optIsFulfilled, Integer limit, Integer offset, Boolean reverse)
+			throws DataException {
 		String sql = "SELECT asset_order_id, have_asset_id, want_asset_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE creator = ?";
-		if (!includeClosed)
-			sql += " AND is_closed = FALSE";
-		if (!includeFulfilled)
-			sql += " AND is_fulfilled = FALSE";
+		if (optIsClosed != null)
+			sql += " AND is_closed = " + (optIsClosed ? "TRUE" : "FALSE");
+		if (optIsFulfilled != null)
+			sql += " AND is_fulfilled = " + (optIsFulfilled ? "TRUE" : "FALSE");
 		sql += " ORDER BY ordered";
 		if (reverse != null && reverse)
 			sql += " DESC";
@@ -269,8 +272,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				boolean isClosed = resultSet.getBoolean(8);
 				boolean isFulfilled = resultSet.getBoolean(9);
 
-				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed,
-						isFulfilled);
+				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed, isFulfilled);
 				orders.add(order);
 			} while (resultSet.next());
 
@@ -281,12 +283,13 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, boolean includeClosed, boolean includeFulfilled, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, Boolean optIsClosed, Boolean optIsFulfilled, Integer limit,
+			Integer offset, Boolean reverse) throws DataException {
 		String sql = "SELECT asset_order_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE creator = ? AND have_asset_id = ? AND want_asset_id = ?";
-		if (!includeClosed)
-			sql += " AND is_closed = FALSE";
-		if (!includeFulfilled)
-			sql += " AND is_fulfilled = FALSE";
+		if (optIsClosed != null)
+			sql += " AND is_closed = " + (optIsClosed ? "TRUE" : "FALSE");
+		if (optIsFulfilled != null)
+			sql += " AND is_fulfilled = " + (optIsFulfilled ? "TRUE" : "FALSE");
 		sql += " ORDER BY ordered";
 		if (reverse != null && reverse)
 			sql += " DESC";
@@ -307,8 +310,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				boolean isClosed = resultSet.getBoolean(6);
 				boolean isFulfilled = resultSet.getBoolean(7);
 
-				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed,
-						isFulfilled);
+				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed, isFulfilled);
 				orders.add(order);
 			} while (resultSet.next());
 
@@ -373,6 +375,66 @@ public class HSQLDBAssetRepository implements AssetRepository {
 			return trades;
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch asset trades from repository", e);
+		}
+	}
+
+	@Override
+	public List<RecentTradeData> getRecentTrades(List<Long> assetIds, Long otherAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		// Find assetID pairs that have actually been traded
+		String tradedAssetsSubquery = "SELECT have_asset_id, want_asset_id " + "FROM AssetTrades JOIN AssetOrders ON asset_order_id = initiating_order_id ";
+
+		// Optionally limit traded assetID pairs
+		if (!assetIds.isEmpty())
+			tradedAssetsSubquery += "WHERE have_asset_id IN (" + String.join(", ", Collections.nCopies(assetIds.size(), "?")) + ")";
+
+		if (otherAssetId != null) {
+			tradedAssetsSubquery += assetIds.isEmpty() ? " WHERE " : " AND ";
+			tradedAssetsSubquery += "want_asset_id = " + otherAssetId.toString();
+		}
+
+		tradedAssetsSubquery += " GROUP BY have_asset_id, want_asset_id";
+
+		// Find recent trades using "TradedAssets" assetID pairs
+		String recentTradesSubquery = "SELECT AssetTrades.amount, AssetTrades.price, AssetTrades.traded "
+				+ "FROM AssetOrders JOIN AssetTrades ON initiating_order_id = asset_order_id "
+				+ "WHERE AssetOrders.have_asset_id = TradedAssets.have_asset_id AND AssetOrders.want_asset_id = TradedAssets.want_asset_id "
+				+ "ORDER BY traded DESC LIMIT 2";
+
+		// Put it all together
+		String sql = "SELECT have_asset_id, want_asset_id, RecentTrades.amount, RecentTrades.price, RecentTrades.traded " + "FROM (" + tradedAssetsSubquery
+				+ ") AS TradedAssets " + ", LATERAL (" + recentTradesSubquery + ") AS RecentTrades (amount, price, traded) " + "ORDER BY have_asset_id";
+		if (reverse != null && reverse)
+			sql += " DESC";
+
+		sql += ", want_asset_id";
+		if (reverse != null && reverse)
+			sql += " DESC";
+
+		sql += ", RecentTrades.traded DESC ";
+
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		Long[] assetIdsArray = assetIds.toArray(new Long[assetIds.size()]);
+		List<RecentTradeData> recentTrades = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, (Object[]) assetIdsArray)) {
+			if (resultSet == null)
+				return recentTrades;
+
+			do {
+				long haveAssetId = resultSet.getLong(1);
+				long wantAssetId = resultSet.getLong(2);
+				BigDecimal amount = resultSet.getBigDecimal(3);
+				BigDecimal price = resultSet.getBigDecimal(4);
+				long timestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+
+				RecentTradeData recentTrade = new RecentTradeData(haveAssetId, wantAssetId, amount, price, timestamp);
+				recentTrades.add(recentTrade);
+			} while (resultSet.next());
+
+			return recentTrades;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch recent asset trades from repository", e);
 		}
 	}
 

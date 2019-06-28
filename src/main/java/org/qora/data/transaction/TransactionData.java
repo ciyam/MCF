@@ -168,6 +168,10 @@ public abstract class TransactionData {
 
 	@Override
 	public boolean equals(Object other) {
+		// Comparing exact same object
+		if (this == other)
+			return true;
+
 		// If we don't have a signature then fail
 		if (this.signature == null)
 			return false;

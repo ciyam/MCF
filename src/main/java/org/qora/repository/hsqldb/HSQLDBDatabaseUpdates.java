@@ -109,7 +109,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE TYPE AssetOrderID AS VARBINARY(64)");
 					stmt.execute("CREATE TYPE ATName AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE ATType AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
-					stmt.execute("CREATE TYPE ATTags AS VARCHAR(32) COLLATE SQL_TEXT_UCC_NO_PAD");
+					stmt.execute("CREATE TYPE ATTags AS VARCHAR(80) COLLATE SQL_TEXT_UCC_NO_PAD");
 					stmt.execute("CREATE TYPE ATCode AS BLOB(64K)"); // 16bit * 1
 					stmt.execute("CREATE TYPE ATState AS BLOB(1M)"); // 16bit * 8 + 16bit * 4 + 16bit * 4
 					stmt.execute("CREATE TYPE ATCreationBytes AS BLOB(576K)"); // 16bit * 1 + 16bit * 8
@@ -133,6 +133,8 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("CREATE INDEX BlockGeneratorIndex ON Blocks (generator)");
 					// For finding blocks by reference, e.g. child blocks.
 					stmt.execute("CREATE INDEX BlockReferenceIndex ON Blocks (reference)");
+					// For finding blocks by generation timestamp or finding height of latest block immediately before generation timestamp, etc.
+					stmt.execute("CREATE INDEX BlockGenerationHeightIndex ON Blocks (generation, height)");
 					// Use a separate table space as this table will be very large.
 					stmt.execute("SET TABLE Blocks NEW SPACE");
 					break;
@@ -581,6 +583,11 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE ATs ADD COLUMN creation_group_id GroupID NOT NULL DEFAULT 0");
 					// Groups can be updated but updates require approval from original groupID
 					stmt.execute("ALTER TABLE Groups ADD COLUMN creation_group_id GroupID NOT NULL DEFAULT 0");
+					break;
+
+				case 37:
+					// Performance-improving INDEX
+					stmt.execute("CREATE INDEX IF NOT EXISTS BlockGenerationHeightIndex ON Blocks (generation, height)");
 					break;
 
 				default:
