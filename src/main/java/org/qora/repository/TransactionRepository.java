@@ -1,6 +1,7 @@
 package org.qora.repository;
 
 import java.util.List;
+import java.util.Map;
 
 import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.transaction.GroupApprovalTransactionData;
@@ -31,6 +32,18 @@ public interface TransactionRepository {
 	public void deleteParticipants(TransactionData transactionData) throws DataException;
 
 	// Searching transactions
+
+	/**
+	 * Returns number of each transaction type in blocks from startHeight to endHeight inclusive.
+	 * <p>
+	 * Note: endHeight >= startHeight
+	 * 
+	 * @param startHeight height of first block to check
+	 * @param endHeight height of last block to check
+	 * @return transaction counts, indexed by transaction type value
+	 * @throws DataException
+	 */
+	public Map<TransactionType, Integer> getTransactionSummary(int startHeight, int endHeight) throws DataException;
 
 	public List<byte[]> getSignaturesMatchingCriteria(Integer startBlock, Integer blockLimit, TransactionType txType, String address,
 			ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse) throws DataException;

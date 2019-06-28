@@ -166,6 +166,30 @@ public class HSQLDBNameRepository implements NameRepository {
 	}
 
 	@Override
+	public List<String> getRecentNames(long start) throws DataException {
+		String sql = "SELECT name FROM RegisterNameTransactions JOIN Names USING (name) "
+				+ "JOIN Transactions USING (signature) "
+				+ "WHERE creation >= ?";
+
+		List<String> names = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, HSQLDBRepository.toOffsetDateTime(start))) {
+			if (resultSet == null)
+				return names;
+
+			do {
+				String name = resultSet.getString(1);
+
+				names.add(name);
+			} while (resultSet.next());
+
+			return names;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch recent names from repository", e);
+		}
+	}
+
+	@Override
 	public void save(NameData nameData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Names");
 

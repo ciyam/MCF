@@ -6,6 +6,7 @@ import org.eclipse.jetty.rewrite.handler.RedirectPatternRule;
 import org.eclipse.jetty.rewrite.handler.RewriteHandler;
 
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ErrorHandler;
 import org.eclipse.jetty.server.handler.InetAccessHandler;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.FilterHolder;
@@ -33,6 +34,10 @@ public class ApiService {
 		// Create RPC server
 		this.server = new Server(Settings.getInstance().getApiPort());
 
+		// Error handler
+		ErrorHandler errorHandler = new ApiErrorHandler();
+		this.server.setErrorHandler(errorHandler);
+
 		// IP address based access control
 		InetAccessHandler accessHandler = new InetAccessHandler();
 		for (String pattern : Settings.getInstance().getApiWhitelist()) {
@@ -49,10 +54,11 @@ public class ApiService {
 		context.setContextPath("/");
 		rewriteHandler.setHandler(context);
 
-		FilterHolder filterHolder = new FilterHolder(CrossOriginFilter.class);
-		filterHolder.setInitParameter("allowedOrigins", "*");
-		filterHolder.setInitParameter("allowedMethods", "GET, POST");
-		context.addFilter(filterHolder, "/*", null);
+		// Cross-origin resource sharing
+		FilterHolder corsFilterHolder = new FilterHolder(CrossOriginFilter.class);
+		corsFilterHolder.setInitParameter("allowedOrigins", "*");
+		corsFilterHolder.setInitParameter("allowedMethods", "GET, POST, DELETE");
+		context.addFilter(corsFilterHolder, "/*", null);
 
 		// API servlet
 		ServletContainer container = new ServletContainer(config);

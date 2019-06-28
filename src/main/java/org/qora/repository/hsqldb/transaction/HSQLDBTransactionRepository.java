@@ -11,7 +11,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import static java.util.Arrays.stream;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
@@ -111,6 +113,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	// Never called
 	protected HSQLDBTransactionRepository() {
 	}
+
+	// Fetching transactions / transaction height
 
 	@Override
 	public TransactionData fromSignature(byte[] signature) throws DataException {
@@ -272,6 +276,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		}
 	}
 
+	// Transaction participants
+
 	@Override
 	public List<byte[]> getSignaturesInvolvingAddress(String address) throws DataException {
 		List<byte[]> signatures = new ArrayList<byte[]>();
@@ -315,6 +321,35 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			this.repository.delete("TransactionParticipants", "signature = ?", transactionData.getSignature());
 		} catch (SQLException e) {
 			throw new DataException("Unable to delete transaction participants from repository", e);
+		}
+	}
+
+	// Searching transactions
+
+	@Override
+	public Map<TransactionType, Integer> getTransactionSummary(int startHeight, int endHeight) throws DataException {
+		String sql = "SELECT type, COUNT(signature) FROM Transactions "
+				+ "JOIN BlockTransactions ON transaction_signature = signature "
+				+ "JOIN Blocks ON Blocks.signature = block_signature "
+				+ "WHERE height BETWEEN ? AND ? "
+				+ "GROUP BY type";
+
+		Map<TransactionType, Integer> transactionCounts = new HashMap<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, startHeight, endHeight)) {
+			if (resultSet == null)
+				return transactionCounts;
+
+			do {
+				int type = resultSet.getInt(1);
+				int count = resultSet.getInt(2);
+
+				transactionCounts.put(TransactionType.valueOf(type), count);
+			} while (resultSet.next());
+
+			return transactionCounts;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch transaction counts from repository", e);
 		}
 	}
 

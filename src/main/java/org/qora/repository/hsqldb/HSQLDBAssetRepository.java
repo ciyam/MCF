@@ -127,6 +127,30 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
+	public List<Long> getRecentAssetIds(long start) throws DataException {
+		String sql = "SELECT asset_id FROM IssueAssetTransactions JOIN Assets USING (asset_id) "
+				+ "JOIN Transactions USING (signature) "
+				+ "WHERE creation >= ?";
+
+		List<Long> assetIds = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, HSQLDBRepository.toOffsetDateTime(start))) {
+			if (resultSet == null)
+				return assetIds;
+
+			do {
+				long assetId = resultSet.getLong(1);
+
+				assetIds.add(assetId);
+			} while (resultSet.next());
+
+			return assetIds;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch recent asset IDs from repository", e);
+		}
+	}
+
+	@Override
 	public void save(AssetData assetData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Assets");
 

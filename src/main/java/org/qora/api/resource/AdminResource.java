@@ -8,6 +8,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -15,8 +20,15 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
+import org.qora.api.ApiError;
+import org.qora.api.ApiErrors;
+import org.qora.api.ApiExceptionFactory;
 import org.qora.api.Security;
+import org.qora.api.model.ActivitySummary;
 import org.qora.controller.Controller;
+import org.qora.repository.DataException;
+import org.qora.repository.Repository;
+import org.qora.repository.RepositoryManager;
 
 @Path("/admin")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
@@ -47,7 +59,7 @@ public class AdminResource {
 		responses = {
 			@ApiResponse(
 				description = "uptime in milliseconds",
-				content = @Content(schema = @Schema(type = "number"))
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "number"))
 			)
 		}
 	)
@@ -63,7 +75,7 @@ public class AdminResource {
 		responses = {
 			@ApiResponse(
 				description = "\"true\"",
-				content = @Content(schema = @Schema(type = "string"))
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
 			)
 		}
 	)
@@ -85,6 +97,47 @@ public class AdminResource {
 		}).start();
 
 		return "true";
+	}
+
+	@GET
+	@Path("/summary")
+	@Operation(
+		summary = "Summary of activity since midnight, UTC",
+		responses = {
+			@ApiResponse(
+				content = @Content(schema = @Schema(implementation = ActivitySummary.class))
+			)
+		}
+	)
+	@ApiErrors({ApiError.REPOSITORY_ISSUE})
+	public ActivitySummary summary() {
+		ActivitySummary summary = new ActivitySummary();
+
+		LocalDate date = LocalDate.now();
+		LocalTime time = LocalTime.of(0, 0);
+		ZoneOffset offset = ZoneOffset.UTC;
+		long start = OffsetDateTime.of(date, time, offset).toInstant().toEpochMilli();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			int startHeight = repository.getBlockRepository().getHeightFromTimestamp(start);
+			int endHeight = repository.getBlockRepository().getBlockchainHeight();
+
+			summary.blockCount = endHeight - startHeight;
+
+			summary.transactionCountByType = repository.getTransactionRepository().getTransactionSummary(startHeight + 1, endHeight);
+
+			for (Integer count : summary.transactionCountByType.values())
+				summary.transactionCount += count;
+
+			summary.assetsIssued = repository.getAssetRepository().getRecentAssetIds(start).size();
+
+			summary.namesRegistered = repository.getNameRepository().getRecentNames(start).size();
+
+			return summary;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+
 	}
 
 }
