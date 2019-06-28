@@ -18,7 +18,6 @@ import qora.account.PublicKeyAccount;
 import qora.block.BlockChain;
 import repository.DataException;
 import repository.Repository;
-import settings.Settings;
 import transform.TransformationException;
 import transform.transaction.TransactionTransformer;
 
@@ -118,13 +117,6 @@ public abstract class Transaction {
 			return map.get(value);
 		}
 	}
-
-	/** Minimum fee for a transaction */
-	public static final BigDecimal MINIMUM_FEE = BigDecimal.ONE;
-
-	// Cached info to make transaction processing faster
-	protected static final BigDecimal maxBytePerFee = BigDecimal.valueOf(Settings.getInstance().getMaxBytePerFee());
-	protected static final BigDecimal minFeePerByte = BigDecimal.ONE.divide(maxBytePerFee, MathContext.DECIMAL32);
 
 	// Properties
 	protected Repository repository;
@@ -227,7 +219,7 @@ public abstract class Transaction {
 	}
 
 	public boolean hasMinimumFee() {
-		return this.transactionData.getFee().compareTo(MINIMUM_FEE) >= 0;
+		return this.transactionData.getFee().compareTo(BlockChain.getInstance().getUnitFee()) >= 0;
 	}
 
 	public BigDecimal feePerByte() {
@@ -239,27 +231,31 @@ public abstract class Transaction {
 	}
 
 	public boolean hasMinimumFeePerByte() {
-		return this.feePerByte().compareTo(minFeePerByte) >= 0;
+		return this.feePerByte().compareTo(BlockChain.getInstance().getMinFeePerByte()) >= 0;
 	}
 
 	public BigDecimal calcRecommendedFee() {
+		int dataLength;
 		try {
-			BigDecimal recommendedFee = BigDecimal.valueOf(TransactionTransformer.getDataLength(this.transactionData))
-					.divide(maxBytePerFee, MathContext.DECIMAL32).setScale(8);
-
-			// security margin
-			recommendedFee = recommendedFee.add(new BigDecimal("0.0000001"));
-
-			if (recommendedFee.compareTo(MINIMUM_FEE) <= 0) {
-				recommendedFee = MINIMUM_FEE;
-			} else {
-				recommendedFee = recommendedFee.setScale(0, BigDecimal.ROUND_UP);
-			}
-
-			return recommendedFee.setScale(8);
+			dataLength = TransactionTransformer.getDataLength(this.transactionData);
 		} catch (TransformationException e) {
 			throw new IllegalStateException("Unable to get transaction byte length?");
 		}
+
+		BigDecimal maxBytePerUnitFee = BlockChain.getInstance().getMaxBytesPerUnitFee();
+
+		BigDecimal recommendedFee = BigDecimal.valueOf(dataLength).divide(maxBytePerUnitFee, MathContext.DECIMAL32).setScale(8);
+
+		// security margin
+		recommendedFee = recommendedFee.add(new BigDecimal("0.00000001"));
+
+		if (recommendedFee.compareTo(BlockChain.getInstance().getUnitFee()) <= 0) {
+			recommendedFee = BlockChain.getInstance().getUnitFee();
+		} else {
+			recommendedFee = recommendedFee.setScale(0, BigDecimal.ROUND_UP);
+		}
+
+		return recommendedFee.setScale(8);
 	}
 
 	/**
@@ -269,9 +265,9 @@ public abstract class Transaction {
 	 * @return transaction version number, likely 1 or 3
 	 */
 	public static int getVersionByTimestamp(long timestamp) {
-		if (timestamp < BlockChain.getPowFixReleaseTimestamp()) {
+		if (timestamp < BlockChain.getInstance().getPowFixReleaseTimestamp()) {
 			return 1;
-		} else if (timestamp < BlockChain.getQoraV2Timestamp()) {
+		} else if (timestamp < BlockChain.getInstance().getQoraV2Timestamp()) {
 			return 3;
 		} else {
 			return 4;

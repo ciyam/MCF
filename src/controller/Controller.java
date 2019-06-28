@@ -1,10 +1,12 @@
 package controller;
 
 import api.ApiService;
+import qora.block.BlockChain;
 import repository.DataException;
 import repository.RepositoryFactory;
 import repository.RepositoryManager;
 import repository.hsqldb.HSQLDBRepositoryFactory;
+import settings.Settings;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -22,6 +24,9 @@ public class Controller {
 	public static void main(String args[]) {
 		LOGGER.info("Starting up...");
 
+		// Load/check settings, which potentially sets up blockchain config, etc.
+		Settings.getInstance();
+
 		LOGGER.info("Starting repository");
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(connectionUrl);
@@ -29,6 +34,13 @@ public class Controller {
 		} catch (DataException e) {
 			LOGGER.error("Unable to start repository", e);
 			System.exit(1);
+		}
+
+		try {
+			BlockChain.validate();
+		} catch (DataException e) {
+			LOGGER.error("Couldn't validate repository", e);
+			System.exit(2);
 		}
 
 		LOGGER.info("Starting API");

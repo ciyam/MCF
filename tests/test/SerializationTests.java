@@ -25,7 +25,7 @@ public class SerializationTests extends Common {
 	@Test
 	public void testGenesisSerialization() throws TransformationException, DataException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			GenesisBlock block = new GenesisBlock(repository);
+			GenesisBlock block = GenesisBlock.getInstance(repository);
 
 			GenesisTransaction transaction = (GenesisTransaction) block.getTransactions().get(1);
 			assertNotNull(transaction);

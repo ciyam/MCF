@@ -55,7 +55,7 @@ public class Account {
 		BlockRepository blockRepository = this.repository.getBlockRepository();
 		BlockData blockData = blockRepository.getLastBlock();
 
-		for (int i = 1; i < BlockChain.BLOCK_RETARGET_INTERVAL && blockData != null && blockData.getHeight() > 1; ++i) {
+		for (int i = 1; i < BlockChain.getInstance().getBlockDifficultyInterval() && blockData != null && blockData.getHeight() > 1; ++i) {
 			Block block = new Block(this.repository, blockData);
 
 			// CIYAM AT transactions should be fetched from repository so no special handling needed here

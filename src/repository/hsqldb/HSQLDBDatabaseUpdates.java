@@ -163,7 +163,7 @@ public class HSQLDBDatabaseUpdates {
 				case 3:
 					// Genesis Transactions
 					stmt.execute("CREATE TABLE GenesisTransactions (signature Signature, recipient QoraAddress NOT NULL, "
-							+ "amount QoraAmount NOT NULL, PRIMARY KEY (signature), "
+							+ "amount QoraAmount NOT NULL, asset_id AssetID NOT NULL, PRIMARY KEY (signature), "
 							+ "FOREIGN KEY (signature) REFERENCES Transactions (signature) ON DELETE CASCADE)");
 					break;
 
