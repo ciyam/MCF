@@ -23,11 +23,11 @@ public class TradeData {
 
 	@Schema(name = "targetAmount", description = "amount traded from target order")
 	@XmlElement(name = "targetAmount")
-	private BigDecimal amount;
+	private BigDecimal targetAmount;
 
 	@Schema(name = "initiatorAmount", description = "amount traded from initiating order")
 	@XmlElement(name = "initiatorAmount")
-	private BigDecimal price;
+	private BigDecimal initiatorAmount;
 
 	@Schema(description = "when trade happened")
 	private long timestamp;
@@ -38,11 +38,11 @@ public class TradeData {
 	protected TradeData() {
 	}
 
-	public TradeData(byte[] initiator, byte[] target, BigDecimal amount, BigDecimal price, long timestamp) {
+	public TradeData(byte[] initiator, byte[] target, BigDecimal targetAmount, BigDecimal initiatorAmount, long timestamp) {
 		this.initiator = initiator;
 		this.target = target;
-		this.amount = amount;
-		this.price = price;
+		this.targetAmount = targetAmount;
+		this.initiatorAmount = initiatorAmount;
 		this.timestamp = timestamp;
 	}
 
@@ -56,12 +56,12 @@ public class TradeData {
 		return this.target;
 	}
 
-	public BigDecimal getAmount() {
-		return this.amount;
+	public BigDecimal getTargetAmount() {
+		return this.targetAmount;
 	}
 
-	public BigDecimal getPrice() {
-		return this.price;
+	public BigDecimal getInitiatorAmount() {
+		return this.initiatorAmount;
 	}
 
 	public long getTimestamp() {

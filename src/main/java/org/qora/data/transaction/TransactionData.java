@@ -36,7 +36,8 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 	GroupBanTransactionData.class, CancelGroupBanTransactionData.class,
 	GroupKickTransactionData.class, GroupInviteTransactionData.class,
 	JoinGroupTransactionData.class, LeaveGroupTransactionData.class,
-	GroupApprovalTransactionData.class, SetGroupTransactionData.class
+	GroupApprovalTransactionData.class, SetGroupTransactionData.class,
+	UpdateAssetTransactionData.class
 })
 //All properties to be converted to JSON via JAXB
 @XmlAccessorType(XmlAccessType.FIELD)

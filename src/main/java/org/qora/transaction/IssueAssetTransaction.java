@@ -22,10 +22,6 @@ public class IssueAssetTransaction extends Transaction {
 	// Properties
 	private IssueAssetTransactionData issueAssetTransactionData;
 
-	// Other useful constants
-	public static final int MAX_NAME_SIZE = 400;
-	public static final int MAX_DESCRIPTION_SIZE = 4000;
-
 	// Constructors
 
 	public IssueAssetTransaction(Repository repository, TransactionData transactionData) {
@@ -86,22 +82,35 @@ public class IssueAssetTransaction extends Transaction {
 		if (this.issueAssetTransactionData.getTimestamp() < BlockChain.getInstance().getAssetsReleaseTimestamp())
 			return ValidationResult.NOT_YET_RELEASED;
 
+		// "data" field is only allowed in v2
+		String data = this.issueAssetTransactionData.getData();
+		if (this.issueAssetTransactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp()) {
+			// v2 so check data field properly
+			int dataLength = Utf8.encodedLength(data);
+			if (data == null || dataLength < 1 || dataLength > Asset.MAX_DATA_SIZE)
+				return ValidationResult.INVALID_DATA_LENGTH;
+		} else {
+			// pre-v2 so disallow data field
+			if (data != null)
+				return ValidationResult.NOT_YET_RELEASED;
+		}
+
 		// Check owner address is valid
 		if (!Crypto.isValidAddress(issueAssetTransactionData.getOwner()))
 			return ValidationResult.INVALID_ADDRESS;
 
 		// Check name size bounds
 		int assetNameLength = Utf8.encodedLength(issueAssetTransactionData.getAssetName());
-		if (assetNameLength < 1 || assetNameLength > IssueAssetTransaction.MAX_NAME_SIZE)
+		if (assetNameLength < 1 || assetNameLength > Asset.MAX_NAME_SIZE)
 			return ValidationResult.INVALID_NAME_LENGTH;
 
 		// Check description size bounds
 		int assetDescriptionlength = Utf8.encodedLength(issueAssetTransactionData.getDescription());
-		if (assetDescriptionlength < 1 || assetDescriptionlength > IssueAssetTransaction.MAX_DESCRIPTION_SIZE)
+		if (assetDescriptionlength < 1 || assetDescriptionlength > Asset.MAX_DESCRIPTION_SIZE)
 			return ValidationResult.INVALID_DESCRIPTION_LENGTH;
 
 		// Check quantity - either 10 billion or if that's not enough: a billion billion!
-		long maxQuantity = issueAssetTransactionData.getIsDivisible() ? 10_000_000_000L : 1_000_000_000_000_000_000L;
+		long maxQuantity = issueAssetTransactionData.getIsDivisible() ? Asset.MAX_DIVISIBLE_QUANTITY : Asset.MAX_INDIVISIBLE_QUANTITY;
 		if (issueAssetTransactionData.getQuantity() < 1 || issueAssetTransactionData.getQuantity() > maxQuantity)
 			return ValidationResult.INVALID_QUANTITY;
 

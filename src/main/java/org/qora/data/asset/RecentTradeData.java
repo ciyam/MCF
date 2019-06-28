@@ -16,9 +16,9 @@ public class RecentTradeData {
 
 	private long otherAssetId;
 
-	private BigDecimal amount;
+	private BigDecimal otherAmount;
 
-	private BigDecimal price;
+	private BigDecimal amount;
 
 	@Schema(
 		description = "when trade happened"
@@ -31,11 +31,11 @@ public class RecentTradeData {
 	protected RecentTradeData() {
 	}
 
-	public RecentTradeData(long assetId, long otherAssetId, BigDecimal amount, BigDecimal price, long timestamp) {
+	public RecentTradeData(long assetId, long otherAssetId, BigDecimal otherAmount, BigDecimal amount, long timestamp) {
 		this.assetId = assetId;
 		this.otherAssetId = otherAssetId;
+		this.otherAmount = otherAmount;
 		this.amount = amount;
-		this.price = price;
 		this.timestamp = timestamp;
 	}
 
@@ -49,12 +49,12 @@ public class RecentTradeData {
 		return this.otherAssetId;
 	}
 
-	public BigDecimal getAmount() {
-		return this.amount;
+	public BigDecimal getOtherAmount() {
+		return this.otherAmount;
 	}
 
-	public BigDecimal getPrice() {
-		return this.price;
+	public BigDecimal getAmount() {
+		return this.amount;
 	}
 
 	public long getTimestamp() {
