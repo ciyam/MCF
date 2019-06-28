@@ -43,6 +43,7 @@ public class Settings {
 		"::1", "127.0.0.1"
 	};
 	private Boolean apiRestricted;
+	private boolean apiLoggingEnabled = false;
 
 	// Specific to this node
 	private boolean wipeUnconfirmedOnStart = false;
@@ -185,6 +186,10 @@ public class Settings {
 
 		// Not set in config file, so restrict if not testnet
 		return !BlockChain.getInstance().isTestNet();
+	}
+
+	public boolean isApiLoggingEnabled() {
+		return this.apiLoggingEnabled;
 	}
 
 	public boolean getWipeUnconfirmedOnStart() {
