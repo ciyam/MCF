@@ -124,14 +124,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			if (publicKey != null)
 				saveHelper.bind("public_key", publicKey);
 
-			// XXX TMP DEBUGGING
-			boolean priorDebug = this.repository.getDebug();
-			this.repository.setDebug(true);
-
 			saveHelper.execute(this.repository);
-
-			// XXX TMP DEBUGGING
-			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to ensure minimal account in repository", e);
 		}
@@ -148,14 +141,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.bind("public_key", publicKey);
 
 		try {
-			// XXX TMP DEBUGGING
-			boolean priorDebug = this.repository.getDebug();
-			this.repository.setDebug(true);
-
 			saveHelper.execute(this.repository);
-
-			// XXX TMP DEBUGGING
-			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's last reference into repository", e);
 		}
@@ -172,14 +158,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.bind("public_key", publicKey);
 
 		try {
-			// XXX TMP DEBUGGING
-			boolean priorDebug = this.repository.getDebug();
-			this.repository.setDebug(true);
-
 			saveHelper.execute(this.repository);
-
-			// XXX TMP DEBUGGING
-			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's default group ID into repository", e);
 		}
@@ -196,14 +175,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.bind("public_key", publicKey);
 
 		try {
-			// XXX TMP DEBUGGING
-			boolean priorDebug = this.repository.getDebug();
-			this.repository.setDebug(true);
-
 			saveHelper.execute(this.repository);
-
-			// XXX TMP DEBUGGING
-			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's flags into repository", e);
 		}
@@ -220,14 +192,7 @@ public class HSQLDBAccountRepository implements AccountRepository {
 			saveHelper.bind("public_key", publicKey);
 
 		try {
-			// XXX TMP DEBUGGING
-			boolean priorDebug = this.repository.getDebug();
-			this.repository.setDebug(true);
-
 			saveHelper.execute(this.repository);
-
-			// XXX TMP DEBUGGING
-			this.repository.setDebug(priorDebug);
 		} catch (SQLException e) {
 			throw new DataException("Unable to save account's forging enabler into repository", e);
 		}
