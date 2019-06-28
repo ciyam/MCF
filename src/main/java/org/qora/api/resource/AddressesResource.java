@@ -15,6 +15,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
@@ -27,6 +28,7 @@ import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
 import org.qora.data.account.AccountBalanceData;
 import org.qora.data.account.AccountData;
+import org.qora.data.asset.OrderData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -274,6 +276,40 @@ public class AddressesResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			return Crypto.toAddress(publicKey);
+		} catch (ApiException e) {
+			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/assetorders/{address}")
+	@Operation(
+		summary = "Asset orders created by this address",
+		responses = {
+			@ApiResponse(
+				description = "Asset orders",
+				content = @Content(array = @ArraySchema(schema = @Schema(implementation = OrderData.class)))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.ADDRESS_NO_EXISTS, ApiError.REPOSITORY_ISSUE})
+	public List<OrderData> getAssetOrders(@PathParam("address") String address, @QueryParam("includeClosed") boolean includeClosed, @QueryParam("includeFulfilled") boolean includeFulfilled) {
+		if (!Crypto.isValidAddress(address))
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			AccountData accountData = repository.getAccountRepository().getAccount(address);
+
+			if (accountData == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+
+			byte[] publicKey = accountData.getPublicKey();
+			if (publicKey == null)
+				throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.ADDRESS_NO_EXISTS);
+
+			return repository.getAssetRepository().getAccountsOrders(publicKey, includeClosed, includeFulfilled);
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {

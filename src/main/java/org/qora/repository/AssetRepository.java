@@ -32,6 +32,8 @@ public interface AssetRepository {
 
 	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId) throws DataException;
 
+	public List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled) throws DataException;
+
 	public void save(OrderData orderData) throws DataException;
 
 	public void delete(byte[] orderId) throws DataException;

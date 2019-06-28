@@ -5,6 +5,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
 import org.qora.account.Account;
+import org.qora.block.BlockChain;
 import org.qora.utils.Base58;
 
 public class Crypto {
@@ -28,7 +29,7 @@ public class Crypto {
 			MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
 			return sha256.digest(input);
 		} catch (NoSuchAlgorithmException e) {
-			return null;
+			throw new RuntimeException("SHA-256 message digest not available");
 		}
 	}
 
@@ -48,9 +49,20 @@ public class Crypto {
 		// SHA2-256 input to create new data and of known size
 		byte[] inputHash = digest(input);
 
-		// Use BROKEN RIPEMD160 to create shorter address
-		BrokenMD160 brokenMD160 = new BrokenMD160();
-		inputHash = brokenMD160.digest(inputHash);
+		// Use RIPEMD160 to create shorter address
+		if (BlockChain.getUseBrokenMD160ForAddresses()) {
+			// Legacy BROKEN MD160
+			BrokenMD160 brokenMD160 = new BrokenMD160();
+			inputHash = brokenMD160.digest(inputHash);
+		} else {
+			// Use legit MD160
+			try {
+				MessageDigest md160 = MessageDigest.getInstance("RIPEMD160");
+				inputHash = md160.digest(inputHash);
+			} catch (NoSuchAlgorithmException e) {
+				throw new RuntimeException("RIPEMD160 message digest not available");
+			}
+		}
 
 		// Create address data using above hash and addressVersion (prepended)
 		byte[] addressBytes = new byte[inputHash.length + 1];

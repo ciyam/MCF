@@ -76,7 +76,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
 
-			return this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
+			TransactionData transactionData = this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
+			return maybeIncludeBlockHeight(transactionData);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
 		}
@@ -95,10 +96,19 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			long timestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 			BigDecimal fee = resultSet.getBigDecimal(5).setScale(8);
 
-			return this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
+			TransactionData transactionData = this.fromBase(type, signature, reference, creatorPublicKey, timestamp, fee);
+			return maybeIncludeBlockHeight(transactionData);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch transaction from repository", e);
 		}
+	}
+
+	private TransactionData maybeIncludeBlockHeight(TransactionData transactionData) throws DataException {
+		int blockHeight = getHeightFromSignature(transactionData.getSignature());
+		if (blockHeight != 0)
+			transactionData.setBlockHeight(blockHeight);
+
+		return transactionData;
 	}
 
 	@Override

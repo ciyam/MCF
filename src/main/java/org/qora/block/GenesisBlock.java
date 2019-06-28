@@ -10,10 +10,12 @@ import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.bitcoinj.core.Base58;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.qora.account.GenesisAccount;
 import org.qora.crypto.Crypto;
+import org.qora.data.asset.AssetData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.GenesisTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -37,6 +39,7 @@ public class GenesisBlock extends Block {
 	// Properties
 	private static BlockData blockData;
 	private static List<TransactionData> transactionsData;
+	private static List<AssetData> initialAssets;
 
 	// Constructors
 
@@ -51,6 +54,8 @@ public class GenesisBlock extends Block {
 	// Construction from JSON
 
 	public static void fromJSON(JSONObject json) {
+		// All parsing first, then if successful we can proceed to construction
+
 		// Version
 		int version = 1; // but could be bumped later
 
@@ -67,6 +72,9 @@ public class GenesisBlock extends Block {
 				LOGGER.error("Unable to parse genesis timestamp: " + timestampStr);
 				throw new RuntimeException("Unable to parse genesis timestamp");
 			}
+
+		// Generating balance
+		BigDecimal generatingBalance = Settings.getJsonBigDecimal(json, "generatingBalance");
 
 		// Transactions
 		JSONArray transactionsJson = (JSONArray) Settings.getTypedJson(json, "transactions", JSONArray.class);
@@ -96,8 +104,28 @@ public class GenesisBlock extends Block {
 			}
 		}
 
-		// Generating balance
-		BigDecimal generatingBalance = Settings.getJsonBigDecimal(json, "generatingBalance");
+		// Assets
+		JSONArray assetsJson = (JSONArray) Settings.getTypedJson(json, "assets", JSONArray.class);
+		String genesisAddress = Crypto.toAddress(GenesisAccount.PUBLIC_KEY);
+		List<AssetData> assets = new ArrayList<>();
+
+		for (Object assetObj : assetsJson) {
+			if (!(assetObj instanceof JSONObject)) {
+				LOGGER.error("Genesis asset malformed in blockchain config file");
+				throw new RuntimeException("Genesis asset malformed in blockchain config file");
+			}
+
+			JSONObject assetJson = (JSONObject) assetObj;
+
+			String name = (String) Settings.getTypedJson(assetJson, "name", String.class);
+			String description = (String) Settings.getTypedJson(assetJson, "description", String.class);
+			String reference58 = (String) Settings.getTypedJson(assetJson, "reference", String.class);
+			byte[] reference = Base58.decode(reference58);
+			long quantity = (Long) Settings.getTypedJson(assetJson, "quantity", Long.class);
+			boolean isDivisible = (Boolean) Settings.getTypedJson(assetJson, "isDivisible", Boolean.class);
+
+			assets.add(new AssetData(genesisAddress, name, description, quantity, isDivisible, reference));
+		}
 
 		byte[] reference = GENESIS_REFERENCE;
 		int transactionCount = transactions.size();
@@ -113,6 +141,7 @@ public class GenesisBlock extends Block {
 		blockData = new BlockData(version, reference, transactionCount, totalFees, transactionsSignature, height, timestamp, generatingBalance,
 				generatorPublicKey, generatorSignature, atCount, atFees);
 		transactionsData = transactions;
+		initialAssets = assets;
 	}
 
 	// More information
@@ -132,6 +161,10 @@ public class GenesisBlock extends Block {
 			return false;
 
 		return true;
+	}
+
+	public List<AssetData> getInitialAssets() {
+		return Collections.unmodifiableList(initialAssets);
 	}
 
 	// Processing
