@@ -1,18 +1,24 @@
 package org.qora.api.resource;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
@@ -21,15 +27,22 @@ import org.qora.api.ApiError;
 import org.qora.api.ApiErrors;
 import org.qora.api.ApiException;
 import org.qora.api.ApiExceptionFactory;
+import org.qora.api.resource.TransactionsResource;
 import org.qora.asset.Asset;
 import org.qora.crypto.Crypto;
+import org.qora.crypto.Ed25519;
 import org.qora.data.account.AccountData;
-import org.qora.group.Group;
+import org.qora.data.account.ProxyForgerData;
+import org.qora.data.transaction.ProxyForgingTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
+import org.qora.transaction.Transaction;
+import org.qora.transaction.Transaction.ValidationResult;
+import org.qora.transform.TransformationException;
 import org.qora.transform.Transformer;
+import org.qora.transform.transaction.ProxyForgingTransactionTransformer;
 import org.qora.utils.Base58;
 
 @Path("/addresses")
@@ -61,7 +74,7 @@ public class AddressesResource {
 
 			// Not found?
 			if (accountData == null)
-				accountData = new AccountData(address, null, null, Group.NO_GROUP);
+				accountData = new AccountData(address);
 
 			return accountData;
 		} catch (ApiException e) {
@@ -256,6 +269,104 @@ public class AddressesResource {
 			return Crypto.toAddress(publicKey);
 		} catch (ApiException e) {
 			throw e;
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/proxying")
+	@Operation(
+		summary = "List accounts involved in proxy forging, with reward percentage",
+		description = "Returns list of accounts. At least one of \"proxiedFor\" or \"proxiedBy\" needs to be supplied.",
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = ProxyForgerData.class)))
+			)
+		}
+	)
+	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
+	public List<ProxyForgerData> getProxying(@QueryParam("proxiedFor") List<String> recipients,
+			@QueryParam("proxiedBy") List<String> forgers,
+			@Parameter(
+			ref = "limit"
+			) @QueryParam("limit") Integer limit, @Parameter(
+				ref = "offset"
+			) @QueryParam("offset") Integer offset, @Parameter(
+				ref = "reverse"
+			) @QueryParam("reverse") Boolean reverse) {
+		if (recipients.isEmpty() && forgers.isEmpty())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_CRITERIA);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			return repository.getAccountRepository().findProxyAccounts(recipients, forgers, limit, offset, reverse);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@GET
+	@Path("/proxykey/{generatorprivatekey}/{recipientpublickey}")
+	@Operation(
+		summary = "Calculate proxy private key",
+		responses = {
+			@ApiResponse(
+				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
+			)
+		}
+	)
+	public String calculateProxyKey(@PathParam("generatorprivatekey") String generatorKey58, @PathParam("recipientpublickey") String recipientKey58) {
+		byte[] generatorKey = Base58.decode(generatorKey58);
+		byte[] recipientKey = Base58.decode(recipientKey58);
+
+		byte[] sharedSecret = Ed25519.getSharedSecret(recipientKey, generatorKey);
+
+		byte[] proxySeed = Crypto.digest(sharedSecret);
+
+		return Base58.encode(proxySeed);
+	}
+
+	@POST
+	@Path("/proxyforging")
+	@Operation(
+		summary = "Build raw, unsigned, PROXY_FORGING transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = ProxyForgingTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, PROXY_FORGING transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.NON_PRODUCTION, ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String proxyForging(ProxyForgingTransactionData transactionData) {
+		if (Settings.getInstance().isApiRestricted())
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.NON_PRODUCTION);
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = ProxyForgingTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}

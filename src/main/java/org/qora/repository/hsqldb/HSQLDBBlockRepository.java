@@ -150,6 +150,15 @@ public class HSQLDBBlockRepository implements BlockRepository {
 	}
 
 	@Override
+	public int countForgedBlocks(byte[] publicKey) throws DataException {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT COUNT(*) FROM Blocks WHERE generator = ? LIMIT 1", publicKey)) {
+			return resultSet.getInt(1);
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch forged blocks count from repository", e);
+		}
+	}
+
+	@Override
 	public void save(BlockData blockData) throws DataException {
 		HSQLDBSaver saveHelper = new HSQLDBSaver("Blocks");
 

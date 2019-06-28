@@ -93,6 +93,15 @@ public interface BlockRepository {
 	}
 
 	/**
+	 * Returns number of blocks forged by account with given public key.
+	 * 
+	 * @param publicKey
+	 * @return number of blocks
+	 * @throws DataException
+	 */
+	public int countForgedBlocks(byte[] publicKey) throws DataException;
+
+	/**
 	 * Saves block into repository.
 	 * 
 	 * @param blockData

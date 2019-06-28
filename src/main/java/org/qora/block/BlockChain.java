@@ -7,6 +7,7 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.bind.JAXBContext;
@@ -87,6 +88,13 @@ public class BlockChain {
 
 	/** Whether only one registered name is allowed per account. */
 	private boolean oneNamePerAccount = false;
+
+	/** Block rewards by block height */
+	public static class RewardsByHeight {
+		public int height;
+		public BigDecimal reward;
+	}
+	List<RewardsByHeight> rewardsByHeight;
 
 	// Constructors, etc.
 
@@ -220,6 +228,10 @@ public class BlockChain {
 
 	public boolean oneNamePerAccount() {
 		return this.oneNamePerAccount;
+	}
+
+	public List<RewardsByHeight> getBlockRewardsByHeight() {
+		return this.rewardsByHeight;
 	}
 
 	// Convenience methods for specific blockchain feature triggers

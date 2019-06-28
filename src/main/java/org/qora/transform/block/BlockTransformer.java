@@ -311,8 +311,8 @@ public class BlockTransformer extends Transformer {
 			bytes.write(block.getBlockData().getGeneratorSignature());
 
 			for (Transaction transaction : transactions) {
-				// For legacy blocks, we don't include AT-Transactions
-				if (block.getBlockData().getVersion() < 4 && transaction.getTransactionData().getType() == TransactionType.AT)
+				// We don't include AT-Transactions as AT-state/output is dealt with elsewhere in the block code
+				if (transaction.getTransactionData().getType() == TransactionType.AT)
 					continue;
 
 				if (!transaction.isSignatureValid())
