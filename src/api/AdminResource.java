@@ -15,8 +15,8 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
-import repository.DataException;
-import repository.RepositoryManager;
+
+import controller.Controller;
 
 @Path("admin")
 @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN})
@@ -95,20 +95,14 @@ public class AdminResource {
 	public String shutdown() {
 		Security.checkApiCallAllowed("GET admin/stop", request);
 
-		try {
-			RepositoryManager.closeRepositoryFactory();
-		} catch (DataException e) {
-			e.printStackTrace();
-		}
-
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
-				ApiService.getInstance().stop();
+				Controller.shutdown();
 			}
-		}).start();
+		}); // disabled for now: .start();
 
-		return "true";
+		return "false";
 	}
 
 }

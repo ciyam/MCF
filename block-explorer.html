@@ -88,7 +88,7 @@
 				document.body.innerHTML = html;
 				
 				XHR({
-                        url: "http://localhost:9085/transactions/address/" + address,
+                        url: "/transactions/address/" + address,
                         onload: renderAddressTransactions,
                         responseType: "json"
                 });
@@ -96,7 +96,7 @@
 
 			function fetchAddressInfo(address) {
 				XHR({
-                        url: "http://localhost:9085/addresses/assets/" + address,
+                        url: "/addresses/assets/" + address,
                         onload: renderAddressInfo,
                         responseType: "json"
                 });
@@ -181,7 +181,7 @@
 				
 				// Fetch block's transactions
 				XHR({
-                        url: "http://localhost:9085/transactions/block/" + blockData.signature,
+                        url: "/transactions/block/" + blockData.signature,
                         onload: renderBlockTransactions,
                         responseType: "json"
                 });
@@ -189,7 +189,7 @@
 
 			function fetchBlockInfo(height) {
 				XHR({
-                        url: "http://localhost:9085/blocks/byheight/" + height,
+                        url: "/blocks/byheight/" + height,
                         onload: renderBlockInfo,
                         responseType: "json"
                 });
@@ -227,7 +227,7 @@
 
 			function shutdownAPI() {
 				XHR({
-                        url: "http://localhost:9085/admin/stop",
+                        url: "/admin/stop",
                         onload: showShutdown,
                         responseType: "json"
                 });
@@ -247,7 +247,7 @@
 
 				for (var h = height; h > 0 && h >= height - 20; --h)
 					XHR({
-							url: "http://localhost:9085/blocks/byheight/" + h,
+							url: "/blocks/byheight/" + h,
 							onload: listBlock,
 							responseType: "json"
 					});
@@ -264,7 +264,7 @@
 
 			function windowOnLoad() {
 				XHR({
-                        url: "http://localhost:9085/blocks/height",
+                        url: "/blocks/height",
                         onload: initialBlocks,
                         responseType: "json"
                 });
