@@ -7,6 +7,7 @@ import java.sql.Statement;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qora.block.BlockChain;
 
 public class HSQLDBDatabaseUpdates {
 
@@ -653,6 +654,35 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN want_amount SET NOT NULL");
 					// Rename corresponding column in CreateAssetOrderTransactions
 					stmt.execute("ALTER TABLE CreateAssetOrderTransactions ALTER COLUMN price RENAME TO want_amount");
+					break;
+
+				case 42:
+					// New asset pricing #2
+					/*
+					 *  Use "price" (discard want-amount) but enforce pricing units in one direction
+					 *  to avoid all the reciprocal and round issues.
+					 */
+					stmt.execute("ALTER TABLE CreateAssetOrderTransactions ALTER COLUMN want_amount RENAME TO price");
+					stmt.execute("ALTER TABLE AssetOrders DROP COLUMN want_amount");
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN unit_price RENAME TO price");
+					stmt.execute("ALTER TABLE AssetOrders ALTER COLUMN price QoraAmount");
+					/*
+					 *  Normalize any 'old' orders to 'new' pricing.
+					 *  We must do this so that requesting open orders can be sorted by price.
+					 */
+					// Make sure new asset pricing timestamp (used below) is UTC
+					stmt.execute("SET TIME ZONE INTERVAL '0:00' HOUR TO MINUTE");
+					// Normalize amount/fulfilled to asset with highest assetID, BEFORE price correction
+					stmt.execute("UPDATE AssetOrders SET amount = amount * price, fulfilled = fulfilled * price "
+							+ "WHERE ordered < timestamp(" + BlockChain.getInstance().getNewAssetPricingTimestamp() + ") "
+							+ "AND have_asset_id < want_asset_id");
+					// Normalize price into lowest-assetID/highest-assetID price-pair, e.g. QORA/asset100
+					// Note: HSQLDB uses BigDecimal's dividend.divide(divisor, RoundingMode.DOWN) too
+					stmt.execute("UPDATE AssetOrders SET price = CAST(1 AS QoraAmount) / price "
+							+ "WHERE ordered < timestamp(" + BlockChain.getInstance().getNewAssetPricingTimestamp() + ") "
+							+ "AND have_asset_id < want_asset_id");
+					// Revert time zone change above
+					stmt.execute("SET TIME ZONE LOCAL");
 					break;
 
 				default:

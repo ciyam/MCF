@@ -11,7 +11,7 @@
 		<dagger.version>1.2.2</dagger.version>
 		<hsqldb.version>r5836</hsqldb.version>
 		<sqltool.version>2.4.1</sqltool.version>
-		<jetty.version>9.4.11.v20180605</jetty.version>
+		<jetty.version>9.4.12.v20180830</jetty.version>
 		<jersey.version>2.27</jersey.version>
 		<log4j.version>2.11.0</log4j.version>
 		<slf4j.version>1.7.12</slf4j.version>

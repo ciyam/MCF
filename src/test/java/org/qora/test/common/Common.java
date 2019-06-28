@@ -13,6 +13,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.bitcoinj.core.Base58;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jsse.provider.BouncyCastleJsseProvider;
@@ -34,11 +36,28 @@ import org.qora.settings.Settings;
 
 public class Common {
 
+	static {
+		// This must go before any calls to LogManager/Logger
+		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
+
+		Security.insertProviderAt(new BouncyCastleProvider(), 0);
+		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
+	}
+
+	private static final Logger LOGGER = LogManager.getLogger(Common.class);
+
 	public static final String testConnectionUrl = "jdbc:hsqldb:mem:testdb";
 	// For debugging, use this instead to write DB to disk for examination:
 	// public static final String testConnectionUrl = "jdbc:hsqldb:file:testdb/blockchain;create=true";
 
 	public static final String testSettingsFilename = "test-settings-v2.json";
+
+	static {
+		// Load/check settings, which potentially sets up blockchain config, etc.
+		URL testSettingsUrl = Common.class.getClassLoader().getResource(testSettingsFilename);
+		assertNotNull("Test settings JSON file not found", testSettingsUrl);
+		Settings.fileInstance(testSettingsUrl.getPath());
+	}
 
 	private static List<AssetData> initialAssets;
 	private static List<GroupData> initialGroups;
@@ -48,19 +67,6 @@ public class Common {
 	public static final byte[] v2testPrivateKey = Base58.decode("A9MNsATgQgruBUjxy2rjWY36Yf19uRioKZbiLFT2P7c6");
 	public static final byte[] v2testPublicKey = Base58.decode("2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP");
 	public static final String v2testAddress = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v";
-
-	static {
-		// This must go before any calls to LogManager/Logger
-		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
-
-		Security.insertProviderAt(new BouncyCastleProvider(), 0);
-		Security.insertProviderAt(new BouncyCastleJsseProvider(), 1);
-
-		// Load/check settings, which potentially sets up blockchain config, etc.
-		URL testSettingsUrl = Common.class.getClassLoader().getResource(testSettingsFilename);
-		assertNotNull("Test settings JSON file not found", testSettingsUrl);
-		Settings.fileInstance(testSettingsUrl.getPath());
-	}
 
 	private static Map<String, TestAccount> testAccountsByName = new HashMap<>();
 	static {
@@ -82,6 +88,7 @@ public class Common {
 		closeRepository();
 
 		// Load/check settings, which potentially sets up blockchain config, etc.
+		LOGGER.debug(String.format("Using setting file: %s", settingsFilename));
 		URL testSettingsUrl = Common.class.getClassLoader().getResource(settingsFilename);
 		assertNotNull("Test settings JSON file not found", testSettingsUrl);
 		Settings.fileInstance(testSettingsUrl.getPath());
@@ -112,6 +119,8 @@ public class Common {
 
 	/** Orphan back to genesis block and compare initial snapshot. */
 	public static void orphanCheck() throws DataException {
+		LOGGER.debug("Orphaning back to genesis block");
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Orphan back to genesis block
 			while (repository.getBlockRepository().getBlockchainHeight() > 1) {

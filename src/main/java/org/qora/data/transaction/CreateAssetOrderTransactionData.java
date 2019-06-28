@@ -20,11 +20,10 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 	private long haveAssetId;
 	@Schema(description = "ID of asset wanted to receive by order creator", example = "0")
 	private long wantAssetId;
-	@Schema(description = "amount of \"have\" asset to trade")
+	@Schema(description = "amount of highest-assetID asset to trade")
 	private BigDecimal amount;
-	@Schema(name = "return", description = "amount of \"want\" asset to receive")
-	@XmlElement(name = "return")
-	private BigDecimal wantAmount;
+	@Schema(description = "price in lowest-assetID asset / highest-assetID asset")
+	private BigDecimal price;
 
 	// Constructors
 
@@ -34,18 +33,18 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 	}
 
 	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
-			BigDecimal amount, BigDecimal wantAmount, BigDecimal fee, byte[] signature) {
+			BigDecimal amount, BigDecimal price, BigDecimal fee, byte[] signature) {
 		super(TransactionType.CREATE_ASSET_ORDER, timestamp, txGroupId, reference, creatorPublicKey, fee, signature);
 
 		this.haveAssetId = haveAssetId;
 		this.wantAssetId = wantAssetId;
 		this.amount = amount;
-		this.wantAmount = wantAmount;
+		this.price = price;
 	}
 
 	public CreateAssetOrderTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, long haveAssetId, long wantAssetId,
-			BigDecimal amount, BigDecimal wantAmount, BigDecimal fee) {
-		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, wantAmount, fee, null);
+			BigDecimal amount, BigDecimal price, BigDecimal fee) {
+		this(timestamp, txGroupId, reference, creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, null);
 	}
 
 	// Getters/Setters
@@ -62,8 +61,8 @@ public class CreateAssetOrderTransactionData extends TransactionData {
 		return this.amount;
 	}
 
-	public BigDecimal getWantAmount() {
-		return this.wantAmount;
+	public BigDecimal getPrice() {
+		return this.price;
 	}
 
 	// Re-expose creatorPublicKey for this transaction type for JAXB
