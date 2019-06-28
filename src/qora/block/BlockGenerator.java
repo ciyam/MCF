@@ -10,6 +10,7 @@ import data.block.BlockData;
 import data.transaction.TransactionData;
 import qora.account.PrivateKeyAccount;
 import qora.block.Block.ValidationResult;
+import qora.transaction.Transaction;
 import repository.BlockRepository;
 import repository.DataException;
 import repository.Repository;
@@ -43,6 +44,8 @@ public class BlockGenerator extends Thread {
 	// Main thread loop
 	@Override
 	public void run() {
+		Thread.currentThread().setName("BlockGenerator");
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			generator = new PrivateKeyAccount(repository, generatorPrivateKey);
 
@@ -106,6 +109,11 @@ public class BlockGenerator extends Thread {
 		// Grab all unconfirmed transactions (already sorted)
 		List<TransactionData> unconfirmedTransactions = repository.getTransactionRepository().getAllUnconfirmedTransactions();
 
+		// Remove transactions that have timestamp later than block's timestamp (not yet valid)
+		unconfirmedTransactions.removeIf(transactionData -> transactionData.getTimestamp() > newBlock.getBlockData().getTimestamp());
+		// Remove transactions that have expired deadline for this block
+		unconfirmedTransactions.removeIf(transactionData -> Transaction.fromData(repository, transactionData).getDeadline() <= newBlock.getBlockData().getTimestamp());
+
 		// Attempt to add transactions until block is full, or we run out
 		for (TransactionData transactionData : unconfirmedTransactions)
 			if (!newBlock.addTransaction(transactionData))
@@ -115,7 +123,7 @@ public class BlockGenerator extends Thread {
 	public void shutdown() {
 		this.running = false;
 		// Interrupt too, absorbed by HSQLDB but could be caught by Thread.sleep()
-		Thread.currentThread().interrupt();
+		this.interrupt();
 	}
 
 }

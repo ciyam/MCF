@@ -31,6 +31,8 @@ public class ApiService {
 		this.resources.add(AdminResource.class);
 		this.resources.add(AssetsResource.class);
 		this.resources.add(BlocksResource.class);
+		this.resources.add(NamesResource.class);
+		this.resources.add(PaymentsResource.class);
 		this.resources.add(TransactionsResource.class);
 		this.resources.add(UtilsResource.class);
 

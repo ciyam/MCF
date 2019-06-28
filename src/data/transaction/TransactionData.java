@@ -13,6 +13,8 @@ import javax.xml.bind.annotation.XmlTransient;
 import org.eclipse.persistence.oxm.annotations.XmlClassExtractor;
 
 import api.TransactionClassExtractor;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
 import qora.crypto.Crypto;
 import qora.transaction.Transaction.TransactionType;
 
@@ -34,18 +36,29 @@ import qora.transaction.Transaction.TransactionType;
 public abstract class TransactionData {
 
 	// Properties shared with all transaction types
+	@Schema(accessMode = AccessMode.READ_ONLY, hidden = true)
 	protected TransactionType type;
 	@XmlTransient // represented in transaction-specific properties
+	@Schema(hidden = true)
 	protected byte[] creatorPublicKey;
+	@Schema(description = "timestamp when transaction created, in milliseconds since unix epoch", example = "1545062012000")
 	protected long timestamp;
+	@Schema(description = "sender's last transaction ID", example = "47fw82McxnTQ8wtTS5A51Qojhg62b8px1rF3FhJp5a3etKeb5Y2DniL4Q6E7GbVCs6BAjHVe6sA4gTPxtYzng3AX")
 	protected byte[] reference;
+	@Schema(description = "fee for processing transaction", example = "1.0")
 	protected BigDecimal fee;
+	@Schema(accessMode = AccessMode.READ_ONLY, description = "signature for transaction's raw bytes, using sender's private key", example = "28u54WRcMfGujtQMZ9dNKFXVqucY7XfPihXAqPFsnx853NPUwfDJy1sMH5boCkahFgjUNYqc5fkduxdBhQTKgUsC")
 	protected byte[] signature;
 
 	// Constructors
 
 	// For JAX-RS
 	protected TransactionData() {
+	}
+
+	// For JAX-RS
+	protected TransactionData(TransactionType type) {
+		this.type = type;
 	}
 
 	public TransactionData(TransactionType type, BigDecimal fee, byte[] creatorPublicKey, long timestamp, byte[] reference, byte[] signature) {

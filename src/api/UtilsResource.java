@@ -10,6 +10,7 @@ import qora.account.PrivateKeyAccount;
 import qora.crypto.Crypto;
 import utils.BIP39;
 import utils.Base58;
+import utils.NTP;
 
 import java.security.SecureRandom;
 import java.util.Arrays;
@@ -341,6 +342,25 @@ public class UtilsResource {
 		byte[] publicKey = new PrivateKeyAccount(null, privateKey).getPublicKey();
 
 		return Base58.encode(publicKey);
+	}
+
+	@GET
+	@Path("/timestamp")
+	@Operation(
+		summary = "Returns current timestamp as milliseconds from unix epoch",
+		responses = {
+			@ApiResponse(
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "number"
+					)
+				)
+			)
+		}
+	)
+	public long getTimestamp() {
+		return NTP.getTime();
 	}
 
 }
