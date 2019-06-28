@@ -426,7 +426,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 		tradedAssetsSubquery += " GROUP BY have_asset_id, want_asset_id";
 
 		// Find recent trades using "TradedAssets" assetID pairs
-		String recentTradesSubquery = "SELECT AssetTrades.amount, AssetTrades.price, AssetTrades.traded "
+		String recentTradesSubquery = "SELECT AssetTrades.target_amount, AssetTrades.initiator_amount, AssetTrades.traded "
 				+ "FROM AssetOrders JOIN AssetTrades ON initiating_order_id = asset_order_id "
 				+ "WHERE AssetOrders.have_asset_id = TradedAssets.have_asset_id AND AssetOrders.want_asset_id = TradedAssets.want_asset_id "
 				+ "ORDER BY traded DESC LIMIT 2";

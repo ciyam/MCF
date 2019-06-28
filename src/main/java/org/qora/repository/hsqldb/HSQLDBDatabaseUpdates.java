@@ -628,7 +628,7 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("ALTER TABLE Assets ALTER COLUMN data AssetDataLob");
 					stmt.execute("ALTER TABLE IssueAssetTransactions ALTER COLUMN data AssetDataLob");
 					stmt.execute("ALTER TABLE UpdateAssetTransactions ALTER COLUMN new_data AssetDataLob");
-				break;
+					break;
 
 				default:
 					// nothing to do
