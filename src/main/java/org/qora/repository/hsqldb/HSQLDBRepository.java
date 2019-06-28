@@ -11,8 +11,10 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.List;
 import java.util.TimeZone;
 
 import org.apache.logging.log4j.LogManager;
@@ -29,11 +31,9 @@ import org.qora.repository.Repository;
 import org.qora.repository.TransactionRepository;
 import org.qora.repository.VotingRepository;
 import org.qora.repository.hsqldb.transaction.HSQLDBTransactionRepository;
+import org.qora.settings.Settings;
 
 public class HSQLDBRepository implements Repository {
-
-	/** Queries that take longer than this (milliseconds) are logged */
-	private static final long MAX_QUERY_TIME = 1000L;
 
 	private static final Logger LOGGER = LogManager.getLogger(HSQLDBRepository.class);
 
@@ -42,11 +42,17 @@ public class HSQLDBRepository implements Repository {
 	protected Connection connection;
 	protected Deque<Savepoint> savepoints;
 	protected boolean debugState = false;
+	protected Long slowQueryThreshold = null;
+	protected List<String> queries;
 
 	// NB: no visibility modifier so only callable from within same package
 	HSQLDBRepository(Connection connection) {
 		this.connection = connection;
 		this.savepoints = new ArrayDeque<>(3);
+
+		this.slowQueryThreshold = Settings.getInstance().getSlowQueryThreshold();
+		if (this.slowQueryThreshold != null)
+			this.queries = new ArrayList<String>();
 	}
 
 	@Override
@@ -102,6 +108,9 @@ public class HSQLDBRepository implements Repository {
 			throw new DataException("commit error", e);
 		} finally {
 			this.savepoints.clear();
+
+			if (this.queries != null)
+				this.queries.clear();
 		}
 	}
 
@@ -113,6 +122,9 @@ public class HSQLDBRepository implements Repository {
 			throw new DataException("rollback error", e);
 		} finally {
 			this.savepoints.clear();
+
+			if (this.queries != null)
+				this.queries.clear();
 		}
 	}
 
@@ -121,6 +133,9 @@ public class HSQLDBRepository implements Repository {
 		try {
 			Savepoint savepoint = this.connection.setSavepoint();
 			this.savepoints.push(savepoint);
+
+			if (this.queries != null)
+				this.queries.add("SAVEPOINT");
 		} catch (SQLException e) {
 			throw new DataException("savepoint error", e);
 		}
@@ -135,6 +150,9 @@ public class HSQLDBRepository implements Repository {
 
 		try {
 			this.connection.rollback(savepoint);
+
+			if (this.queries != null)
+				this.queries.add("ROLLBACK TO SAVEPOINT");
 		} catch (SQLException e) {
 			throw new DataException("savepoint rollback error", e);
 		}
@@ -206,8 +224,16 @@ public class HSQLDBRepository implements Repository {
 		ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects);
 
 		long queryTime = System.currentTimeMillis() - beforeQuery;
-		if (queryTime > MAX_QUERY_TIME)
+		if (this.slowQueryThreshold != null && queryTime > this.slowQueryThreshold) {
 			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql));
+
+			if (this.queries != null)
+				for (String query : this.queries)
+					LOGGER.info(query);
+		}
+
+		if (this.queries != null)
+			this.queries.add(sql);
 
 		return resultSet;
 	}
@@ -316,8 +342,13 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
-		try (PreparedStatement preparedStatement = this.connection.prepareStatement("SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " LIMIT 1");
+		String sql = "SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " LIMIT 1";
+
+		try (PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
 				ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects)) {
+			if (this.queries != null)
+				this.queries.add(sql);
+
 			if (resultSet == null)
 				return false;
 
@@ -334,7 +365,12 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public int delete(String tableName, String whereClause, Object... objects) throws SQLException {
-		try (PreparedStatement preparedStatement = this.connection.prepareStatement("DELETE FROM " + tableName + " WHERE " + whereClause)) {
+		String sql = "DELETE FROM " + tableName + " WHERE " + whereClause;
+
+		try (PreparedStatement preparedStatement = this.connection.prepareStatement(sql)) {
+			if (this.queries != null)
+				this.queries.add(sql);
+
 			return this.checkedExecuteUpdateCount(preparedStatement, objects);
 		}
 	}
@@ -346,7 +382,12 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public int delete(String tableName) throws SQLException {
-		try (PreparedStatement preparedStatement = this.connection.prepareStatement("DELETE FROM " + tableName)) {
+		String sql = "DELETE FROM " + tableName;
+
+		try (PreparedStatement preparedStatement = this.connection.prepareStatement(sql)) {
+			if (this.queries != null)
+				this.queries.add(sql);
+
 			return this.checkedExecuteUpdateCount(preparedStatement);
 		}
 	}
@@ -375,6 +416,10 @@ public class HSQLDBRepository implements Repository {
 	/** Logs other HSQLDB sessions then re-throws passed exception */
 	public SQLException examineException(SQLException e) throws SQLException {
 		LOGGER.error("SQL error: " + e.getMessage());
+
+		if (this.queries != null)
+			for (String query : this.queries)
+				LOGGER.info(query);
 
 		// Serialization failure / potential deadlock - so list other sessions
 		try (ResultSet resultSet = this.checkedExecute(

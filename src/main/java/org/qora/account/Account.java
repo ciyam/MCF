@@ -163,36 +163,18 @@ public class Account {
 	}
 
 	/**
-	 * Fetch last reference for account, considering unconfirmed transactions.
+	 * Fetch last reference for account, considering unconfirmed transactions only, or return null.
 	 * <p>
 	 * NOTE: a repository savepoint may be used during execution.
 	 * 
-	 * @return byte[] reference, or null if no reference or account not found.
+	 * @return byte[] reference, or null if no unconfirmed transactions for this account.
 	 * @throws DataException
 	 */
 	public byte[] getUnconfirmedLastReference() throws DataException {
-		byte[] reference = getUnconfirmedLastReference(null);
-
-		if (reference == null)
-			// No unconfirmed transactions
-			reference = getLastReference();
-
-		return reference;
-	}
-
-	/**
-	 * Fetch last reference for account, considering unconfirmed transactions only, or return defaultReference.
-	 * <p>
-	 * NOTE: a repository savepoint may be used during execution.
-	 * 
-	 * @return byte[] reference, or defaultReference if no unconfirmed transactions for this account.
-	 * @throws DataException
-	 */
-	public byte[] getUnconfirmedLastReference(byte[] defaultReference) throws DataException {
 		// Newest unconfirmed transaction takes priority
 		List<TransactionData> unconfirmedTransactions = Transaction.getUnconfirmedTransactions(repository);
 
-		byte[] reference = defaultReference;
+		byte[] reference = null;
 
 		for (TransactionData transactionData : unconfirmedTransactions) {
 			String address = PublicKeyAccount.getAddress(transactionData.getCreatorPublicKey());
