@@ -6,8 +6,8 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
@@ -379,17 +379,19 @@ public class HSQLDBAssetRepository implements AssetRepository {
 	}
 
 	@Override
-	public List<RecentTradeData> getRecentTrades(List<Long> assetIds, Long otherAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+	public List<RecentTradeData> getRecentTrades(List<Long> assetIds, List<Long> otherAssetIds, Integer limit, Integer offset, Boolean reverse) throws DataException {
 		// Find assetID pairs that have actually been traded
 		String tradedAssetsSubquery = "SELECT have_asset_id, want_asset_id " + "FROM AssetTrades JOIN AssetOrders ON asset_order_id = initiating_order_id ";
 
 		// Optionally limit traded assetID pairs
 		if (!assetIds.isEmpty())
-			tradedAssetsSubquery += "WHERE have_asset_id IN (" + String.join(", ", Collections.nCopies(assetIds.size(), "?")) + ")";
+			// longs are safe enough to use literally
+			tradedAssetsSubquery += "WHERE have_asset_id IN (" + String.join(", ", assetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList())) + ")";
 
-		if (otherAssetId != null) {
+		if (!otherAssetIds.isEmpty()) {
 			tradedAssetsSubquery += assetIds.isEmpty() ? " WHERE " : " AND ";
-			tradedAssetsSubquery += "want_asset_id = " + otherAssetId.toString();
+			// longs are safe enough to use literally
+			tradedAssetsSubquery += "want_asset_id IN (" + String.join(", ", otherAssetIds.stream().map(assetId -> assetId.toString()).collect(Collectors.toList())) + ")";
 		}
 
 		tradedAssetsSubquery += " GROUP BY have_asset_id, want_asset_id";
@@ -414,10 +416,9 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
 
-		Long[] assetIdsArray = assetIds.toArray(new Long[assetIds.size()]);
 		List<RecentTradeData> recentTrades = new ArrayList<>();
 
-		try (ResultSet resultSet = this.repository.checkedExecute(sql, (Object[]) assetIdsArray)) {
+		try (ResultSet resultSet = this.repository.checkedExecute(sql)) {
 			if (resultSet == null)
 				return recentTrades;
 

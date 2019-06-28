@@ -37,6 +37,7 @@ public interface AssetRepository {
 
 	public List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
+	// Internal, non-API use
 	public default List<OrderData> getOpenOrders(long haveAssetId, long wantAssetId) throws DataException {
 		return getOpenOrders(haveAssetId, wantAssetId, null, null, null);
 	}
@@ -49,6 +50,7 @@ public interface AssetRepository {
 	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, Boolean optIsClosed, Boolean optIsFulfilled,
 			Integer limit, Integer offset, Boolean reverse) throws DataException;
 
+	// Internal, non-API use
 	public default List<OrderData> getAccountsOrders(byte[] publicKey, Boolean optIsClosed, Boolean optIsFulfilled) throws DataException {
 		return getAccountsOrders(publicKey, optIsClosed, optIsFulfilled, null, null, null);
 	}
@@ -61,15 +63,17 @@ public interface AssetRepository {
 
 	public List<TradeData> getTrades(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
+	// Internal, non-API use
 	public default List<TradeData> getTrades(long haveAssetId, long wantAssetId) throws DataException {
 		return getTrades(haveAssetId, wantAssetId, null, null, null);
 	}
 
-	public List<RecentTradeData> getRecentTrades(List<Long> assetIds, Long otherAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public List<RecentTradeData> getRecentTrades(List<Long> assetIds, List<Long> otherAssetIds, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	/** Returns TradeData for trades where orderId was involved, i.e. either initiating OR target order */
 	public List<TradeData> getOrdersTrades(byte[] orderId, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
+	// Internal, non-API use
 	public default List<TradeData> getOrdersTrades(byte[] orderId) throws DataException {
 		return getOrdersTrades(orderId, null, null, null);
 	}

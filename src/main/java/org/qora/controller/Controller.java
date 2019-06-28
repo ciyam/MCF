@@ -28,6 +28,7 @@ import org.qora.network.Network;
 import org.qora.network.Peer;
 import org.qora.network.message.BlockMessage;
 import org.qora.network.message.GetBlockMessage;
+import org.qora.network.message.GetPeersMessage;
 import org.qora.network.message.GetSignaturesMessage;
 import org.qora.network.message.HeightMessage;
 import org.qora.network.message.Message;
@@ -317,6 +318,9 @@ public class Controller extends Thread {
 
 		// Send our current height
 		network.broadcast(peer -> new HeightMessage(this.getChainHeight()));
+
+		// Request peers lists
+		network.broadcast(peer -> new GetPeersMessage());
 	}
 
 	public void onGeneratedBlock(BlockData newBlockData) {
