@@ -310,11 +310,7 @@ public class BlockTransformer extends Transformer {
 					Order order = orderTransaction.getOrder();
 					List<TradeData> trades = order.getTrades();
 
-					// Filter out trades with initiatingOrderId that don't match this order
-					trades.removeIf((TradeData tradeData) -> !Arrays.equals(tradeData.getInitiator(), order.getOrderData().getOrderId()));
-
-					// Any trades left?
-					if (!trades.isEmpty()) {
+					if (trades.stream().anyMatch(tradeData -> Arrays.equals(tradeData.getInitiator(), order.getOrderData().getOrderId()))) {
 						tradesHappened = true;
 						// No need to check any further
 						break;

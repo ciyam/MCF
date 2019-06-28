@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
-//All properties to be converted to JSON via JAX-RS
+// All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 public class PaymentData {
 
