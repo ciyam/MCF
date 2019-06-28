@@ -18,7 +18,7 @@ public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepo
 
 	TransactionData fromBase(long timestamp, int txGroupId, byte[] reference, byte[] creatorPublicKey, BigDecimal fee, byte[] signature) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT group_id, member_reference, admin_reference FROM LeaveGroupTransactions WHERE signature = ?", signature)) {
+				.checkedExecute("SELECT group_id, member_reference, admin_reference, previous_group_id FROM LeaveGroupTransactions WHERE signature = ?", signature)) {
 			if (resultSet == null)
 				return null;
 
@@ -26,7 +26,11 @@ public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepo
 			byte[] memberReference = resultSet.getBytes(2);
 			byte[] adminReference = resultSet.getBytes(3);
 
-			return new LeaveGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, memberReference, adminReference, fee, signature);
+			Integer previousGroupId = resultSet.getInt(4);
+			if (resultSet.wasNull())
+				previousGroupId = null;
+
+			return new LeaveGroupTransactionData(timestamp, txGroupId, reference, creatorPublicKey, groupId, memberReference, adminReference, previousGroupId, fee, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch leave group transaction from repository", e);
 		}
@@ -40,7 +44,7 @@ public class HSQLDBLeaveGroupTransactionRepository extends HSQLDBTransactionRepo
 
 		saveHelper.bind("signature", leaveGroupTransactionData.getSignature()).bind("leaver", leaveGroupTransactionData.getLeaverPublicKey())
 				.bind("group_id", leaveGroupTransactionData.getGroupId()).bind("member_reference", leaveGroupTransactionData.getMemberReference())
-				.bind("admin_reference", leaveGroupTransactionData.getAdminReference());
+				.bind("admin_reference", leaveGroupTransactionData.getAdminReference()).bind("previous_group_id", leaveGroupTransactionData.getPreviousGroupId());
 
 		try {
 			saveHelper.execute(this.repository);

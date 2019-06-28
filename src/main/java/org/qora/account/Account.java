@@ -215,6 +215,8 @@ public class Account {
 		AccountData accountData = this.buildAccountData();
 		accountData.setDefaultGroupId(defaultGroupId);
 		this.repository.getAccountRepository().setDefaultGroupId(accountData);
+
+		LOGGER.trace(String.format("Account %s defaultGroupId now %d", accountData.getAddress(), defaultGroupId));
 	}
 
 }

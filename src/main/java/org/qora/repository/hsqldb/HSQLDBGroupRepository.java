@@ -196,7 +196,7 @@ public class HSQLDBGroupRepository implements GroupRepository {
 
 	@Override
 	public List<GroupData> getGroupsWithMember(String member, Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open, approval_threshold min_block_delay, max_block_delay, creation_group_id FROM Groups "
+		String sql = "SELECT group_id, owner, group_name, description, created, updated, reference, is_open, approval_threshold, min_block_delay, max_block_delay, creation_group_id FROM Groups "
 				+ "JOIN GroupMembers USING (group_id) WHERE address = ? ORDER BY group_name";
 		if (reverse != null && reverse)
 			sql += " DESC";

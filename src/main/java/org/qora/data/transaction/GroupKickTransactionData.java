@@ -55,6 +55,11 @@ public class GroupKickTransactionData extends TransactionData {
 	@XmlTransient
 	@Schema(hidden = true)
 	private byte[] joinReference;
+	/** Offender's previous defaultGroupId, set only if this transaction changed it to NO_GROUP. */
+	// No need to expose this via API
+	@XmlTransient
+	@Schema(hidden = true)
+	private Integer previousGroupId;
 
 	// Constructors
 
@@ -68,7 +73,7 @@ public class GroupKickTransactionData extends TransactionData {
 	}
 
 	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member,
-			String reason, byte[] memberReference, byte[] adminReference, byte[] joinReference, BigDecimal fee, byte[] signature) {
+			String reason, byte[] memberReference, byte[] adminReference, byte[] joinReference, Integer previousGroupId, BigDecimal fee, byte[] signature) {
 		super(TransactionType.GROUP_KICK, timestamp, txGroupId, reference, adminPublicKey, fee, signature);
 
 		this.adminPublicKey = adminPublicKey;
@@ -78,12 +83,13 @@ public class GroupKickTransactionData extends TransactionData {
 		this.memberReference = memberReference;
 		this.adminReference = adminReference;
 		this.joinReference = joinReference;
+		this.previousGroupId = previousGroupId;
 	}
 
 	/** Constructor typically used after deserialization */
 	public GroupKickTransactionData(long timestamp, int txGroupId, byte[] reference, byte[] adminPublicKey, int groupId, String member, String reason,
 			BigDecimal fee, byte[] signature) {
-		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, reason, null, null, null, fee, signature);
+		this(timestamp, txGroupId, reference, adminPublicKey, groupId, member, reason, null, null, null, null, fee, signature);
 	}
 
 	// Getters / setters
@@ -126,6 +132,14 @@ public class GroupKickTransactionData extends TransactionData {
 
 	public void setJoinReference(byte[] joinReference) {
 		this.joinReference = joinReference;
+	}
+
+	public Integer getPreviousGroupId() {
+		return this.previousGroupId;
+	}
+
+	public void setPreviousGroupId(Integer previousGroupId) {
+		this.previousGroupId = previousGroupId;
 	}
 
 }
