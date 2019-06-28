@@ -41,7 +41,7 @@ public abstract class TransactionData {
 	@XmlTransient // represented in transaction-specific properties
 	@Schema(hidden = true)
 	protected byte[] creatorPublicKey;
-	@Schema(description = "timestamp when transaction created, in milliseconds since unix epoch", example = "1545062012000")
+	@Schema(description = "timestamp when transaction created, in milliseconds since unix epoch", example = "__unix_epoch_time_milliseconds__")
 	protected long timestamp;
 	@Schema(description = "sender's last transaction ID", example = "real_transaction_reference_in_base58")
 	protected byte[] reference;
@@ -51,7 +51,7 @@ public abstract class TransactionData {
 	protected byte[] signature;
 
 	// For JAX-RS use
-	@Schema(accessMode = AccessMode.READ_ONLY, description = "height of block containing transaction")
+	@Schema(accessMode = AccessMode.READ_ONLY, hidden = true, description = "height of block containing transaction")
 	protected Integer blockHeight;
 
 	// Constructors
@@ -120,6 +120,7 @@ public abstract class TransactionData {
 		this.creatorPublicKey = creatorPublicKey;
 	}
 
+	@XmlTransient
 	public void setBlockHeight(int blockHeight) {
 		this.blockHeight = blockHeight;
 	}

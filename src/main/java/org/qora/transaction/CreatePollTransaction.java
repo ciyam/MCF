@@ -67,7 +67,7 @@ public class CreatePollTransaction extends Transaction {
 	// Navigation
 
 	@Override
-	public Account getCreator() throws DataException {
+	public PublicKeyAccount getCreator() throws DataException {
 		return new PublicKeyAccount(this.repository, this.createPollTransactionData.getCreatorPublicKey());
 	}
 

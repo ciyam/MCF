@@ -2,6 +2,11 @@ package org.qora.data.naming;
 
 import java.math.BigDecimal;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+
+// All properties to be converted to JSON via JAX-RS
+@XmlAccessorType(XmlAccessType.FIELD)
 public class NameData {
 
 	// Properties
@@ -16,6 +21,10 @@ public class NameData {
 	private BigDecimal salePrice;
 
 	// Constructors
+
+	// necessary for JAX-RS serialization
+	protected NameData() {
+	}
 
 	public NameData(byte[] registrantPublicKey, String owner, String name, String data, long registered, Long updated, byte[] reference, boolean isForSale,
 			BigDecimal salePrice) {

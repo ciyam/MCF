@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
@@ -17,6 +19,8 @@ import org.qora.repository.hsqldb.HSQLDBSaver;
 import org.qora.transaction.Transaction.TransactionType;
 
 public class HSQLDBTransactionRepository implements TransactionRepository {
+
+	private static final Logger LOGGER = LogManager.getLogger(HSQLDBTransactionRepository.class);
 
 	protected HSQLDBRepository repository;
 	private HSQLDBGenesisTransactionRepository genesisTransactionRepository;
@@ -314,34 +318,24 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 		String signatureColumn = "NULL";
 		List<Object> bindParams = new ArrayList<Object>();
+		String groupBy = "";
 
 		// Table JOINs first
 		List<String> tableJoins = new ArrayList<String>();
 
-		if (hasHeightRange) {
-			tableJoins.add("Blocks");
-			tableJoins.add("BlockTransactions ON BlockTransactions.block_signature = Blocks.signature");
-			signatureColumn = "BlockTransactions.transaction_signature";
-		}
+		// Always JOIN BlockTransactions as we only ever want confirmed transactions
+		tableJoins.add("Blocks");
+		tableJoins.add("BlockTransactions ON BlockTransactions.block_signature = Blocks.signature");
+		signatureColumn = "BlockTransactions.transaction_signature";
 
-		if (hasTxType) {
-			if (hasHeightRange)
-				tableJoins.add("Transactions ON Transactions.signature = BlockTransactions.transaction_signature");
-			else
-				tableJoins.add("Transactions");
-
-			signatureColumn = "Transactions.signature";
-		}
+		// Always JOIN Transactions as we want to order by timestamp
+		tableJoins.add("Transactions ON Transactions.signature = BlockTransactions.transaction_signature");
+		signatureColumn = "Transactions.signature";
 
 		if (hasAddress) {
-			if (hasTxType)
-				tableJoins.add("TransactionParticipants ON TransactionParticipants.signature = Transactions.signature");
-			else if (hasHeightRange)
-				tableJoins.add("TransactionParticipants ON TransactionParticipants.signature = BlockTransactions.transaction_signature");
-			else
-				tableJoins.add("TransactionParticipants");
-
+			tableJoins.add("TransactionParticipants ON TransactionParticipants.signature = Transactions.signature");
 			signatureColumn = "TransactionParticipants.signature";
+			groupBy = " GROUP BY TransactionParticipants.signature, Transactions.creation";
 		}
 
 		// WHERE clauses next
@@ -362,7 +356,8 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			bindParams.add(address);
 		}
 
-		String sql = "SELECT " + signatureColumn + " FROM " + String.join(" JOIN ", tableJoins) + " WHERE " + String.join(" AND ", whereClauses);
+		String sql = "SELECT " + signatureColumn + " FROM " + String.join(" JOIN ", tableJoins) + " WHERE " + String.join(" AND ", whereClauses) + groupBy + " ORDER BY Transactions.creation ASC";
+		LOGGER.trace(sql);
 
 		try (ResultSet resultSet = this.repository.checkedExecute(sql, bindParams.toArray())) {
 			if (resultSet == null)

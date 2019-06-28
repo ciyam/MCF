@@ -55,7 +55,6 @@ public class AssetsResource {
 	HttpServletRequest request;
 
 	@GET
-	@Path("/all")
 	@Operation(
 		summary = "List all known assets",
 		responses = {

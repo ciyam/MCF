@@ -16,6 +16,7 @@ public final class NTP {
 	private static long lastUpdate = 0;
 	private static long offset = 0;
 
+	/** Returns NTP-synced current time from unix epoch, in milliseconds. */
 	public static long getTime() {
 		// Every so often use NTP to find out offset between this system's time and internet time
 		if (System.currentTimeMillis() > lastUpdate + TIME_TILL_UPDATE) {
