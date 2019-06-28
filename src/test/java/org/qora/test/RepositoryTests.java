@@ -4,6 +4,7 @@ import org.junit.Test;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.test.common.Common;
 
 import static org.junit.Assert.*;
 

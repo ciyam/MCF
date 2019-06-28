@@ -9,6 +9,7 @@ import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.test.common.Common;
 import org.qora.transaction.GenesisTransaction;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;

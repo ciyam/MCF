@@ -12,6 +12,7 @@ import org.qora.group.Group.ApprovalThreshold;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.test.common.Common;
 import org.qora.transaction.CreateGroupTransaction;
 import org.qora.transaction.PaymentTransaction;
 import org.qora.transaction.Transaction;

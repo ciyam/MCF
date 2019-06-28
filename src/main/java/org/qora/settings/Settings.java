@@ -93,7 +93,6 @@ public class Settings {
 
 			// Tell unmarshaller that there's no JSON root element in the JSON input
 			unmarshaller.setProperty(UnmarshallerProperties.JSON_INCLUDE_ROOT, false);
-
 		} catch (JAXBException e) {
 			LOGGER.error("Unable to process settings file", e);
 			throw new RuntimeException("Unable to process settings file", e);

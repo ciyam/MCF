@@ -39,6 +39,7 @@ import org.qora.repository.AssetRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
+import org.qora.test.common.Common;
 import org.qora.transaction.BuyNameTransaction;
 import org.qora.transaction.CancelAssetOrderTransaction;
 import org.qora.transaction.CancelSellNameTransaction;
@@ -989,7 +990,7 @@ public class TransactionTests extends Common {
 		TradeData tradeData = trades.get(0);
 
 		// Check trade has correct values
-		BigDecimal expectedAmount = amount.divide(originalOrderData.getPrice()).setScale(8);
+		BigDecimal expectedAmount = amount.divide(originalOrderData.getUnitPrice()).setScale(8);
 		BigDecimal actualAmount = tradeData.getTargetAmount();
 		assertTrue(expectedAmount.compareTo(actualAmount) == 0);
 

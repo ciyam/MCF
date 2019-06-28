@@ -1,6 +1,7 @@
 package org.qora.transaction;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -82,7 +83,7 @@ public class CreateAssetOrderTransaction extends Transaction {
 			return ValidationResult.NEGATIVE_AMOUNT;
 
 		// Check price is positive
-		if (createOrderTransactionData.getPrice().compareTo(BigDecimal.ZERO) <= 0)
+		if (createOrderTransactionData.getWantAmount().compareTo(BigDecimal.ZERO) <= 0)
 			return ValidationResult.NEGATIVE_PRICE;
 
 		// Check fee is positive
@@ -130,9 +131,16 @@ public class CreateAssetOrderTransaction extends Transaction {
 			return ValidationResult.INVALID_AMOUNT;
 
 		// Check total return from fulfilled order would be integer if "want" asset is not divisible
-		if (!wantAssetData.getIsDivisible()
-				&& createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getPrice()).stripTrailingZeros().scale() > 0)
-			return ValidationResult.INVALID_RETURN;
+		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
+			// "new" asset pricing
+			if (!wantAssetData.getIsDivisible() && createOrderTransactionData.getWantAmount().stripTrailingZeros().scale() > 0)
+				return ValidationResult.INVALID_RETURN;
+		} else {
+			// "old" asset pricing
+			if (!wantAssetData.getIsDivisible()
+					&& createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getWantAmount()).stripTrailingZeros().scale() > 0)
+				return ValidationResult.INVALID_RETURN;
+		}
 
 		return ValidationResult.OK;
 	}
@@ -153,9 +161,22 @@ public class CreateAssetOrderTransaction extends Transaction {
 		// Order Id is transaction's signature
 		byte[] orderId = createOrderTransactionData.getSignature();
 
+		BigDecimal wantAmount;
+		BigDecimal unitPrice;
+
+		if (createOrderTransactionData.getTimestamp() >= BlockChain.getInstance().getNewAssetPricingTimestamp()) {
+			// "new" asset pricing: want-amount provided, unit price to be calculated
+			wantAmount = createOrderTransactionData.getWantAmount();
+			unitPrice = wantAmount.setScale(Order.BD_PRICE_STORAGE_SCALE).divide(createOrderTransactionData.getAmount().setScale(Order.BD_PRICE_STORAGE_SCALE), RoundingMode.DOWN);
+		} else {
+			// "old" asset pricing: selling unit price provided, want-amount to be calculated
+			wantAmount = createOrderTransactionData.getAmount().multiply(createOrderTransactionData.getWantAmount());
+			unitPrice = createOrderTransactionData.getWantAmount(); // getWantAmount() was getPrice() in the "old" pricing scheme
+		}
+
 		// Process the order itself
 		OrderData orderData = new OrderData(orderId, createOrderTransactionData.getCreatorPublicKey(), createOrderTransactionData.getHaveAssetId(),
-				createOrderTransactionData.getWantAssetId(), createOrderTransactionData.getAmount(), createOrderTransactionData.getPrice(),
+				createOrderTransactionData.getWantAssetId(), createOrderTransactionData.getAmount(), wantAmount, unitPrice,
 				createOrderTransactionData.getTimestamp());
 
 		new Order(this.repository, orderData).process();

@@ -75,7 +75,7 @@ public class AssetsResource {
 
 	@GET
 	@Operation(
-		summary = "List all known assets",
+		summary = "List all known assets (without data field)",
 		responses = {
 			@ApiResponse(
 				description = "asset info",
@@ -100,7 +100,11 @@ public class AssetsResource {
 		ref = "reverse"
 	) @QueryParam("reverse") Boolean reverse) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getAssetRepository().getAllAssets(limit, offset, reverse);
+			List<AssetData> assets = repository.getAssetRepository().getAllAssets(limit, offset, reverse);
+
+			assets.forEach(asset -> asset.setData(null));
+
+			return assets;
 		} catch (DataException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
 		}
