@@ -177,8 +177,10 @@ public class HSQLDBRepository implements Repository {
 
 				boolean inTransaction = resultSet.getBoolean(1);
 				int transactionCount = resultSet.getInt(2);
-				if (inTransaction && transactionCount != 0)
+				if (inTransaction && transactionCount != 0) {
 					LOGGER.warn("Uncommitted changes (" + transactionCount + ") during repository close", new Exception("Uncommitted repository changes"));
+					logStatements();
+				}
 			}
 
 			// give connection back to the pool
@@ -199,6 +201,32 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	/**
+	 * Returns prepared statement using passed SQL, logging query if necessary.
+	 */
+	public PreparedStatement prepareStatement(String sql) throws SQLException {
+		if (this.debugState)
+			LOGGER.debug(sql);
+
+		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
+
+		if (this.queries != null)
+			this.queries.add(sql);
+
+		return preparedStatement;
+	}
+
+	/**
+	 * Logs this transaction's SQL statements, if enabled.
+	 */
+	public void logStatements() {
+		if (this.queries == null)
+			return;
+
+		for (String query : this.queries)
+			LOGGER.info(query);
+	}
+
+	/**
 	 * Execute SQL and return ResultSet with but added checking.
 	 * <p>
 	 * <b>Note: calls ResultSet.next()</b> therefore returned ResultSet is already pointing to first row.
@@ -210,10 +238,7 @@ public class HSQLDBRepository implements Repository {
 	 */
 	@SuppressWarnings("resource")
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
-		if (this.debugState)
-			LOGGER.debug(sql);
-
-		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
+		PreparedStatement preparedStatement = this.prepareStatement(sql);
 
 		// Close the PreparedStatement when the ResultSet is closed otherwise there's a potential resource leak.
 		// We can't use try-with-resources here as closing the PreparedStatement on return would also prematurely close the ResultSet.
@@ -227,13 +252,8 @@ public class HSQLDBRepository implements Repository {
 		if (this.slowQueryThreshold != null && queryTime > this.slowQueryThreshold) {
 			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql));
 
-			if (this.queries != null)
-				for (String query : this.queries)
-					LOGGER.info(query);
+			logStatements();
 		}
-
-		if (this.queries != null)
-			this.queries.add(sql);
 
 		return resultSet;
 	}
@@ -315,6 +335,7 @@ public class HSQLDBRepository implements Repository {
 	 * @throws SQLException
 	 */
 	public Long callIdentity() throws SQLException {
+		// We don't need to use HSQLDBRepository.prepareStatement for this as it's so trivial
 		try (PreparedStatement preparedStatement = this.connection.prepareStatement("CALL IDENTITY()");
 				ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement)) {
 			if (resultSet == null)
@@ -344,11 +365,8 @@ public class HSQLDBRepository implements Repository {
 	public boolean exists(String tableName, String whereClause, Object... objects) throws SQLException {
 		String sql = "SELECT TRUE FROM " + tableName + " WHERE " + whereClause + " LIMIT 1";
 
-		try (PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
+		try (PreparedStatement preparedStatement = this.prepareStatement(sql);
 				ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects)) {
-			if (this.queries != null)
-				this.queries.add(sql);
-
 			if (resultSet == null)
 				return false;
 
@@ -367,10 +385,7 @@ public class HSQLDBRepository implements Repository {
 	public int delete(String tableName, String whereClause, Object... objects) throws SQLException {
 		String sql = "DELETE FROM " + tableName + " WHERE " + whereClause;
 
-		try (PreparedStatement preparedStatement = this.connection.prepareStatement(sql)) {
-			if (this.queries != null)
-				this.queries.add(sql);
-
+		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
 			return this.checkedExecuteUpdateCount(preparedStatement, objects);
 		}
 	}
@@ -384,10 +399,7 @@ public class HSQLDBRepository implements Repository {
 	public int delete(String tableName) throws SQLException {
 		String sql = "DELETE FROM " + tableName;
 
-		try (PreparedStatement preparedStatement = this.connection.prepareStatement(sql)) {
-			if (this.queries != null)
-				this.queries.add(sql);
-
+		try (PreparedStatement preparedStatement = this.prepareStatement(sql)) {
 			return this.checkedExecuteUpdateCount(preparedStatement);
 		}
 	}
