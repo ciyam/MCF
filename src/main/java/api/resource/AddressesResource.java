@@ -45,40 +45,6 @@ public class AddressesResource {
 	@GET
 	@Path("/lastreference/{address}")
 	@Operation(
-		summary = "Fetch reference for next transaction to be created by address",
-		description = "Returns the base58-encoded signature of the last confirmed transaction created by address, failing that: the first incoming transaction to address. Returns \"false\" if there is no transactions.",
-		responses = {
-			@ApiResponse(
-				description = "the base58-encoded transaction signature or \"false\"",
-				content = @Content(mediaType = MediaType.TEXT_PLAIN, schema = @Schema(type = "string"))
-			)
-		}
-	)
-	@ApiErrors({ApiError.INVALID_ADDRESS, ApiError.REPOSITORY_ISSUE})
-	public String getLastReference(@Parameter(ref = "address") @PathParam("address") String address) {
-		if (!Crypto.isValidAddress(address))
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.INVALID_ADDRESS);
-
-		byte[] lastReference = null;
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			Account account = new Account(repository, address);
-			lastReference = account.getLastReference();
-		} catch (ApiException e) {
-			throw e;
-		} catch (DataException e) {
-			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
-		}
-
-		if(lastReference == null || lastReference.length == 0) {
-			return "false"; 
-		} else {
-			return Base58.encode(lastReference);
-		}
-	}
-	
-	@GET
-	@Path("/lastreference/{address}/unconfirmed")
-	@Operation(
 		summary = "Fetch reference for next transaction to be created by address, considering unconfirmed transactions",
 		description = "Returns the base58-encoded signature of the last confirmed/unconfirmed transaction created by address, failing that: the first incoming transaction. Returns \"false\" if there is no transactions.",
 		responses = {

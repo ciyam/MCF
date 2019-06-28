@@ -16,6 +16,7 @@ public class PrivateKeyAccount extends PublicKeyAccount {
 	 * 
 	 * @param seed
 	 *            byte[32] used to create private/public key pair
+	 * @throws IllegalArgumentException if passed invalid seed
 	 */
 	public PrivateKeyAccount(Repository repository, byte[] seed) {
 		this.repository = repository;
