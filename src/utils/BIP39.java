@@ -9,7 +9,7 @@ public class BIP39 {
 
 	private static final int BITS_PER_WORD = 11;
 
-	/** Convert BIP39 seed phrase to binary form */
+	/** Convert BIP39 mnemonic to binary 'entropy' */
 	public static byte[] decode(String[] phraseWords, String lang) {
 		if (lang == null)
 			lang = "en";
@@ -18,7 +18,7 @@ public class BIP39 {
 		if (wordList == null)
 			throw new IllegalStateException("BIP39 word list for lang '" + lang + "' unavailable");
 
-		byte[] output = new byte[(phraseWords.length * BITS_PER_WORD + 7) / 8];
+		byte[] entropy = new byte[(phraseWords.length * BITS_PER_WORD + 7) / 8];
 		int byteIndex = 0;
 		int bitShift = 3;
 
@@ -28,28 +28,28 @@ public class BIP39 {
 				// Word not found
 				return null;
 
-			output[byteIndex++] |= (byte) (wordListIndex >> bitShift);
+			entropy[byteIndex++] |= (byte) (wordListIndex >> bitShift);
 
 			bitShift = 8 - bitShift;
 			if (bitShift >= 0) {
 				// Leftover fits inside one byte
-				output[byteIndex] |= (byte) ((wordListIndex << bitShift));
+				entropy[byteIndex] |= (byte) ((wordListIndex << bitShift));
 				bitShift = BITS_PER_WORD - bitShift;
 			} else {
 				// Leftover spread over next two bytes
 				bitShift = 0 - bitShift;
-				output[byteIndex++] |= (byte) (wordListIndex >> bitShift);
+				entropy[byteIndex++] |= (byte) (wordListIndex >> bitShift);
 
-				output[byteIndex] |= (byte) ((wordListIndex << (8 - bitShift)));
+				entropy[byteIndex] |= (byte) ((wordListIndex << (8 - bitShift)));
 				bitShift = bitShift + BITS_PER_WORD - 8;
 			}
 		}
 
-		return output;
+		return entropy;
 	}
 
-	/** Convert binary to BIP39 seed phrase */
-	public static String encode(byte[] input, String lang) {
+	/** Convert binary entropy to BIP39 mnemonic */
+	public static String encode(byte[] entropy, String lang) {
 		if (lang == null)
 			lang = "en";
 
@@ -66,7 +66,7 @@ public class BIP39 {
 			for (int bitCount = 0; bitCount < BITS_PER_WORD; ++bitCount) {
 				wordListIndex <<= 1;
 
-				if ((input[byteIndex] & bitMask) != 0)
+				if ((entropy[byteIndex] & bitMask) != 0)
 					++wordListIndex;
 
 				bitMask >>= 1;
@@ -74,7 +74,7 @@ public class BIP39 {
 					bitMask = 128;
 					++byteIndex;
 
-					if (byteIndex >= input.length)
+					if (byteIndex >= entropy.length)
 						return String.join(" ", phraseWords);
 				}
 			}
