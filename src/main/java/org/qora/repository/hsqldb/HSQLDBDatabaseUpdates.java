@@ -588,6 +588,8 @@ public class HSQLDBDatabaseUpdates {
 				case 37:
 					// Performance-improving INDEX
 					stmt.execute("CREATE INDEX IF NOT EXISTS BlockGenerationHeightIndex ON Blocks (generation, height)");
+					// Asset orders now have isClosed=true when isFulfilled=true
+					stmt.execute("UPDATE AssetOrders SET is_closed = TRUE WHERE is_fulfilled = TRUE");
 					break;
 
 				default:

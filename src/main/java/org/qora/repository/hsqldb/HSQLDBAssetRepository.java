@@ -86,7 +86,7 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 	@Override
 	public List<AssetData> getAllAssets(Integer limit, Integer offset, Boolean reverse) throws DataException {
-		String sql = "SELECT owner, asset_id, description, quantity, is_divisible, reference, asset_name FROM Assets ORDER BY asset_name";
+		String sql = "SELECT owner, asset_id, description, quantity, is_divisible, reference, asset_name FROM Assets ORDER BY asset_id";
 		if (reverse != null && reverse)
 			sql += " DESC";
 		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
