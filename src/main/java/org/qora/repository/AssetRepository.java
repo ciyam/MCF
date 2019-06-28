@@ -40,8 +40,13 @@ public interface AssetRepository {
 		return getOpenOrders(haveAssetId, wantAssetId, null, null, null);
 	}
 
+	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException;
+
 	public List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled, Integer limit, Integer offset, Boolean reverse)
 			throws DataException;
+
+	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, boolean includeClosed, boolean includeFulfilled,
+			Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public default List<OrderData> getAccountsOrders(byte[] publicKey, boolean includeClosed, boolean includeFulfilled) throws DataException {
 		return getAccountsOrders(publicKey, includeClosed, includeFulfilled, null, null, null);

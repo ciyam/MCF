@@ -35,7 +35,7 @@ public class ApiService {
 
 		// IP address based access control
 		InetAccessHandler accessHandler = new InetAccessHandler();
-		for (String pattern : Settings.getInstance().getApiAllowed()) {
+		for (String pattern : Settings.getInstance().getApiWhitelist()) {
 			accessHandler.include(pattern);
 		}
 		this.server.setHandler(accessHandler);

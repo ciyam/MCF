@@ -1,6 +1,6 @@
 package org.qora.test;
 
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.PaymentTransactionData;
 import org.qora.data.transaction.TransactionData;
@@ -11,7 +11,7 @@ import org.qora.repository.TransactionRepository;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.utils.Base58;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.Assert.*;
 
 public class LoadTests extends Common {
 
@@ -20,15 +20,14 @@ public class LoadTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TransactionRepository transactionRepository = repository.getTransactionRepository();
 
-			assertTrue(repository.getBlockRepository().getBlockchainHeight() >= 49778,
-				"Migrate from old database to at least block 49778 before running this test");
+			assertTrue("Migrate from old database to at least block 49778 before running this test", repository.getBlockRepository().getBlockchainHeight() >= 49778);
 
 			String signature58 = "1211ZPwG3hk5evWzXCZi9hMDRpwumWmkENjwWkeTCik9xA5uoYnxzF7rwR5hmHH3kG2RXo7ToCAaRc7dvnynByJt";
 			byte[] signature = Base58.decode(signature58);
 
 			TransactionData transactionData = transactionRepository.fromSignature(signature);
-			assertNotNull(transactionData, "Transaction data not loaded from repository");
-			assertEquals(TransactionType.PAYMENT, transactionData.getType(), "Transaction data not PAYMENT type");
+			assertNotNull("Transaction data not loaded from repository", transactionData);
+			assertEquals("Transaction data not PAYMENT type", TransactionType.PAYMENT, transactionData.getType());
 			assertEquals("QXwu8924WdgPoRmtiWQBUMF6eedmp1Hu2E", PublicKeyAccount.getAddress(transactionData.getCreatorPublicKey()));
 
 			PaymentTransactionData paymentTransactionData = (PaymentTransactionData) transactionData;
@@ -47,8 +46,7 @@ public class LoadTests extends Common {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			TransactionRepository transactionRepository = repository.getTransactionRepository();
 
-			assertTrue(repository.getBlockRepository().getBlockchainHeight() >= 49778,
-				"Migrate from old database to at least block 49778 before running this test");
+			assertTrue("Migrate from old database to at least block 49778 before running this test", repository.getBlockRepository().getBlockchainHeight() >= 49778);
 
 			String signature58 = "1211ZPwG3hk5evWzXCZi9hMDRpwumWmkENjwWkeTCik9xA5uoYnxzF7rwR5hmHH3kG2RXo7ToCAaRc7dvnynByJt";
 			byte[] signature = Base58.decode(signature58);

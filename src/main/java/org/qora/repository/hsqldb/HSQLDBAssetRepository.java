@@ -207,7 +207,36 @@ public class HSQLDBAssetRepository implements AssetRepository {
 
 			return orders;
 		} catch (SQLException e) {
-			throw new DataException("Unable to fetch asset orders from repository", e);
+			throw new DataException("Unable to fetch open asset orders from repository", e);
+		}
+	}
+
+	@Override
+	public List<OrderData> getAggregatedOpenOrders(long haveAssetId, long wantAssetId, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT price, sum(amount - fulfilled), max(ordered) FROM AssetOrders "
+				+ "WHERE have_asset_id = ? AND want_asset_id = ? AND is_closed = FALSE AND is_fulfilled = FALSE GROUP BY price ORDER BY price";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<OrderData> orders = new ArrayList<OrderData>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, haveAssetId, wantAssetId)) {
+			if (resultSet == null)
+				return orders;
+
+			do {
+				BigDecimal price = resultSet.getBigDecimal(1);
+				BigDecimal totalUnfulfilled = resultSet.getBigDecimal(2);
+				long timestamp = resultSet.getTimestamp(3).getTime();
+
+				OrderData order = new OrderData(null, null, haveAssetId, wantAssetId, totalUnfulfilled, BigDecimal.ZERO, price, timestamp, false, false);
+				orders.add(order);
+			} while (resultSet.next());
+
+			return orders;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch aggregated open asset orders from repository", e);
 		}
 	}
 
@@ -239,6 +268,44 @@ public class HSQLDBAssetRepository implements AssetRepository {
 				long timestamp = resultSet.getTimestamp(7, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 				boolean isClosed = resultSet.getBoolean(8);
 				boolean isFulfilled = resultSet.getBoolean(9);
+
+				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed,
+						isFulfilled);
+				orders.add(order);
+			} while (resultSet.next());
+
+			return orders;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch account's asset orders from repository", e);
+		}
+	}
+
+	@Override
+	public List<OrderData> getAccountsOrders(byte[] publicKey, long haveAssetId, long wantAssetId, boolean includeClosed, boolean includeFulfilled, Integer limit, Integer offset, Boolean reverse) throws DataException {
+		String sql = "SELECT asset_order_id, amount, fulfilled, price, ordered, is_closed, is_fulfilled FROM AssetOrders WHERE creator = ? AND have_asset_id = ? AND want_asset_id = ?";
+		if (!includeClosed)
+			sql += " AND is_closed = FALSE";
+		if (!includeFulfilled)
+			sql += " AND is_fulfilled = FALSE";
+		sql += " ORDER BY ordered";
+		if (reverse != null && reverse)
+			sql += " DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<OrderData> orders = new ArrayList<OrderData>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, publicKey, haveAssetId, wantAssetId)) {
+			if (resultSet == null)
+				return orders;
+
+			do {
+				byte[] orderId = resultSet.getBytes(1);
+				BigDecimal amount = resultSet.getBigDecimal(2);
+				BigDecimal fulfilled = resultSet.getBigDecimal(3);
+				BigDecimal price = resultSet.getBigDecimal(4);
+				long timestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				boolean isClosed = resultSet.getBoolean(6);
+				boolean isFulfilled = resultSet.getBoolean(7);
 
 				OrderData order = new OrderData(orderId, publicKey, haveAssetId, wantAssetId, amount, fulfilled, price, timestamp, isClosed,
 						isFulfilled);

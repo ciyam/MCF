@@ -1,17 +1,26 @@
 package org.qora.block;
 
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.Reader;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
+
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Unmarshaller;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+import javax.xml.transform.stream.StreamSource;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import org.json.simple.JSONObject;
-import org.qora.data.asset.AssetData;
+import org.eclipse.persistence.jaxb.JAXBContextFactory;
+import org.eclipse.persistence.jaxb.UnmarshallerProperties;
 import org.qora.data.block.BlockData;
 import org.qora.group.Group;
 import org.qora.repository.BlockRepository;
@@ -19,43 +28,59 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
+import org.qora.utils.StringLongMapXmlAdapter;
 
 /**
  * Class representing the blockchain as a whole.
  *
  */
+// All properties to be converted to JSON via JAXB
+@XmlAccessorType(XmlAccessType.FIELD)
 public class BlockChain {
 
 	private static final Logger LOGGER = LogManager.getLogger(BlockChain.class);
 
-	public enum FeatureValueType {
-		height,
-		timestamp;
-	}
-
 	private static BlockChain instance = null;
 
 	// Properties
-	private boolean isTestNet;
+
+	private boolean isTestNet = false;
+	/** Maximum coin supply. */
+	private BigDecimal maxBalance;
+
 	private BigDecimal unitFee;
 	private BigDecimal maxBytesPerUnitFee;
 	private BigDecimal minFeePerByte;
-	/** Maximum coin supply. */
-	private BigDecimal maxBalance;
+
 	/** Number of blocks between recalculating block's generating balance. */
 	private int blockDifficultyInterval;
-	/** Minimum target time between blocks, in seconds. */
+	/** Minimum target time between blocks, in milliseconds. */
 	private long minBlockTime;
-	/** Maximum target time between blocks, in seconds. */
+	/** Maximum target time between blocks, in milliseconds. */
 	private long maxBlockTime;
 	/** Maximum acceptable timestamp disagreement offset in milliseconds. */
 	private long blockTimestampMargin;
+
 	/** Whether transactions with txGroupId of NO_GROUP are allowed */
-	private boolean grouplessAllowed;
+	private boolean requireGroupForApproval;
 	/** Default groupID when account's default groupID isn't set */
 	private int defaultGroupId = Group.NO_GROUP;
+
+	private GenesisBlock.GenesisInfo genesisInfo;
+
+	public enum FeatureTrigger {
+		messageHeight,
+		atHeight,
+		assetsTimestamp,
+		votingTimestamp,
+		arbitraryTimestamp,
+		powfixTimestamp,
+		v2Timestamp;
+	}
+
 	/** Map of which blockchain features are enabled when (height/timestamp) */
-	private Map<String, Map<FeatureValueType, Long>> featureTriggers;
+	@XmlJavaTypeAdapter(StringLongMapXmlAdapter.class)
+	private Map<String, Long> featureTriggers;
 
 	// This property is slightly different as we need it early and we want to avoid getInstance() loop
 	private static boolean useBrokenMD160ForAddresses = false;
@@ -73,9 +98,69 @@ public class BlockChain {
 		return instance;
 	}
 
+	public static void fileInstance(String filename) {
+		JAXBContext jc;
+		Unmarshaller unmarshaller;
+
+		try {
+			// Create JAXB context aware of Settings
+			jc = JAXBContextFactory.createContext(new Class[] {
+				BlockChain.class, GenesisBlock.GenesisInfo.class
+			}, null);
+
+			// Create unmarshaller
+			unmarshaller = jc.createUnmarshaller();
+
+			// Set the unmarshaller media type to JSON
+			unmarshaller.setProperty(UnmarshallerProperties.MEDIA_TYPE, "application/json");
+
+			// Tell unmarshaller that there's no JSON root element in the JSON input
+			unmarshaller.setProperty(UnmarshallerProperties.JSON_INCLUDE_ROOT, false);
+
+		} catch (JAXBException e) {
+			LOGGER.error("Unable to process blockchain config file", e);
+			throw new RuntimeException("Unable to process blockchain config file", e);
+		}
+
+		BlockChain blockchain = null;
+
+		LOGGER.info("Using blockchain config file: " + filename);
+
+		// Create the StreamSource by creating Reader to the JSON input
+		try (Reader settingsReader = new FileReader(filename)) {
+			StreamSource json = new StreamSource(settingsReader);
+
+			// Attempt to unmarshal JSON stream to BlockChain config
+			blockchain = unmarshaller.unmarshal(json, BlockChain.class).getValue();
+		} catch (FileNotFoundException e) {
+			LOGGER.error("Blockchain config file not found: " + filename);
+			throw new RuntimeException("Blockchain config file not found: " + filename);
+		} catch (JAXBException e) {
+			LOGGER.error("Unable to process blockchain config file", e);
+			throw new RuntimeException("Unable to process blockchain config file", e);
+		} catch (IOException e) {
+			LOGGER.error("Unable to process blockchain config file", e);
+			throw new RuntimeException("Unable to process blockchain config file", e);
+		}
+
+		// Validate config
+		blockchain.validateConfig();
+
+		// Minor fix-up
+		blockchain.maxBytesPerUnitFee.setScale(8);
+		blockchain.unitFee.setScale(8);
+		blockchain.minFeePerByte = blockchain.unitFee.divide(blockchain.maxBytesPerUnitFee, MathContext.DECIMAL32);
+
+		// Successfully read config now in effect
+		instance = blockchain;
+
+		// Pass genesis info to GenesisBlock
+		GenesisBlock.newInstance(blockchain.genesisInfo);
+	}
+
 	// Getters / setters
 
-	public boolean getIsTestNet() {
+	public boolean isTestNet() {
 		return this.isTestNet;
 	}
 
@@ -111,8 +196,9 @@ public class BlockChain {
 		return this.blockTimestampMargin;
 	}
 
-	public boolean getGrouplessAllowed() {
-		return this.grouplessAllowed;
+	/** Returns true if approval-needing transaction types require a txGroupId other than NO_GROUP. */
+	public boolean getRequireGroupForApproval() {
+		return this.requireGroupForApproval;
 	}
 
 	public int getDefaultGroupId() {
@@ -123,134 +209,62 @@ public class BlockChain {
 		return useBrokenMD160ForAddresses;
 	}
 
-	private long getFeatureTrigger(String feature, FeatureValueType valueType) {
-		Map<FeatureValueType, Long> featureTrigger = featureTriggers.get(feature);
-		if (featureTrigger == null)
-			return 0;
-
-		Long value = featureTrigger.get(valueType);
-		if (value == null)
-			return 0;
-
-		return value;
-	}
-
 	// Convenience methods for specific blockchain feature triggers
 
 	public long getMessageReleaseHeight() {
-		return getFeatureTrigger("message", FeatureValueType.height);
+		return featureTriggers.get("messageHeight");
 	}
 
 	public long getATReleaseHeight() {
-		return getFeatureTrigger("AT", FeatureValueType.height);
+		return featureTriggers.get("atHeight");
 	}
 
 	public long getPowFixReleaseTimestamp() {
-		return getFeatureTrigger("powfix", FeatureValueType.timestamp);
+		return featureTriggers.get("powfixTimestamp");
 	}
 
 	public long getAssetsReleaseTimestamp() {
-		return getFeatureTrigger("assets", FeatureValueType.timestamp);
+		return featureTriggers.get("assetsTimestamp");
 	}
 
 	public long getVotingReleaseTimestamp() {
-		return getFeatureTrigger("voting", FeatureValueType.timestamp);
+		return featureTriggers.get("votingTimestamp");
 	}
 
 	public long getArbitraryReleaseTimestamp() {
-		return getFeatureTrigger("arbitrary", FeatureValueType.timestamp);
+		return featureTriggers.get("arbitraryTimestamp");
 	}
 
 	public long getQoraV2Timestamp() {
-		return getFeatureTrigger("v2", FeatureValueType.timestamp);
+		return featureTriggers.get("v2Timestamp");
 	}
 
-	// Blockchain config from JSON
-
-	public static void fromJSON(JSONObject json) {
-		// Determine hash function for generating addresses as we need that to build genesis block, etc.
-		Boolean useBrokenMD160 = null;
-		if (json.containsKey("useBrokenMD160ForAddresses"))
-			useBrokenMD160 = (Boolean) Settings.getTypedJson(json, "useBrokenMD160ForAddresses", Boolean.class);
-
-		if (useBrokenMD160 != null)
-			useBrokenMD160ForAddresses = useBrokenMD160.booleanValue();
-
-		Object genesisJson = json.get("genesis");
-		if (genesisJson == null) {
-			LOGGER.error("No \"genesis\" entry found in blockchain config");
-			throw new RuntimeException("No \"genesis\" entry found in blockchain config");
+	/** Validate blockchain config read from JSON */
+	private void validateConfig() {
+		if (this.genesisInfo == null) {
+			LOGGER.error("No \"genesisInfo\" entry found in blockchain config");
+			throw new RuntimeException("No \"genesisInfo\" entry found in blockchain config");
 		}
-		GenesisBlock.fromJSON((JSONObject) genesisJson);
 
-		// Simple blockchain properties
+		if (this.featureTriggers == null) {
+			LOGGER.error("No \"featureTriggers\" entry found in blockchain config");
+			throw new RuntimeException("No \"featureTriggers\" entry found in blockchain config");
+		}
 
-		boolean grouplessAllowed = true;
-		if (json.containsKey("grouplessAllowed"))
-			grouplessAllowed = (Boolean) Settings.getTypedJson(json, "grouplessAllowed", Boolean.class);
+		// Check all featureTriggers are present
+		for (FeatureTrigger featureTrigger : FeatureTrigger.values())
+			if (!this.featureTriggers.containsKey(featureTrigger.name())) {
+				LOGGER.error(String.format("Missing feature trigger \"%s\" in blockchain config", featureTrigger.name()));
+				throw new RuntimeException("Missing feature trigger in blockchain config");
+			}
 
-		Integer defaultGroupId = null;
-		if (json.containsKey("defaultGroupId"))
-			defaultGroupId = ((Long) Settings.getTypedJson(json, "defaultGroupId", Long.class)).intValue();
-
-		// If groupless is not allowed the defaultGroupId needs to be set
+		// If approval-needing transactions require a group the defaultGroupId needs to be set
 		// XXX we could also check groupID exists, or at least created in genesis block, or in blockchain config
-		if (!grouplessAllowed && (defaultGroupId == null || defaultGroupId == Group.NO_GROUP)) {
-			LOGGER.error("defaultGroupId must be set to valid groupID in blockchain config if groupless transactions are not allowed");
-			throw new RuntimeException("defaultGroupId must be set to valid groupID in blockchain config if groupless transactions are not allowed");
+		if (this.requireGroupForApproval && this.defaultGroupId == Group.NO_GROUP) {
+			LOGGER.error("defaultGroupId must be set to valid groupID in blockchain config if approval-needing transactions require a group");
+			throw new RuntimeException(
+					"defaultGroupId must be set to valid groupID in blockchain config if approval-needing transactions require a group");
 		}
-
-		boolean isTestNet = true;
-		if (json.containsKey("isTestNet"))
-			isTestNet = (Boolean) Settings.getTypedJson(json, "isTestNet", Boolean.class);
-
-		BigDecimal unitFee = Settings.getJsonBigDecimal(json, "unitFee");
-		long maxBytesPerUnitFee = (Long) Settings.getTypedJson(json, "maxBytesPerUnitFee", Long.class);
-		BigDecimal maxBalance = Settings.getJsonBigDecimal(json, "coinSupply");
-		int blockDifficultyInterval = ((Long) Settings.getTypedJson(json, "blockDifficultyInterval", Long.class)).intValue();
-		long minBlockTime = 1000L * (Long) Settings.getTypedJson(json, "minBlockTime", Long.class); // config entry in seconds
-		long maxBlockTime = 1000L * (Long) Settings.getTypedJson(json, "maxBlockTime", Long.class); // config entry in seconds
-		long blockTimestampMargin = (Long) Settings.getTypedJson(json, "blockTimestampMargin", Long.class); // config entry in milliseconds
-
-		// blockchain feature triggers
-		Map<String, Map<FeatureValueType, Long>> featureTriggers = new HashMap<>();
-		JSONObject featuresJson = (JSONObject) Settings.getTypedJson(json, "featureTriggers", JSONObject.class);
-		for (Object feature : featuresJson.keySet()) {
-			String featureKey = (String) feature;
-			JSONObject trigger = (JSONObject) Settings.getTypedJson(featuresJson, featureKey, JSONObject.class);
-
-			if (!trigger.containsKey("height") && !trigger.containsKey("timestamp")) {
-				LOGGER.error("Feature trigger \"" + featureKey + "\" must contain \"height\" or \"timestamp\" in blockchain config file");
-				throw new RuntimeException("Feature trigger \"" + featureKey + "\" must contain \"height\" or \"timestamp\" in blockchain config file");
-			}
-
-			String triggerKey = (String) trigger.keySet().iterator().next();
-			FeatureValueType featureValueType = FeatureValueType.valueOf(triggerKey);
-			if (featureValueType == null) {
-				LOGGER.error("Unrecognised feature trigger value type \"" + triggerKey + "\" for feature \"" + featureKey + "\" in blockchain config file");
-				throw new RuntimeException(
-						"Unrecognised feature trigger value type \"" + triggerKey + "\" for feature \"" + featureKey + "\" in blockchain config file");
-			}
-
-			Long value = (Long) Settings.getJsonQuotedLong(trigger, triggerKey);
-
-			featureTriggers.put(featureKey, Collections.singletonMap(featureValueType, value));
-		}
-
-		instance = new BlockChain();
-		instance.isTestNet = isTestNet;
-		instance.unitFee = unitFee;
-		instance.maxBytesPerUnitFee = BigDecimal.valueOf(maxBytesPerUnitFee).setScale(8);
-		instance.minFeePerByte = unitFee.divide(instance.maxBytesPerUnitFee, MathContext.DECIMAL32);
-		instance.maxBalance = maxBalance;
-		instance.blockDifficultyInterval = blockDifficultyInterval;
-		instance.minBlockTime = minBlockTime;
-		instance.maxBlockTime = maxBlockTime;
-		instance.blockTimestampMargin = blockTimestampMargin;
-		instance.grouplessAllowed = grouplessAllowed;
-		if (defaultGroupId != null)
-			instance.defaultGroupId = defaultGroupId;
-		instance.featureTriggers = featureTriggers;
 	}
 
 	/**
@@ -286,11 +300,6 @@ public class BlockChain {
 			repository.rebuild();
 
 			GenesisBlock genesisBlock = GenesisBlock.getInstance(repository);
-
-			// Add initial assets
-			// NOTE: Asset's [transaction] reference doesn't exist as a transaction!
-			for (AssetData assetData : genesisBlock.getInitialAssets())
-				repository.getAssetRepository().save(assetData);
 
 			// Add Genesis Block to blockchain
 			genesisBlock.process();

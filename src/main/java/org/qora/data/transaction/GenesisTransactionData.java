@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 
+import org.eclipse.persistence.oxm.annotations.XmlDiscriminatorValue;
 import org.qora.account.GenesisAccount;
 import org.qora.asset.Asset;
 import org.qora.transaction.Transaction.TransactionType;
@@ -18,6 +19,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 		TransactionData.class
 	}
 )
+//JAXB: use this subclass if XmlDiscriminatorNode matches XmlDiscriminatorValue below:
+@XmlDiscriminatorValue("GENESIS")
 public class GenesisTransactionData extends TransactionData {
 
 	// Properties

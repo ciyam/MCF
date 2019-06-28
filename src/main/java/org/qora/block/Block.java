@@ -702,6 +702,40 @@ public class Block {
 	}
 
 	/**
+	 * Returns whether Block's timestamp is valid.
+	 * <p>
+	 * Used by BlockGenerator to check whether it's time to forge new block,
+	 * and also used by Block.isValid for checks (if not testnet).
+	 * 
+	 * @return ValidationResult.OK if timestamp valid, or some other ValidationResult otherwise.
+	 * @throws DataException
+	 */
+	public ValidationResult isTimestampValid() throws DataException {
+		BlockData parentBlockData = this.repository.getBlockRepository().fromSignature(this.blockData.getReference());
+		if (parentBlockData == null)
+			return ValidationResult.PARENT_DOES_NOT_EXIST;
+
+		// Check timestamp is newer than parent timestamp
+		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp())
+			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
+
+		// Check timestamp is not in the future (within configurable ~500ms margin)
+		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
+			return ValidationResult.TIMESTAMP_IN_FUTURE;
+
+		// Legacy gen1 test: check timestamp milliseconds is the same as parent timestamp milliseconds?
+		if (this.blockData.getTimestamp() % 1000 != parentBlockData.getTimestamp() % 1000)
+			return ValidationResult.TIMESTAMP_MS_INCORRECT;
+
+		// Too early to forge block?
+		// XXX DISABLED as it doesn't work - but why?
+		// if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
+		// 	return ValidationResult.TIMESTAMP_TOO_SOON;
+
+		return ValidationResult.OK;
+	}
+
+	/**
 	 * Returns whether Block is valid.
 	 * <p>
 	 * Performs various tests like checking for parent block, correct block timestamp, version, generating balance, etc.
@@ -731,18 +765,13 @@ public class Block {
 		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp())
 			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
 
-		// Check timestamp is not in the future (within configurable ~500ms margin)
-		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
-			return ValidationResult.TIMESTAMP_IN_FUTURE;
+		// These checks are disabled for testnet
+		if (!BlockChain.getInstance().isTestNet()) {
+			ValidationResult timestampResult = this.isTimestampValid();
 
-		// Legacy gen1 test: check timestamp milliseconds is the same as parent timestamp milliseconds?
-		if (this.blockData.getTimestamp() % 1000 != parentBlockData.getTimestamp() % 1000)
-			return ValidationResult.TIMESTAMP_MS_INCORRECT;
-
-		// Too early to forge block?
-		// XXX DISABLED as it doesn't work - but why?
-		// if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
-		// 	return ValidationResult.TIMESTAMP_TOO_SOON;
+			if (timestampResult != ValidationResult.OK)
+				return timestampResult;
+		}
 
 		// Check block version
 		if (this.blockData.getVersion() != parentBlock.getNextBlockVersion())
