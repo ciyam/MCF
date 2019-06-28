@@ -3,78 +3,56 @@ package org.qora.network.message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.qora.network.PeerAddress;
 import org.qora.settings.Settings;
 
-import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Ints;
 
-// NOTE: this message supports hostnames, IPv6, port numbers and IPv4 addresses (in IPv6 form)
+// NOTE: this message supports hostnames, literal IP addresses (IPv4 and IPv6) with port numbers
 public class PeersV2Message extends Message {
 
-	private static final byte[] IPV6_V4_PREFIX = new byte[] {
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, (byte) 0xff, (byte) 0xff
-	};
+	private List<PeerAddress> peerAddresses;
 
-	private List<InetSocketAddress> peerSocketAddresses;
-
-	public PeersV2Message(List<InetSocketAddress> peerSocketAddresses) {
-		this(-1, peerSocketAddresses);
+	public PeersV2Message(List<PeerAddress> peerAddresses) {
+		this(-1, peerAddresses);
 	}
 
-	private PeersV2Message(int id, List<InetSocketAddress> peerSocketAddresses) {
+	private PeersV2Message(int id, List<PeerAddress> peerAddresses) {
 		super(id, MessageType.PEERS_V2);
 
-		this.peerSocketAddresses = peerSocketAddresses;
+		this.peerAddresses = peerAddresses;
 	}
 
-	public List<InetSocketAddress> getPeerAddresses() {
-		return this.peerSocketAddresses;
+	public List<PeerAddress> getPeerAddresses() {
+		return this.peerAddresses;
 	}
 
 	public static Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws UnsupportedEncodingException {
 		// Read entry count
 		int count = byteBuffer.getInt();
 
-		List<InetSocketAddress> peerSocketAddresses = new ArrayList<>();
-
-		byte[] ipAddressBytes = new byte[16];
-		int port;
+		List<PeerAddress> peerAddresses = new ArrayList<>();
 
 		for (int i = 0; i < count; ++i) {
 			byte addressSize = byteBuffer.get();
 
-			if (addressSize == 0) {
-				// Address size of 0 indicates IP address (always in IPv6 form)
-				byteBuffer.get(ipAddressBytes);
+			byte[] addressBytes = new byte[addressSize & 0xff];
+			byteBuffer.get(addressBytes);
+			String addressString = new String(addressBytes, "UTF-8");
 
-				port = byteBuffer.getInt();
-
-				try {
-					InetAddress address = InetAddress.getByAddress(ipAddressBytes);
-
-					peerSocketAddresses.add(new InetSocketAddress(address, port));
-				} catch (UnknownHostException e) {
-					// Ignore and continue
-				}
-			} else {
-				byte[] hostnameBytes = new byte[addressSize & 0xff];
-				byteBuffer.get(hostnameBytes);
-				String hostname = new String(hostnameBytes, "UTF-8");
-
-				port = byteBuffer.getInt();
-
-				peerSocketAddresses.add(InetSocketAddress.createUnresolved(hostname, port));
+			try {
+				PeerAddress peerAddress = PeerAddress.fromString(addressString);
+				peerAddresses.add(peerAddress);
+			} catch (IllegalArgumentException e) {
+				// Not valid - ignore
 			}
 		}
 
-		return new PeersV2Message(id, peerSocketAddresses);
+		return new PeersV2Message(id, peerAddresses);
 	}
 
 	@Override
@@ -82,50 +60,28 @@ public class PeersV2Message extends Message {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 
+			List<byte[]> addresses = new ArrayList<>();
+
 			// First entry represents sending node but contains only port number with empty address.
-			List<InetSocketAddress> socketAddresses = new ArrayList<>(this.peerSocketAddresses);
-			socketAddresses.add(0, new InetSocketAddress(Settings.getInstance().getListenPort()));
+			addresses.add(new String("0.0.0.0:" + Settings.getInstance().getListenPort()).getBytes("UTF-8"));
 
-			// Number of entries we are sending.
-			int count = socketAddresses.size();
+			for (PeerAddress peerAddress : this.peerAddresses)
+				addresses.add(peerAddress.toString().getBytes("UTF-8"));
 
-			for (InetSocketAddress socketAddress : socketAddresses) {
-				// Hostname preferred, failing that IP address
-				if (socketAddress.isUnresolved()) {
-					String hostname = socketAddress.getHostString();
+			// We can't send addresses that are longer than 255 bytes as length itself is encoded in one byte.
+			addresses.removeIf(addressString -> addressString.length > 255);
 
-					byte[] hostnameBytes = hostname.getBytes("UTF-8");
+			// Serialize
 
-					// We don't support hostnames that are longer than 256 bytes
-					if (hostnameBytes.length > 256) {
-						--count;
-						continue;
-					}
+			// Number of entries
+			bytes.write(Ints.toByteArray(addresses.size()));
 
-					bytes.write(hostnameBytes.length);
-
-					bytes.write(hostnameBytes);
-				} else {
-					// IP address
-					byte[] ipAddressBytes = socketAddress.getAddress().getAddress();
-
-					// IPv4? Convert to IPv6 form
-					if (ipAddressBytes.length == 4)
-						ipAddressBytes = Bytes.concat(IPV6_V4_PREFIX, ipAddressBytes);
-
-					// Write zero length to indicate IP address follows
-					bytes.write(0);
-
-					bytes.write(ipAddressBytes);
-				}
-
-				// Port
-				bytes.write(Ints.toByteArray(socketAddress.getPort()));
+			for (byte[] address : addresses) {
+				bytes.write(address.length);
+				bytes.write(address);
 			}
 
-			// Prepend updated entry count
-			byte[] countBytes = Ints.toByteArray(count);
-			return Bytes.concat(countBytes, bytes.toByteArray());
+			return bytes.toByteArray();
 		} catch (IOException e) {
 			return null;
 		}

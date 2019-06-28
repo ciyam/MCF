@@ -511,6 +511,21 @@ public class HSQLDBDatabaseUpdates {
 					stmt.execute("SET DATABASE TRANSACTION CONTROL MVCC"); // Use MVCC over default two-phase locking, a-k-a "LOCKS"
 					break;
 
+				case 32:
+					// Unified PeerAddress requires peer hostname & port stored as one string
+					stmt.execute("ALTER TABLE Peers ALTER COLUMN hostname RENAME TO address");
+					// Make sure literal IPv6 addresses are enclosed in square brackets.
+					stmt.execute("UPDATE Peers SET address=CONCAT('[', address, ']') WHERE POSITION(':' IN address) != 0");
+					stmt.execute("UPDATE Peers SET address=CONCAT(address, ':', port)");
+					// We didn't name the PRIMARY KEY constraint when creating Peers table, so can't easily drop it
+					// Workaround is to create a new table with new constraint, drop old table, then rename.
+					stmt.execute("CREATE TABLE PeersTEMP AS (SELECT * FROM Peers) WITH DATA");
+					stmt.execute("ALTER TABLE PeersTEMP DROP COLUMN port");
+					stmt.execute("ALTER TABLE PeersTEMP ADD PRIMARY KEY (address)");
+					stmt.execute("DROP TABLE Peers");
+					stmt.execute("ALTER TABLE PeersTEMP RENAME TO Peers");
+					break;
+
 				default:
 					// nothing to do
 					return false;

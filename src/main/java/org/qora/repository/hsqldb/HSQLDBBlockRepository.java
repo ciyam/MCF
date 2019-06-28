@@ -92,7 +92,7 @@ public class HSQLDBBlockRepository implements BlockRepository {
 
 	@Override
 	public int getBlockchainHeight() throws DataException {
-		try (ResultSet resultSet = this.repository.checkedExecute("SELECT MAX(height) FROM Blocks")) {
+		try (ResultSet resultSet = this.repository.checkedExecute("SELECT MAX(height) FROM Blocks LIMIT 1")) {
 			if (resultSet == null)
 				return 0;
 

@@ -226,7 +226,10 @@ public class Controller extends Thread {
 		for(Peer peer : peers)
 			LOGGER.trace(String.format("Peer %s is at height %d", peer, peer.getPeerData().getLastHeight()));
 
-		peers.removeIf(peer -> peer.getPeerData().getLastHeight() <= ourHeight);
+		peers.removeIf(peer -> {
+			Integer peerHeight = peer.getPeerData().getLastHeight();
+			return peerHeight == null || peerHeight <= ourHeight;
+		});
 
 		if (!peers.isEmpty()) {
 			// Pick random peer to sync with

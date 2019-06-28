@@ -73,6 +73,13 @@ public class AdminResource {
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
+				// Short sleep to allow HTTP response body to be emitted
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					// Not important
+				}
+
 				Controller.getInstance().shutdownAndExit();
 			}
 		}).start();

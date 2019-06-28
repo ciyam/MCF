@@ -2,6 +2,8 @@ package org.qora.network;
 
 import java.util.Arrays;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.qora.controller.Controller;
 import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageType;
@@ -36,8 +38,9 @@ public enum Handshake {
 		@Override
 		public Handshake onMessage(Peer peer, Message message) {
 			PeerIdMessage peerIdMessage = (PeerIdMessage) message;
+			byte[] peerId = peerIdMessage.getPeerId();
 
-			if (Arrays.equals(peerIdMessage.getPeerId(), Network.getInstance().getOurPeerId())) {
+			if (Arrays.equals(peerId, Network.getInstance().getOurPeerId())) {
 				// Connected to self!
 				// If outgoing connection then record destination as self so we don't try again
 				if (peer.isOutbound())
@@ -47,6 +50,16 @@ public enum Handshake {
 					sendMyId(peer);
 
 				// Handshake failure - caller will deal with disconnect
+				return null;
+			}
+
+			// Set peer's ID
+			peer.setPeerId(peerId);
+
+			// Is this ID already connected? We don't want both inbound and outbound so discard inbound if possible
+			Peer similarPeer = Network.getInstance().getOutboundPeerWithId(peerId);
+			if (similarPeer != null && similarPeer != peer) {
+				LOGGER.trace(String.format("Discarding inbound peer %s with existing ID", peer));
 				return null;
 			}
 
@@ -104,6 +117,8 @@ public enum Handshake {
 			// Note: this is only called when we've made outbound connection
 		}
 	};
+
+	private static final Logger LOGGER = LogManager.getLogger(Handshake.class);
 
 	private static final long MAX_TIMESTAMP_DELTA = 2000; // ms
 

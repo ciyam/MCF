@@ -1,6 +1,7 @@
 package org.qora.network;
 
 import java.io.IOException;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -9,10 +10,12 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
@@ -54,11 +57,12 @@ public class Network extends Thread {
 
 	private final byte[] ourPeerId;
 	private List<Peer> connectedPeers;
-	private List<PeerData> selfPeers;
+	private List<PeerAddress> selfPeers;
 	private ServerSocket listenSocket;
 	private int minPeers;
 	private int maxPeers;
 	private ExecutorService peerExecutor;
+	private ExecutorService mergePeersExecutor;
 	private long nextBroadcast;
 	private Lock mergePeersLock;
 
@@ -99,6 +103,7 @@ public class Network extends Thread {
 		nextBroadcast = System.currentTimeMillis();
 
 		mergePeersLock = new ReentrantLock();
+		mergePeersExecutor = Executors.newCachedThreadPool();
 	}
 
 	// Getters / setters
@@ -120,7 +125,7 @@ public class Network extends Thread {
 		}
 	}
 
-	public List<PeerData> getSelfPeers() {
+	public List<PeerAddress> getSelfPeers() {
 		synchronized (this.selfPeers) {
 			return new ArrayList<>(this.selfPeers);
 		}
@@ -130,7 +135,7 @@ public class Network extends Thread {
 		LOGGER.info(String.format("No longer considering peer address %s as it connects to self", peer));
 
 		synchronized (this.selfPeers) {
-			this.selfPeers.add(peer.getPeerData());
+			this.selfPeers.add(peer.getPeerData().getAddress());
 		}
 	}
 
@@ -211,10 +216,14 @@ public class Network extends Thread {
 	}
 
 	private void createConnection() throws InterruptedException, DataException {
+		/*
 		synchronized (this.connectedPeers) {
 			if (connectedPeers.size() >= minPeers)
 				return;
 		}
+		*/
+		if (this.getOutboundHandshakeCompletedPeers().size() >= minPeers)
+			return;
 
 		Peer newPeer;
 
@@ -227,16 +236,20 @@ public class Network extends Thread {
 			peers.removeIf(peerData -> peerData.getLastAttempted() != null && peerData.getLastAttempted() > lastAttemptedThreshold);
 
 			// Don't consider peers that we know loop back to ourself
-			Predicate<PeerData> hasSamePeerSocketAddress = peerData -> this.selfPeers.stream()
-					.anyMatch(selfPeerData -> selfPeerData.getSocketAddress().equals(peerData.getSocketAddress()));
+			Predicate<PeerData> isSelfPeer = peerData -> {
+				PeerAddress peerAddress = peerData.getAddress();
+				return this.selfPeers.stream().anyMatch(selfPeer -> selfPeer.equals(peerAddress));
+			};
 
 			synchronized (this.selfPeers) {
-				peers.removeIf(hasSamePeerSocketAddress);
+				peers.removeIf(isSelfPeer);
 			}
 
 			// Don't consider already connected peers
-			Predicate<PeerData> isConnectedPeer = peerData -> this.connectedPeers.stream()
-					.anyMatch(peer -> peer.getPeerData().getSocketAddress().equals(peerData.getSocketAddress()));
+			Predicate<PeerData> isConnectedPeer = peerData -> {
+				PeerAddress peerAddress = peerData.getAddress();
+				return this.connectedPeers.stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
+			};
 
 			synchronized (this.connectedPeers) {
 				peers.removeIf(isConnectedPeer);
@@ -347,14 +360,15 @@ public class Network extends Thread {
 			case PEERS:
 				PeersMessage peersMessage = (PeersMessage) message;
 
-				List<InetSocketAddress> peerAddresses = new ArrayList<>();
+				List<PeerAddress> peerAddresses = new ArrayList<>();
 
 				// v1 PEERS message doesn't support port numbers so we have to add default port
 				for (InetAddress peerAddress : peersMessage.getPeerAddresses())
-					peerAddresses.add(new InetSocketAddress(peerAddress, Settings.DEFAULT_LISTEN_PORT));
+					// This is always IPv4 so we don't have to worry about bracketing IPv6.
+					peerAddresses.add(PeerAddress.fromString(peerAddress.getHostAddress()));
 
 				// Also add peer's details
-				peerAddresses.add(new InetSocketAddress(peer.getRemoteSocketAddress().getHostString(), Settings.DEFAULT_LISTEN_PORT));
+				peerAddresses.add(PeerAddress.fromString(peer.getPeerData().getAddress().getHost()));
 
 				mergePeers(peerAddresses);
 				break;
@@ -362,13 +376,15 @@ public class Network extends Thread {
 			case PEERS_V2:
 				PeersV2Message peersV2Message = (PeersV2Message) message;
 
-				List<InetSocketAddress> peerV2Addresses = peersV2Message.getPeerAddresses();
+				List<PeerAddress> peerV2Addresses = peersV2Message.getPeerAddresses();
 
 				// First entry contains remote peer's listen port but empty address.
 				// Overwrite address with one obtained from socket.
 				int peerPort = peerV2Addresses.get(0).getPort();
 				peerV2Addresses.remove(0);
-				peerV2Addresses.add(0, InetSocketAddress.createUnresolved(peer.getRemoteSocketAddress().getHostString(), peerPort));
+				PeerAddress sendingPeerAddress = PeerAddress.fromString(peer.getPeerData().getAddress().getHost() + ":" + peerPort);
+				LOGGER.trace("PEERS_V2 sending peer's listen address: " + sendingPeerAddress.toString());
+				peerV2Addresses.add(0, sendingPeerAddress);
 
 				mergePeers(peerV2Addresses);
 				break;
@@ -424,15 +440,52 @@ public class Network extends Thread {
 			long connectionThreshold = NTP.getTime() - RECENT_CONNECTION_THRESHOLD;
 			knownPeers.removeIf(peerData -> peerData.getLastConnected() == null || peerData.getLastConnected() < connectionThreshold);
 
-			// Map to socket addresses
-			List<InetSocketAddress> peerSocketAddresses = knownPeers.stream().map(peerData -> peerData.getSocketAddress()).collect(Collectors.toList());
+			if (peer.getVersion() >= 2) {
+				List<PeerAddress> peerAddresses = new ArrayList<>();
 
-			if (peer.getVersion() >= 2)
+				for (PeerData peerData : knownPeers) {
+					try {
+						InetAddress address = InetAddress.getByName(peerData.getAddress().getHost());
+
+						// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9084 to node4.qora.org
+						if (!peer.getIsLocal() && !Peer.isAddressLocal(address))
+							continue;
+
+						peerAddresses.add(peerData.getAddress());
+					} catch (UnknownHostException e) {
+						// Couldn't resolve hostname to IP address so discard
+					}
+				}
+
 				// New format PEERS_V2 message that supports hostnames, IPv6 and ports
-				return new PeersV2Message(peerSocketAddresses);
-			else
+				return new PeersV2Message(peerAddresses);
+			} else {
+				// Map to socket addresses
+				List<InetAddress> peerAddresses = new ArrayList<>();
+
+				for (PeerData peerData : knownPeers) {
+					try {
+						// We have to resolve to literal IP address to check for IPv4-ness.
+						// This isn't great if hostnames have both IPv6 and IPv4 DNS entries.
+						InetAddress address = InetAddress.getByName(peerData.getAddress().getHost());
+
+						// Legacy PEERS message doesn't support IPv6
+						if (address instanceof Inet6Address)
+							continue;
+
+						// Don't send 'local' addresses if peer is not 'local'. e.g. don't send localhost:9084 to node4.qora.org
+						if (!peer.getIsLocal() && !Peer.isAddressLocal(address))
+							continue;
+
+						peerAddresses.add(address);
+					} catch (UnknownHostException e) {
+						// Couldn't resolve hostname to IP address so discard
+					}
+				}
+
 				// Legacy PEERS message that only sends IPv4 addresses
-				return new PeersMessage(peerSocketAddresses);
+				return new PeersMessage(peerAddresses);
+			}
 		} catch (DataException e) {
 			LOGGER.error("Repository issue while building PEERS message", e);
 			return new PeersMessage(Collections.emptyList());
@@ -464,44 +517,59 @@ public class Network extends Thread {
 		return peers;
 	}
 
-	private void mergePeers(List<InetSocketAddress> peerAddresses) {
-		mergePeersLock.lock();
-
-		try {
-			try (final Repository repository = RepositoryManager.getRepository()) {
-				List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
-
-				for (PeerData peerData : knownPeers)
-					LOGGER.trace(String.format("Known peer %s", peerData.getSocketAddress()));
-
-				// Resolve known peer hostnames
-				Function<PeerData, InetSocketAddress> peerDataToSocketAddress = peerData -> new InetSocketAddress(peerData.getSocketAddress().getHostString(),
-						peerData.getSocketAddress().getPort());
-				List<InetSocketAddress> knownPeerAddresses = knownPeers.stream().map(peerDataToSocketAddress).collect(Collectors.toList());
-
-				for (InetSocketAddress address : knownPeerAddresses)
-					LOGGER.trace(String.format("Resolved known peer %s", address));
-
-				// Filter out duplicates
-				// We have to use our own Peer.addressEquals as InetSocketAddress.equals isn't quite right for us
-				Predicate<InetSocketAddress> addressKnown = peerAddress -> knownPeerAddresses.stream()
-						.anyMatch(knownAddress -> Peer.addressEquals(knownAddress, peerAddress));
-				peerAddresses.removeIf(addressKnown);
-
-				// Save the rest into database
-				for (InetSocketAddress peerAddress : peerAddresses) {
-					PeerData peerData = new PeerData(peerAddress);
-					LOGGER.trace(String.format("Adding new peer %s to repository", peerAddress));
-					repository.getNetworkRepository().save(peerData);
-				}
-
-				repository.saveChanges();
-			} catch (DataException e) {
-				LOGGER.error("Repository issue while merging peers list from remote node", e);
-			}
-		} finally {
-			mergePeersLock.unlock();
+	/** Returns Peer with outbound connection and passed ID, or null if none found. */
+	public Peer getOutboundPeerWithId(byte[] peerId) {
+		synchronized (this.connectedPeers) {
+			return this.connectedPeers.stream().filter(peer -> peer.isOutbound() && peer.getPeerId() != null && Arrays.equals(peer.getPeerId(), peerId)).findAny().orElse(null);
 		}
+	}
+
+	private void mergePeers(List<PeerAddress> peerAddresses) {
+		// This can block (due to lock) so fire off in separate thread
+		class PeersMerger implements Runnable {
+			private List<PeerAddress> peerAddresses;
+
+			public PeersMerger(List<PeerAddress> peerAddresses) {
+				this.peerAddresses = peerAddresses;
+			}
+
+			@Override
+			public void run() {
+				// Serialize using lock to prevent repository deadlocks
+				mergePeersLock.lock();
+
+				try {
+					try (final Repository repository = RepositoryManager.getRepository()) {
+						List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
+
+						for (PeerData peerData : knownPeers)
+							LOGGER.trace(String.format("Known peer %s", peerData.getAddress()));
+
+						// Filter out duplicates
+						Predicate<PeerAddress> isKnownAddress = peerAddress -> {
+							return knownPeers.stream().anyMatch(knownPeerData -> knownPeerData.getAddress().equals(peerAddress));
+						};
+
+						peerAddresses.removeIf(isKnownAddress);
+
+						// Save the rest into database
+						for (PeerAddress peerAddress : peerAddresses) {
+							PeerData peerData = new PeerData(peerAddress);
+							LOGGER.trace(String.format("Adding new peer %s to repository", peerAddress));
+							repository.getNetworkRepository().save(peerData);
+						}
+
+						repository.saveChanges();
+					} catch (DataException e) {
+						LOGGER.error("Repository issue while merging peers list from remote node", e);
+					}
+				} finally {
+					mergePeersLock.unlock();
+				}
+			}
+		}
+
+		mergePeersExecutor.execute(new PeersMerger(peerAddresses));
 	}
 
 	public void broadcast(Function<Peer, Message> peerMessage) {
@@ -522,7 +590,11 @@ public class Network extends Thread {
 			}
 		}
 
-		peerExecutor.execute(new Broadcaster(this.getHandshakeCompletedPeers(), peerMessage));
+		try {
+			peerExecutor.execute(new Broadcaster(this.getHandshakeCompletedPeers(), peerMessage));
+		} catch (RejectedExecutionException e) {
+			// Can't execute - probably because we're shutting down, so ignore
+		}
 	}
 
 	public void shutdown() {
