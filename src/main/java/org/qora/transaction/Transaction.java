@@ -28,6 +28,9 @@ import org.qora.utils.NTP;
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+
 public abstract class Transaction {
 
 	// Transaction types
@@ -46,7 +49,7 @@ public abstract class Transaction {
 		TRANSFER_ASSET(12),
 		CREATE_ASSET_ORDER(13),
 		CANCEL_ASSET_ORDER(14),
-		MULTIPAYMENT(15),
+		MULTI_PAYMENT(15),
 		DEPLOY_AT(16),
 		MESSAGE(17),
 		DELEGATION(18),
@@ -66,15 +69,33 @@ public abstract class Transaction {
 		LEAVE_GROUP(32);
 
 		public final int value;
+		public final String valueString;
+		public final String className;
 
 		private final static Map<Integer, TransactionType> map = stream(TransactionType.values()).collect(toMap(type -> type.value, type -> type));
 
 		TransactionType(int value) {
 			this.value = value;
+			this.valueString = String.valueOf(value);
+
+			String[] classNameParts = this.name().toLowerCase().split("_");
+
+			for (int i = 0; i < classNameParts.length; ++i)
+				classNameParts[i] = classNameParts[i].substring(0, 1).toUpperCase().concat(classNameParts[i].substring(1));
+
+			this.className = String.join("", classNameParts);
 		}
 
 		public static TransactionType valueOf(int value) {
 			return map.get(value);
+		}
+	}
+
+	public static Class<?> getClassByTxType(TransactionType txType) {
+		try {
+			return Class.forName(String.join("", Transaction.class.getPackage().getName(), ".", txType.className, "Transaction"));
+		} catch (ClassNotFoundException e) {
+			return null;
 		}
 	}
 
@@ -183,96 +204,17 @@ public abstract class Transaction {
 	 * @return a Transaction subclass, or null if a transaction couldn't be determined/built from passed data
 	 */
 	public static Transaction fromData(Repository repository, TransactionData transactionData) {
-		switch (transactionData.getType()) {
-			case GENESIS:
-				return new GenesisTransaction(repository, transactionData);
+		TransactionType type = transactionData.getType();
 
-			case PAYMENT:
-				return new PaymentTransaction(repository, transactionData);
+		try {
+			Class<?> transactionClass = Transaction.getClassByTxType(type);
+			if (transactionClass == null)
+				throw new IllegalStateException("Unsupported transaction type [" + type.value + "] during fetch from repository");
 
-			case REGISTER_NAME:
-				return new RegisterNameTransaction(repository, transactionData);
-
-			case UPDATE_NAME:
-				return new UpdateNameTransaction(repository, transactionData);
-
-			case SELL_NAME:
-				return new SellNameTransaction(repository, transactionData);
-
-			case CANCEL_SELL_NAME:
-				return new CancelSellNameTransaction(repository, transactionData);
-
-			case BUY_NAME:
-				return new BuyNameTransaction(repository, transactionData);
-
-			case CREATE_POLL:
-				return new CreatePollTransaction(repository, transactionData);
-
-			case VOTE_ON_POLL:
-				return new VoteOnPollTransaction(repository, transactionData);
-
-			case ARBITRARY:
-				return new ArbitraryTransaction(repository, transactionData);
-
-			case ISSUE_ASSET:
-				return new IssueAssetTransaction(repository, transactionData);
-
-			case TRANSFER_ASSET:
-				return new TransferAssetTransaction(repository, transactionData);
-
-			case CREATE_ASSET_ORDER:
-				return new CreateOrderTransaction(repository, transactionData);
-
-			case CANCEL_ASSET_ORDER:
-				return new CancelOrderTransaction(repository, transactionData);
-
-			case MULTIPAYMENT:
-				return new MultiPaymentTransaction(repository, transactionData);
-
-			case DEPLOY_AT:
-				return new DeployATTransaction(repository, transactionData);
-
-			case MESSAGE:
-				return new MessageTransaction(repository, transactionData);
-
-			case AT:
-				return new ATTransaction(repository, transactionData);
-
-			case CREATE_GROUP:
-				return new CreateGroupTransaction(repository, transactionData);
-
-			case UPDATE_GROUP:
-				return new UpdateGroupTransaction(repository, transactionData);
-
-			case ADD_GROUP_ADMIN:
-				return new AddGroupAdminTransaction(repository, transactionData);
-
-			case REMOVE_GROUP_ADMIN:
-				return new RemoveGroupAdminTransaction(repository, transactionData);
-
-			case GROUP_BAN:
-				return new GroupBanTransaction(repository, transactionData);
-
-			case CANCEL_GROUP_BAN:
-				return new CancelGroupBanTransaction(repository, transactionData);
-
-			case GROUP_KICK:
-				return new GroupKickTransaction(repository, transactionData);
-
-			case GROUP_INVITE:
-				return new GroupInviteTransaction(repository, transactionData);
-
-			case CANCEL_GROUP_INVITE:
-				return new CancelGroupInviteTransaction(repository, transactionData);
-
-			case JOIN_GROUP:
-				return new JoinGroupTransaction(repository, transactionData);
-
-			case LEAVE_GROUP:
-				return new LeaveGroupTransaction(repository, transactionData);
-
-			default:
-				throw new IllegalStateException("Unsupported transaction type [" + transactionData.getType().value + "] during fetch from repository");
+			Constructor<?> constructor = transactionClass.getConstructor(Repository.class, TransactionData.class);
+			return (Transaction) constructor.newInstance(repository, transactionData);
+		} catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | InstantiationException e) {
+			throw new IllegalStateException("Internal error with transaction type [" + type.value + "] during fetch from repository");
 		}
 	}
 

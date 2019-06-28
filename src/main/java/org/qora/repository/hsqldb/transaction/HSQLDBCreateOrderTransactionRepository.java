@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import org.qora.data.transaction.CreateOrderTransactionData;
+import org.qora.data.transaction.CreateAssetOrderTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.hsqldb.HSQLDBRepository;
@@ -27,7 +27,7 @@ public class HSQLDBCreateOrderTransactionRepository extends HSQLDBTransactionRep
 			long wantAssetId = resultSet.getLong(3);
 			BigDecimal price = resultSet.getBigDecimal(4);
 
-			return new CreateOrderTransactionData(creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, timestamp, reference, signature);
+			return new CreateAssetOrderTransactionData(creatorPublicKey, haveAssetId, wantAssetId, amount, price, fee, timestamp, reference, signature);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch create order transaction from repository", e);
 		}
@@ -35,7 +35,7 @@ public class HSQLDBCreateOrderTransactionRepository extends HSQLDBTransactionRep
 
 	@Override
 	public void save(TransactionData transactionData) throws DataException {
-		CreateOrderTransactionData createOrderTransactionData = (CreateOrderTransactionData) transactionData;
+		CreateAssetOrderTransactionData createOrderTransactionData = (CreateAssetOrderTransactionData) transactionData;
 
 		HSQLDBSaver saveHelper = new HSQLDBSaver("CreateAssetOrderTransactions");
 

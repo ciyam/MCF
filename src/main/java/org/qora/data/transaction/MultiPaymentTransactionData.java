@@ -27,7 +27,7 @@ public class MultiPaymentTransactionData extends TransactionData {
 	}
 
 	public MultiPaymentTransactionData(byte[] senderPublicKey, List<PaymentData> payments, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
-		super(Transaction.TransactionType.MULTIPAYMENT, fee, senderPublicKey, timestamp, reference, signature);
+		super(Transaction.TransactionType.MULTI_PAYMENT, fee, senderPublicKey, timestamp, reference, signature);
 
 		this.senderPublicKey = senderPublicKey;
 		this.payments = payments;

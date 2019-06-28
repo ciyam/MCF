@@ -12,7 +12,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
-public class DeployATTransactionData extends TransactionData {
+public class DeployAtTransactionData extends TransactionData {
 
 	// Properties
 	private String name;
@@ -27,10 +27,10 @@ public class DeployATTransactionData extends TransactionData {
 	// Constructors
 
 	// For JAX-RS
-	protected DeployATTransactionData() {
+	protected DeployAtTransactionData() {
 	}
 
-	public DeployATTransactionData(String ATAddress, byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
+	public DeployAtTransactionData(String ATAddress, byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
 			BigDecimal amount, long assetId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(TransactionType.DEPLOY_AT, fee, creatorPublicKey, timestamp, reference, signature);
 
@@ -44,12 +44,12 @@ public class DeployATTransactionData extends TransactionData {
 		this.ATAddress = ATAddress;
 	}
 
-	public DeployATTransactionData(byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
+	public DeployAtTransactionData(byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
 			BigDecimal amount, long assetId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		this(null, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference, signature);
 	}
 
-	public DeployATTransactionData(byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
+	public DeployAtTransactionData(byte[] creatorPublicKey, String name, String description, String ATType, String tags, byte[] creationBytes,
 			BigDecimal amount, long assetId, BigDecimal fee, long timestamp, byte[] reference) {
 		this(null, creatorPublicKey, name, description, ATType, tags, creationBytes, amount, assetId, fee, timestamp, reference, null);
 	}

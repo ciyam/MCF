@@ -32,8 +32,8 @@ import org.qora.data.account.AccountBalanceData;
 import org.qora.data.asset.AssetData;
 import org.qora.data.asset.OrderData;
 import org.qora.data.asset.TradeData;
-import org.qora.data.transaction.CancelOrderTransactionData;
-import org.qora.data.transaction.CreateOrderTransactionData;
+import org.qora.data.transaction.CancelAssetOrderTransactionData;
+import org.qora.data.transaction.CreateAssetOrderTransactionData;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -41,8 +41,8 @@ import org.qora.repository.RepositoryManager;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.transform.TransformationException;
-import org.qora.transform.transaction.CancelOrderTransactionTransformer;
-import org.qora.transform.transaction.CreateOrderTransactionTransformer;
+import org.qora.transform.transaction.CancelAssetOrderTransactionTransformer;
+import org.qora.transform.transaction.CreateAssetOrderTransactionTransformer;
 import org.qora.transform.transaction.IssueAssetTransactionTransformer;
 import org.qora.utils.Base58;
 
@@ -241,7 +241,7 @@ public class AssetsResource {
 			required = true,
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
-				schema = @Schema(implementation = CancelOrderTransactionData.class)
+				schema = @Schema(implementation = CancelAssetOrderTransactionData.class)
 			)
 		),
 		responses = {
@@ -257,7 +257,7 @@ public class AssetsResource {
 		}
 	)
 	@ApiErrors({ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID})
-	public String cancelOrder(CancelOrderTransactionData transactionData) {
+	public String cancelOrder(CancelAssetOrderTransactionData transactionData) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
@@ -265,7 +265,7 @@ public class AssetsResource {
 			if (result != ValidationResult.OK)
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 
-			byte[] bytes = CancelOrderTransactionTransformer.toBytes(transactionData);
+			byte[] bytes = CancelAssetOrderTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
@@ -323,7 +323,7 @@ public class AssetsResource {
 			required = true,
 			content = @Content(
 				mediaType = MediaType.APPLICATION_JSON,
-				schema = @Schema(implementation = CreateOrderTransactionData.class)
+				schema = @Schema(implementation = CreateAssetOrderTransactionData.class)
 			)
 		),
 		responses = {
@@ -339,7 +339,7 @@ public class AssetsResource {
 		}
 	)
 	@ApiErrors({ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE, ApiError.TRANSACTION_INVALID})
-	public String createOrder(CreateOrderTransactionData transactionData) {
+	public String createOrder(CreateAssetOrderTransactionData transactionData) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
@@ -347,7 +347,7 @@ public class AssetsResource {
 			if (result != ValidationResult.OK)
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 
-			byte[] bytes = CreateOrderTransactionTransformer.toBytes(transactionData);
+			byte[] bytes = CreateAssetOrderTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);

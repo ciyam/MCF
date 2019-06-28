@@ -18,7 +18,7 @@ import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.repository.DataException;
-import org.qora.transaction.CreateOrderTransaction;
+import org.qora.transaction.CreateAssetOrderTransaction;
 import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
@@ -305,7 +305,7 @@ public class BlockTransformer extends Transformer {
 
 				// If this is an asset CreateOrderTransaction then check to see if any trades happened
 				if (transaction.getTransactionData().getType() == Transaction.TransactionType.CREATE_ASSET_ORDER) {
-					CreateOrderTransaction orderTransaction = (CreateOrderTransaction) transaction;
+					CreateAssetOrderTransaction orderTransaction = (CreateAssetOrderTransaction) transaction;
 					Order order = orderTransaction.getOrder();
 					List<TradeData> trades = order.getTrades();
 

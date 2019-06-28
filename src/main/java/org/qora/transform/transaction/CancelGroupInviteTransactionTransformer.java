@@ -9,6 +9,7 @@ import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.CancelGroupInviteTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -24,6 +25,20 @@ public class CancelGroupInviteTransactionTransformer extends TransactionTransfor
 	private static final int INVITEE_LENGTH = ADDRESS_LENGTH;
 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + GROUPID_LENGTH + INVITEE_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.CANCEL_GROUP_INVITE.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("group admin's public key", TransformationType.PUBLIC_KEY);
+		layout.add("group ID", TransformationType.INT);
+		layout.add("invitee to no longer invite", TransformationType.ADDRESS);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

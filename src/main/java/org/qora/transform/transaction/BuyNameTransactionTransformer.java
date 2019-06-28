@@ -10,6 +10,7 @@ import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.BuyNameTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.naming.Name;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -27,6 +28,22 @@ public class BuyNameTransactionTransformer extends TransactionTransformer {
 	private static final int SELLER_LENGTH = ADDRESS_LENGTH;
 
 	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + BUYER_LENGTH + NAME_SIZE_LENGTH + AMOUNT_LENGTH + SELLER_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.BUY_NAME.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("buyer's public key", TransformationType.PUBLIC_KEY);
+		layout.add("name length", TransformationType.INT);
+		layout.add("name", TransformationType.STRING);
+		layout.add("buy price", TransformationType.AMOUNT);
+		layout.add("seller", TransformationType.ADDRESS);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

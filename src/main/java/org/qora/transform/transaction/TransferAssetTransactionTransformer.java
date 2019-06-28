@@ -9,6 +9,7 @@ import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.TransferAssetTransactionData;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -25,6 +26,20 @@ public class TransferAssetTransactionTransformer extends TransactionTransformer 
 	private static final int AMOUNT_LENGTH = 12;
 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + SENDER_LENGTH + RECIPIENT_LENGTH + ASSET_ID_LENGTH + AMOUNT_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.TRANSFER_ASSET.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("asset owner's public key", TransformationType.PUBLIC_KEY);
+		layout.add("asset's new owner", TransformationType.ADDRESS);
+		layout.add("asset ID", TransformationType.LONG);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

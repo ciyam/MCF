@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 // All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 @Schema(allOf = { TransactionData.class })
-public class CancelOrderTransactionData extends TransactionData {
+public class CancelAssetOrderTransactionData extends TransactionData {
 
 	// Properties
 	@Schema(description = "order ID to cancel", example = "real_order_ID_in_base58")
@@ -23,17 +23,17 @@ public class CancelOrderTransactionData extends TransactionData {
 	// Constructors
 
 	// For JAX-RS
-	protected CancelOrderTransactionData() {
+	protected CancelAssetOrderTransactionData() {
 		super(TransactionType.CANCEL_ASSET_ORDER);
 	}
 
-	public CancelOrderTransactionData(byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
+	public CancelAssetOrderTransactionData(byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, long timestamp, byte[] reference, byte[] signature) {
 		super(Transaction.TransactionType.CANCEL_ASSET_ORDER, fee, creatorPublicKey, timestamp, reference, signature);
 
 		this.orderId = orderId;
 	}
 
-	public CancelOrderTransactionData(byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, long timestamp, byte[] reference) {
+	public CancelAssetOrderTransactionData(byte[] creatorPublicKey, byte[] orderId, BigDecimal fee, long timestamp, byte[] reference) {
 		this(creatorPublicKey, orderId, fee, timestamp, reference, null);
 	}
 

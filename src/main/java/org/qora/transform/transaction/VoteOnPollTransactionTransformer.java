@@ -9,6 +9,7 @@ import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.TransactionData;
 import org.qora.data.transaction.VoteOnPollTransactionData;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 import org.qora.voting.Poll;
@@ -25,6 +26,21 @@ public class VoteOnPollTransactionTransformer extends TransactionTransformer {
 	private static final int NAME_SIZE_LENGTH = INT_LENGTH;
 
 	private static final int TYPELESS_DATALESS_LENGTH = BASE_TYPELESS_LENGTH + VOTER_LENGTH + NAME_SIZE_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.VOTE_ON_POLL.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("voter's public key", TransformationType.PUBLIC_KEY);
+		layout.add("poll name length", TransformationType.INT);
+		layout.add("poll name", TransformationType.STRING);
+		layout.add("poll option index (0+)", TransformationType.INT);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

@@ -9,6 +9,7 @@ import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.GroupInviteTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -25,6 +26,21 @@ public class GroupInviteTransactionTransformer extends TransactionTransformer {
 	private static final int TTL_LENGTH = INT_LENGTH;
 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + ADMIN_LENGTH + GROUPID_LENGTH + INVITEE_LENGTH + TTL_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.GROUP_INVITE.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("group admin's public key", TransformationType.PUBLIC_KEY);
+		layout.add("group ID", TransformationType.INT);
+		layout.add("account to invite (invitee)", TransformationType.ADDRESS);
+		layout.add("invite lifetime (seconds)", TransformationType.INT);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

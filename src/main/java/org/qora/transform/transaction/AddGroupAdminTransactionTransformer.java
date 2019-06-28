@@ -9,6 +9,7 @@ import org.json.simple.JSONObject;
 import org.qora.account.PublicKeyAccount;
 import org.qora.data.transaction.AddGroupAdminTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -24,6 +25,20 @@ public class AddGroupAdminTransactionTransformer extends TransactionTransformer 
 	private static final int MEMBER_LENGTH = ADDRESS_LENGTH;
 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + OWNER_LENGTH + GROUPID_LENGTH + MEMBER_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.ADD_GROUP_ADMIN.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("group owner's public key", TransformationType.PUBLIC_KEY);
+		layout.add("group ID", TransformationType.INT);
+		layout.add("member to promote to admin", TransformationType.ADDRESS);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

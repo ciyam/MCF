@@ -12,6 +12,7 @@ import org.qora.block.BlockChain;
 import org.qora.data.transaction.IssueAssetTransactionData;
 import org.qora.data.transaction.TransactionData;
 import org.qora.transaction.IssueAssetTransaction;
+import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Serialization;
 
@@ -33,6 +34,25 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 
 	private static final int TYPELESS_LENGTH = BASE_TYPELESS_LENGTH + ISSUER_LENGTH + OWNER_LENGTH + NAME_SIZE_LENGTH + DESCRIPTION_SIZE_LENGTH
 			+ QUANTITY_LENGTH + IS_DIVISIBLE_LENGTH;
+
+	protected static final TransactionLayout layout;
+
+	static {
+		layout = new TransactionLayout();
+		layout.add("txType: " + TransactionType.ISSUE_ASSET.valueString, TransformationType.INT);
+		layout.add("timestamp", TransformationType.TIMESTAMP);
+		layout.add("reference", TransformationType.SIGNATURE);
+		layout.add("asset issuer's public key", TransformationType.PUBLIC_KEY);
+		layout.add("asset owner", TransformationType.ADDRESS);
+		layout.add("asset name length", TransformationType.INT);
+		layout.add("asset name", TransformationType.STRING);
+		layout.add("asset description length", TransformationType.INT);
+		layout.add("asset description", TransformationType.STRING);
+		layout.add("asset quantity", TransformationType.LONG);
+		layout.add("can asset quantities be fractional?", TransformationType.BOOLEAN);
+		layout.add("fee", TransformationType.AMOUNT);
+		layout.add("signature", TransformationType.SIGNATURE);
+	}
 
 	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();

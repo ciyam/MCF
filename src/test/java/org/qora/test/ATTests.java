@@ -5,11 +5,11 @@ import org.qora.asset.Asset;
 import org.qora.data.at.ATStateData;
 import org.qora.data.block.BlockData;
 import org.qora.data.block.BlockTransactionData;
-import org.qora.data.transaction.DeployATTransactionData;
+import org.qora.data.transaction.DeployAtTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
-import org.qora.transaction.DeployATTransaction;
+import org.qora.transaction.DeployAtTransaction;
 import org.qora.transform.TransformationException;
 import org.qora.utils.Base58;
 
@@ -46,13 +46,13 @@ public class ATTests extends Common {
 		byte[] reference = Base58.decode("2D3jX1pEgu6irsQ7QzJb85QP1D9M45dNyP5M9a3WFHndU5ZywF4F5pnUurcbzMnGMcTwpAY6H7DuLw8cUBU66ao1");
 		byte[] signature = Base58.decode("2dZ4megUyNoYYY7qWmuSd4xw1yUKgPPF97yBbeddh8aKuC8PLpz7Xvf3r6Zjv1zwGrR8fEAHuaztCPD4KQp76KdL");
 
-		DeployATTransactionData transactionData = new DeployATTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount,
+		DeployAtTransactionData transactionData = new DeployAtTransactionData(creatorPublicKey, name, description, ATType, tags, creationBytes, amount,
 				Asset.QORA, fee, timestamp, reference, signature);
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			repository.getTransactionRepository().save(transactionData);
 
-			DeployATTransaction transaction = new DeployATTransaction(repository, transactionData);
+			DeployAtTransaction transaction = new DeployAtTransaction(repository, transactionData);
 
 			// Fake entry for this transaction at block height 125598 if it doesn't already exist
 			if (transaction.getHeight() == 0) {
