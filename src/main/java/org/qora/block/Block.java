@@ -82,6 +82,7 @@ public class Block {
 		TRANSACTION_TIMESTAMP_INVALID(51),
 		TRANSACTION_INVALID(52),
 		TRANSACTION_PROCESSING_FAILED(53),
+		TRANSACTION_ALREADY_PROCESSED(54),
 		AT_STATES_MISMATCH(61);
 
 		public final int value;
@@ -123,6 +124,7 @@ public class Block {
 	// Other useful constants
 
 	/** Maximum size of block in bytes */
+	// TODO push this out to blockchain config file
 	public static final int MAX_BLOCK_BYTES = 1048576;
 
 	// Constructors
@@ -737,7 +739,7 @@ public class Block {
 			return ValidationResult.TIMESTAMP_MS_INCORRECT;
 
 		// Too early to forge block?
-		// XXX DISABLED
+		// XXX DISABLED as it doesn't work - but why?
 		// if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
 		// 	return ValidationResult.TIMESTAMP_TOO_SOON;
 
@@ -751,6 +753,7 @@ public class Block {
 		if (this.blockData.getGeneratingBalance().compareTo(parentBlock.calcNextBlockGeneratingBalance()) != 0)
 			return ValidationResult.GENERATING_BALANCE_INCORRECT;
 
+		// XXX Block.isValid generator check relaxation?? blockchain config option?
 		// After maximum block period, then generator checks are relaxed
 		if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMaxBlockTime()) {
 			// Check generator is allowed to forge this block
@@ -814,6 +817,9 @@ public class Block {
 
 		// Check transactions
 		try {
+			// Create repository savepoint here so we can rollback to it after testing transactions
+			repository.setSavepoint();
+
 			for (Transaction transaction : this.getTransactions()) {
 				// GenesisTransactions are not allowed (GenesisBlock overrides isValid() to allow them)
 				if (transaction instanceof GenesisTransaction)
@@ -823,6 +829,10 @@ public class Block {
 				if (transaction.getTransactionData().getTimestamp() > this.blockData.getTimestamp()
 						|| transaction.getDeadline() <= this.blockData.getTimestamp())
 					return ValidationResult.TRANSACTION_TIMESTAMP_INVALID;
+
+				// Check transaction isn't already included in a block
+				if (this.repository.getTransactionRepository().isConfirmed(transaction.getTransactionData().getSignature()))
+					return ValidationResult.TRANSACTION_ALREADY_PROCESSED;
 
 				// Check transaction is even valid
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
@@ -843,15 +853,15 @@ public class Block {
 				}
 			}
 		} catch (DataException e) {
-			return ValidationResult.TRANSACTION_TIMESTAMP_INVALID;
+			// XXX why was this TRANSACTION_TIMESTAMP_INVALID?
+			return ValidationResult.TRANSACTION_INVALID;
 		} finally {
-			// Discard changes to repository made by test-processing transactions above
+			// Rollback repository changes made by test-processing transactions above
 			try {
-				this.repository.discardChanges();
+				this.repository.rollbackToSavepoint();
 			} catch (DataException e) {
 				/*
-				 * discardChanges failure most likely due to prior DataException, so catch discardChanges' DataException and ignore. Prior DataException
-				 * propagates to caller.
+				 * Rollback failure most likely due to prior DataException, so discard this DataException. Prior DataException propagates to caller.
 				 */
 			}
 		}
@@ -916,7 +926,8 @@ public class Block {
 		this.blockData.setTransactionCount(this.blockData.getTransactionCount() + 1);
 
 		// We've added transactions, so recalculate transactions signature
-		calcTransactionsSignature();
+		// XXX surely this breaks Block.isSignatureValid which is called before we are?
+		// calcTransactionsSignature();
 	}
 
 	/**
@@ -976,9 +987,7 @@ public class Block {
 	}
 
 	/**
-	 * Removes block from blockchain undoing transactions.
-	 * <p>
-	 * Note: it is up to the caller to re-add any of the block's transactions back to the unconfirmed transactions pile.
+	 * Removes block from blockchain undoing transactions and adding them to unconfirmed pile.
 	 * 
 	 * @throws DataException
 	 */
@@ -990,9 +999,13 @@ public class Block {
 			Transaction transaction = transactions.get(sequence);
 			transaction.orphan();
 
+			// Unlink transaction from this block
 			BlockTransactionData blockTransactionData = new BlockTransactionData(this.getSignature(), sequence,
 					transaction.getTransactionData().getSignature());
 			this.repository.getBlockRepository().delete(blockTransactionData);
+
+			// Add to unconfirmed pile
+			this.repository.getTransactionRepository().unconfirmTransaction(transaction.getTransactionData());
 
 			this.repository.getTransactionRepository().deleteParticipants(transaction.getTransactionData());
 		}

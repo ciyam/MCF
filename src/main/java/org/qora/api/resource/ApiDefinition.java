@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 			@Tag(name = "Groups"),
 			@Tag(name = "Names"),
 			@Tag(name = "Payments"),
+			@Tag(name = "Peers"),
 			@Tag(name = "Transactions"),
 			@Tag(name = "Utilities")
 		},

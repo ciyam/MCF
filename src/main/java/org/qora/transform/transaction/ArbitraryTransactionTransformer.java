@@ -59,7 +59,7 @@ public class ArbitraryTransactionTransformer extends TransactionTransformer {
 		layout.add("signature", TransformationType.SIGNATURE);
 	}
 
-	static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
+	public static TransactionData fromByteBuffer(ByteBuffer byteBuffer) throws TransformationException {
 		long timestamp = byteBuffer.getLong();
 
 		int version = ArbitraryTransaction.getVersionByTimestamp(timestamp);

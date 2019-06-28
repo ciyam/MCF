@@ -8,6 +8,7 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<bouncycastle.version>1.60</bouncycastle.version>
+		<dagger.version>1.2.2</dagger.version>
 		<hsqldb.version>r5836</hsqldb.version>
 		<jetty.version>9.4.11.v20180605</jetty.version>
 		<jersey.version>2.27</jersey.version>
@@ -16,10 +17,17 @@
 		<swagger-api.version>2.0.6</swagger-api.version>
 		<swagger-ui.version>3.19.0</swagger-ui.version>
 		<felix-bundle-plugin.version>3.5.0</felix-bundle-plugin.version>
+		<build.timestamp>${maven.build.timestamp}</build.timestamp>
 	</properties>
 	<build>
 		<sourceDirectory>src/main/java</sourceDirectory>
 		<testSourceDirectory>src/test/java</testSourceDirectory>
+		<resources>
+			<resource>
+				<directory>${basedir}/src/main/resources</directory>
+				<filtering>true</filtering>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -357,6 +365,11 @@
 			<artifactId>jetty-rewrite</artifactId>
 			<version>${jetty.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>org.eclipse.jetty</groupId>
+			<artifactId>jetty-client</artifactId>
+			<version>${jetty.version}</version>
+		</dependency>
 		<!-- Jersey -->
 		<dependency>
 			<groupId>org.glassfish.jersey.core</groupId>
@@ -372,6 +385,12 @@
 			<groupId>org.glassfish.jersey.inject</groupId>
 			<artifactId>jersey-hk2</artifactId>
 			<version>${jersey.version}</version>
+			<exclusions>
+				<exclusion><!-- exclude javax.inject-1.jar because other jersey modules include javax.inject v2+ -->
+					<groupId>javax.inject</groupId>
+					<artifactId>javax.inject</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.glassfish.jersey.media</groupId>
@@ -393,6 +412,12 @@
 			<groupId>io.swagger.core.v3</groupId>
 			<artifactId>swagger-jaxrs2-servlet-initializer</artifactId>
 			<version>${swagger-api.version}</version>
+			<exclusions>
+				<exclusion><!-- excluded because included in swagger-jaxrs2-servlet-initializer -->
+					<groupId>io.swagger.core.v3</groupId>
+					<artifactId>swagger-integration</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.webjars</groupId>
@@ -414,6 +439,11 @@
 		<dependency>
 			<groupId>org.bouncycastle</groupId>
 			<artifactId>bcprov-jdk15on</artifactId>
+			<version>${bouncycastle.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bctls-jdk15on</artifactId>
 			<version>${bouncycastle.version}</version>
 		</dependency>
 	</dependencies>

@@ -5,7 +5,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.TimeZone;
 
 import org.apache.logging.log4j.LogManager;
@@ -17,6 +20,7 @@ import org.qora.repository.BlockRepository;
 import org.qora.repository.GroupRepository;
 import org.qora.repository.DataException;
 import org.qora.repository.NameRepository;
+import org.qora.repository.NetworkRepository;
 import org.qora.repository.Repository;
 import org.qora.repository.TransactionRepository;
 import org.qora.repository.VotingRepository;
@@ -32,10 +36,13 @@ public class HSQLDBRepository implements Repository {
 	public static final TimeZone UTC = TimeZone.getTimeZone("UTC");
 
 	protected Connection connection;
+	protected List<Savepoint> savepoints;
+	protected boolean debugState = false;
 
 	// NB: no visibility modifier so only callable from within same package
 	HSQLDBRepository(Connection connection) {
 		this.connection = connection;
+		this.savepoints = new ArrayList<>();
 	}
 
 	@Override
@@ -69,6 +76,11 @@ public class HSQLDBRepository implements Repository {
 	}
 
 	@Override
+	public NetworkRepository getNetworkRepository() {
+		return new HSQLDBNetworkRepository(this);
+	}
+
+	@Override
 	public TransactionRepository getTransactionRepository() {
 		return new HSQLDBTransactionRepository(this);
 	}
@@ -84,6 +96,8 @@ public class HSQLDBRepository implements Repository {
 			this.connection.commit();
 		} catch (SQLException e) {
 			throw new DataException("commit error", e);
+		} finally {
+			this.savepoints.clear();
 		}
 	}
 
@@ -93,6 +107,33 @@ public class HSQLDBRepository implements Repository {
 			this.connection.rollback();
 		} catch (SQLException e) {
 			throw new DataException("rollback error", e);
+		} finally {
+			this.savepoints.clear();
+		}
+	}
+
+	@Override
+	public void setSavepoint() throws DataException {
+		try {
+			Savepoint savepoint = this.connection.setSavepoint();
+			this.savepoints.add(savepoint);
+		} catch (SQLException e) {
+			throw new DataException("savepoint error", e);
+		}
+	}
+
+	@Override
+	public void rollbackToSavepoint() throws DataException {
+		if (this.savepoints.isEmpty())
+			throw new DataException("no savepoint to rollback");
+
+		Savepoint savepoint = this.savepoints.get(0);
+		this.savepoints.remove(0);
+
+		try {
+			this.connection.rollback(savepoint);
+		} catch (SQLException e) {
+			throw new DataException("savepoint rollback error", e);
 		}
 	}
 
@@ -131,6 +172,11 @@ public class HSQLDBRepository implements Repository {
 	public void rebuild() throws DataException {
 	}
 
+	@Override
+	public void setDebug(boolean debugState) {
+		this.debugState = debugState;
+	}
+
 	/**
 	 * Execute SQL and return ResultSet with but added checking.
 	 * <p>
@@ -143,6 +189,9 @@ public class HSQLDBRepository implements Repository {
 	 */
 	@SuppressWarnings("resource")
 	public ResultSet checkedExecute(String sql, Object... objects) throws SQLException {
+		if (this.debugState)
+			LOGGER.debug(sql);
+
 		PreparedStatement preparedStatement = this.connection.prepareStatement(sql);
 
 		// Close the PreparedStatement when the ResultSet is closed otherwise there's a potential resource leak.
@@ -153,9 +202,9 @@ public class HSQLDBRepository implements Repository {
 
 		ResultSet resultSet = this.checkedExecuteResultSet(preparedStatement, objects);
 
-		long queryTime =  System.currentTimeMillis() - beforeQuery;
+		long queryTime = System.currentTimeMillis() - beforeQuery;
 		if (queryTime > MAX_QUERY_TIME)
-			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql)); 
+			LOGGER.info(String.format("HSQLDB query took %d ms: %s", queryTime, sql));
 
 		return resultSet;
 	}
@@ -281,9 +330,9 @@ public class HSQLDBRepository implements Repository {
 	 * @param objects
 	 * @throws SQLException
 	 */
-	public void delete(String tableName, String whereClause, Object... objects) throws SQLException {
+	public int delete(String tableName, String whereClause, Object... objects) throws SQLException {
 		try (PreparedStatement preparedStatement = this.connection.prepareStatement("DELETE FROM " + tableName + " WHERE " + whereClause)) {
-			this.checkedExecuteUpdateCount(preparedStatement, objects);
+			return this.checkedExecuteUpdateCount(preparedStatement, objects);
 		}
 	}
 
@@ -306,6 +355,35 @@ public class HSQLDBRepository implements Repository {
 			sql += " OFFSET " + offset;
 
 		return sql;
+	}
+
+	/** Logs other HSQLDB sessions then re-throws passed exception */
+	public SQLException examineException(SQLException e) throws SQLException {
+		LOGGER.error("SQL error: " + e.getMessage());
+
+		// Serialization failure / potential deadlock - so list other sessions
+		try (ResultSet resultSet = this.checkedExecute(
+				"SELECT session_id, transaction, transaction_size, waiting_for_this, this_waiting_for, current_statement FROM Information_schema.system_sessions")) {
+			if (resultSet == null)
+				return e;
+
+			do {
+				long sessionId = resultSet.getLong(1);
+				boolean inTransaction = resultSet.getBoolean(2);
+				long transactionSize = resultSet.getLong(3);
+				String waitingForThis = resultSet.getString(4);
+				String thisWaitingFor = resultSet.getString(5);
+				String currentStatement = resultSet.getString(6);
+
+				LOGGER.error(String.format("Session %d, %s transaction (size %d), waiting for this '%s', this waiting for '%s', current statement: %s",
+						sessionId, (inTransaction ? "in" : "not in"), transactionSize, waitingForThis, thisWaitingFor, currentStatement));
+			} while (resultSet.next());
+		} catch (SQLException de) {
+			// Throw original exception instead
+			return e;
+		}
+
+		return e;
 	}
 
 }
