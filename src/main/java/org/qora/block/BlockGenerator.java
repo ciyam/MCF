@@ -96,6 +96,9 @@ public class BlockGenerator extends Thread {
 				ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
 				if (blockchainLock.tryLock())
 					generation: try {
+						// Clear repository's "in transaction" state so we don't cause a repository deadlock
+						repository.discardChanges();
+
 						List<Block> goodBlocks = new ArrayList<>();
 
 						for (Block testBlock : newBlocks) {
@@ -118,7 +121,7 @@ public class BlockGenerator extends Thread {
 						int winningIndex = new Random().nextInt(goodBlocks.size());
 						Block newBlock = goodBlocks.get(winningIndex);
 
-						// Delete invalid transactions
+						// Delete invalid transactions. NOTE: discards repository changes on entry, saves changes on exit.
 						deleteInvalidTransactions(repository);
 
 						// Add unconfirmed transactions
@@ -167,6 +170,17 @@ public class BlockGenerator extends Thread {
 		}
 	}
 
+	/**
+	 * Deletes invalid, unconfirmed transactions from repository.
+	 * <p>
+	 * NOTE: calls Transaction.getInvalidTransactions which discards uncommitted
+	 * repository changes.
+	 * <p>
+	 * Also commits the deletion of invalid transactions to the repository.
+	 *  
+	 * @param repository
+	 * @throws DataException
+	 */
 	private static void deleteInvalidTransactions(Repository repository) throws DataException {
 		List<TransactionData> invalidTransactions = Transaction.getInvalidTransactions(repository);
 
@@ -175,9 +189,20 @@ public class BlockGenerator extends Thread {
 			LOGGER.trace(String.format("Deleting invalid, unconfirmed transaction %s", Base58.encode(invalidTransactionData.getSignature())));
 			repository.getTransactionRepository().delete(invalidTransactionData);
 		}
+
 		repository.saveChanges();
 	}
 
+	/**
+	 * Adds unconfirmed transactions to passed block.
+	 * <p>
+	 * NOTE: calls Transaction.getUnconfirmedTransactions which discards uncommitted
+	 * repository changes.
+	 * 
+	 * @param repository
+	 * @param newBlock
+	 * @throws DataException
+	 */
 	private static void addUnconfirmedTransactions(Repository repository, Block newBlock) throws DataException {
 		// Grab all valid unconfirmed transactions (already sorted)
 		List<TransactionData> unconfirmedTransactions = Transaction.getUnconfirmedTransactions(repository);

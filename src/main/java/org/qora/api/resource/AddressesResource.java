@@ -78,8 +78,12 @@ public class AddressesResource {
 			else {
 				// Unconfirmed transactions could update lastReference
 				Account account = new Account(repository, address);
+
+				// Use last reference based on unconfirmed transactions if possible
 				byte[] unconfirmedLastReference = account.getUnconfirmedLastReference();
+
 				if (unconfirmedLastReference != null)
+					// There are unconfirmed transactions so modify returned data
 					accountData.setReference(unconfirmedLastReference);
 			}
 
@@ -112,8 +116,12 @@ public class AddressesResource {
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Account account = new Account(repository, address);
+
+			// Use last reference based on unconfirmed transactions if possible
 			lastReference = account.getUnconfirmedLastReference();
+
 			if (lastReference == null)
+				// No unconfirmed transactions so fallback to using one save in account data
 				lastReference = account.getLastReference();
 		} catch (ApiException e) {
 			throw e;

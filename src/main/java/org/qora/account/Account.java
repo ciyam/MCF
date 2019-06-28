@@ -165,7 +165,8 @@ public class Account {
 	/**
 	 * Fetch last reference for account, considering unconfirmed transactions only, or return null.
 	 * <p>
-	 * NOTE: a repository savepoint may be used during execution.
+	 * NOTE: calls Transaction.getUnconfirmedTransactions which discards uncommitted
+	 * repository changes.
 	 * 
 	 * @return byte[] reference, or null if no unconfirmed transactions for this account.
 	 * @throws DataException
