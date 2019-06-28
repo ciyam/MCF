@@ -80,7 +80,8 @@
 							<value>
 								deepLinking: true,
 								tagsSorter: "alpha",
-								operationsSorter: "alpha",
+								operationsSorter:
+								"alpha",
 							</value>
 						</replacement>
 					</replacements>
@@ -108,6 +109,34 @@
 					</execution>
 				</executions>
 			</plugin>
+			<!-- Generate package-info.java files for JAXB, to convert byte[] to/from 
+				Base58 -->
+			<plugin>
+				<groupId>com.github.bohnman</groupId>
+				<artifactId>package-info-maven-plugin</artifactId>
+				<version>1.0.1</version>
+				<configuration>
+					<packages>
+						<package>
+							<pattern>data.**</pattern>
+							<template>${project.basedir}/src/data/package-info.java</template>
+						</package>
+						<package>
+							<pattern>api.models**</pattern>
+							<template>${project.basedir}/src/data/package-info.java</template>
+						</package>
+					</packages>
+					<sourceDirectory>${project.basedir}/src</sourceDirectory>
+					<outputDirectory>${project.build.directory}/generated-sources/package-info</outputDirectory>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
@@ -128,7 +157,8 @@
 					<createDependencyReducedPom>false</createDependencyReducedPom>
 					<artifactSet>
 						<excludes>
-							<!-- Don't include original swagger-UI as we're including our own modified version -->
+							<!-- Don't include original swagger-UI as we're including our own 
+								modified version -->
 							<exclude>org.webjars:swagger-ui</exclude>
 						</excludes>
 					</artifactSet>
@@ -175,6 +205,12 @@
 		</repository>
 	</repositories>
 	<dependencies>
+		<!-- https://mvnrepository.com/artifact/com.github.bohnman/package-info-maven-plugin -->
+		<dependency>
+			<groupId>com.github.bohnman</groupId>
+			<artifactId>package-info-maven-plugin</artifactId>
+			<version>1.0.1</version>
+		</dependency>
 		<!-- HSQLDB for repository -->
 		<dependency>
 			<groupId>org.hsqldb</groupId>

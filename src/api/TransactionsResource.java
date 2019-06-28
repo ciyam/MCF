@@ -1,6 +1,5 @@
 package api;
 
-import globalization.Translator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.extensions.Extension;
@@ -13,7 +12,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import qora.transaction.Transaction.TransactionType;
 
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -45,26 +43,16 @@ public class TransactionsResource {
 	@Context
 	HttpServletRequest request;
 
-	private ApiErrorFactory apiErrorFactory;
-
-	public TransactionsResource() {
-		this(new ApiErrorFactory(Translator.getInstance()));
-	}
-
-	public TransactionsResource(ApiErrorFactory apiErrorFactory) {
-		this.apiErrorFactory = apiErrorFactory;
-	}
-
 	@GET
 	@Path("/signature/{signature}")
 	@Operation(
 		summary = "Fetch transaction using transaction signature",
 		description = "Returns transaction",
 		extensions = {
-				@Extension(properties = {
-					@ExtensionProperty(name="apiErrors", value="[\"INVALID_SIGNATURE\", \"TRANSACTION_NO_EXISTS\"]", parseValue = true),
-				})
-			},
+			@Extension(properties = {
+				@ExtensionProperty(name="apiErrors", value="[\"INVALID_SIGNATURE\", \"TRANSACTION_NO_EXISTS\"]", parseValue = true),
+			})
+		},
 		responses = {
 			@ApiResponse(
 				description = "a transaction",
@@ -77,25 +65,24 @@ public class TransactionsResource {
 			)
 		}
 	)
-	public TransactionData getTransactions(@PathParam("signature") String signature) {
-		// Decode signature
-		byte[] signatureBytes;
+	public TransactionData getTransactions(@PathParam("signature") String signature58) {
+		byte[] signature;
 		try {
-			signatureBytes = Base64.getDecoder().decode(signature);
+			signature = Base58.decode(signature58);
 		} catch (NumberFormatException e) {
-			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signatureBytes);
+			TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
 			if (transactionData == null)
-				throw this.apiErrorFactory.createError(ApiError.TRANSACTION_NO_EXISTS);
+				throw ApiErrorFactory.getInstance().createError(ApiError.TRANSACTION_NO_EXISTS);
 
 			return transactionData;
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -127,21 +114,20 @@ public class TransactionsResource {
 			)
 		}
 	)
-	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature, @Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
-		// decode signature
-		byte[] signatureBytes;
+	public List<TransactionData> getBlockTransactions(@PathParam("signature") String signature58, @Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
+		byte[] signature;
 		try {
-			signatureBytes = Base58.decode(signature);
+			signature = Base58.decode(signature58);
 		} catch (NumberFormatException e) {
-			throw this.apiErrorFactory.createError(ApiError.INVALID_SIGNATURE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_SIGNATURE, e);
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
-			List<TransactionData> transactions = repository.getBlockRepository().getTransactionsFromSignature(signatureBytes);
+			List<TransactionData> transactions = repository.getBlockRepository().getTransactionsFromSignature(signature);
 
 			// check if block exists
 			if(transactions == null)
-				throw this.apiErrorFactory.createError(ApiError.BLOCK_NO_EXISTS);
+				throw ApiErrorFactory.getInstance().createError(ApiError.BLOCK_NO_EXISTS);
 
 			// Pagination would take effect here (or as part of the repository access)
 			int fromIndex = Integer.min(offset, transactions.size());
@@ -152,7 +138,7 @@ public class TransactionsResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -179,7 +165,7 @@ public class TransactionsResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
@@ -211,13 +197,13 @@ public class TransactionsResource {
 	public List<TransactionData> searchTransactions(@QueryParam("startBlock") Integer startBlock, @QueryParam("blockLimit") Integer blockLimit,
 			@QueryParam("txType") Integer txTypeNum, @QueryParam("address") String address, @Parameter(ref = "limit") @QueryParam("limit") int limit, @Parameter(ref = "offset") @QueryParam("offset") int offset) {
 		if ((txTypeNum == null || txTypeNum == 0) && (address == null || address.isEmpty()))
-			throw this.apiErrorFactory.createError(ApiError.INVALID_CRITERIA);
+			throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_CRITERIA);
 
 		TransactionType txType = null;
 		if (txTypeNum != null) {
 			txType = TransactionType.valueOf(txTypeNum);
 			if (txType == null)
-				throw this.apiErrorFactory.createError(ApiError.INVALID_CRITERIA);
+				throw ApiErrorFactory.getInstance().createError(ApiError.INVALID_CRITERIA);
 		}
 
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -237,7 +223,7 @@ public class TransactionsResource {
 		} catch (ApiException e) {
 			throw e;
 		} catch (DataException e) {
-			throw this.apiErrorFactory.createError(ApiError.REPOSITORY_ISSUE, e);
+			throw ApiErrorFactory.getInstance().createError(ApiError.REPOSITORY_ISSUE, e);
 		}
 	}
 
