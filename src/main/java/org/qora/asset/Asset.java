@@ -18,7 +18,7 @@ public class Asset {
 
 	public static final int MAX_NAME_SIZE = 400;
 	public static final int MAX_DESCRIPTION_SIZE = 4000;
-	public static final int MAX_DATA_SIZE = 4000;
+	public static final int MAX_DATA_SIZE = 400000;
 
 	public static final long MAX_DIVISIBLE_QUANTITY = 10_000_000_000L;
 	public static final long MAX_INDIVISIBLE_QUANTITY = 1_000_000_000_000_000_000L;

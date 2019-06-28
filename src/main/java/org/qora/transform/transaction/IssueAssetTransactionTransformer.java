@@ -103,7 +103,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 				+ Utf8.encodedLength(issueAssetTransactionData.getDescription());
 
 		// In v2, assets have "data" field
-		if (transactionData.getTimestamp() < BlockChain.getInstance().getQoraV2Timestamp())
+		if (transactionData.getTimestamp() >= BlockChain.getInstance().getQoraV2Timestamp())
 			dataLength += DATA_SIZE_LENGTH + Utf8.encodedLength(issueAssetTransactionData.getData());
 
 		// In v1, IssueAssetTransaction uses Asset.toBytes which also serializes

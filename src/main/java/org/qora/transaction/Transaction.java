@@ -159,7 +159,7 @@ public abstract class Transaction {
 		INVALID_TAGS_LENGTH(37),
 		INVALID_AT_TYPE_LENGTH(38),
 		INVALID_AT_TRANSACTION(39),
-		AT_IS_FINISHED(40),
+		INSUFFICIENT_FEE(40),
 		ASSET_DOES_NOT_MATCH_AT(41),
 		ASSET_ALREADY_EXISTS(43),
 		MISSING_CREATOR(44),
@@ -189,6 +189,7 @@ public abstract class Transaction {
 		TX_GROUP_ID_MISMATCH(68),
 		MULTIPLE_NAMES_FORBIDDEN(69),
 		INVALID_ASSET_OWNER(70),
+		AT_IS_FINISHED(71),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -476,6 +477,10 @@ public abstract class Transaction {
 		long maxTimestamp = NTP.getTime() + Settings.getInstance().getMaxTransactionTimestampFuture();
 		if (this.transactionData.getTimestamp() > maxTimestamp)
 			return ValidationResult.TIMESTAMP_TOO_NEW;
+
+		// Check fee is sufficient
+		if (!hasMinimumFee() || !hasMinimumFeePerByte())
+			return ValidationResult.INSUFFICIENT_FEE;
 
 		repository.setSavepoint();
 		try {
