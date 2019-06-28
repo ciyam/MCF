@@ -27,10 +27,18 @@ import io.swagger.v3.oas.annotations.media.Schema.AccessMode;
  */
 
 @XmlClassExtractor(TransactionClassExtractor.class)
-@XmlSeeAlso({ArbitraryTransactionData.class, ATTransactionData.class, BuyNameTransactionData.class, CancelOrderTransactionData.class, CancelSellNameTransactionData.class,
-	CreateOrderTransactionData.class, CreatePollTransactionData.class, DeployATTransactionData.class, GenesisTransactionData.class, IssueAssetTransactionData.class,
-	MessageTransactionData.class, MultiPaymentTransactionData.class, PaymentTransactionData.class, RegisterNameTransactionData.class, SellNameTransactionData.class,
-	TransferAssetTransactionData.class, UpdateNameTransactionData.class, VoteOnPollTransactionData.class})
+@XmlSeeAlso({GenesisTransactionData.class, PaymentTransactionData.class, RegisterNameTransactionData.class, UpdateNameTransactionData.class,
+	SellNameTransactionData.class, CancelSellNameTransactionData.class, BuyNameTransactionData.class,
+	CreatePollTransactionData.class, VoteOnPollTransactionData.class, ArbitraryTransactionData.class,
+	IssueAssetTransactionData.class, TransferAssetTransactionData.class,
+	CreateOrderTransactionData.class, CancelOrderTransactionData.class,
+	MultiPaymentTransactionData.class, DeployATTransactionData.class, MessageTransactionData.class, ATTransactionData.class,
+	CreateGroupTransactionData.class, UpdateGroupTransactionData.class,
+	AddGroupAdminTransactionData.class, RemoveGroupAdminTransactionData.class,
+	GroupBanTransactionData.class, CancelGroupBanTransactionData.class,
+	GroupKickTransactionData.class, GroupInviteTransactionData.class,
+	JoinGroupTransactionData.class, LeaveGroupTransactionData.class
+})
 //All properties to be converted to JSON via JAX-RS
 @XmlAccessorType(XmlAccessType.FIELD)
 public abstract class TransactionData {

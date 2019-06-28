@@ -161,7 +161,7 @@ public class IssueAssetTransaction extends Transaction {
 		Account owner = getOwner();
 		owner.deleteBalance(issueAssetTransactionData.getAssetId());
 
-		// Issue asset
+		// Deissue asset
 		Asset asset = new Asset(this.repository, issueAssetTransactionData.getAssetId());
 		asset.deissue();
 

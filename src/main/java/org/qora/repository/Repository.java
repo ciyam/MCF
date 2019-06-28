@@ -10,6 +10,8 @@ public interface Repository extends AutoCloseable {
 
 	public BlockRepository getBlockRepository();
 
+	public GroupRepository getGroupRepository();
+
 	public NameRepository getNameRepository();
 
 	public TransactionRepository getTransactionRepository();

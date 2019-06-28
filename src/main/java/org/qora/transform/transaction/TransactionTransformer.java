@@ -94,6 +94,39 @@ public class TransactionTransformer extends Transformer {
 				case DEPLOY_AT:
 					return DeployATTransactionTransformer.fromByteBuffer(byteBuffer);
 
+				case CREATE_GROUP:
+					return CreateGroupTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case UPDATE_GROUP:
+					return UpdateGroupTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case ADD_GROUP_ADMIN:
+					return AddGroupAdminTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case REMOVE_GROUP_ADMIN:
+					return RemoveGroupAdminTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case GROUP_BAN:
+					return GroupBanTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case CANCEL_GROUP_BAN:
+					return CancelGroupBanTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case GROUP_KICK:
+					return GroupKickTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case GROUP_INVITE:
+					return GroupInviteTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case CANCEL_GROUP_INVITE:
+					return CancelGroupInviteTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case JOIN_GROUP:
+					return JoinGroupTransactionTransformer.fromByteBuffer(byteBuffer);
+
+				case LEAVE_GROUP:
+					return LeaveGroupTransactionTransformer.fromByteBuffer(byteBuffer);
+
 				default:
 					throw new TransformationException("Unsupported transaction type [" + type.value + "] during conversion from bytes");
 			}
@@ -155,6 +188,39 @@ public class TransactionTransformer extends Transformer {
 			case DEPLOY_AT:
 				return DeployATTransactionTransformer.getDataLength(transactionData);
 
+			case CREATE_GROUP:
+				return CreateGroupTransactionTransformer.getDataLength(transactionData);
+
+			case UPDATE_GROUP:
+				return UpdateGroupTransactionTransformer.getDataLength(transactionData);
+
+			case ADD_GROUP_ADMIN:
+				return AddGroupAdminTransactionTransformer.getDataLength(transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return RemoveGroupAdminTransactionTransformer.getDataLength(transactionData);
+
+			case GROUP_BAN:
+				return GroupBanTransactionTransformer.getDataLength(transactionData);
+
+			case CANCEL_GROUP_BAN:
+				return CancelGroupBanTransactionTransformer.getDataLength(transactionData);
+
+			case GROUP_KICK:
+				return GroupKickTransactionTransformer.getDataLength(transactionData);
+
+			case GROUP_INVITE:
+				return GroupInviteTransactionTransformer.getDataLength(transactionData);
+
+			case CANCEL_GROUP_INVITE:
+				return CancelGroupInviteTransactionTransformer.getDataLength(transactionData);
+
+			case JOIN_GROUP:
+				return JoinGroupTransactionTransformer.getDataLength(transactionData);
+
+			case LEAVE_GROUP:
+				return LeaveGroupTransactionTransformer.getDataLength(transactionData);
+
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] when requesting byte length");
 		}
@@ -212,6 +278,39 @@ public class TransactionTransformer extends Transformer {
 
 			case DEPLOY_AT:
 				return DeployATTransactionTransformer.toBytes(transactionData);
+
+			case CREATE_GROUP:
+				return CreateGroupTransactionTransformer.toBytes(transactionData);
+
+			case UPDATE_GROUP:
+				return UpdateGroupTransactionTransformer.toBytes(transactionData);
+
+			case ADD_GROUP_ADMIN:
+				return AddGroupAdminTransactionTransformer.toBytes(transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return RemoveGroupAdminTransactionTransformer.toBytes(transactionData);
+
+			case GROUP_BAN:
+				return GroupBanTransactionTransformer.toBytes(transactionData);
+
+			case CANCEL_GROUP_BAN:
+				return CancelGroupBanTransactionTransformer.toBytes(transactionData);
+
+			case GROUP_KICK:
+				return GroupKickTransactionTransformer.toBytes(transactionData);
+
+			case GROUP_INVITE:
+				return GroupInviteTransactionTransformer.toBytes(transactionData);
+
+			case CANCEL_GROUP_INVITE:
+				return CancelGroupInviteTransactionTransformer.toBytes(transactionData);
+
+			case JOIN_GROUP:
+				return JoinGroupTransactionTransformer.toBytes(transactionData);
+
+			case LEAVE_GROUP:
+				return LeaveGroupTransactionTransformer.toBytes(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to bytes");
@@ -279,6 +378,39 @@ public class TransactionTransformer extends Transformer {
 
 			case DEPLOY_AT:
 				return DeployATTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case CREATE_GROUP:
+				return CreateGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case UPDATE_GROUP:
+				return UpdateGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case ADD_GROUP_ADMIN:
+				return AddGroupAdminTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return RemoveGroupAdminTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case GROUP_BAN:
+				return GroupBanTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case CANCEL_GROUP_BAN:
+				return CancelGroupBanTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case GROUP_KICK:
+				return GroupKickTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case GROUP_INVITE:
+				return GroupInviteTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case CANCEL_GROUP_INVITE:
+				return CancelGroupInviteTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case JOIN_GROUP:
+				return JoinGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
+
+			case LEAVE_GROUP:
+				return LeaveGroupTransactionTransformer.toBytesForSigningImpl(transactionData);
 
 			default:
 				throw new TransformationException(
@@ -358,6 +490,39 @@ public class TransactionTransformer extends Transformer {
 
 			case DEPLOY_AT:
 				return DeployATTransactionTransformer.toJSON(transactionData);
+
+			case CREATE_GROUP:
+				return CreateGroupTransactionTransformer.toJSON(transactionData);
+
+			case UPDATE_GROUP:
+				return UpdateGroupTransactionTransformer.toJSON(transactionData);
+
+			case ADD_GROUP_ADMIN:
+				return AddGroupAdminTransactionTransformer.toJSON(transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return RemoveGroupAdminTransactionTransformer.toJSON(transactionData);
+
+			case GROUP_BAN:
+				return GroupBanTransactionTransformer.toJSON(transactionData);
+
+			case CANCEL_GROUP_BAN:
+				return CancelGroupBanTransactionTransformer.toJSON(transactionData);
+
+			case GROUP_KICK:
+				return GroupKickTransactionTransformer.toJSON(transactionData);
+
+			case GROUP_INVITE:
+				return GroupInviteTransactionTransformer.toJSON(transactionData);
+
+			case CANCEL_GROUP_INVITE:
+				return CancelGroupInviteTransactionTransformer.toJSON(transactionData);
+
+			case JOIN_GROUP:
+				return JoinGroupTransactionTransformer.toJSON(transactionData);
+
+			case LEAVE_GROUP:
+				return LeaveGroupTransactionTransformer.toJSON(transactionData);
 
 			default:
 				throw new TransformationException("Unsupported transaction type [" + transactionData.getType().value + "] during conversion to JSON");

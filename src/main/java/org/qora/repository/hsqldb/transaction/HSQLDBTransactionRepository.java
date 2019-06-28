@@ -41,6 +41,17 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	private HSQLDBDeployATTransactionRepository deployATTransactionRepository;
 	private HSQLDBMessageTransactionRepository messageTransactionRepository;
 	private HSQLDBATTransactionRepository atTransactionRepository;
+	private HSQLDBCreateGroupTransactionRepository createGroupTransactionRepository;
+	private HSQLDBUpdateGroupTransactionRepository updateGroupTransactionRepository;
+	private HSQLDBAddGroupAdminTransactionRepository addGroupAdminTransactionRepository;
+	private HSQLDBRemoveGroupAdminTransactionRepository removeGroupAdminTransactionRepository;
+	private HSQLDBGroupBanTransactionRepository groupBanTransactionRepository;
+	private HSQLDBCancelGroupBanTransactionRepository groupUnbanTransactionRepository;
+	private HSQLDBGroupKickTransactionRepository groupKickTransactionRepository;
+	private HSQLDBGroupInviteTransactionRepository groupInviteTransactionRepository;
+	private HSQLDBCancelGroupInviteTransactionRepository cancelGroupInviteTransactionRepository;
+	private HSQLDBJoinGroupTransactionRepository joinGroupTransactionRepository;
+	private HSQLDBLeaveGroupTransactionRepository leaveGroupTransactionRepository;
 
 	public HSQLDBTransactionRepository(HSQLDBRepository repository) {
 		this.repository = repository;
@@ -62,6 +73,17 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 		this.deployATTransactionRepository = new HSQLDBDeployATTransactionRepository(repository);
 		this.messageTransactionRepository = new HSQLDBMessageTransactionRepository(repository);
 		this.atTransactionRepository = new HSQLDBATTransactionRepository(repository);
+		this.createGroupTransactionRepository = new HSQLDBCreateGroupTransactionRepository(repository);
+		this.updateGroupTransactionRepository = new HSQLDBUpdateGroupTransactionRepository(repository);
+		this.addGroupAdminTransactionRepository = new HSQLDBAddGroupAdminTransactionRepository(repository);
+		this.removeGroupAdminTransactionRepository = new HSQLDBRemoveGroupAdminTransactionRepository(repository);
+		this.groupBanTransactionRepository = new HSQLDBGroupBanTransactionRepository(repository);
+		this.groupUnbanTransactionRepository = new HSQLDBCancelGroupBanTransactionRepository(repository);
+		this.groupKickTransactionRepository = new HSQLDBGroupKickTransactionRepository(repository);
+		this.groupInviteTransactionRepository = new HSQLDBGroupInviteTransactionRepository(repository);
+		this.cancelGroupInviteTransactionRepository = new HSQLDBCancelGroupInviteTransactionRepository(repository);
+		this.joinGroupTransactionRepository = new HSQLDBJoinGroupTransactionRepository(repository);
+		this.leaveGroupTransactionRepository = new HSQLDBLeaveGroupTransactionRepository(repository);
 	}
 
 	protected HSQLDBTransactionRepository() {
@@ -187,6 +209,39 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case AT:
 				return this.atTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case CREATE_GROUP:
+				return this.createGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case UPDATE_GROUP:
+				return this.updateGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case ADD_GROUP_ADMIN:
+				return this.addGroupAdminTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case REMOVE_GROUP_ADMIN:
+				return this.removeGroupAdminTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case GROUP_BAN:
+				return this.groupBanTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case CANCEL_GROUP_BAN:
+				return this.groupUnbanTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case GROUP_KICK:
+				return this.groupKickTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case GROUP_INVITE:
+				return this.groupInviteTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case CANCEL_GROUP_INVITE:
+				return this.cancelGroupInviteTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case JOIN_GROUP:
+				return this.joinGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
+
+			case LEAVE_GROUP:
+				return this.leaveGroupTransactionRepository.fromBase(signature, reference, creatorPublicKey, timestamp, fee);
 
 			default:
 				throw new DataException("Unsupported transaction type [" + type.name() + "] during fetch from HSQLDB repository");
@@ -506,6 +561,50 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 
 			case AT:
 				this.atTransactionRepository.save(transactionData);
+				break;
+
+			case CREATE_GROUP:
+				this.createGroupTransactionRepository.save(transactionData);
+				break;
+
+			case UPDATE_GROUP:
+				this.updateGroupTransactionRepository.save(transactionData);
+				break;
+
+			case ADD_GROUP_ADMIN:
+				this.addGroupAdminTransactionRepository.save(transactionData);
+				break;
+
+			case REMOVE_GROUP_ADMIN:
+				this.removeGroupAdminTransactionRepository.save(transactionData);
+				break;
+
+			case GROUP_BAN:
+				this.groupBanTransactionRepository.save(transactionData);
+				break;
+
+			case CANCEL_GROUP_BAN:
+				this.groupUnbanTransactionRepository.save(transactionData);
+				break;
+
+			case GROUP_KICK:
+				this.groupKickTransactionRepository.save(transactionData);
+				break;
+
+			case GROUP_INVITE:
+				this.groupInviteTransactionRepository.save(transactionData);
+				break;
+
+			case CANCEL_GROUP_INVITE:
+				this.cancelGroupInviteTransactionRepository.save(transactionData);
+				break;
+
+			case JOIN_GROUP:
+				this.joinGroupTransactionRepository.save(transactionData);
+				break;
+
+			case LEAVE_GROUP:
+				this.leaveGroupTransactionRepository.save(transactionData);
 				break;
 
 			default:

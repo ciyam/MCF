@@ -52,7 +52,18 @@ public abstract class Transaction {
 		DELEGATION(18),
 		SUPERNODE(19),
 		AIRDROP(20),
-		AT(21);
+		AT(21),
+		CREATE_GROUP(22),
+		UPDATE_GROUP(23),
+		ADD_GROUP_ADMIN(24),
+		REMOVE_GROUP_ADMIN(25),
+		GROUP_BAN(26),
+		CANCEL_GROUP_BAN(27),
+		GROUP_KICK(28),
+		GROUP_INVITE(29),
+		CANCEL_GROUP_INVITE(30),
+		JOIN_GROUP(31),
+		LEAVE_GROUP(32);
 
 		public final int value;
 
@@ -114,6 +125,20 @@ public abstract class Transaction {
 		TIMESTAMP_TOO_OLD(45),
 		TIMESTAMP_TOO_NEW(46),
 		TOO_MANY_UNCONFIRMED(47),
+		GROUP_ALREADY_EXISTS(48),
+		GROUP_DOES_NOT_EXIST(49),
+		INVALID_GROUP_OWNER(50),
+		ALREADY_GROUP_MEMBER(51),
+		GROUP_OWNER_CANNOT_LEAVE(52),
+		NOT_GROUP_MEMBER(53),
+		ALREADY_GROUP_ADMIN(54),
+		NOT_GROUP_ADMIN(55),
+		INVALID_LIFETIME(56),
+		INVITE_UNKNOWN(57),
+		BAN_EXISTS(58),
+		BAN_UNKNOWN(59),
+		BANNED_FROM_GROUP(60),
+		JOIN_REQUEST_EXISTS(61),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -212,6 +237,39 @@ public abstract class Transaction {
 
 			case AT:
 				return new ATTransaction(repository, transactionData);
+
+			case CREATE_GROUP:
+				return new CreateGroupTransaction(repository, transactionData);
+
+			case UPDATE_GROUP:
+				return new UpdateGroupTransaction(repository, transactionData);
+
+			case ADD_GROUP_ADMIN:
+				return new AddGroupAdminTransaction(repository, transactionData);
+
+			case REMOVE_GROUP_ADMIN:
+				return new RemoveGroupAdminTransaction(repository, transactionData);
+
+			case GROUP_BAN:
+				return new GroupBanTransaction(repository, transactionData);
+
+			case CANCEL_GROUP_BAN:
+				return new CancelGroupBanTransaction(repository, transactionData);
+
+			case GROUP_KICK:
+				return new GroupKickTransaction(repository, transactionData);
+
+			case GROUP_INVITE:
+				return new GroupInviteTransaction(repository, transactionData);
+
+			case CANCEL_GROUP_INVITE:
+				return new CancelGroupInviteTransaction(repository, transactionData);
+
+			case JOIN_GROUP:
+				return new JoinGroupTransaction(repository, transactionData);
+
+			case LEAVE_GROUP:
+				return new LeaveGroupTransaction(repository, transactionData);
 
 			default:
 				throw new IllegalStateException("Unsupported transaction type [" + transactionData.getType().value + "] during fetch from repository");

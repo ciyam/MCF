@@ -110,7 +110,10 @@ public enum ApiError {
 	MESSAGE_FORMAT_NOT_HEX(1001, 400),
 	MESSAGE_BLANK(1002, 400),
 	NO_PUBLIC_KEY(1003, 422),
-	MESSAGESIZE_EXCEEDED(1004, 400);
+	MESSAGESIZE_EXCEEDED(1004, 400),
+
+	// Groups
+	GROUP_UNKNOWN(1101, 404);
 
 	private final static Map<Integer, ApiError> map = stream(ApiError.values()).collect(toMap(apiError -> apiError.code, apiError -> apiError));
 
