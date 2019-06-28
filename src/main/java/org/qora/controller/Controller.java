@@ -57,6 +57,7 @@ public class Controller extends Thread {
 	public static final String VERSION_PREFIX = "qora-core-";
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
+	private static final long MISBEHAVIOUR_COOLOFF = 24 * 60 * 60 * 1000; // ms
 	private static final Object shutdownLock = new Object();
 	private static boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
@@ -80,12 +81,14 @@ public class Controller extends Thread {
 			throw new RuntimeException("Can't read build.timestamp from build.properties resource");
 
 		this.buildTimestamp = LocalDateTime.parse(buildTimestamp, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssX")).toEpochSecond(ZoneOffset.UTC);
+		LOGGER.info(String.format("Build timestamp: %s", buildTimestamp));
 
 		String buildVersion = properties.getProperty("build.version");
 		if (buildVersion == null)
 			throw new RuntimeException("Can't read build.version from build.properties resource");
 
 		this.buildVersion = VERSION_PREFIX + buildVersion;
+		LOGGER.info(String.format("Build version: %s", this.buildVersion));
 
 		blockchainLock = new ReentrantLock();
 	}
@@ -227,9 +230,16 @@ public class Controller extends Thread {
 		for(Peer peer : peers)
 			LOGGER.trace(String.format("Peer %s is at height %d", peer, peer.getPeerData().getLastHeight()));
 
+		// Remove peers with lower, or unknown, height
 		peers.removeIf(peer -> {
 			Integer peerHeight = peer.getPeerData().getLastHeight();
 			return peerHeight == null || peerHeight <= ourHeight;
+		});
+
+		// Remove peers that have "misbehaved" recently
+		peers.removeIf(peer -> {
+			Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
+			return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
 		});
 
 		if (!peers.isEmpty()) {
@@ -375,9 +385,11 @@ public class Controller extends Thread {
 					byte[] signature = getBlockMessage.getSignature();
 
 					BlockData blockData = repository.getBlockRepository().fromSignature(signature);
-					if (blockData == null)
-						// No response at all???
+					if (blockData == null) {
+						LOGGER.trace(String.format("Ignoring GET_BLOCK request from peer %s for unknown block %s", peer, Base58.encode(signature)));
+						// Send no response at all???
 						break;
+					}
 
 					Block block = new Block(repository, blockData);
 
@@ -398,16 +410,23 @@ public class Controller extends Thread {
 					Transaction transaction = Transaction.fromData(repository, transactionData);
 
 					// Check signature
-					if (!transaction.isSignatureValid())
+					if (!transaction.isSignatureValid()) {
+						LOGGER.trace(String.format("Ignoring TRANSACTION %s with invalid signature from peer %s", Base58.encode(transactionData.getSignature()), peer));
 						break;
+					}
 
 					// Do we have it already?
-					if (repository.getTransactionRepository().exists(transactionData.getSignature()))
+					if (repository.getTransactionRepository().exists(transactionData.getSignature())) {
+						LOGGER.trace(String.format("Ignoring existing TRANSACTION %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
 						break;
+					}
 
 					// Is it valid?
-					if (transaction.isValidUnconfirmed() != ValidationResult.OK)
+					ValidationResult validationResult = transaction.isValidUnconfirmed();
+					if (validationResult != ValidationResult.OK) {
+						LOGGER.trace(String.format("Ignoring invalid (%s) TRANSACTION %s from peer %s", validationResult.name(), Base58.encode(transactionData.getSignature()), peer));
 						break;
+					}
 
 					// Seems ok - add to unconfirmed pile
 					repository.getTransactionRepository().save(transactionData);

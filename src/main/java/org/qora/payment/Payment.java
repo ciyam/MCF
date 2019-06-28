@@ -79,7 +79,7 @@ public class Payment {
 				return ValidationResult.INVALID_AMOUNT;
 
 			// Set or add amount into amounts-by-asset map
-			amountsByAssetId.compute(paymentData.getAssetId(), (assetId, amount) -> amount == null ? amount : amount.add(paymentData.getAmount()));
+			amountsByAssetId.compute(paymentData.getAssetId(), (assetId, amount) -> amount == null ? paymentData.getAmount() : amount.add(paymentData.getAmount()));
 		}
 
 		// Check sender has enough of each asset

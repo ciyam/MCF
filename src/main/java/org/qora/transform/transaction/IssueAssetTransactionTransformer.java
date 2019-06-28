@@ -76,7 +76,7 @@ public class IssueAssetTransactionTransformer extends TransactionTransformer {
 		boolean isDivisible = byteBuffer.get() != 0;
 
 		// in v2, assets have "data" field
-		String data = null;
+		String data = "";
 		if (timestamp >= BlockChain.getInstance().getQoraV2Timestamp())
 			data = Serialization.deserializeSizedString(byteBuffer, Asset.MAX_DATA_SIZE);
 

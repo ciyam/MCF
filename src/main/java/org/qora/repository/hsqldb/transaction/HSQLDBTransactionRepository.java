@@ -22,6 +22,7 @@ import org.qora.api.resource.TransactionsResource.ConfirmationStatus;
 import org.qora.data.PaymentData;
 import org.qora.data.transaction.GroupApprovalTransactionData;
 import org.qora.data.transaction.TransactionData;
+import org.qora.data.transaction.TransferAssetTransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
 import org.qora.repository.TransactionRepository;
@@ -446,7 +447,7 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 	}
 
 	@Override
-	public List<TransactionData> getAssetTransactions(int assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
+	public List<TransactionData> getAssetTransactions(long assetId, ConfirmationStatus confirmationStatus, Integer limit, Integer offset, Boolean reverse)
 			throws DataException {
 		TransactionType[] transactionTypes = new TransactionType[] {
 			ISSUE_ASSET, TRANSFER_ASSET, CREATE_ASSET_ORDER, CANCEL_ASSET_ORDER
@@ -528,6 +529,43 @@ public class HSQLDBTransactionRepository implements TransactionRepository {
 			return transactions;
 		} catch (SQLException | DataException e) {
 			throw new DataException("Unable to fetch asset-related transactions from repository", e);
+		}
+	}
+
+	@Override
+	public List<TransferAssetTransactionData> getAssetTransfers(long assetId, String address, Integer limit, Integer offset, Boolean reverse)
+			throws DataException {
+		String sql = "SELECT creation, tx_group_id, reference, fee, signature, sender, recipient, amount FROM TransferAssetTransactions "
+				+ "JOIN Transactions USING (signature) "
+				+ "JOIN Accounts ON public_key = sender "
+				+ "WHERE asset_id = ? AND ? IN (account, recipient) "
+				+ "ORDER by creation ";
+
+		sql += (reverse == null || !reverse) ? "ASC" : "DESC";
+		sql += HSQLDBRepository.limitOffsetSql(limit, offset);
+
+		List<TransferAssetTransactionData> assetTransfers = new ArrayList<>();
+
+		try (ResultSet resultSet = this.repository.checkedExecute(sql, assetId, address)) {
+			if (resultSet == null)
+				return assetTransfers;
+
+			do {
+				long timestamp = resultSet.getTimestamp(1, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				int txGroupId = resultSet.getInt(2);
+				byte[] reference = resultSet.getBytes(3);
+				BigDecimal fee = resultSet.getBigDecimal(4).setScale(8);
+				byte[] signature = resultSet.getBytes(5);
+				byte[] creatorPublicKey = resultSet.getBytes(6);
+				String recipient = resultSet.getString(7);
+				BigDecimal amount = resultSet.getBigDecimal(8);
+
+				assetTransfers.add(new TransferAssetTransactionData(timestamp, txGroupId, reference, creatorPublicKey, recipient, amount, assetId, fee, signature));
+			} while (resultSet.next());
+
+			return assetTransfers;
+		} catch (SQLException e) {
+			throw new DataException("Unable to fetch asset-transfer transactions from repository", e);
 		}
 	}
 

@@ -45,7 +45,13 @@ public interface AccountRepository {
 
 	public AccountBalanceData getBalance(String address, long assetId) throws DataException;
 
-	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, Integer limit, Integer offset, Boolean reverse) throws DataException;
+	public enum BalanceOrdering {
+		ASSET_BALANCE_ACCOUNT,
+		ACCOUNT_ASSET,
+		ASSET_ACCOUNT
+	}
+
+	public List<AccountBalanceData> getAssetBalances(List<String> addresses, List<Long> assetIds, BalanceOrdering balanceOrdering, Integer limit, Integer offset, Boolean reverse) throws DataException;
 
 	public void save(AccountBalanceData accountBalanceData) throws DataException;
 

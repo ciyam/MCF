@@ -10,9 +10,9 @@ import javax.xml.bind.annotation.XmlAccessorType;
 public class PaymentData {
 
 	// Properties
-	protected String recipient;
-	protected long assetId;
-	protected BigDecimal amount;
+	private String recipient;
+	private long assetId;
+	private BigDecimal amount;
 
 	// Constructors
 
