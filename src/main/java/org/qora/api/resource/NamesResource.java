@@ -29,6 +29,7 @@ import org.qora.api.model.NameSummary;
 import org.qora.crypto.Crypto;
 import org.qora.data.naming.NameData;
 import org.qora.data.transaction.RegisterNameTransactionData;
+import org.qora.data.transaction.UpdateNameTransactionData;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
@@ -36,6 +37,7 @@ import org.qora.transaction.Transaction;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.RegisterNameTransactionTransformer;
+import org.qora.transform.transaction.UpdateNameTransactionTransformer;
 import org.qora.utils.Base58;
 
 @Path("/names")
@@ -153,7 +155,7 @@ public class NamesResource {
 		}
 	)
 	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
-	public String buildTransaction(RegisterNameTransactionData transactionData) {
+	public String registerName(RegisterNameTransactionData transactionData) {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			Transaction transaction = Transaction.fromData(repository, transactionData);
 
@@ -162,6 +164,49 @@ public class NamesResource {
 				throw TransactionsResource.createTransactionInvalidException(request, result);
 
 			byte[] bytes = RegisterNameTransactionTransformer.toBytes(transactionData);
+			return Base58.encode(bytes);
+		} catch (TransformationException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);
+		} catch (DataException e) {
+			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.REPOSITORY_ISSUE, e);
+		}
+	}
+
+	@POST
+	@Path("/update")
+	@Operation(
+		summary = "Build raw, unsigned, UPDATE_NAME transaction",
+		requestBody = @RequestBody(
+			required = true,
+			content = @Content(
+				mediaType = MediaType.APPLICATION_JSON,
+				schema = @Schema(
+					implementation = UpdateNameTransactionData.class
+				)
+			)
+		),
+		responses = {
+			@ApiResponse(
+				description = "raw, unsigned, UPDATE_NAME transaction encoded in Base58",
+				content = @Content(
+					mediaType = MediaType.TEXT_PLAIN,
+					schema = @Schema(
+						type = "string"
+					)
+				)
+			)
+		}
+	)
+	@ApiErrors({ApiError.TRANSACTION_INVALID, ApiError.TRANSFORMATION_ERROR, ApiError.REPOSITORY_ISSUE})
+	public String updateName(UpdateNameTransactionData transactionData) {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			Transaction transaction = Transaction.fromData(repository, transactionData);
+
+			ValidationResult result = transaction.isValidUnconfirmed();
+			if (result != ValidationResult.OK)
+				throw TransactionsResource.createTransactionInvalidException(request, result);
+
+			byte[] bytes = UpdateNameTransactionTransformer.toBytes(transactionData);
 			return Base58.encode(bytes);
 		} catch (TransformationException e) {
 			throw ApiExceptionFactory.INSTANCE.createException(request, ApiError.TRANSFORMATION_ERROR, e);

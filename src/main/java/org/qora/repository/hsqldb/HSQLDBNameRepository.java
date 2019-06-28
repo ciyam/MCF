@@ -23,24 +23,23 @@ public class HSQLDBNameRepository implements NameRepository {
 	@Override
 	public NameData fromName(String name) throws DataException {
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT registrant, owner, data, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE name = ?", name)) {
+				.checkedExecute("SELECT owner, data, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE name = ?", name)) {
 			if (resultSet == null)
 				return null;
 
-			byte[] registrantPublicKey = resultSet.getBytes(1);
-			String owner = resultSet.getString(2);
-			String data = resultSet.getString(3);
-			long registered = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+			String owner = resultSet.getString(1);
+			String data = resultSet.getString(2);
+			long registered = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 			// Special handling for possibly-NULL "updated" column
-			Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
+			Timestamp updatedTimestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC));
 			Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
 
-			byte[] reference = resultSet.getBytes(6);
-			boolean isForSale = resultSet.getBoolean(7);
-			BigDecimal salePrice = resultSet.getBigDecimal(8);
+			byte[] reference = resultSet.getBytes(5);
+			boolean isForSale = resultSet.getBoolean(6);
+			BigDecimal salePrice = resultSet.getBigDecimal(7);
 
-			return new NameData(registrantPublicKey, owner, name, data, registered, updated, reference, isForSale, salePrice);
+			return new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice);
 		} catch (SQLException e) {
 			throw new DataException("Unable to fetch name info from repository", e);
 		}
@@ -60,26 +59,25 @@ public class HSQLDBNameRepository implements NameRepository {
 		List<NameData> names = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT name, data, registrant, owner, registered, updated, reference, is_for_sale, sale_price FROM Names")) {
+				.checkedExecute("SELECT name, data, owner, registered, updated, reference, is_for_sale, sale_price FROM Names")) {
 			if (resultSet == null)
 				return names;
 
 			do {
 				String name = resultSet.getString(1);
 				String data = resultSet.getString(2);
-				byte[] registrantPublicKey = resultSet.getBytes(3);
-				String owner = resultSet.getString(4);
-				long registered = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				String owner = resultSet.getString(3);
+				long registered = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(6, Calendar.getInstance(HSQLDBRepository.UTC));
+				Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
 				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
 
-				byte[] reference = resultSet.getBytes(7);
-				boolean isForSale = resultSet.getBoolean(8);
-				BigDecimal salePrice = resultSet.getBigDecimal(9);
+				byte[] reference = resultSet.getBytes(6);
+				boolean isForSale = resultSet.getBoolean(7);
+				BigDecimal salePrice = resultSet.getBigDecimal(8);
 
-				names.add(new NameData(registrantPublicKey, owner, name, data, registered, updated, reference, isForSale, salePrice));
+				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice));
 			} while (resultSet.next());
 
 			return names;
@@ -93,25 +91,24 @@ public class HSQLDBNameRepository implements NameRepository {
 		List<NameData> names = new ArrayList<>();
 
 		try (ResultSet resultSet = this.repository
-				.checkedExecute("SELECT name, data, registrant, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE owner = ?", owner)) {
+				.checkedExecute("SELECT name, data, registered, updated, reference, is_for_sale, sale_price FROM Names WHERE owner = ?", owner)) {
 			if (resultSet == null)
 				return names;
 
 			do {
 				String name = resultSet.getString(1);
 				String data = resultSet.getString(2);
-				byte[] registrantPublicKey = resultSet.getBytes(3);
-				long registered = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
+				long registered = resultSet.getTimestamp(3, Calendar.getInstance(HSQLDBRepository.UTC)).getTime();
 
 				// Special handling for possibly-NULL "updated" column
-				Timestamp updatedTimestamp = resultSet.getTimestamp(5, Calendar.getInstance(HSQLDBRepository.UTC));
+				Timestamp updatedTimestamp = resultSet.getTimestamp(4, Calendar.getInstance(HSQLDBRepository.UTC));
 				Long updated = updatedTimestamp == null ? null : updatedTimestamp.getTime();
 
-				byte[] reference = resultSet.getBytes(6);
-				boolean isForSale = resultSet.getBoolean(7);
-				BigDecimal salePrice = resultSet.getBigDecimal(8);
+				byte[] reference = resultSet.getBytes(5);
+				boolean isForSale = resultSet.getBoolean(6);
+				BigDecimal salePrice = resultSet.getBigDecimal(7);
 
-				names.add(new NameData(registrantPublicKey, owner, name, data, registered, updated, reference, isForSale, salePrice));
+				names.add(new NameData(owner, name, data, registered, updated, reference, isForSale, salePrice));
 			} while (resultSet.next());
 
 			return names;
@@ -128,7 +125,7 @@ public class HSQLDBNameRepository implements NameRepository {
 		Long updated = nameData.getUpdated();
 		Timestamp updatedTimestamp = updated == null ? null : new Timestamp(updated);
 
-		saveHelper.bind("registrant", nameData.getRegistrantPublicKey()).bind("owner", nameData.getOwner()).bind("name", nameData.getName())
+		saveHelper.bind("owner", nameData.getOwner()).bind("name", nameData.getName())
 				.bind("data", nameData.getData()).bind("registered", new Timestamp(nameData.getRegistered())).bind("updated", updatedTimestamp)
 				.bind("reference", nameData.getReference()).bind("is_for_sale", nameData.getIsForSale()).bind("sale_price", nameData.getSalePrice());
 

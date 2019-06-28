@@ -543,8 +543,8 @@ public class Block {
 		if (this.blockData.getGeneratorSignature() == null)
 			throw new IllegalStateException("Cannot calculate transactions signature as block has no generator signature");
 
-		// Already added?
-		if (this.transactions.contains(transactionData))
+		// Already added? (Check using signature)
+		if (this.transactions.stream().anyMatch(transaction -> Arrays.equals(transaction.getTransactionData().getSignature(), transactionData.getSignature())))
 			return true;
 
 		// Check there is space in block
@@ -571,6 +571,47 @@ public class Block {
 		calcTransactionsSignature();
 
 		return true;
+	}
+
+	/**
+	 * Remove a transaction from the block.
+	 * <p>
+	 * Used when constructing a new block during forging.
+	 * <p>
+	 * Requires block's {@code generator} being a {@code PrivateKeyAccount} so block's transactions signature can be recalculated.
+	 * 
+	 * @param transactionData
+	 * @throws IllegalStateException
+	 *             if block's {@code generator} is not a {@code PrivateKeyAccount}.
+	 */
+	public void deleteTransaction(TransactionData transactionData) {
+		// Can't add to transactions if we haven't loaded existing ones yet
+		if (this.transactions == null)
+			throw new IllegalStateException("Attempted to add transaction to partially loaded database Block");
+
+		if (!(this.generator instanceof PrivateKeyAccount))
+			throw new IllegalStateException("Block's generator has no private key");
+
+		if (this.blockData.getGeneratorSignature() == null)
+			throw new IllegalStateException("Cannot calculate transactions signature as block has no generator signature");
+
+		// Attempt to remove from block (Check using signature)
+		boolean wasElementRemoved = this.transactions.removeIf(transaction -> Arrays.equals(transaction.getTransactionData().getSignature(), transactionData.getSignature()));
+		if (!wasElementRemoved)
+			// Wasn't there - nothing more to do
+			return;
+
+		// Re-sort
+		this.transactions.sort(Transaction.getComparator());
+
+		// Update transaction count
+		this.blockData.setTransactionCount(this.blockData.getTransactionCount() - 1);
+
+		// Update totalFees
+		this.blockData.setTotalFees(this.blockData.getTotalFees().subtract(transactionData.getFee()));
+
+		// We've removed a transaction, so recalculate transactions signature
+		calcTransactionsSignature();
 	}
 
 	/**
@@ -787,7 +828,7 @@ public class Block {
 				// NOTE: in Gen1 there was an extra block height passed to DeployATTransaction.isValid
 				Transaction.ValidationResult validationResult = transaction.isValid();
 				if (validationResult != Transaction.ValidationResult.OK) {
-					LOGGER.error("Error during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
+					LOGGER.debug("Error during transaction validation, tx " + Base58.encode(transaction.getTransactionData().getSignature()) + ": "
 							+ validationResult.name());
 					return ValidationResult.TRANSACTION_INVALID;
 				}

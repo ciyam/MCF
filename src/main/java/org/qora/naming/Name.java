@@ -33,7 +33,7 @@ public class Name {
 	 */
 	public Name(Repository repository, RegisterNameTransactionData registerNameTransactionData) {
 		this.repository = repository;
-		this.nameData = new NameData(registerNameTransactionData.getRegistrantPublicKey(), registerNameTransactionData.getOwner(),
+		this.nameData = new NameData(registerNameTransactionData.getOwner(),
 				registerNameTransactionData.getName(), registerNameTransactionData.getData(), registerNameTransactionData.getTimestamp(),
 				registerNameTransactionData.getSignature());
 	}

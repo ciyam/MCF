@@ -441,7 +441,7 @@ public abstract class Transaction {
 	public ValidationResult isValidUnconfirmed() throws DataException {
 		// Transactions with a timestamp prior to latest block's timestamp are too old
 		BlockData latestBlock = repository.getBlockRepository().getLastBlock();
-		if (this.transactionData.getTimestamp() <= latestBlock.getTimestamp())
+		if (this.getDeadline() <= latestBlock.getTimestamp())
 			return ValidationResult.TIMESTAMP_TOO_OLD;
 
 		// Transactions with a timestamp too far into future are too new
