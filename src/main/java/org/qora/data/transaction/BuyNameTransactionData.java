@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlTransient;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import org.qora.transaction.Transaction.TransactionType;
 
@@ -15,16 +17,28 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public class BuyNameTransactionData extends TransactionData {
 
 	// Properties
+	@Schema(description = "buyer's public key", example = "2tiMr5LTpaWCgbRvkPK8TFd7k63DyHJMMFFsz9uBf1ZP")
 	private byte[] buyerPublicKey;
+	@Schema(description = "which name to buy", example = "my-name")
 	private String name;
+	@Schema(description = "selling price", example = "123.456")
+	@XmlJavaTypeAdapter(
+		type = BigDecimal.class,
+		value = org.qora.api.BigDecimalTypeAdapter.class
+	)
 	private BigDecimal amount;
+	@Schema(description = "seller's address", example = "QgV4s3xnzLhVBEJxcYui4u4q11yhUHsd9v")
 	private String seller;
+	// For internal use when orphaning
+	@XmlTransient
+	@Schema(hidden = true)
 	private byte[] nameReference;
 
 	// Constructors
 
 	// For JAX-RS
 	protected BuyNameTransactionData() {
+		super(TransactionType.BUY_NAME);
 	}
 
 	public BuyNameTransactionData(byte[] buyerPublicKey, String name, BigDecimal amount, String seller, byte[] nameReference, BigDecimal fee, long timestamp,
