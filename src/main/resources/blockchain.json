@@ -230,7 +230,7 @@
 	],
 	"blockTimingsByHeight": [
 		{ "height": 1, "target": 60000, "deviation": 30000, "power": 1.0 },
-		{ "height": 44000, "target": 60000, "deviation": 30000, "power": 0.2 }
+		{ "height": 8500, "target": 60000, "deviation": 30000, "power": 0.2 }
 	],
 	"forgingTiers": [
 		{ "minBlocks": 2500, "maxSubAccounts": 50 },
@@ -240,8 +240,8 @@
 	"featureTriggers": {
 		"messageHeight": 0,
 		"atHeight": 0,
-		"newBlockDistanceHeight": 24400,
-		"newBlockTimingHeight": 44000,
+		"newBlockDistanceHeight": 8500,
+		"newBlockTimingHeight": 8500,
 		"assetsTimestamp": 0,
 		"votingTimestamp": 0,
 		"arbitraryTimestamp": 0,
