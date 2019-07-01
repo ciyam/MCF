@@ -100,6 +100,7 @@ public class Network extends Thread {
 	private ExecutorService peerExecutor;
 	private ExecutorService mergePeersExecutor;
 	private ExecutorService broadcastExecutor;
+	/** Timestamp (ms) for next general info broadcast to all connected peers. Based on <tt>System.currentTimeMillis()</tt> NOT <tt>NTP.getTime()</tt>. */
 	private long nextBroadcast;
 	private Lock mergePeersLock;
 
