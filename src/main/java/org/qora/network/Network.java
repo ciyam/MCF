@@ -335,7 +335,7 @@ public class Network extends Thread {
 			// we last managed to connect over a week ago
 			final long now = NTP.getTime();
 			Predicate<PeerData> isNotOldPeer = peerData -> {
-				if (peerData.getLastAttempted() == null || peerData.getLastAttempted() > now - OLD_PEER_ATTEMPTED_PERIOD)
+				if (peerData.getLastAttempted() == null || peerData.getLastAttempted() < now - OLD_PEER_ATTEMPTED_PERIOD)
 					return true;
 
 				if (peerData.getLastConnected() == null || peerData.getLastConnected() > now - OLD_PEER_CONNECTION_PERIOD)
@@ -345,6 +345,16 @@ public class Network extends Thread {
 			};
 
 			peers.removeIf(isNotOldPeer);
+
+			// Don't consider already connected peers (simple address match)
+			Predicate<PeerData> isConnectedPeer = peerData -> {
+				PeerAddress peerAddress = peerData.getAddress();
+				return this.connectedPeers.stream().anyMatch(peer -> peer.getPeerData().getAddress().equals(peerAddress));
+			};
+
+			synchronized (this.connectedPeers) {
+				peers.removeIf(isConnectedPeer);
+			}
 
 			for (PeerData peerData : peers) {
 				LOGGER.debug(String.format("Deleting old peer %s from repository", peerData.getAddress().toString()));
