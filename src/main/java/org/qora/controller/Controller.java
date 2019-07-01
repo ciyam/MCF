@@ -78,6 +78,7 @@ public class Controller extends Thread {
 		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
 	}
 
+	/** Controller start-up time (ms) taken using <tt>System.currentTimeMillis()</tt>, NOT <tt>NTP.getTime()</tt>. */
 	public static final long startTime = System.currentTimeMillis();
 	public static final String VERSION_PREFIX = "MCF-";
 
@@ -546,10 +547,10 @@ public class Controller extends Thread {
 					ReentrantLock peerLock = connectedPeer.getPeerLock();
 					peerLock.lock();
 					try {
-						peer.setLastHeight(heightV2Message.getHeight());
-						peer.setLastBlockSignature(heightV2Message.getSignature());
-						peer.setLastBlockTimestamp(heightV2Message.getTimestamp());
-						peer.setLastBlockGenerator(heightV2Message.getGenerator());
+						connectedPeer.setLastHeight(heightV2Message.getHeight());
+						connectedPeer.setLastBlockSignature(heightV2Message.getSignature());
+						connectedPeer.setLastBlockTimestamp(heightV2Message.getTimestamp());
+						connectedPeer.setLastBlockGenerator(heightV2Message.getGenerator());
 					} finally {
 						peerLock.unlock();
 					}
