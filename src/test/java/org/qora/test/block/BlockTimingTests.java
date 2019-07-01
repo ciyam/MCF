@@ -76,7 +76,7 @@ public class BlockTimingTests extends Common {
 
 		final long targetBlockTime = blockTiming.target;
 
-		System.out.println(String.format("mean block period: %d", meanTime));
+		System.out.println(String.format("mean block period with only one generator: %d", meanTime));
 
 		assertTrue(Math.abs(meanTime - targetBlockTime) < (targetBlockTime * marginPct / 100));
 	}
@@ -121,7 +121,7 @@ public class BlockTimingTests extends Common {
 
 		final long targetBlockTime = blockTiming.target;
 
-		System.out.println(String.format("mean block period: %d", meanTime));
+		System.out.println(String.format("mean block period with multiple generators: %d", meanTime));
 
 		assertTrue(Math.abs(meanTime - targetBlockTime) < (targetBlockTime * marginPct / 100));
 	}
