@@ -461,9 +461,9 @@ public class Peer extends Thread {
 				PingMessage pingMessage = new PingMessage();
 
 				try {
-					long before = System.currentTimeMillis();
+					final long before = System.currentTimeMillis();
 					Message message = peer.getResponse(pingMessage);
-					long after = System.currentTimeMillis();
+					final long after = System.currentTimeMillis();
 
 					if (message == null || message.getType() != MessageType.PING)
 						peer.disconnect("no ping received");
