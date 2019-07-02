@@ -1,6 +1,7 @@
 package org.qora.network;
 
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -369,10 +370,20 @@ public class Peer extends Thread {
 		} catch (SocketTimeoutException e) {
 			this.disconnect("timeout");
 		} catch (IOException e) {
-			if (isStopping)
+			if (isStopping) {
+				// If isStopping is true then our shutdown() has already been called, so no need to call it again
 				LOGGER.debug(String.format("Peer %s stopping...", this));
-			else
+				return;
+			}
+
+			// More informative logging
+			if (e instanceof EOFException) {
+				this.disconnect("EOF");
+			} else if (e.getMessage().contains("onnection reset")) { // Can't import/rely on sun.net.ConnectionResetException
+				this.disconnect("Connection reset");
+			} else {
 				this.disconnect("I/O error");
+			}
 		} finally {
 			Thread.currentThread().setName("disconnected peer");
 		}
