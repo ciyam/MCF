@@ -335,11 +335,13 @@
 			<artifactId>commons-text</artifactId>
 			<version>1.4</version>
 		</dependency>
+		<!-- No longer needed? Was used by NTP
 		<dependency>
 			<groupId>commons-net</groupId>
 			<artifactId>commons-net</artifactId>
 			<version>3.3</version>
 		</dependency>
+		-->
 		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
