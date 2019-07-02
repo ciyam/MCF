@@ -64,7 +64,7 @@ public class Proof extends Thread {
 		long nonce;
 		for (nonce = 0; nonce < Long.MAX_VALUE; ++nonce) {
 			// Check whether we're shutting down every so often
-			if ((nonce & 0xff) == 0 && Thread.currentThread().isInterrupted())
+			if ((nonce & 0xff) == 0 && (peer.isStopping() || Thread.currentThread().isInterrupted()))
 				// throw new InterruptedException("Interrupted during peer proof calculation");
 				return;
 
