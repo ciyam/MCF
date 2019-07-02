@@ -144,7 +144,7 @@ public class Account {
 		AccountBalanceData accountBalanceData = new AccountBalanceData(this.address, assetId, balance);
 		this.repository.getAccountRepository().save(accountBalanceData);
 
-		LOGGER.trace(this.address + " balance now: " + balance.toPlainString() + " [assetId " + assetId + "]");
+		LOGGER.trace(() -> String.format("%s balance now %s [assetId %s]", this.address, balance.toPlainString(), assetId));
 	}
 
 	public void deleteBalance(long assetId) throws DataException {
@@ -227,7 +227,7 @@ public class Account {
 		accountData.setDefaultGroupId(defaultGroupId);
 		this.repository.getAccountRepository().setDefaultGroupId(accountData);
 
-		LOGGER.trace(String.format("Account %s defaultGroupId now %d", accountData.getAddress(), defaultGroupId));
+		LOGGER.trace(() -> String.format("Account %s defaultGroupId now %d", accountData.getAddress(), defaultGroupId));
 	}
 
 	// Account flags
