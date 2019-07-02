@@ -47,7 +47,6 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
-import org.qora.utils.NTP;
 
 // For managing peers
 public class Network extends Thread {
@@ -100,7 +99,7 @@ public class Network extends Thread {
 	private ExecutorService peerExecutor;
 	private ExecutorService mergePeersExecutor;
 	private ExecutorService broadcastExecutor;
-	/** Timestamp (ms) for next general info broadcast to all connected peers. Based on <tt>System.currentTimeMillis()</tt> NOT <tt>NTP.getTime()</tt>. */
+	/** Timestamp (ms) for next general info broadcast to all connected peers. Based on <tt>System.currentTimeMillis()</tt>. */
 	private long nextBroadcast;
 	private Lock mergePeersLock;
 
@@ -243,7 +242,7 @@ public class Network extends Thread {
 		for (String address : INITIAL_PEERS) {
 			PeerAddress peerAddress = PeerAddress.fromString(address);
 
-			PeerData peerData = new PeerData(peerAddress, NTP.getTime(), "INIT");
+			PeerData peerData = new PeerData(peerAddress, System.currentTimeMillis(), "INIT");
 			repository.getNetworkRepository().save(peerData);
 		}
 
@@ -334,7 +333,7 @@ public class Network extends Thread {
 			// "Old" peers:
 			// we have attempted to connect within the last day
 			// we last managed to connect over a week ago
-			final long now = NTP.getTime();
+			final long now = System.currentTimeMillis();
 			Predicate<PeerData> isNotOldPeer = peerData -> {
 				if (peerData.getLastAttempted() == null || peerData.getLastAttempted() < now - OLD_PEER_ATTEMPTED_PERIOD)
 					return true;
@@ -377,7 +376,7 @@ public class Network extends Thread {
 			List<PeerData> peers = repository.getNetworkRepository().getAllPeers();
 
 			// Don't consider peers with recent connection failures
-			final long lastAttemptedThreshold = NTP.getTime() - CONNECT_FAILURE_BACKOFF;
+			final long lastAttemptedThreshold = System.currentTimeMillis() - CONNECT_FAILURE_BACKOFF;
 			peers.removeIf(peerData -> peerData.getLastAttempted() != null && peerData.getLastAttempted() > lastAttemptedThreshold);
 
 			// Don't consider peers that we know loop back to ourself
@@ -428,7 +427,7 @@ public class Network extends Thread {
 
 			// Update connection attempt info
 			repository.discardChanges();
-			peerData.setLastAttempted(NTP.getTime());
+			peerData.setLastAttempted(System.currentTimeMillis());
 			repository.getNetworkRepository().save(peerData);
 			repository.saveChanges();
 		}
@@ -632,7 +631,7 @@ public class Network extends Thread {
 		LOGGER.debug(String.format("Handshake completed with peer %s", peer));
 
 		// Make a note that we've successfully completed handshake (and when)
-		peer.getPeerData().setLastConnected(NTP.getTime());
+		peer.getPeerData().setLastConnected(System.currentTimeMillis());
 
 		// Update connection info for outbound peers only
 		if (peer.isOutbound())
@@ -675,7 +674,7 @@ public class Network extends Thread {
 			List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
 			// Filter out peers that we've not connected to ever or within X milliseconds
-			final long connectionThreshold = NTP.getTime() - RECENT_CONNECTION_THRESHOLD;
+			final long connectionThreshold = System.currentTimeMillis() - RECENT_CONNECTION_THRESHOLD;
 			Predicate<PeerData> notRecentlyConnected = peerData -> {
 				final Long lastAttempted = peerData.getLastAttempted();
 				final Long lastConnected = peerData.getLastConnected();
@@ -842,14 +841,11 @@ public class Network extends Thread {
 				try {
 					mergePeersLock.lockInterruptibly();
 
-					final long addedWhen = NTP.getTime();
+					final long addedWhen = System.currentTimeMillis();
 
 					try {
 						try (final Repository repository = RepositoryManager.getRepository()) {
 							List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
-
-							for (PeerData peerData : knownPeers)
-								LOGGER.trace(String.format("Known peer %s", peerData.getAddress()));
 
 							// Filter out duplicates
 							Predicate<PeerAddress> isKnownAddress = peerAddress -> {
@@ -969,10 +965,8 @@ public class Network extends Thread {
 		}
 
 		// Close all peer connections
-		synchronized (this.connectedPeers) {
-			for (Peer peer : this.connectedPeers)
-				peer.shutdown();
-		}
+		for (Peer peer : this.getConnectedPeers())
+			peer.shutdown();
 	}
 
 }

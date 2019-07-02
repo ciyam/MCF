@@ -68,7 +68,6 @@ import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.ui.UiService;
 import org.qora.utils.Base58;
-import org.qora.utils.NTP;
 import org.qora.utils.Triple;
 
 public class Controller extends Thread {
@@ -78,7 +77,7 @@ public class Controller extends Thread {
 		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
 	}
 
-	/** Controller start-up time (ms) taken using <tt>System.currentTimeMillis()</tt>, NOT <tt>NTP.getTime()</tt>. */
+	/** Controller start-up time (ms) taken using <tt>System.currentTimeMillis()</tt>. */
 	public static final long startTime = System.currentTimeMillis();
 	public static final String VERSION_PREFIX = "MCF-";
 
@@ -296,7 +295,7 @@ public class Controller extends Thread {
 				}
 
 				// Clean up arbitrary data request cache
-				final long requestMinimumTimestamp = NTP.getTime() - ARBITRARY_REQUEST_TIMEOUT;
+				final long requestMinimumTimestamp = System.currentTimeMillis() - ARBITRARY_REQUEST_TIMEOUT;
 				arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
 			}
 		} catch (InterruptedException e) {
@@ -340,7 +339,7 @@ public class Controller extends Thread {
 
 					// Don't use this peer again for a while
 					PeerData peerData = peer.getPeerData();
-					peerData.setLastMisbehaved(NTP.getTime());
+					peerData.setLastMisbehaved(System.currentTimeMillis());
 
 					// Only save to repository if outbound peer
 					if (peer.isOutbound())
@@ -357,13 +356,13 @@ public class Controller extends Thread {
 				case NO_BLOCKCHAIN_LOCK:
 				case REPOSITORY_ISSUE:
 					// These are minor failure results so fine to try again
-					LOGGER.info(String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
+					LOGGER.debug(() -> String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
 					break;
 
 				case OK:
 					updateSysTray();
 				case NOTHING_TO_DO:
-					LOGGER.debug(String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
+					LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
 					break;
 			}
 
@@ -511,7 +510,7 @@ public class Controller extends Thread {
 	}
 
 	public void onNetworkMessage(Peer peer, Message message) {
-		LOGGER.trace(String.format("Processing %s message from %s", message.getType().name(), peer));
+		LOGGER.trace(() -> String.format("Processing %s message from %s", message.getType().name(), peer));
 
 		switch (message.getType()) {
 			case HEIGHT: {
@@ -625,7 +624,7 @@ public class Controller extends Thread {
 				try (final Repository repository = RepositoryManager.getRepository()) {
 					BlockData blockData = repository.getBlockRepository().fromSignature(signature);
 					if (blockData == null) {
-						LOGGER.debug(String.format("Ignoring GET_BLOCK request from peer %s for unknown block %s", peer, Base58.encode(signature)));
+						LOGGER.debug(() -> String.format("Ignoring GET_BLOCK request from peer %s for unknown block %s", peer, Base58.encode(signature)));
 						// Send no response at all???
 						break;
 					}
@@ -650,7 +649,7 @@ public class Controller extends Thread {
 				try (final Repository repository = RepositoryManager.getRepository()) {
 					TransactionData transactionData = repository.getTransactionRepository().fromSignature(signature);
 					if (transactionData == null) {
-						LOGGER.debug(String.format("Ignoring GET_TRANSACTION request from peer %s for unknown transaction %s", peer, Base58.encode(signature)));
+						LOGGER.debug(() -> String.format("Ignoring GET_TRANSACTION request from peer %s for unknown transaction %s", peer, Base58.encode(signature)));
 						// Send no response at all???
 						break;
 					}
@@ -675,28 +674,28 @@ public class Controller extends Thread {
 
 					// Check signature
 					if (!transaction.isSignatureValid()) {
-						LOGGER.trace(String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+						LOGGER.trace(() -> String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 						break;
 					}
 
 					ValidationResult validationResult = transaction.importAsUnconfirmed();
 
 					if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
-						LOGGER.trace(String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+						LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
 						break;
 					}
 
 					if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
-						LOGGER.trace(String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+						LOGGER.trace(() -> String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
 						break;
 					}
 
 					if (validationResult != ValidationResult.OK) {
-						LOGGER.trace(String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+						LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 						break;
 					}
 
-					LOGGER.debug(String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+					LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 				} catch (DataException e) {
 					LOGGER.error(String.format("Repository issue while processing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer), e);
 				}
@@ -726,7 +725,7 @@ public class Controller extends Thread {
 					for (byte[] signature : signatures) {
 						// Do we have it already? (Before requesting transaction data itself)
 						if (repository.getTransactionRepository().exists(signature)) {
-							LOGGER.trace(String.format("Ignoring existing transaction %s from peer %s", Base58.encode(signature), peer));
+							LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(signature), peer));
 							continue;
 						}
 
@@ -739,7 +738,7 @@ public class Controller extends Thread {
 						Message responseMessage = peer.getResponse(getTransactionMessage);
 						if (responseMessage == null || !(responseMessage instanceof TransactionMessage)) {
 							// Maybe peer no longer has this transaction
-							LOGGER.trace(String.format("Peer %s didn't send transaction %s", peer, Base58.encode(signature)));
+							LOGGER.trace(() -> String.format("Peer %s didn't send transaction %s", peer, Base58.encode(signature)));
 							continue;
 						}
 
@@ -753,29 +752,29 @@ public class Controller extends Thread {
 
 						// Check signature
 						if (!transaction.isSignatureValid()) {
-							LOGGER.trace(String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+							LOGGER.trace(() -> String.format("Ignoring %s transaction %s with invalid signature from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 							continue;
 						}
 
 						ValidationResult validationResult = transaction.importAsUnconfirmed();
 
 						if (validationResult == ValidationResult.TRANSACTION_ALREADY_EXISTS) {
-							LOGGER.trace(String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+							LOGGER.trace(() -> String.format("Ignoring existing transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
 							continue;
 						}
 
 						if (validationResult == ValidationResult.NO_BLOCKCHAIN_LOCK) {
-							LOGGER.trace(String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
+							LOGGER.trace(() -> String.format("Couldn't lock blockchain to import unconfirmed transaction %s from peer %s", Base58.encode(transactionData.getSignature()), peer));
 							// Some other thread (e.g. Synchronizer) might have blockchain lock for a while so might as well give up for now
 							break;
 						}
 
 						if (validationResult != ValidationResult.OK) {
-							LOGGER.trace(String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+							LOGGER.trace(() -> String.format("Ignoring invalid (%s) %s transaction %s from peer %s", validationResult.name(), transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 							continue;
 						}
 
-						LOGGER.debug(String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
+						LOGGER.debug(() -> String.format("Imported %s transaction %s from peer %s", transactionData.getType().name(), Base58.encode(transactionData.getSignature()), peer));
 
 						// We could collate signatures that are new to us and broadcast them to our peers too
 						newSignatures.add(signature);
@@ -832,7 +831,7 @@ public class Controller extends Thread {
 
 				byte[] signature = getArbitraryDataMessage.getSignature();
 				String signature58 = Base58.encode(signature);
-				Long timestamp = NTP.getTime();
+				Long timestamp = System.currentTimeMillis();
 				Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
 
 				// If we've seen this request recently, then ignore
@@ -942,7 +941,7 @@ public class Controller extends Thread {
 
 		// Save our request into requests map
 		String signature58 = Base58.encode(signature);
-		Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
+		Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, System.currentTimeMillis());
 
 		// Assign random ID to this message
 		int id;
@@ -983,7 +982,7 @@ public class Controller extends Thread {
 
 	public static final Predicate<Peer> hasPeerMisbehaved = peer -> {
 		Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
-		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
+		return lastMisbehaved != null && lastMisbehaved > System.currentTimeMillis() - MISBEHAVIOUR_COOLOFF;
 	};
 
 	/** Returns whether we think our node has up-to-date blockchain based on our info about other peers. */
@@ -1021,7 +1020,7 @@ public class Controller extends Thread {
 				offset += blockTiming.target + blockTiming.deviation;
 			}
 
-			return NTP.getTime() - offset;
+			return System.currentTimeMillis() - offset;
 		} catch (DataException e) {
 			LOGGER.error("Repository issue when fetching blockchain height", e);
 			return 0;

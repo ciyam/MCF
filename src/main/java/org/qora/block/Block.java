@@ -42,7 +42,6 @@ import org.qora.transform.Transformer;
 import org.qora.transform.block.BlockTransformer;
 import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.utils.Base58;
-import org.qora.utils.NTP;
 
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
@@ -765,7 +764,7 @@ public class Block {
 			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
 
 		// Check timestamp is not in the future (within configurable ~500ms margin)
-		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
+		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > System.currentTimeMillis())
 			return ValidationResult.TIMESTAMP_IN_FUTURE;
 
 		// Check timestamp is at least minimum based on parent block

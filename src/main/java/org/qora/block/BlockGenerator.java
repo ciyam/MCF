@@ -28,7 +28,6 @@ import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
 import org.qora.transaction.Transaction;
 import org.qora.utils.Base58;
-import org.qora.utils.NTP;
 
 // Forging new blocks
 
@@ -114,7 +113,7 @@ public class BlockGenerator extends Thread {
 				// Too early to generate any new blocks?
 				BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(lastBlockData.getHeight() + 1);
 
-				boolean tooEarlyToForge = NTP.getTime() < lastBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation;
+				boolean tooEarlyToForge = System.currentTimeMillis() < lastBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation;
 				if (newBlocks.isEmpty() && tooEarlyToForge)
 					continue;
 
@@ -131,12 +130,12 @@ public class BlockGenerator extends Thread {
 
 				for (PrivateKeyAccount generator : forgingAccounts) {
 					// Too early for this generator to generate a new block?
-					if (NTP.getTime() < Block.calcMinimumTimestamp(previousBlock.getBlockData(), generator.getPublicKey()))
+					if (System.currentTimeMillis() < Block.calcMinimumTimestamp(previousBlock.getBlockData(), generator.getPublicKey()))
 						continue;
 
 					// First block does the AT heavy-lifting
 					if (newBlocks.isEmpty()) {
-						Block newBlock = new Block(repository, previousBlock.getBlockData(), generator, NTP.getTime());
+						Block newBlock = new Block(repository, previousBlock.getBlockData(), generator, System.currentTimeMillis());
 						newBlocks.add(newBlock);
 					} else {
 						// The blocks for other generators require less effort...
@@ -330,7 +329,7 @@ public class BlockGenerator extends Thread {
 
 		BlockData previousBlockData = repository.getBlockRepository().getLastBlock();
 
-		Block newBlock = new Block(repository, previousBlockData, generator, NTP.getTime());
+		Block newBlock = new Block(repository, previousBlockData, generator, System.currentTimeMillis());
 
 		// Make sure we're the only thread modifying the blockchain
 		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();

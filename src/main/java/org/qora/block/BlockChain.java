@@ -42,7 +42,6 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
-import org.qora.utils.NTP;
 import org.qora.utils.ByteArray;
 import org.qora.utils.StringLongMapXmlAdapter;
 
@@ -447,7 +446,7 @@ public class BlockChain {
 		final long triggerTimestamp = 1560862800_000L; // Tue Jun 18 13:00:00.000 2019 UTC+0000
 
 		// How long to wait? (Minimum 0 seconds)
-		long delay = Math.max(0, triggerTimestamp - NTP.getTime());
+		long delay = Math.max(0, triggerTimestamp - System.currentTimeMillis());
 		LOGGER.info(String.format("Scheduling rollback for CANCEL_ASSET_ORDER bugfix in %d seconds", delay / 1000));
 
 		// If rollback failed - try again after 5 minutes

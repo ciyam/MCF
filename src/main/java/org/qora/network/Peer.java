@@ -1,6 +1,7 @@
 package org.qora.network;
 
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -31,7 +32,6 @@ import org.qora.network.message.Message.MessageType;
 import org.qora.settings.Settings;
 import org.qora.network.message.PingMessage;
 import org.qora.network.message.VersionMessage;
-import org.qora.utils.NTP;
 
 import com.google.common.net.HostAndPort;
 import com.google.common.net.InetAddresses;
@@ -293,7 +293,7 @@ public class Peer extends Thread {
 	private void setup() throws IOException {
 		this.socket.setSoTimeout(SOCKET_TIMEOUT);
 		this.out = this.socket.getOutputStream();
-		this.connectionTimestamp = NTP.getTime();
+		this.connectionTimestamp = System.currentTimeMillis();
 		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
 
 		this.unsolicitedQueue = new ArrayBlockingQueue<>(UNSOLICITED_MESSAGE_QUEUE_CAPACITY);
@@ -344,7 +344,7 @@ public class Peer extends Thread {
 					return;
 				}
 
-				LOGGER.trace(String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
+				LOGGER.trace(() -> String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
 
 				// Find potential blocking queue for this id (expect null if id is -1)
 				BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
@@ -369,10 +369,20 @@ public class Peer extends Thread {
 		} catch (SocketTimeoutException e) {
 			this.disconnect("timeout");
 		} catch (IOException e) {
-			if (isStopping)
+			if (isStopping) {
+				// If isStopping is true then our shutdown() has already been called, so no need to call it again
 				LOGGER.debug(String.format("Peer %s stopping...", this));
-			else
+				return;
+			}
+
+			// More informative logging
+			if (e instanceof EOFException) {
+				this.disconnect("EOF");
+			} else if (e.getMessage().contains("onnection reset")) { // Can't import/rely on sun.net.ConnectionResetException
+				this.disconnect("Connection reset");
+			} else {
 				this.disconnect("I/O error");
+			}
 		} finally {
 			Thread.currentThread().setName("disconnected peer");
 		}
@@ -390,7 +400,7 @@ public class Peer extends Thread {
 
 		try {
 			// Send message
-			LOGGER.trace(String.format("Sending %s message with ID %d to peer %s", message.getType().name(), message.getId(), this));
+			LOGGER.trace(() -> String.format("Sending %s message with ID %d to peer %s", message.getType().name(), message.getId(), this));
 
 			synchronized (this.out) {
 				this.out.write(message.toBytes());

@@ -35,7 +35,6 @@ import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.transform.transaction.TransactionTransformer.Transformation;
 import org.qora.utils.BIP39;
 import org.qora.utils.Base58;
-import org.qora.utils.NTP;
 
 import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
@@ -424,7 +423,7 @@ public class UtilsResource {
 		}
 	)
 	public long getTimestamp() {
-		return NTP.getTime();
+		return System.currentTimeMillis();
 	}
 
 	@GET

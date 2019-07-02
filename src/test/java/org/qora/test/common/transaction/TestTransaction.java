@@ -7,7 +7,6 @@ import org.qora.block.BlockChain;
 import org.qora.data.transaction.BaseTransactionData;
 import org.qora.group.Group;
 import org.qora.repository.DataException;
-import org.qora.utils.NTP;
 
 public abstract class TestTransaction {
 
@@ -18,7 +17,7 @@ public abstract class TestTransaction {
 		if (lastReference == null)
 			lastReference = account.getLastReference();
 
-		return new BaseTransactionData(NTP.getTime(), Group.NO_GROUP, lastReference, account.getPublicKey(), BlockChain.getInstance().getUnitFee(), null);
+		return new BaseTransactionData(System.currentTimeMillis(), Group.NO_GROUP, lastReference, account.getPublicKey(), BlockChain.getInstance().getUnitFee(), null);
 	}
 
 }
