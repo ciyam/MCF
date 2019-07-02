@@ -32,7 +32,6 @@ import org.qora.network.message.Message.MessageType;
 import org.qora.settings.Settings;
 import org.qora.network.message.PingMessage;
 import org.qora.network.message.VersionMessage;
-import org.qora.utils.NTP;
 
 import com.google.common.net.HostAndPort;
 import com.google.common.net.InetAddresses;
@@ -294,7 +293,7 @@ public class Peer extends Thread {
 	private void setup() throws IOException {
 		this.socket.setSoTimeout(SOCKET_TIMEOUT);
 		this.out = this.socket.getOutputStream();
-		this.connectionTimestamp = NTP.getTime();
+		this.connectionTimestamp = System.currentTimeMillis();
 		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
 
 		this.unsolicitedQueue = new ArrayBlockingQueue<>(UNSOLICITED_MESSAGE_QUEUE_CAPACITY);

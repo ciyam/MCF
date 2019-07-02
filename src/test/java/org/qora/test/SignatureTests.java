@@ -10,7 +10,6 @@ import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.test.common.Common;
 import org.qora.utils.Base58;
-import org.qora.utils.NTP;
 
 import static org.junit.Assert.*;
 
@@ -48,7 +47,7 @@ public class SignatureTests extends Common {
 			BigDecimal totalFees = BigDecimal.ZERO.setScale(8);
 			byte[] transactionsSignature = null;
 			int height = 0;
-			long timestamp = NTP.getTime() - 5000;
+			long timestamp = System.currentTimeMillis() - 5000;
 			BigDecimal generatingBalance = BigDecimal.valueOf(10_000_000L).setScale(8);
 			byte[] generatorPublicKey = generator.getPublicKey();
 			byte[] generatorSignature = null;

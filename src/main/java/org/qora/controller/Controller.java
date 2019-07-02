@@ -67,7 +67,6 @@ import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.ui.UiService;
 import org.qora.utils.Base58;
-import org.qora.utils.NTP;
 import org.qora.utils.Triple;
 
 public class Controller extends Thread {
@@ -77,7 +76,7 @@ public class Controller extends Thread {
 		System.setProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager");
 	}
 
-	/** Controller start-up time (ms) taken using <tt>System.currentTimeMillis()</tt>, NOT <tt>NTP.getTime()</tt>. */
+	/** Controller start-up time (ms) taken using <tt>System.currentTimeMillis()</tt>. */
 	public static final long startTime = System.currentTimeMillis();
 	public static final String VERSION_PREFIX = "qora-core-";
 
@@ -295,7 +294,7 @@ public class Controller extends Thread {
 				}
 
 				// Clean up arbitrary data request cache
-				final long requestMinimumTimestamp = NTP.getTime() - ARBITRARY_REQUEST_TIMEOUT;
+				final long requestMinimumTimestamp = System.currentTimeMillis() - ARBITRARY_REQUEST_TIMEOUT;
 				arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
 			}
 		} catch (InterruptedException e) {
@@ -339,7 +338,7 @@ public class Controller extends Thread {
 
 					// Don't use this peer again for a while
 					PeerData peerData = peer.getPeerData();
-					peerData.setLastMisbehaved(NTP.getTime());
+					peerData.setLastMisbehaved(System.currentTimeMillis());
 
 					// Only save to repository if outbound peer
 					if (peer.isOutbound())
@@ -831,7 +830,7 @@ public class Controller extends Thread {
 
 				byte[] signature = getArbitraryDataMessage.getSignature();
 				String signature58 = Base58.encode(signature);
-				Long timestamp = NTP.getTime();
+				Long timestamp = System.currentTimeMillis();
 				Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
 
 				// If we've seen this request recently, then ignore
@@ -941,7 +940,7 @@ public class Controller extends Thread {
 
 		// Save our request into requests map
 		String signature58 = Base58.encode(signature);
-		Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
+		Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, System.currentTimeMillis());
 
 		// Assign random ID to this message
 		int id;
@@ -982,7 +981,7 @@ public class Controller extends Thread {
 
 	public static final Predicate<Peer> hasPeerMisbehaved = peer -> {
 		Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
-		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
+		return lastMisbehaved != null && lastMisbehaved > System.currentTimeMillis() - MISBEHAVIOUR_COOLOFF;
 	};
 
 	/** Returns whether we think our node has up-to-date blockchain based on our info about other peers. */
@@ -1011,7 +1010,7 @@ public class Controller extends Thread {
 	}
 
 	public static long getMinimumLatestBlockTimestamp() {
-		return NTP.getTime() - BlockChain.getInstance().getMaxBlockTime() * 1000L * MAX_BLOCKCHAIN_TIP_AGE;
+		return System.currentTimeMillis() - BlockChain.getInstance().getMaxBlockTime() * 1000L * MAX_BLOCKCHAIN_TIP_AGE;
 	}
 
 }

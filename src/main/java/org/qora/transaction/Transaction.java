@@ -30,7 +30,6 @@ import org.qora.repository.Repository;
 import org.qora.settings.Settings;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
-import org.qora.utils.NTP;
 
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
@@ -518,7 +517,7 @@ public abstract class Transaction {
 			return ValidationResult.TIMESTAMP_TOO_OLD;
 
 		// Transactions with a timestamp too far into future are too new
-		long maxTimestamp = NTP.getTime() + Settings.getInstance().getMaxTransactionTimestampFuture();
+		long maxTimestamp = System.currentTimeMillis() + Settings.getInstance().getMaxTransactionTimestampFuture();
 		if (this.transactionData.getTimestamp() > maxTimestamp)
 			return ValidationResult.TIMESTAMP_TOO_NEW;
 
@@ -738,7 +737,7 @@ public abstract class Transaction {
 		Transaction transaction = Transaction.fromData(repository, transactionData);
 
 		// Check transaction has not expired
-		if (transaction.getDeadline() <= blockTimestamp || transaction.getDeadline() < NTP.getTime())
+		if (transaction.getDeadline() <= blockTimestamp || transaction.getDeadline() < System.currentTimeMillis())
 			return false;
 
 		// Is transaction is past max approval period?

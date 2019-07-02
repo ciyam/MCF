@@ -40,7 +40,6 @@ import org.qora.transform.TransformationException;
 import org.qora.transform.block.BlockTransformer;
 import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.utils.Base58;
-import org.qora.utils.NTP;
 
 import com.google.common.primitives.Bytes;
 
@@ -799,7 +798,7 @@ public class Block {
 			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
 
 		// Check timestamp is not in the future (within configurable ~500ms margin)
-		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
+		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > System.currentTimeMillis())
 			return ValidationResult.TIMESTAMP_IN_FUTURE;
 
 		// Legacy gen1 test: check timestamp milliseconds is the same as parent timestamp milliseconds?
