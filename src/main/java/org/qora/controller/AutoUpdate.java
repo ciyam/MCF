@@ -28,7 +28,6 @@ import org.qora.settings.Settings;
 import org.qora.transaction.ArbitraryTransaction;
 import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transform.Transformer;
-import org.qora.utils.NTP;
 
 import com.google.common.hash.HashCode;
 
@@ -132,7 +131,7 @@ public class AutoUpdate extends Thread {
 				for (String repo : autoUpdateRepos)
 					if (attemptUpdate(commitHash, downloadHash, repo)) {
 						// Consider ourselves updated so don't re-re-re-download
-						buildTimestamp = NTP.getTime();
+						buildTimestamp = System.currentTimeMillis();
 						attemptedUpdate = true;
 						break;
 					}
