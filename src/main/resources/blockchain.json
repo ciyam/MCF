@@ -167,6 +167,7 @@
 		"arbitraryTimestamp": "1405702800000",
 		"powfixTimestamp": "1456426800000",
 		"v2Timestamp": "1559347200000",
-		"newAssetPricingTimestamp": "2000000000000"
+		"newAssetPricingTimestamp": "2000000000000",
+		"groupApprovalTimestamp": "2000000000000"
 	}
 }

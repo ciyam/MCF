@@ -26,7 +26,6 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.transaction.Transaction;
-import org.qora.transaction.Transaction.ApprovalStatus;
 
 public class Synchronizer {
 
@@ -252,6 +251,10 @@ public class Synchronizer {
 							return SynchronizationResult.INVALID_DATA;
 						}
 
+						// Transactions are transmitted without approval status so determine that now
+						for (Transaction transaction : newBlock.getTransactions())
+							transaction.setInitialApprovalStatus();
+
 						ValidationResult blockResult = newBlock.isValid();
 						if (blockResult != ValidationResult.OK) {
 							LOGGER.info(String.format("Peer %s sent invalid block for height %d: %s", peer, ourHeight, blockResult.name()));
@@ -261,14 +264,6 @@ public class Synchronizer {
 						// Save transactions attached to this block
 						for (Transaction transaction : newBlock.getTransactions()) {
 							TransactionData transactionData = transaction.getTransactionData();
-
-							// Fix up approval status
-							if (transaction.needsGroupApproval()) {
-								transactionData.setApprovalStatus(ApprovalStatus.PENDING);
-							} else {
-								transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
-							}
-
 							repository.getTransactionRepository().save(transactionData);
 						}
 
