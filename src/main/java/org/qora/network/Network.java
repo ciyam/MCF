@@ -963,10 +963,8 @@ public class Network extends Thread {
 		}
 
 		// Close all peer connections
-		synchronized (this.connectedPeers) {
-			for (Peer peer : this.connectedPeers)
-				peer.shutdown();
-		}
+		for (Peer peer : this.getConnectedPeers())
+			peer.shutdown();
 	}
 
 }
