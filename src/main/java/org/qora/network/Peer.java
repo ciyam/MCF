@@ -127,6 +127,10 @@ public class Peer extends Thread {
 
 	// Getters / setters
 
+	public boolean isStopping() {
+		return this.isStopping;
+	}
+
 	public PeerData getPeerData() {
 		return this.peerData;
 	}
@@ -500,7 +504,7 @@ public class Peer extends Thread {
 	}
 
 	public void shutdown() {
-		LOGGER.debug(String.format("Shutting down peer %s", this));
+		LOGGER.debug(() -> String.format("Shutting down peer %s", this));
 		this.isStopping = true;
 
 		// Shut down pinger
@@ -525,6 +529,7 @@ public class Peer extends Thread {
 			}
 		}
 
+		LOGGER.debug(() -> String.format("Interrupting peer %s", this));
 		this.interrupt();
 
 		// Close socket, which should trigger run() to exit
