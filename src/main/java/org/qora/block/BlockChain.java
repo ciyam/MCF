@@ -91,7 +91,8 @@ public class BlockChain {
 		arbitraryTimestamp,
 		powfixTimestamp,
 		v2Timestamp,
-		newAssetPricingTimestamp;
+		newAssetPricingTimestamp,
+		groupApprovalTimestamp;
 	}
 
 	/** Map of which blockchain features are enabled when (height/timestamp) */
@@ -319,6 +320,10 @@ public class BlockChain {
 
 	public long getNewAssetPricingTimestamp() {
 		return featureTriggers.get("newAssetPricingTimestamp");
+	}
+
+	public long getGroupApprovalTimestamp() {
+		return featureTriggers.get("groupApprovalTimestamp");
 	}
 
 	// More complex getters for aspects that change by height or timestamp

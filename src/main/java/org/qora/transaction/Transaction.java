@@ -778,6 +778,10 @@ public abstract class Transaction {
 		if (!this.transactionData.getType().needsApproval)
 			return false;
 
+		// Is group-approval even in effect yet?
+		if (this.transactionData.getTimestamp() < BlockChain.getInstance().getGroupApprovalTimestamp())
+			return false;
+
 		int txGroupId = this.transactionData.getTxGroupId();
 
 		if (txGroupId == Group.NO_GROUP)
@@ -795,6 +799,14 @@ public abstract class Transaction {
 			return false;
 
 		return true;
+	}
+
+	public void setInitialApprovalStatus() throws DataException {
+		if (this.needsGroupApproval()) {
+			transactionData.setApprovalStatus(ApprovalStatus.PENDING);
+		} else {
+			transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
+		}
 	}
 
 	public Boolean getApprovalDecision() throws DataException {
@@ -841,16 +853,12 @@ public abstract class Transaction {
 			if (repository.getTransactionRepository().exists(transactionData.getSignature()))
 				return ValidationResult.TRANSACTION_ALREADY_EXISTS;
 
+			// Fix up approval status
+			this.setInitialApprovalStatus();
+
 			ValidationResult validationResult = this.isValidUnconfirmed();
 			if (validationResult != ValidationResult.OK)
 				return validationResult;
-
-			// Fix up approval status
-			if (this.needsGroupApproval()) {
-				transactionData.setApprovalStatus(ApprovalStatus.PENDING);
-			} else {
-				transactionData.setApprovalStatus(ApprovalStatus.NOT_REQUIRED);
-			}
 
 			repository.getTransactionRepository().save(transactionData);
 			repository.getTransactionRepository().unconfirmTransaction(transactionData);
