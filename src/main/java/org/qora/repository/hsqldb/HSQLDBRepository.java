@@ -230,7 +230,7 @@ public class HSQLDBRepository implements Repository {
 	 */
 	public PreparedStatement prepareStatement(String sql) throws SQLException {
 		if (this.debugState)
-			LOGGER.debug(String.format("[%d] %s", this.sessionId, sql));
+			LOGGER.debug(() -> String.format("[%d] %s", this.sessionId, sql));
 
 		if (this.sqlStatements != null)
 			this.sqlStatements.add(sql);

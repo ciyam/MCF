@@ -848,9 +848,6 @@ public class Network extends Thread {
 						try (final Repository repository = RepositoryManager.getRepository()) {
 							List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
-							for (PeerData peerData : knownPeers)
-								LOGGER.trace(String.format("Known peer %s", peerData.getAddress()));
-
 							// Filter out duplicates
 							Predicate<PeerAddress> isKnownAddress = peerAddress -> {
 								return knownPeers.stream().anyMatch(knownPeerData -> knownPeerData.getAddress().equals(peerAddress));

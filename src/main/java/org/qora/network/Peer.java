@@ -345,7 +345,7 @@ public class Peer extends Thread {
 					return;
 				}
 
-				LOGGER.trace(String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
+				LOGGER.trace(() -> String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
 
 				// Find potential blocking queue for this id (expect null if id is -1)
 				BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
@@ -401,7 +401,7 @@ public class Peer extends Thread {
 
 		try {
 			// Send message
-			LOGGER.trace(String.format("Sending %s message with ID %d to peer %s", message.getType().name(), message.getId(), this));
+			LOGGER.trace(() -> String.format("Sending %s message with ID %d to peer %s", message.getType().name(), message.getId(), this));
 
 			synchronized (this.out) {
 				this.out.write(message.toBytes());
