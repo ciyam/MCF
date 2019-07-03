@@ -563,7 +563,7 @@ public class Peer extends Thread {
 		// HostAndPort doesn't try to validate host so we do extra checking here
 		InetAddress address = InetAddresses.forString(hostAndPort.getHost());
 
-		return new InetSocketAddress(address, hostAndPort.getPortOrDefault(Settings.DEFAULT_LISTEN_PORT));
+		return new InetSocketAddress(address, hostAndPort.getPortOrDefault(Settings.getInstance().getDefaultListenPort()));
 	}
 
 	/** Returns true if address is loopback/link-local/site-local, false otherwise. */
