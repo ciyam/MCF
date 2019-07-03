@@ -7,3 +7,4 @@
 # Special instructions for building using testnet-master branch
 
 * git rebase master
+* git push --force-with-lease
