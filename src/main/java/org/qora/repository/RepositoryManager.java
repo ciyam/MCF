@@ -20,4 +20,12 @@ public abstract class RepositoryManager {
 		repositoryFactory = null;
 	}
 
+	public static void backup(boolean quick) {
+		try (final Repository repository = getRepository()) {
+			repository.backup(quick);
+		} catch (DataException e) {
+			// Backup is best-effort so don't complain
+		}
+	}
+
 }

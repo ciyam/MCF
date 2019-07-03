@@ -85,8 +85,9 @@ public class Controller extends Thread {
 	private static final long MISBEHAVIOUR_COOLOFF = 60 * 60 * 1000; // ms
 	private static final int MAX_BLOCKCHAIN_TIP_AGE = 5; // blocks
 	private static final Object shutdownLock = new Object();
-	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true";
+	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true;hsqldb.full_log_replay=true";
 	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000; // ms
+	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000; // ms
 
 	private static volatile boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
@@ -95,6 +96,8 @@ public class Controller extends Thread {
 
 	private final String buildVersion;
 	private final long buildTimestamp; // seconds
+
+	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD;
 
 	/**
 	 * Map of recent requests for ARBITRARY transaction data payloads.
@@ -117,6 +120,8 @@ public class Controller extends Thread {
 
 	/** Lock for only allowing one blockchain-modifying codepath at a time. e.g. synchronization or newly generated block. */
 	private final ReentrantLock blockchainLock = new ReentrantLock();
+
+	// Constructors
 
 	private Controller() {
 		Properties properties = new Properties();
@@ -297,6 +302,12 @@ public class Controller extends Thread {
 				// Clean up arbitrary data request cache
 				final long requestMinimumTimestamp = System.currentTimeMillis() - ARBITRARY_REQUEST_TIMEOUT;
 				arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
+
+				// Give repository a chance to backup
+				if (System.currentTimeMillis() >= repositoryBackupTimestamp) {
+					repositoryBackupTimestamp += REPOSITORY_BACKUP_PERIOD;
+					RepositoryManager.backup(true);
+				}
 			}
 		} catch (InterruptedException e) {
 			// Fall-through to exit
