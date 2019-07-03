@@ -70,7 +70,7 @@ public class PeerAddress {
 		boolean isBracketed = addressString.startsWith("[");
 
 		// Attempt to parse string into host and port
-		HostAndPort hostAndPort = HostAndPort.fromString(addressString).withDefaultPort(Settings.DEFAULT_LISTEN_PORT).requireBracketsForIPv6();
+		HostAndPort hostAndPort = HostAndPort.fromString(addressString).withDefaultPort(Settings.getInstance().getDefaultListenPort()).requireBracketsForIPv6();
 
 		String host = hostAndPort.getHost();
 		if (host.isEmpty())

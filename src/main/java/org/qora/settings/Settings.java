@@ -25,14 +25,14 @@ import org.qora.block.BlockChain;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class Settings {
 
-	public static final int DEFAULT_LISTEN_PORT = 9889;
-	public static final int TESTNET_LISTEN_PORT = 9989;
+	private static final int MAINNET_LISTEN_PORT = 9889;
+	private static final int TESTNET_LISTEN_PORT = 9989;
 
-	public static final int DEFAULT_API_PORT = 9888;
-	public static final int TESTNET_API_PORT = 9988;
+	private static final int MAINNET_API_PORT = 9888;
+	private static final int TESTNET_API_PORT = 9988;
 
-	public static final int DEFAULT_UI_PORT = 9880;
-	public static final int TESTNET_UI_PORT = 9980;
+	private static final int MAINNET_UI_PORT = 9880;
+	private static final int TESTNET_UI_PORT = 9980;
 
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -209,7 +209,7 @@ public class Settings {
 		if (this.uiPort != null)
 			return this.uiPort;
 
-		return this.isTestNet ? TESTNET_UI_PORT : DEFAULT_UI_PORT;
+		return this.isTestNet ? TESTNET_UI_PORT : MAINNET_UI_PORT;
 	}
 
 	public String[] getUiWhitelist() {
@@ -224,7 +224,7 @@ public class Settings {
 		if (this.apiPort != null)
 			return this.apiPort;
 
-		return this.isTestNet ? TESTNET_API_PORT : DEFAULT_API_PORT;
+		return this.isTestNet ? TESTNET_API_PORT : MAINNET_API_PORT;
 	}
 
 	public String[] getApiWhitelist() {
@@ -264,7 +264,11 @@ public class Settings {
 		if (this.listenPort != null)
 			return this.listenPort;
 
-		return this.isTestNet ? TESTNET_LISTEN_PORT : DEFAULT_LISTEN_PORT;
+		return this.isTestNet ? TESTNET_LISTEN_PORT : MAINNET_LISTEN_PORT;
+	}
+
+	public int getDefaultListenPort() {
+		return this.isTestNet ? TESTNET_LISTEN_PORT : MAINNET_LISTEN_PORT;
 	}
 
 	public String getBindAddress() {
