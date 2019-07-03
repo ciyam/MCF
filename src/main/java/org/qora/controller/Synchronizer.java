@@ -43,7 +43,8 @@ public class Synchronizer {
 	private static final int SYNC_BATCH_SIZE = 200;
 
 	private static final List<byte[]> BANNED_BLOCK_SIGNATURES = Arrays.asList(
-		BlockChain.CANCEL_ASSET_ORDER_BLOCK_SIG
+		BlockChain.CANCEL_ASSET_ORDER_BLOCK_SIG,
+		BlockChain.FORKED_BLOCK_44020_SIG
 	);
 
 	private static Synchronizer instance;

@@ -57,6 +57,7 @@ public class BlockChain {
 
 	public static final byte[] CANCEL_ASSET_ORDER_BLOCK_SIG = Base58.decode("DCYjHWLN3S4Ta7EVeGdxoTfAS9sBdp7Ldr2B6cuyXFqZecQbJT6WUP68kd2Xz31REXWPTvmXngWrMb7bFyMpMhkAtokfDr8vWXbmbPXeoTQi7EGfgpGrhVn45zejvG8iJWbKd7c3z8GGFz7yPYL4cU4HnyD6jqJDrAW6XqBi4nW2dWE");
 	public static final byte[] CANCEL_ASSET_ORDER_TX_SIG = Base58.decode("26e21JyKTHcteozWK8sVstSk11fMq2UtULddTg6cBvTwTVRhdLfETsshwShVpDL5dPrzxQuB1xgh72kdQx6VdZyR");
+	public static final byte[] FORKED_BLOCK_44020_SIG = Base58.decode("Q6uAdQTJED73xLv1i6yZBwmmQSycBjmW85HJaCW5QsRdykCXRhNedcNsajwUXmkWYhiSTD4bh5tqUA75T2TKjuvibzNYhBhBk22c5B8e7JJYpcddRDagL6JgoFzCaQAHTDuevxzviF6jdyz59tpdDZ86T6ta8oniseU9wtTEGVpE5yC");
 
 	private static BlockChain instance = null;
 
@@ -406,6 +407,7 @@ public class BlockChain {
 
 		// Potential repairs
 		repairCancelAssetOrderBugfix();
+		repairBlock44019Fork();
 	}
 
 	private static void repairCancelAssetOrderBugfix() throws DataException {
@@ -436,7 +438,7 @@ public class BlockChain {
 						repository.saveChanges();
 					}
 				} catch (DataException e) {
-					LOGGER.warn(String.format("Rolled for CANCEL_ASSET_ORDER bugfix failed - will retry soon"));
+					LOGGER.warn(String.format("Rollback for CANCEL_ASSET_ORDER bugfix failed - will retry soon"));
 				} finally {
 					blockchainLock.unlock();
 				}
@@ -458,6 +460,39 @@ public class BlockChain {
 
 		Timer timer = new Timer("RollbackTimer");
 		timer.schedule(rollbackTask, delay, interval);
+	}
+
+	private static void repairBlock44019Fork() throws DataException {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			final boolean hasForkedBlock44020 = repository.getBlockRepository().getHeightFromSignature(FORKED_BLOCK_44020_SIG) != 0;
+
+			if (!hasForkedBlock44020)
+				return;
+		}
+
+		final int targetBlockHeight = 44019;
+
+		LOGGER.info(String.format("Preparing to rollback before forked block 44020"));
+
+		ReentrantLock blockchainLock = Controller.getInstance().getBlockchainLock();
+		blockchainLock.lock();
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			LOGGER.info(String.format("Rolling back to block %d for forked block 44020 repair", targetBlockHeight));
+
+			for (int height = repository.getBlockRepository().getBlockchainHeight(); height > targetBlockHeight; --height) {
+				BlockData blockData = repository.getBlockRepository().fromHeight(height);
+				Block block = new Block(repository, blockData);
+				block.orphan();
+				repository.saveChanges();
+			}
+		} catch (DataException e) {
+			LOGGER.warn(String.format("Rollback forked block 44020 repair failed - will retry soon"));
+		} finally {
+			blockchainLock.unlock();
+		}
+
+		LOGGER.info(String.format("Rolled back to block %d for forked block 44020 repair", targetBlockHeight));
 	}
 
 	private static boolean isGenesisBlockValid() throws DataException {
