@@ -1,7 +1,13 @@
 package org.qora.repository.hsqldb;
 
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -12,9 +18,12 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -47,7 +56,7 @@ public class HSQLDBRepository implements Repository {
 	protected long sessionId;
 
 	// NB: no visibility modifier so only callable from within same package
-	HSQLDBRepository(Connection connection) throws DataException {
+	/* package */ HSQLDBRepository(Connection connection) throws DataException {
 		this.connection = connection;
 		this.savepoints = new ArrayDeque<>(3);
 
@@ -223,6 +232,118 @@ public class HSQLDBRepository implements Repository {
 	@Override
 	public void setDebug(boolean debugState) {
 		this.debugState = debugState;
+	}
+
+	@Override
+	public void backup(boolean quick) throws DataException {
+		// First perform a CHECKPOINT
+		try {
+			if (quick)
+				this.connection.createStatement().execute("CHECKPOINT");
+			else
+				this.connection.createStatement().execute("CHECKPOINT DEFRAG");
+		} catch (SQLException e) {
+			throw new DataException("Unable to prepare repository for backup");
+		}
+
+		// Clean out any previous backup
+		try {
+			String connectionUrl = this.connection.getMetaData().getURL();
+			String dbPathname = getDbPathname(connectionUrl);
+			if (dbPathname == null)
+				throw new DataException("Unable to locate repository for backup?");
+
+			String backupUrl = buildBackupUrl(dbPathname);
+			String backupPathname = getDbPathname(backupUrl);
+			if (backupPathname == null)
+				throw new DataException("Unable to determine location for repository backup?");
+
+			Path backupDirPath = Paths.get(backupPathname).getParent();
+			String backupDirPathname = backupDirPath.toString();
+
+			Files.walk(backupDirPath)
+					.sorted(Comparator.reverseOrder())
+					.map(Path::toFile)
+					.filter(file -> file.getPath().startsWith(backupDirPathname))
+					.forEach(File::delete);
+		} catch (SQLException | IOException e) {
+			throw new DataException("Unable to remove previous repository backup");
+		}
+
+		// Actually create backup
+		try {
+			this.connection.createStatement().execute("BACKUP DATABASE TO 'backup/' BLOCKING AS FILES");
+		} catch (SQLException e) {
+			throw new DataException("Unable to backup repository");
+		}
+	}
+
+	/** Returns DB pathname from passed connection URL. */
+	private static String getDbPathname(String connectionUrl) {
+		Pattern pattern = Pattern.compile("file:(.*?);");
+		Matcher matcher = pattern.matcher(connectionUrl);
+
+		if (!matcher.find())
+			return null;
+
+		String pathname = matcher.group(1);
+		return pathname;
+	}
+
+	private static String buildBackupUrl(String dbPathname) {
+		Path oldRepoPath = Paths.get(dbPathname);
+		Path oldRepoDirPath = oldRepoPath.getParent();
+		Path oldRepoFilePath = oldRepoPath.getFileName();
+
+		// Try to open backup. We need to remove "create=true" and insert "backup" dir before final filename.
+		String backupUrlTemplate = "jdbc:hsqldb:file:%s/backup/%s;create=false;hsqldb.full_log_replay=true";
+		String backupUrl = String.format(backupUrlTemplate, oldRepoDirPath.toString(), oldRepoFilePath.toString());
+		return backupUrl;
+	}
+
+	/* package */ static void attemptRecovery(String connectionUrl) throws DataException {
+		String dbPathname = getDbPathname(connectionUrl);
+		if (dbPathname == null)
+			throw new DataException("Unable to locate repository for backup?");
+
+		String backupUrl = buildBackupUrl(dbPathname);
+		Path oldRepoDirPath = Paths.get(dbPathname).getParent();
+
+		// Attempt connection to backup to see if it is viable
+		try (Connection connection = DriverManager.getConnection(backupUrl)) {
+			LOGGER.info("Attempting repository recovery using backup");
+
+			// Move old repository files out the way
+			Files.walk(oldRepoDirPath)
+					.sorted(Comparator.reverseOrder())
+					.map(Path::toFile)
+					.filter(file -> file.getPath().startsWith(dbPathname))
+					.forEach(File::delete);
+
+			try {
+				// Now "backup" the backup back to original repository location (the parent)
+				// NOTE: trailing / is OK because HSQLDB checks for both / and O/S-specific separator
+				// textdb.allow_full_path connection property is required to be able to use '..'
+				connection.createStatement().execute("BACKUP DATABASE TO '../' BLOCKING AS FILES");
+			} catch (SQLException e) {
+				// We really failed
+				throw new DataException("Failed to recover repository to original location");
+			}
+
+			// Close backup
+		} catch (SQLException e) {
+			// We really failed
+			throw new DataException("Failed to open repository or perform recovery");
+		} catch (IOException e) {
+			throw new DataException("Failed to delete old repository to perform recovery");
+		}
+
+		// Now attempt to open recovered repository, just to check
+		try (Connection connection = DriverManager.getConnection(connectionUrl)) {
+		} catch (SQLException e) {
+			// We really failed
+			throw new DataException("Failed to open recovered repository");
+		}
 	}
 
 	/**

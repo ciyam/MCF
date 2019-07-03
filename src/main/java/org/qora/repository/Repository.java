@@ -26,9 +26,9 @@ public interface Repository extends AutoCloseable {
 
 	public void discardChanges() throws DataException;
 
-	void setSavepoint() throws DataException;
+	public void setSavepoint() throws DataException;
 
-	void rollbackToSavepoint() throws DataException;
+	public void rollbackToSavepoint() throws DataException;
 
 	@Override
 	public void close() throws DataException;
@@ -38,5 +38,7 @@ public interface Repository extends AutoCloseable {
 	public boolean getDebug();
 
 	public void setDebug(boolean debugState);
+
+	public void backup(boolean quick) throws DataException;
 
 }

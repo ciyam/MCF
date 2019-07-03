@@ -5,6 +5,8 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import org.hsqldb.HsqlException;
+import org.hsqldb.error.ErrorCode;
 import org.hsqldb.jdbc.JDBCPool;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -22,7 +24,16 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		// Check no-one else is accessing database
 		try (Connection connection = DriverManager.getConnection(this.connectionUrl)) {
 		} catch (SQLException e) {
-			throw new DataException("Unable to open repository: " + e.getMessage());
+			Throwable cause = e.getCause();
+			if (cause == null || !(cause instanceof HsqlException))
+				throw new DataException("Unable to open repository: " + e.getMessage());
+
+			HsqlException he = (HsqlException) cause;
+			if (he.getErrorCode() != -ErrorCode.ERROR_IN_LOG_FILE && he.getErrorCode() != -ErrorCode.M_DatabaseScriptReader_read)
+				throw new DataException("Unable to open repository: " + e.getMessage());
+
+			// Attempt recovery?
+			HSQLDBRepository.attemptRecovery(connectionUrl);
 		}
 
 		this.connectionPool = new JDBCPool();
@@ -45,7 +56,7 @@ public class HSQLDBRepositoryFactory implements RepositoryFactory {
 		try {
 			return new HSQLDBRepository(this.getConnection());
 		} catch (SQLException e) {
-			throw new DataException("Repository initialization error", e);
+			throw new DataException("Repository instantiation error", e);
 		}
 	}
 
