@@ -65,10 +65,12 @@ public class ApplyUpdate {
 
 		int attempt;
 		for (attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
-			LOGGER.debug(String.format("Attempt #%d out of %d to shutdown node", attempt + 1, MAX_ATTEMPTS));
+			LOGGER.info(String.format("Attempt #%d out of %d to shutdown node", attempt + 1, MAX_ATTEMPTS));
 			String response = ApiRequest.perform(BASE_URI + "admin/stop", null);
 			if (response == null)
 				break;
+
+			LOGGER.info(String.format("Response from API: %s", response));
 
 			try {
 				Thread.sleep(CHECK_INTERVAL);
@@ -98,12 +100,14 @@ public class ApplyUpdate {
 
 		int attempt;
 		for (attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
-			LOGGER.debug(String.format("Attempt #%d out of %d to replace JAR", attempt + 1, MAX_ATTEMPTS));
+			LOGGER.info(String.format("Attempt #%d out of %d to replace JAR", attempt + 1, MAX_ATTEMPTS));
 
 			try {
 				Files.copy(newJar, realJar, StandardCopyOption.REPLACE_EXISTING);
 				break;
 			} catch (IOException e) {
+				LOGGER.info(String.format("Unable to replace JAR: %s", e.getMessage()));
+
 				// Try again
 			}
 
@@ -119,13 +123,13 @@ public class ApplyUpdate {
 
 	private static void restartNode() {
 		String javaHome = System.getProperty("java.home");
-		LOGGER.debug(String.format("Java home: %s", javaHome));
+		LOGGER.info(String.format("Java home: %s", javaHome));
 
 		Path javaBinary = Paths.get(javaHome, "bin", "java");
-		LOGGER.debug(String.format("Java binary: %s", javaBinary));
+		LOGGER.info(String.format("Java binary: %s", javaBinary));
 
 		Path exeLauncher = Paths.get(WINDOWS_EXE_LAUNCHER);
-		LOGGER.debug(String.format("Windows EXE launcher: %s", exeLauncher));
+		LOGGER.info(String.format("Windows EXE launcher: %s", exeLauncher));
 
 		List<String> javaCmd;
 		if (Files.exists(exeLauncher))
