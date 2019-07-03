@@ -81,7 +81,7 @@ public class Controller extends Thread {
 	public static final String VERSION_PREFIX = "qora-core-";
 
 	private static final Logger LOGGER = LogManager.getLogger(Controller.class);
-	private static final long MISBEHAVIOUR_COOLOFF = 60 * 60 * 1000; // ms
+	private static final long MISBEHAVIOUR_COOLOFF = 10 * 60 * 1000; // ms
 	private static final int MAX_BLOCKCHAIN_TIP_AGE = 5; // blocks
 	private static final Object shutdownLock = new Object();
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true;hsqldb.full_log_replay=true";
