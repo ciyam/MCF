@@ -26,7 +26,13 @@ import org.qora.block.BlockChain;
 public class Settings {
 
 	public static final int DEFAULT_LISTEN_PORT = 9084;
-	public static final int DEFAULT_TESTNET_PORT = 9184;
+	public static final int TESTNET_LISTEN_PORT = 9184;
+
+	public static final int DEFAULT_API_PORT = 9085;
+	public static final int TESTNET_API_PORT = 9185;
+
+	public static final int DEFAULT_UI_PORT = 9080;
+	public static final int TESTNET_UI_PORT = 9180;
 
 	private static final Logger LOGGER = LogManager.getLogger(Settings.class);
 	private static final String SETTINGS_FILENAME = "settings.json";
@@ -39,14 +45,14 @@ public class Settings {
 
 	// Node management UI
 	private boolean uiEnabled = true;
-	private int uiPort = 9080;
+	private Integer uiPort;
 	private String[] uiWhitelist = new String[] {
 		"::1", "127.0.0.1"
 	};
 
 	// API-related
 	private boolean apiEnabled = true;
-	private int apiPort = 9085;
+	private Integer apiPort;
 	private String[] apiWhitelist = new String[] {
 		"::1", "127.0.0.1"
 	};
@@ -197,7 +203,10 @@ public class Settings {
 	}
 
 	public int getUiPort() {
-		return this.uiPort;
+		if (this.uiPort != null)
+			return this.uiPort;
+
+		return this.isTestNet ? TESTNET_UI_PORT : DEFAULT_UI_PORT;
 	}
 
 	public String[] getUiWhitelist() {
@@ -209,7 +218,10 @@ public class Settings {
 	}
 
 	public int getApiPort() {
-		return this.apiPort;
+		if (this.apiPort != null)
+			return this.apiPort;
+
+		return this.isTestNet ? TESTNET_API_PORT : DEFAULT_API_PORT;
 	}
 
 	public String[] getApiWhitelist() {
@@ -249,7 +261,7 @@ public class Settings {
 		if (this.listenPort != null)
 			return this.listenPort;
 
-		return this.isTestNet ? DEFAULT_TESTNET_PORT : DEFAULT_LISTEN_PORT;
+		return this.isTestNet ? TESTNET_LISTEN_PORT : DEFAULT_LISTEN_PORT;
 	}
 
 	public String getBindAddress() {
