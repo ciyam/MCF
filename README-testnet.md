@@ -6,5 +6,5 @@
 
 # Special instructions for building using testnet-master branch
 
-* git rebase master
+* git rebase develop
 * git push --force-with-lease
