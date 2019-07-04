@@ -213,7 +213,7 @@ public class AutoUpdate extends Thread {
 		}
 
 		// Give repository a chance to backup in case things go badly wrong
-		RepositoryManager.backup(false);
+		RepositoryManager.backup(true);
 
 		// Call ApplyUpdate to end this process (unlocking current JAR so it can be replaced)
 		String javaHome = System.getProperty("java.home");
