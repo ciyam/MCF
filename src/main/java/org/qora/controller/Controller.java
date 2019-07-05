@@ -103,6 +103,11 @@ public class Controller extends Thread {
 	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD;
 	private long ntpNagTimestamp = startTime + NTP_NAG_PERIOD;
 
+	/** Signature of peer's latest block when we tried to sync but peer had inferior chain. */
+	private byte[] inferiorChainPeerBlockSignature = null;
+	/** Signature of our latest block when we tried to sync but peer had inferior chain. */
+	private byte[] inferiorChainOurBlockSignature = null;
+
 	/**
 	 * Map of recent requests for ARBITRARY transaction data payloads.
 	 * <p>
@@ -343,10 +348,17 @@ public class Controller extends Thread {
 		// Disregard peers that have no block signature or the same block signature as us
 		peers.removeIf(peer -> peer.getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peer.getLastBlockSignature()));
 
+		// Disregard peer we used last time, if both we and they are still on the same block and we didn't like their chain
+		if (inferiorChainOurBlockSignature != null && Arrays.equals(inferiorChainOurBlockSignature, latestBlockData.getSignature()))
+			peers.removeIf(peer -> Arrays.equals(inferiorChainPeerBlockSignature, peer.getLastBlockSignature()));
+
 		if (!peers.isEmpty()) {
 			// Pick random peer to sync with
 			int index = new SecureRandom().nextInt(peers.size());
 			Peer peer = peers.get(index);
+
+			inferiorChainOurBlockSignature = null;
+			inferiorChainPeerBlockSignature = null;
 
 			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer, false);
 			switch (syncResult) {
@@ -372,8 +384,14 @@ public class Controller extends Thread {
 						}
 					break;
 
-				case NO_REPLY:
 				case INFERIOR_CHAIN:
+					inferiorChainOurBlockSignature = latestBlockData.getSignature();
+					inferiorChainPeerBlockSignature = peer.getLastBlockSignature();
+					// These are minor failure results so fine to try again
+					LOGGER.debug(() -> String.format("Refused to synchronize with peer %s (%s)", peer, syncResult.name()));
+					break;
+
+				case NO_REPLY:
 				case NO_BLOCKCHAIN_LOCK:
 				case REPOSITORY_ISSUE:
 					// These are minor failure results so fine to try again
@@ -382,6 +400,7 @@ public class Controller extends Thread {
 
 				case OK:
 					updateSysTray();
+					// fall-through...
 				case NOTHING_TO_DO:
 					LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
 					break;
