@@ -1,5 +1,6 @@
 package org.qora.controller;
 
+import java.awt.TrayIcon.MessageType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.SecureRandom;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
+import java.util.Scanner;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
@@ -34,6 +36,7 @@ import org.qora.data.block.BlockSummaryData;
 import org.qora.data.network.PeerData;
 import org.qora.data.transaction.ArbitraryTransactionData;
 import org.qora.data.transaction.ArbitraryTransactionData.DataType;
+import org.qora.globalization.Translator;
 import org.qora.data.transaction.TransactionData;
 import org.qora.gui.Gui;
 import org.qora.gui.SysTray;
@@ -88,6 +91,7 @@ public class Controller extends Thread {
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true;hsqldb.full_log_replay=true";
 	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000; // ms
 	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000; // ms
+	private static final long NTP_NAG_PERIOD = 5 * 60 * 1000; // ms
 
 	private static volatile boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
@@ -98,6 +102,7 @@ public class Controller extends Thread {
 	private final long buildTimestamp; // seconds
 
 	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD;
+	private long ntpNagTimestamp = startTime + NTP_NAG_PERIOD;
 
 	/**
 	 * Map of recent requests for ARBITRARY transaction data payloads.
@@ -308,6 +313,12 @@ public class Controller extends Thread {
 					repositoryBackupTimestamp += REPOSITORY_BACKUP_PERIOD;
 					RepositoryManager.backup(true);
 				}
+
+				// Potentially nag end-user about NTP
+				if (System.currentTimeMillis() >= ntpNagTimestamp) {
+					ntpNagTimestamp += NTP_NAG_PERIOD;
+					ntpNag();
+				}
 			}
 		} catch (InterruptedException e) {
 			// Fall-through to exit
@@ -382,6 +393,48 @@ public class Controller extends Thread {
 			if (!Arrays.equals(newLatestBlockData.getSignature(), latestBlockData.getSignature()))
 				Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, newLatestBlockData));
 		}
+	}
+
+	/** Nag Windows users that don't have many/any peers and not using Windows' auto time sync. */
+	private void ntpNag() {
+		// Only for Windows users
+		if (!System.getProperty("os.name").toLowerCase().contains("win"))
+			return;
+
+		// Suffering from lack of peers?
+		final int numberOfPeers = Network.getInstance().getUniqueHandshakedPeers().size();
+		if (numberOfPeers > 0)
+			return;
+
+		// Do we actually know any peers to connect to?
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			final int numberOfKnownPeers = repository.getNetworkRepository().getAllPeers().size();
+			if (numberOfKnownPeers == 0)
+				return;
+		} catch (DataException e) {
+			// Not important
+			return;
+		}
+
+		String[] detectCmd = new String[] { "net", "start" };
+		try {
+			Process process = new ProcessBuilder(Arrays.asList(detectCmd)).start();
+			try (InputStream in = process.getInputStream(); Scanner scanner = new Scanner(in, "UTF8")) {
+				scanner.useDelimiter("\\A");
+				String output = scanner.hasNext() ? scanner.next() : "";
+				boolean isRunning = output.contains("Windows Time");
+				if (isRunning)
+					return;
+			}
+		} catch (IOException e) {
+			// Not important
+			return;
+		}
+
+		// Time to nag
+		String caption = Translator.INSTANCE.translate("SysTray", "NTP_NAG_CAPTION");
+		String text = Translator.INSTANCE.translate("SysTray", "NTP_NAG_TEXT");
+		SysTray.getInstance().showMessage(caption, text, MessageType.INFO);
 	}
 
 	public void updateSysTray() {
