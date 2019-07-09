@@ -12,23 +12,18 @@ public class URLViewer {
 
 	private static final Logger LOGGER = LogManager.getLogger(URLViewer.class);
 
-	public static void openWebpage(URI uri) {
+	public static void openWebpage(URI uri) throws Exception {
 		Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
 
-		if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE)) {
-			try {
-				desktop.browse(uri);
-			} catch (Exception e) {
-				LOGGER.error(e.getMessage(), e);
-			}
-		}
+		if (desktop != null && desktop.isSupported(Desktop.Action.BROWSE))
+			desktop.browse(uri);
 	}
 
-	public static void openWebpage(URL url) {
+	public static void openWebpage(URL url) throws Exception {
 		try {
 			openWebpage(url.toURI());
 		} catch (URISyntaxException e) {
-			LOGGER.error(e.getMessage(), e);
+			LOGGER.error(String.format("Invalid URL: %s", url.toString()));
 		}
 	}
 

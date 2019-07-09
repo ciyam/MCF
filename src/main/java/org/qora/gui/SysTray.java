@@ -7,7 +7,6 @@ import java.awt.SystemTray;
 import java.awt.TrayIcon;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.net.MalformedURLException;
 import java.net.URL;
 
 import javax.swing.SwingWorker;
@@ -15,6 +14,7 @@ import javax.swing.SwingWorker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.qora.controller.Controller;
+import org.qora.globalization.Translator;
 import org.qora.settings.Settings;
 import org.qora.utils.URLViewer;
 
@@ -59,19 +59,19 @@ public class SysTray {
 	private PopupMenu createPopupMenu() {
 		PopupMenu menu = new PopupMenu();
 
-		MenuItem openUi = new MenuItem("Open UI");
+		MenuItem openUi = new MenuItem(Translator.INSTANCE.translate("SysTray", "OPEN_NODE_UI"));
 		openUi.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				try {
 					URLViewer.openWebpage(new URL("http://localhost:" + Settings.getInstance().getUiPort()));
-				} catch (MalformedURLException e1) {
-					LOGGER.error(e1.getMessage(),e1);
+				} catch (Exception e1) {
+					LOGGER.error("Unable to open node UI in browser");
 				}
 			}
 		});
 		menu.add(openUi);
 
-		MenuItem exit = new MenuItem("Exit");
+		MenuItem exit = new MenuItem(Translator.INSTANCE.translate("SysTray", "EXIT"));
 		exit.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				new ClosingWorker().execute();
