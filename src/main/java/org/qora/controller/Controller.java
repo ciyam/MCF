@@ -625,7 +625,7 @@ public class Controller extends Thread {
 						continue;
 
 					// We want to update atomically so use lock
-					ReentrantLock peerLock = connectedPeer.getPeerLock();
+					ReentrantLock peerLock = connectedPeer.getPeerDataLock();
 					peerLock.lock();
 					try {
 						connectedPeer.setLastHeight(heightV2Message.getHeight());

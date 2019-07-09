@@ -1,14 +1,13 @@
 package org.qora.network;
 
-import java.io.DataInputStream;
-import java.io.EOFException;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.net.SocketTimeoutException;
+import java.net.StandardSocketOptions;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.security.SecureRandom;
 import java.util.Collections;
 import java.util.HashMap;
@@ -16,9 +15,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -37,7 +33,7 @@ import com.google.common.net.HostAndPort;
 import com.google.common.net.InetAddresses;
 
 // For managing one peer
-public class Peer extends Thread {
+public class Peer {
 
 	private static final Logger LOGGER = LogManager.getLogger(Peer.class);
 
@@ -50,30 +46,18 @@ public class Peer extends Thread {
 	/**
 	 * Interval between PING messages to a peer. (ms)
 	 * <p>
-	 * Just under every 30s is usually ideal to keep NAT mappings refreshed,<br>
-	 * BUT must be lower than {@link Peer#SOCKET_TIMEOUT}!
+	 * Just under every 30s is usually ideal to keep NAT mappings refreshed.
 	 */
 	private static final int PING_INTERVAL = 8000; // ms
 
-	/** Maximum time a socket <tt>read()</tt> will block before closing connection due to timeout. (ms) */
-	private static final int SOCKET_TIMEOUT = 10000; // ms
-
-	private static final int UNSOLICITED_MESSAGE_QUEUE_CAPACITY = 10;
-
 	private volatile boolean isStopping = false;
 
-	private Socket socket = null;
+	private SocketChannel socketChannel = null;
 	private InetSocketAddress resolvedAddress = null;
 	/** True if remote address is loopback/link-local/site-local, false otherwise. */
 	private boolean isLocal;
-	private OutputStream out;
-
+	private ByteBuffer byteBuffer;
 	private Map<Integer, BlockingQueue<Message>> replyQueues;
-
-	private BlockingQueue<Message> unsolicitedQueue;
-	private ExecutorService messageExecutor;
-
-	private ScheduledExecutorService pingExecutor;
 
 	/** True if we created connection to peer, false if we accepted incoming connection from peer. */
 	private final boolean isOutbound;
@@ -88,20 +72,29 @@ public class Peer extends Thread {
 	private byte[] verificationCodeExpected;
 
 	private PeerData peerData = null;
-	private final ReentrantLock peerLock = new ReentrantLock();
+	private final ReentrantLock peerDataLock = new ReentrantLock();
 
 	/** Timestamp of when socket was accepted, or connected. */
 	private Long connectionTimestamp = null;
+
 	/** Version info as reported by peer. */
 	private VersionMessage versionMessage = null;
+
 	/** Last PING message round-trip time (ms). */
 	private Long lastPing = null;
+	/** When last PING message was sent, or null if pings not started yet. */
+	private Long lastPingSent;
+	private final ReentrantLock pingLock = new ReentrantLock();
+
 	/** Latest block height as reported by peer. */
 	private Integer lastHeight;
+
 	/** Latest block signature as reported by peer. */
 	private byte[] lastBlockSignature;
+
 	/** Latest block timestamp as reported by peer. */
 	private Long lastBlockTimestamp;
+
 	/** Latest block generator public key as reported by peer. */
 	private byte[] lastBlockGenerator;
 
@@ -114,18 +107,23 @@ public class Peer extends Thread {
 	}
 
 	/** Construct Peer using existing, connected socket */
-	public Peer(Socket socket) {
+	public Peer(SocketChannel socketChannel) throws IOException {
 		this.isOutbound = false;
-		this.socket = socket;
+		this.socketChannel = socketChannel;
+		sharedSetup();
 
-		this.resolvedAddress = ((InetSocketAddress) socket.getRemoteSocketAddress());
+		this.resolvedAddress = ((InetSocketAddress) socketChannel.socket().getRemoteSocketAddress());
 		this.isLocal = isAddressLocal(this.resolvedAddress.getAddress());
 
-		PeerAddress peerAddress = PeerAddress.fromSocket(socket);
+		PeerAddress peerAddress = PeerAddress.fromSocket(socketChannel.socket());
 		this.peerData = new PeerData(peerAddress);
 	}
 
 	// Getters / setters
+
+	public SocketChannel getSocketChannel() {
+		return this.socketChannel;
+	}
 
 	public boolean isStopping() {
 		return this.isStopping;
@@ -247,14 +245,13 @@ public class Peer extends Thread {
 	}
 
 	/** Returns the lock used for synchronizing access to peer info. */
-	public ReentrantLock getPeerLock() {
-		return this.peerLock;
+	public ReentrantLock getPeerDataLock() {
+		return this.peerDataLock;
 	}
-
-	// Easier, and nicer output, than peer.getRemoteSocketAddress()
 
 	@Override
 	public String toString() {
+		// Easier, and nicer output, than peer.getRemoteSocketAddress()
 		return this.peerData.getAddress().toString();
 	}
 
@@ -268,152 +265,122 @@ public class Peer extends Thread {
 		new SecureRandom().nextBytes(verificationCodeExpected);
 	}
 
-	class MessageProcessor implements Runnable {
-		private Peer peer;
-		private BlockingQueue<Message> blockingQueue;
-
-		public MessageProcessor(Peer peer, BlockingQueue<Message> blockingQueue) {
-			this.peer = peer;
-			this.blockingQueue = blockingQueue;
-		}
-
-		@Override
-		public void run() {
-			Thread.currentThread().setName("Peer UMP " + this.peer);
-
-			while (true) {
-				try {
-					Message message = blockingQueue.poll(1000L, TimeUnit.MILLISECONDS);
-					if (message != null)
-						Network.getInstance().onMessage(peer, message);
-				} catch (InterruptedException e) {
-					// Shutdown
-					return;
-				}
-			}
-		}
-	}
-
-	private void setup() throws IOException {
-		this.socket.setSoTimeout(SOCKET_TIMEOUT);
-		this.out = this.socket.getOutputStream();
+	private void sharedSetup() throws IOException {
 		this.connectionTimestamp = System.currentTimeMillis();
+		this.socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
+		this.socketChannel.configureBlocking(false);
+		this.byteBuffer = ByteBuffer.allocate(Network.MAXIMUM_MESSAGE_SIZE);
 		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
-
-		this.unsolicitedQueue = new ArrayBlockingQueue<>(UNSOLICITED_MESSAGE_QUEUE_CAPACITY);
-		this.messageExecutor = Executors.newSingleThreadExecutor();
-		this.messageExecutor.execute(new MessageProcessor(this, this.unsolicitedQueue));
 	}
 
-	public boolean connect() {
+	public SocketChannel connect() {
 		LOGGER.trace(String.format("Connecting to peer %s", this));
-		this.socket = new Socket();
 
 		try {
 			this.resolvedAddress = this.peerData.getAddress().toSocketAddress();
 			this.isLocal = isAddressLocal(this.resolvedAddress.getAddress());
 
-			this.socket.connect(resolvedAddress, CONNECT_TIMEOUT);
+			this.socketChannel = SocketChannel.open();
+			this.socketChannel.socket().connect(resolvedAddress, CONNECT_TIMEOUT);
+
 			LOGGER.debug(String.format("Connected to peer %s", this));
+			sharedSetup();
+			return socketChannel;
 		} catch (SocketTimeoutException e) {
 			LOGGER.trace(String.format("Connection timed out to peer %s", this));
-			return false;
+			return null;
 		} catch (UnknownHostException e) {
 			LOGGER.trace(String.format("Connection failed to unresolved peer %s", this));
-			return false;
+			return null;
 		} catch (IOException e) {
 			LOGGER.trace(String.format("Connection failed to peer %s", this));
-			return false;
-		}
-
-		return true;
-	}
-
-	// Main thread
-
-	@Override
-	public void run() {
-		Thread.currentThread().setName("Peer " + this);
-
-		try (DataInputStream in = new DataInputStream(socket.getInputStream())) {
-			setup();
-
-			Network.getInstance().onPeerReady(this);
-
-			while (!isStopping) {
-				// Wait (up to INACTIVITY_TIMEOUT) for, and parse, incoming message
-				Message message = Message.fromStream(in);
-				if (message == null) {
-					this.disconnect("null message");
-					return;
-				}
-
-				LOGGER.trace(() -> String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
-
-				// Find potential blocking queue for this id (expect null if id is -1)
-				BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
-				if (queue != null) {
-					// Adding message to queue will unblock thread waiting for response
-					this.replyQueues.get(message.getId()).add(message);
-				} else {
-					// Nothing waiting for this message (unsolicited) - queue up for network
-
-					// Queue full?
-					if (unsolicitedQueue.remainingCapacity() == 0) {
-						LOGGER.debug(String.format("No room for %s message with ID %s from peer %s", message.getType().name(), message.getId(), this));
-						continue;
-					}
-
-					unsolicitedQueue.add(message);
-				}
-			}
-		} catch (MessageException e) {
-			LOGGER.debug(String.format("%s, from peer %s", e.getMessage(), this));
-			this.disconnect(e.getMessage());
-		} catch (SocketTimeoutException e) {
-			this.disconnect("timeout");
-		} catch (IOException e) {
-			if (isStopping) {
-				// If isStopping is true then our shutdown() has already been called, so no need to call it again
-				LOGGER.debug(String.format("Peer %s stopping...", this));
-				return;
-			}
-
-			// More informative logging
-			if (e instanceof EOFException) {
-				this.disconnect("EOF");
-			} else if (e.getMessage().contains("onnection reset")) { // Can't import/rely on sun.net.ConnectionResetException
-				this.disconnect("Connection reset");
-			} else {
-				this.disconnect("I/O error");
-			}
-		} finally {
-			Thread.currentThread().setName("disconnected peer");
+			return null;
 		}
 	}
 
 	/**
-	 * Attempt to send Message to peer
+	 * Attempt to read Message from peer.
+	 * 
+	 * @return message, or null if no message or there was a problem
+	 * @throws IOException
+	 */
+	public void readMessages() throws IOException {
+		while(true) {
+			Message message;
+
+			synchronized (this) {
+				if (!this.socketChannel.isOpen() || this.socketChannel.socket().isClosed())
+					break;
+
+				int bytesRead = this.socketChannel.read(this.byteBuffer);
+				if (bytesRead == -1) {
+					this.disconnect("EOF");
+					return;
+				}
+
+				LOGGER.trace(() -> String.format("Receiving message from peer %s", this));
+
+				// Can we build a message from buffer now?
+				try {
+					message = Message.fromByteBuffer(this.byteBuffer);
+				} catch (MessageException e) {
+					LOGGER.debug(String.format("%s, from peer %s", e.getMessage(), this));
+					this.disconnect(e.getMessage());
+					return;
+				}
+			}
+
+			if (message == null)
+				return;
+
+			LOGGER.trace(() -> String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
+
+			BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
+			if (queue != null) {
+				// Adding message to queue will unblock thread waiting for response
+				this.replyQueues.get(message.getId()).add(message);
+				// Consumed elsewhere
+				continue;
+			}
+
+			// No thread waiting for message so pass up to network layer
+			Network.getInstance().onMessage(this, message);
+		}
+	}
+
+	/**
+	 * Attempt to send Message to peer.
 	 * 
 	 * @param message
 	 * @return <code>true</code> if message successfully sent; <code>false</code> otherwise
 	 */
 	public boolean sendMessage(Message message) {
-		if (this.socket.isClosed())
+		if (!this.socketChannel.isOpen())
 			return false;
 
 		try {
 			// Send message
 			LOGGER.trace(() -> String.format("Sending %s message with ID %d to peer %s", message.getType().name(), message.getId(), this));
 
-			synchronized (this.out) {
-				this.out.write(message.toBytes());
-				this.out.flush();
+			ByteBuffer outputBuffer = ByteBuffer.wrap(message.toBytes());
+
+			synchronized (this.socketChannel) {
+				while (outputBuffer.hasRemaining()) {
+					int bytesWritten = this.socketChannel.write(outputBuffer);
+
+					if (bytesWritten == 0)
+						// Underlying socket's internal buffer probably full,
+						// so wait a short while for bytes to actually be transmitted over the wire
+						Thread.sleep(1L);
+				}
 			}
 		} catch (MessageException e) {
 			LOGGER.warn(String.format("Failed to send %s message with ID %d to peer %s: %s", message.getType().name(), message.getId(), this, e.getMessage()));
 		} catch (IOException e) {
 			// Send failure
+			return false;
+		} catch (InterruptedException e) {
+			// Likely shutdown scenario - so exit
 			return false;
 		}
 
@@ -461,38 +428,44 @@ public class Peer extends Thread {
 	}
 
 	public void startPings() {
-		class Pinger implements Runnable {
-			private Peer peer;
+		// Replacing initial null value allows pingCheck() to start sending pings.
+		LOGGER.trace(() -> String.format("Enabling pings for peer %s", this));
+		this.lastPingSent = 0L; //System.currentTimeMillis();
+	}
 
-			public Pinger(Peer peer) {
-				this.peer = peer;
+	/* package */ void pingCheck() {
+		LOGGER.trace(() -> String.format("Ping check for peer %s", this));
+
+		if (!this.pingLock.tryLock())
+			return; // Some other thread is already checking ping status for this peer
+
+		try {
+			// Pings not enabled yet?
+			if (this.lastPingSent == null)
+				return;
+
+			final long now = System.currentTimeMillis();
+
+			// Time to send another ping?
+			if (now < this.lastPingSent + PING_INTERVAL)
+				return; // Not yet
+
+			this.lastPingSent = now;
+			PingMessage pingMessage = new PingMessage();
+			Message message = this.getResponse(pingMessage);
+			final long after = System.currentTimeMillis();
+
+			if (message == null || message.getType() != MessageType.PING) {
+				this.disconnect("no ping received");
+				return;
 			}
 
-			@Override
-			public void run() {
-				Thread.currentThread().setName("Pinger " + this.peer);
-
-				PingMessage pingMessage = new PingMessage();
-
-				try {
-					final long before = System.currentTimeMillis();
-					Message message = peer.getResponse(pingMessage);
-					final long after = System.currentTimeMillis();
-
-					if (message == null || message.getType() != MessageType.PING)
-						peer.disconnect("no ping received");
-
-					peer.setLastPing(after - before);
-				} catch (InterruptedException e) {
-					// Shutdown
-				}
-			}
+			this.setLastPing(after - now);
+		} catch (InterruptedException e) {
+			// Shutdown situation
+		} finally {
+			this.pingLock.unlock();
 		}
-
-		Random random = new Random();
-		long initialDelay = random.nextInt(PING_INTERVAL);
-		this.pingExecutor = Executors.newSingleThreadScheduledExecutor();
-		this.pingExecutor.scheduleWithFixedDelay(new Pinger(this), initialDelay, PING_INTERVAL, TimeUnit.MILLISECONDS);
 	}
 
 	public void disconnect(String reason) {
@@ -505,45 +478,13 @@ public class Peer extends Thread {
 
 	public void shutdown() {
 		LOGGER.debug(() -> String.format("Shutting down peer %s", this));
-		this.isStopping = true;
 
-		// Shut down pinger
-		if (this.pingExecutor != null) {
-			this.pingExecutor.shutdownNow();
+		if (this.socketChannel.isOpen()) {
 			try {
-				if (!this.pingExecutor.awaitTermination(1000, TimeUnit.MILLISECONDS))
-					LOGGER.debug(String.format("Pinger for peer %s failed to terminate", this));
-			} catch (InterruptedException e) {
-				LOGGER.debug(String.format("Interrupted while terminating pinger for peer %s", this));
-			}
-		}
-
-		// Shut down unsolicited message processor
-		if (this.messageExecutor != null) {
-			this.messageExecutor.shutdownNow();
-			try {
-				if (!this.messageExecutor.awaitTermination(5000, TimeUnit.MILLISECONDS))
-					LOGGER.debug(String.format("Message processor for peer %s failed to terminate", this));
-			} catch (InterruptedException e) {
-				LOGGER.debug(String.format("Interrupted while terminating message processor for peer %s", this));
-			}
-		}
-
-		LOGGER.debug(() -> String.format("Interrupting peer %s", this));
-		this.interrupt();
-
-		// Close socket, which should trigger run() to exit
-		if (!this.socket.isClosed()) {
-			try {
-				this.socket.close();
+				this.socketChannel.close();
 			} catch (IOException e) {
+				LOGGER.debug(String.format("IOException while trying to close peer %s", this));
 			}
-		}
-
-		try {
-			this.join();
-		} catch (InterruptedException e) {
-			LOGGER.debug(String.format("Interrupted while waiting for peer %s to shutdown", this));
 		}
 	}
 
