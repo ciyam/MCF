@@ -96,7 +96,7 @@ public class Synchronizer {
 					int peerHeight;
 					byte[] peersLastBlockSignature;
 
-					ReentrantLock peerLock = peer.getPeerLock();
+					ReentrantLock peerLock = peer.getPeerDataLock();
 					peerLock.lockInterruptibly();
 					try {
 						peerHeight = peer.getLastHeight();

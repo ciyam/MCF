@@ -11,11 +11,9 @@ import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
 
 import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.SocketTimeoutException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -104,12 +102,12 @@ public abstract class Message {
 			return map.get(value);
 		}
 
-		public Message fromBytes(int id, byte[] data) throws MessageException {
+		public Message fromByteBuffer(int id, ByteBuffer byteBuffer) throws MessageException {
 			if (this.fromByteBuffer == null)
 				throw new MessageException("Unsupported message type [" + value + "] during conversion from bytes");
 
 			try {
-				return (Message) this.fromByteBuffer.invoke(null, id, data == null ? null : ByteBuffer.wrap(data));
+				return (Message) this.fromByteBuffer.invoke(null, id, byteBuffer);
 			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 				if (e.getCause() instanceof BufferUnderflowException)
 					throw new MessageException("Byte data too short for " + name() + " message");
@@ -147,47 +145,65 @@ public abstract class Message {
 		return this.type;
 	}
 
-	public static Message fromStream(DataInputStream in) throws MessageException, IOException {
+	/**
+	 * Attempt to read a message from byte buffer.
+	 * 
+	 * @param byteBuffer
+	 * @return null if no complete message can be read
+	 * @throws MessageException
+	 */
+	public static Message fromByteBuffer(ByteBuffer byteBuffer) throws MessageException {
 		try {
+			byteBuffer.flip();
+
+			ByteBuffer readBuffer = byteBuffer.asReadOnlyBuffer();
+
 			// Read only enough bytes to cover Message "magic" preamble
 			byte[] messageMagic = new byte[MAGIC_LENGTH];
-			in.readFully(messageMagic);
+			readBuffer.get(messageMagic);
 
 			if (!Arrays.equals(messageMagic, Network.getInstance().getMessageMagic()))
 				// Didn't receive correct Message "magic"
 				throw new MessageException("Received incorrect message 'magic'");
 
-			int typeValue = in.readInt();
+			// Find supporting object
+			int typeValue = readBuffer.getInt();
 			MessageType messageType = MessageType.valueOf(typeValue);
 			if (messageType == null)
 				// Unrecognised message type
 				throw new MessageException(String.format("Received unknown message type [%d]", typeValue));
 
-			// Find supporting object
-
-			int hasId = in.read();
+			// Optional message ID
+			byte hasId = readBuffer.get();
 			int id = -1;
 			if (hasId != 0) {
-				id = in.readInt();
+				id = readBuffer.getInt();
 
 				if (id <= 0)
 					// Invalid ID
 					throw new MessageException("Invalid negative ID");
 			}
 
-			int dataSize = in.readInt();
+			int dataSize = readBuffer.getInt();
 
 			if (dataSize > MAX_DATA_SIZE)
 				// Too large
 				throw new MessageException(String.format("Declared data length %d larger than max allowed %d", dataSize, MAX_DATA_SIZE));
 
-			byte[] data = null;
+			ByteBuffer dataSlice = null;
 			if (dataSize > 0) {
 				byte[] expectedChecksum = new byte[CHECKSUM_LENGTH];
-				in.readFully(expectedChecksum);
+				readBuffer.get(expectedChecksum);
 
-				data = new byte[dataSize];
-				in.readFully(data);
+				// Remember this position in readBuffer so we can pass to Message subclass
+				dataSlice = readBuffer.slice();
+
+				// Consume data from buffer
+				byte[] data = new byte[dataSize];
+				readBuffer.get(data);
+
+				// We successfully read all the data bytes, so we can set limit on dataSlice
+				dataSlice.limit(dataSize);
 
 				// Test checksum
 				byte[] actualChecksum = generateChecksum(data);
@@ -195,11 +211,17 @@ public abstract class Message {
 					throw new MessageException("Message checksum incorrect");
 			}
 
-			return messageType.fromBytes(id, data);
-		} catch (SocketTimeoutException e) {
-			throw e;
-		} catch (IOException e) {
-			throw e;
+			Message message = messageType.fromByteBuffer(id, dataSlice);
+
+			// We successfully read a message, so bump byteBuffer's position to reflect this
+			byteBuffer.position(readBuffer.position());
+
+			return message;
+		} catch (BufferUnderflowException e) {
+			// Not enough bytes to fully decode message...
+			return null;
+		} finally {
+			byteBuffer.compact();
 		}
 	}
 
@@ -209,7 +231,7 @@ public abstract class Message {
 
 	public byte[] toBytes() throws MessageException {
 		try {
-			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+			ByteArrayOutputStream bytes = new ByteArrayOutputStream(256);
 
 			// Magic
 			bytes.write(Network.getInstance().getMessageMagic());
