@@ -2,6 +2,7 @@ package org.qora.test;
 
 import org.junit.Test;
 import org.qora.gui.SplashFrame;
+import org.qora.gui.SysTray;
 
 public class GuiTests {
 
@@ -12,6 +13,15 @@ public class GuiTests {
 		Thread.sleep(2000L);
 
 		splashFrame.dispose();
+	}
+
+	@Test
+	public void testSysTray() throws InterruptedException {
+		SysTray.getInstance();
+
+		while(true) {
+			Thread.sleep(2000L);
+		}
 	}
 
 }

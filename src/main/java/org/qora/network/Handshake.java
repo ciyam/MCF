@@ -173,7 +173,8 @@ public enum Handshake {
 
 	private static final Logger LOGGER = LogManager.getLogger(Handshake.class);
 
-	private static final long MAX_TIMESTAMP_DELTA = 2000; // ms
+	/** Maximum allowed difference between peer's reported timestamp and when they connected, in milliseconds. */
+	private static final long MAX_TIMESTAMP_DELTA = 5000; // ms
 
 	public final MessageType expectedMessageType;
 
