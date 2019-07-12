@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -26,6 +27,7 @@ import org.qora.network.message.Message;
 import org.qora.network.message.Message.MessageException;
 import org.qora.network.message.Message.MessageType;
 import org.qora.settings.Settings;
+import org.qora.utils.ExecuteProduceConsume;
 import org.qora.network.message.PingMessage;
 import org.qora.network.message.VersionMessage;
 
@@ -58,6 +60,7 @@ public class Peer {
 	private boolean isLocal;
 	private ByteBuffer byteBuffer;
 	private Map<Integer, BlockingQueue<Message>> replyQueues;
+	private LinkedBlockingQueue<Message> pendingMessages;
 
 	/** True if we created connection to peer, false if we accepted incoming connection from peer. */
 	private final boolean isOutbound;
@@ -84,7 +87,6 @@ public class Peer {
 	private Long lastPing = null;
 	/** When last PING message was sent, or null if pings not started yet. */
 	private Long lastPingSent;
-	private final ReentrantLock pingLock = new ReentrantLock();
 
 	/** Latest block height as reported by peer. */
 	private Integer lastHeight;
@@ -271,6 +273,7 @@ public class Peer {
 		this.socketChannel.configureBlocking(false);
 		this.byteBuffer = ByteBuffer.allocate(Network.MAXIMUM_MESSAGE_SIZE);
 		this.replyQueues = Collections.synchronizedMap(new HashMap<Integer, BlockingQueue<Message>>());
+		this.pendingMessages = new LinkedBlockingQueue<Message>();
 	}
 
 	public SocketChannel connect() {
@@ -299,26 +302,29 @@ public class Peer {
 	}
 
 	/**
-	 * Attempt to read Message from peer.
+	 * Attempt to buffer bytes from socketChannel.
 	 * 
-	 * @return message, or null if no message or there was a problem
 	 * @throws IOException
 	 */
-	public void readMessages() throws IOException {
-		while(true) {
-			Message message;
+	/* package */ void readChannel() throws IOException {
+		synchronized (this.byteBuffer) {
+			if (!this.socketChannel.isOpen() || this.socketChannel.socket().isClosed())
+				return;
 
-			synchronized (this) {
-				if (!this.socketChannel.isOpen() || this.socketChannel.socket().isClosed())
-					break;
+			int bytesRead = this.socketChannel.read(this.byteBuffer);
+			if (bytesRead == -1) {
+				this.disconnect("EOF");
+				return;
+			}
 
-				int bytesRead = this.socketChannel.read(this.byteBuffer);
-				if (bytesRead == -1) {
-					this.disconnect("EOF");
-					return;
-				}
+			if (bytesRead == 0)
+				// No room in buffer, or no more bytes to read
+				return;
 
-				LOGGER.trace(() -> String.format("Receiving message from peer %s", this));
+			LOGGER.trace(() -> String.format("Received %d bytes from peer %s", bytesRead, this));
+
+			while (true) {
+				final Message message;
 
 				// Can we build a message from buffer now?
 				try {
@@ -328,24 +334,39 @@ public class Peer {
 					this.disconnect(e.getMessage());
 					return;
 				}
+
+				if (message == null)
+					return;
+
+				LOGGER.trace(() -> String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
+
+				BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
+				if (queue != null) {
+					// Adding message to queue will unblock thread waiting for response
+					this.replyQueues.get(message.getId()).add(message);
+					// Consumed elsewhere
+					continue;
+				}
+
+				// No thread waiting for message so we need to pass it up to network layer
+
+				// Add message to pending queue
+				if (!this.pendingMessages.offer(message)) {
+					LOGGER.info(String.format("No room to queue message from peer %s - discarding", this));
+					return;
+				}
 			}
-
-			if (message == null)
-				return;
-
-			LOGGER.trace(() -> String.format("Received %s message with ID %d from peer %s", message.getType().name(), message.getId(), this));
-
-			BlockingQueue<Message> queue = this.replyQueues.get(message.getId());
-			if (queue != null) {
-				// Adding message to queue will unblock thread waiting for response
-				this.replyQueues.get(message.getId()).add(message);
-				// Consumed elsewhere
-				continue;
-			}
-
-			// No thread waiting for message so pass up to network layer
-			Network.getInstance().onMessage(this, message);
 		}
+	}
+
+	/* package */ ExecuteProduceConsume.Task getMessageTask() {
+		final Message nextMessage = this.pendingMessages.poll();
+
+		if (nextMessage == null)
+			return null;
+
+		// Return a task to process message in queue
+		return () -> Network.getInstance().onMessage(this, nextMessage);
 	}
 
 	/**
@@ -427,30 +448,27 @@ public class Peer {
 		}
 	}
 
-	public void startPings() {
+	/* package */ void startPings() {
 		// Replacing initial null value allows pingCheck() to start sending pings.
 		LOGGER.trace(() -> String.format("Enabling pings for peer %s", this));
-		this.lastPingSent = 0L; //System.currentTimeMillis();
+		this.lastPingSent = System.currentTimeMillis();
 	}
 
-	/* package */ void pingCheck() {
-		LOGGER.trace(() -> String.format("Ping check for peer %s", this));
+	/* package */ ExecuteProduceConsume.Task getPingTask() {
+		// Pings not enabled yet?
+		if (this.lastPingSent == null)
+			return null;
 
-		if (!this.pingLock.tryLock())
-			return; // Some other thread is already checking ping status for this peer
+		final long now = System.currentTimeMillis();
 
-		try {
-			// Pings not enabled yet?
-			if (this.lastPingSent == null)
-				return;
+		// Time to send another ping?
+		if (now < this.lastPingSent + PING_INTERVAL)
+			return null; // Not yet
 
-			final long now = System.currentTimeMillis();
+		// Not strictly true, but prevents this peer from being immediately chosen again
+		this.lastPingSent = now;
 
-			// Time to send another ping?
-			if (now < this.lastPingSent + PING_INTERVAL)
-				return; // Not yet
-
-			this.lastPingSent = now;
+		return () -> {
 			PingMessage pingMessage = new PingMessage();
 			Message message = this.getResponse(pingMessage);
 			final long after = System.currentTimeMillis();
@@ -461,11 +479,7 @@ public class Peer {
 			}
 
 			this.setLastPing(after - now);
-		} catch (InterruptedException e) {
-			// Shutdown situation
-		} finally {
-			this.pingLock.unlock();
-		}
+		};
 	}
 
 	public void disconnect(String reason) {
