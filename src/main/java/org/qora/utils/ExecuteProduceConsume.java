@@ -74,6 +74,7 @@ public abstract class ExecuteProduceConsume implements Runnable {
 	public void run() {
 		Thread.currentThread().setName(className + "-" + Thread.currentThread().getId());
 
+		boolean wasThreadPending;
 		synchronized (this) {
 			++activeThreadCount;
 			if (activeThreadCount > greatestActiveThreadCount)
@@ -82,7 +83,8 @@ public abstract class ExecuteProduceConsume implements Runnable {
 			logger.trace(() -> String.format("[%d] started, hasThreadPending was: %b, activeThreadCount now: %d",
 					Thread.currentThread().getId(), hasThreadPending, activeThreadCount));
 
-			hasThreadPending = false;
+			// Defer clearing hasThreadPending to prevent unnecessary threads waiting to produce...
+			wasThreadPending = hasThreadPending;
 		}
 
 		try {
@@ -94,6 +96,12 @@ public abstract class ExecuteProduceConsume implements Runnable {
 				logger.trace(() -> String.format("[%d] waiting to produce...", Thread.currentThread().getId()));
 
 				synchronized (this) {
+					if (wasThreadPending) {
+						// Clear thread-pending flag now that we about to produce.
+						hasThreadPending = false;
+						wasThreadPending = false;
+					}
+
 					final boolean lambdaCanIdle = canBlock;
 					logger.trace(() -> String.format("[%d] producing, canBlock is %b...", Thread.currentThread().getId(), lambdaCanIdle));
 					task = produceTask(canBlock);
