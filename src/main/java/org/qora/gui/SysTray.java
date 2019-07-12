@@ -39,6 +39,8 @@ public class SysTray {
 		if (!SystemTray.isSupported())
 			return;
 
+		LOGGER.info("Launching system tray icon");
+
 		this.popupMenu = createJPopupMenu();
 
 		// Build TrayIcon without AWT PopupMenu (which doesn't support Unicode)...
@@ -170,7 +172,7 @@ public class SysTray {
 		}
 	}
 
-	public static SysTray getInstance() {
+	public static synchronized SysTray getInstance() {
 		if (instance == null)
 			instance = new SysTray();
 
