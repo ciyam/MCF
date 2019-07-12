@@ -235,7 +235,7 @@ public class Controller extends Thread {
 		LOGGER.info("Starting controller");
 		Controller.getInstance().start();
 
-		LOGGER.info("Starting networking");
+		LOGGER.info("Starting networking on port " + Settings.getInstance().getListenPort());
 		try {
 			Network network = Network.getInstance();
 			network.start();
@@ -322,6 +322,13 @@ public class Controller extends Thread {
 				if (System.currentTimeMillis() >= ntpNagTimestamp) {
 					ntpNagTimestamp += NTP_NAG_PERIOD;
 					ntpNag();
+				}
+
+				// Prune stuck/slow/old peers
+				try {
+					Network.getInstance().prunePeers();
+				} catch (DataException e) {
+					LOGGER.warn(String.format("Repository issue when trying to prune peers: %s", e.getMessage()));
 				}
 			}
 		} catch (InterruptedException e) {
