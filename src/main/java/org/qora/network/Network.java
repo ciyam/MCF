@@ -4,14 +4,19 @@ import java.io.IOException;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
+import java.net.StandardSocketOptions;
 import java.net.UnknownHostException;
+import java.nio.channels.CancelledKeyException;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -26,6 +31,7 @@ import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.qora.block.Block;
 import org.qora.controller.Controller;
 import org.qora.data.block.BlockData;
 import org.qora.data.network.PeerData;
@@ -47,6 +53,7 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
+import org.qora.utils.ExecuteProduceConsume;
 
 // For managing peers
 public class Network extends Thread {
@@ -65,6 +72,11 @@ public class Network extends Thread {
 	private static final long OLD_PEER_ATTEMPTED_PERIOD = 24 * 60 * 60 * 1000; // ms
 	/** Maximum time since last successful connection before a peer is potentially considered "old", in milliseconds. */
 	private static final long OLD_PEER_CONNECTION_PERIOD = 7 * 24 * 60 * 60 * 1000; // ms
+	/** Maximum time allowed for handshake to complete, in milliseconds. */
+	private static final long HANDSHAKE_TIMEOUT = 60 * 1000; // ms
+
+	/** Maximum message size (bytes). Needs to be at least maximum block size + MAGIC + message type, etc. */
+	/* package */ static final int MAXIMUM_MESSAGE_SIZE = 4 + 1 + 4 + Block.MAX_BLOCK_BYTES;
 
 	private static final byte[] MAINNET_MESSAGE_MAGIC = new byte[] { 0x51, 0x6d, 0x63, 0x66 }; // Qmcf
 	private static final byte[] TESTNET_MESSAGE_MAGIC = new byte[] { 0x54, 0x6d, 0x63, 0x66 }; // Tmcf
@@ -90,17 +102,22 @@ public class Network extends Thread {
 	public static final int PEER_ID_LENGTH = 128;
 
 	private final byte[] ourPeerId;
-	private volatile boolean isStopping = false;
 	private List<Peer> connectedPeers;
 	private List<PeerAddress> selfPeers;
-	private ServerSocket listenSocket;
+
+	private ExecuteProduceConsume networkEPC;
+	private Selector channelSelector;
+	private ServerSocketChannel serverChannel;
+	private Iterator<SelectionKey> channelIterator = null;
+
 	private int minOutboundPeers;
 	private int maxPeers;
-	private ExecutorService peerExecutor;
-	private ExecutorService mergePeersExecutor;
+	private long nextConnectTaskTimestamp;
+
 	private ExecutorService broadcastExecutor;
 	/** Timestamp (ms) for next general info broadcast to all connected peers. Based on <tt>System.currentTimeMillis()</tt>. */
-	private long nextBroadcast;
+	private long nextBroadcastTimestamp;
+
 	private Lock mergePeersLock;
 
 	// Constructors
@@ -114,11 +131,14 @@ public class Network extends Thread {
 			InetAddress bindAddr = InetAddress.getByName(Settings.getInstance().getBindAddress());
 			InetSocketAddress endpoint = new InetSocketAddress(bindAddr, listenPort);
 
+			channelSelector = Selector.open();
+
 			// Set up listen socket
-			listenSocket = new ServerSocket();
-			listenSocket.setReuseAddress(true);
-			listenSocket.setSoTimeout(1); // accept() calls block for at most 1ms
-			listenSocket.bind(endpoint, LISTEN_BACKLOG);
+			serverChannel = ServerSocketChannel.open();
+			serverChannel.configureBlocking(false);
+			serverChannel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+			serverChannel.bind(endpoint, LISTEN_BACKLOG);
+			serverChannel.register(channelSelector, SelectionKey.OP_ACCEPT);
 		} catch (UnknownHostException e) {
 			LOGGER.error("Can't bind listen socket to address " + Settings.getInstance().getBindAddress());
 			throw new RuntimeException("Can't bind listen socket to address");
@@ -136,13 +156,16 @@ public class Network extends Thread {
 		minOutboundPeers = Settings.getInstance().getMinOutboundPeers();
 		maxPeers = Settings.getInstance().getMaxPeers();
 
-		peerExecutor = Executors.newCachedThreadPool();
+		nextConnectTaskTimestamp = System.currentTimeMillis();
 
 		broadcastExecutor = Executors.newCachedThreadPool();
-		nextBroadcast = System.currentTimeMillis();
+		nextBroadcastTimestamp = System.currentTimeMillis();
 
 		mergePeersLock = new ReentrantLock();
-		mergePeersExecutor = Executors.newCachedThreadPool();
+
+		// Start up first networking thread
+		networkEPC = new NetworkProcessor();
+		networkEPC.start();
 	}
 
 	// Getters / setters
@@ -251,89 +274,256 @@ public class Network extends Thread {
 
 	// Main thread
 
-	@Override
-	public void run() {
-		Thread.currentThread().setName("Network");
+	class NetworkProcessor extends ExecuteProduceConsume {
+		@Override
+		protected Task produceTask(boolean canBlock) throws InterruptedException {
+			Task task;
 
-		// Maintain long-term connections to various peers' API applications
-		try {
-			while (!isStopping) {
-				acceptConnections();
+			task = maybeProduceChannelTask(canBlock);
+			if (task != null)
+				return task;
 
-				pruneOldPeers();
+			task = maybeProducePeerMessageTask();
+			if (task != null)
+				return task;
 
-				createConnection();
+			task = maybeProducePeerPingTask();
+			if (task != null)
+				return task;
 
-				if (System.currentTimeMillis() >= this.nextBroadcast) {
-					this.nextBroadcast = System.currentTimeMillis() + BROADCAST_INTERVAL;
+			task = maybeProduceConnectPeerTask();
+			if (task != null)
+				return task;
 
-					// Controller can decide what to broadcast
-					Controller.getInstance().doNetworkBroadcast();
-				}
+			task = maybeProduceBroadcastTask();
+			if (task != null)
+				return task;
 
-				// Sleep for a while
-				Thread.sleep(1000);
-			}
-		} catch (InterruptedException e) {
-			// Fall-through to shutdown
-		} catch (DataException e) {
-			LOGGER.warn("Repository issue while running network", e);
-			// Fall-through to shutdown
+			// Really nothing to do
+			return null;
 		}
-	}
 
-	@SuppressWarnings("resource")
-	private void acceptConnections() throws InterruptedException {
-		Socket socket;
+		class ChannelTask implements ExecuteProduceConsume.Task {
+			private final SelectionKey selectionKey;
 
-		do {
-			try {
-				socket = this.listenSocket.accept();
-			} catch (SocketTimeoutException e) {
-				// No connections to accept
-				return;
-			} catch (IOException e) {
-				// Something went wrong or listen socket was closed due to shutdown
-				return;
+			public ChannelTask(SelectionKey selectionKey) {
+				this.selectionKey = selectionKey;
 			}
 
-			Peer newPeer = null;
-			synchronized (this.connectedPeers) {
-				if (connectedPeers.size() >= maxPeers) {
-					// We have enough peers
-					LOGGER.trace(String.format("Connection discarded from peer %s", socket.getRemoteSocketAddress()));
+			@Override
+			public void perform() throws InterruptedException {
+				try {
+					LOGGER.trace(() -> String.format("Thread %d has pending channel: %s, with ops %d",
+							Thread.currentThread().getId(), selectionKey.channel(), selectionKey.readyOps()));
 
-					try {
-						socket.close();
-					} catch (IOException e) {
-						// Not important
+					// process pending channel task
+					if (selectionKey.isReadable()) {
+						connectionRead((SocketChannel) selectionKey.channel());
+					} else if (selectionKey.isAcceptable()) {
+						acceptConnection((ServerSocketChannel) selectionKey.channel());
 					}
 
+					LOGGER.trace(() -> String.format("Thread %d processed channel: %s", Thread.currentThread().getId(), selectionKey.channel()));
+				} catch (CancelledKeyException e) {
+					LOGGER.trace(() -> String.format("Thread %s encountered cancelled channel: %s", Thread.currentThread().getId(), selectionKey.channel()));
+				}
+			}
+
+			private void connectionRead(SocketChannel socketChannel) {
+				Peer peer = getPeerFromChannel(socketChannel);
+				if (peer == null)
+					return;
+
+				try {
+					peer.readChannel();
+				} catch (IOException e) {
+					if (e.getMessage() != null && e.getMessage().toLowerCase().contains("onnection reset")) {
+						peer.disconnect("Connection reset");
+						return;
+					}
+
+					LOGGER.trace(() -> String.format("Network thread %s encountered I/O error: %s", Thread.currentThread().getId(), e.getMessage()), e);
+					peer.disconnect("I/O error");
 					return;
 				}
 
-				LOGGER.debug(String.format("Connection accepted from peer %s", socket.getRemoteSocketAddress()));
-				newPeer = new Peer(socket);
-				this.connectedPeers.add(newPeer);
+			}
+		}
+
+		private Task maybeProduceChannelTask(boolean canBlock) throws InterruptedException {
+			final SelectionKey nextSelectionKey;
+
+			// anything to do?
+			if (channelIterator == null) {
+				try {
+					if (canBlock)
+						channelSelector.select(1000L);
+					else
+						channelSelector.selectNow();
+				} catch (IOException e) {
+					LOGGER.warn(String.format("Channel selection threw IOException: %s", e.getMessage()));
+					return null;
+				}
+
+				if (Thread.currentThread().isInterrupted())
+					throw new InterruptedException();
+
+				channelIterator = channelSelector.selectedKeys().iterator();
 			}
 
-			try {
-				peerExecutor.execute(newPeer);
-			} catch (RejectedExecutionException e) {
-				// Can't execute - probably because we're shutting down, so ignore
+			if (channelIterator.hasNext()) {
+				nextSelectionKey = channelIterator.next();
+				channelIterator.remove();
+			} else {
+				nextSelectionKey = null;
+				channelIterator = null; // Nothing to do so reset iterator to cause new select
 			}
-		} while (true);
+
+			LOGGER.trace(() -> String.format("Thread %d, nextSelectionKey %s, channelIterator now %s",
+					Thread.currentThread().getId(), nextSelectionKey, channelIterator));
+
+			if (nextSelectionKey == null)
+				return null;
+
+			return new ChannelTask(nextSelectionKey);
+		}
+
+		private Task maybeProducePeerMessageTask() {
+			for (Peer peer : getConnectedPeers()) {
+				Task peerTask = peer.getMessageTask();
+				if (peerTask != null)
+					return peerTask;
+			}
+
+			return null;
+		}
+
+		private Task maybeProducePeerPingTask() {
+			// Ask connected peers whether they need a ping
+			for (Peer peer : getConnectedPeers()) {
+				Task peerTask = peer.getPingTask();
+				if (peerTask != null)
+					return peerTask;
+			}
+
+			return null;
+		}
+
+		class PeerConnectTask implements ExecuteProduceConsume.Task {
+			private final Peer peer;
+
+			public PeerConnectTask(Peer peer) {
+				this.peer = peer;
+			}
+
+			@Override
+			public void perform() throws InterruptedException {
+				connectPeer(peer);
+			}
+		}
+
+		private Task maybeProduceConnectPeerTask() throws InterruptedException {
+			if (getOutboundHandshakedPeers().size() >= minOutboundPeers)
+				return null;
+
+			final long now = System.currentTimeMillis();
+			if (now < nextConnectTaskTimestamp)
+				return null;
+
+			nextConnectTaskTimestamp = now + 1000L;
+
+			Peer targetPeer = getConnectablePeer();
+			if (targetPeer == null)
+				return null;
+
+			// Create connection task
+			return new PeerConnectTask(targetPeer);
+		}
+
+		private Task maybeProduceBroadcastTask() {
+			final long now = System.currentTimeMillis();
+			if (now < nextBroadcastTimestamp)
+				return null;
+
+			nextBroadcastTimestamp = now + BROADCAST_INTERVAL;
+			return () -> Controller.getInstance().doNetworkBroadcast();
+		}
 	}
 
-	private void pruneOldPeers() throws InterruptedException, DataException {
+	private void acceptConnection(ServerSocketChannel serverSocketChannel) throws InterruptedException {
+		SocketChannel socketChannel;
+
+		try {
+			socketChannel = serverSocketChannel.accept();
+		} catch (IOException e) {
+			return;
+		}
+
+		// No connection actually accepted?
+		if (socketChannel == null)
+			return;
+
+		Peer newPeer;
+
+		try {
+			synchronized (this.connectedPeers) {
+				if (connectedPeers.size() >= maxPeers) {
+					// We have enough peers
+					LOGGER.trace(String.format("Connection discarded from peer %s", socketChannel.getRemoteAddress()));
+					return;
+				}
+
+				LOGGER.debug(String.format("Connection accepted from peer %s", socketChannel.getRemoteAddress()));
+
+				newPeer = new Peer(socketChannel);
+				this.connectedPeers.add(newPeer);
+			}
+		} catch (IOException e) {
+			if (socketChannel.isOpen())
+				try {
+					socketChannel.close();
+				} catch (IOException ce) {
+				}
+
+			return;
+		}
+
+		try {
+			socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
+			socketChannel.configureBlocking(false);
+			socketChannel.register(channelSelector, SelectionKey.OP_READ);
+		} catch (IOException e) {
+			// Remove from connected peers
+			synchronized (this.connectedPeers) {
+				this.connectedPeers.remove(newPeer);
+			}
+
+			return;
+		}
+
+		this.onPeerReady(newPeer);
+	}
+
+	public void prunePeers() throws InterruptedException, DataException {
+		final long now = System.currentTimeMillis();
+
+		// Disconnect peers that are stuck during handshake
+		List<Peer> handshakePeers = this.getConnectedPeers();
+
+		// Disregard peers that have completed handshake or only connected recently
+		handshakePeers.removeIf(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED || peer.getConnectionTimestamp() == null || peer.getConnectionTimestamp() > now - HANDSHAKE_TIMEOUT);
+
+		for (Peer peer : handshakePeers)
+			peer.disconnect("handshake timeout");
+
+		// Prune 'old' peers from repository...
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Fetch all known peers
 			List<PeerData> peers = repository.getNetworkRepository().getAllPeers();
 
-			// "Old" peers:
+			// 'Old' peers:
 			// we have attempted to connect within the last day
 			// we last managed to connect over a week ago
-			final long now = System.currentTimeMillis();
 			Predicate<PeerData> isNotOldPeer = peerData -> {
 				if (peerData.getLastAttempted() == null || peerData.getLastAttempted() < now - OLD_PEER_ATTEMPTED_PERIOD)
 					return true;
@@ -344,6 +534,7 @@ public class Network extends Thread {
 				return false;
 			};
 
+			// Disregard peers that are NOT 'old'
 			peers.removeIf(isNotOldPeer);
 
 			// Don't consider already connected peers (simple address match)
@@ -365,12 +556,7 @@ public class Network extends Thread {
 		}
 	}
 
-	private void createConnection() throws InterruptedException, DataException {
-		if (this.getOutboundHandshakedPeers().size() >= minOutboundPeers)
-			return;
-
-		Peer newPeer;
-
+	private Peer getConnectablePeer() throws InterruptedException {
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Find an address to connect to
 			List<PeerData> peers = repository.getNetworkRepository().getAllPeers();
@@ -416,23 +602,31 @@ public class Network extends Thread {
 
 			// Any left?
 			if (peers.isEmpty())
-				return;
+				return null;
 
 			// Pick random peer
 			int peerIndex = new SecureRandom().nextInt(peers.size());
 
 			// Pick candidate
 			PeerData peerData = peers.get(peerIndex);
-			newPeer = new Peer(peerData);
+			Peer newPeer = new Peer(peerData);
 
 			// Update connection attempt info
 			repository.discardChanges();
 			peerData.setLastAttempted(System.currentTimeMillis());
 			repository.getNetworkRepository().save(peerData);
 			repository.saveChanges();
-		}
 
-		if (!newPeer.connect())
+			return newPeer;
+		} catch (DataException e) {
+			LOGGER.warn(String.format("Repository issue while finding a connectable peer: %s", e.getMessage()));
+			return null;
+		}
+	}
+
+	private void connectPeer(Peer newPeer) throws InterruptedException {
+		SocketChannel socketChannel = newPeer.connect();
+		if (socketChannel == null)
 			return;
 
 		if (this.isInterrupted())
@@ -443,10 +637,25 @@ public class Network extends Thread {
 		}
 
 		try {
-			peerExecutor.execute(newPeer);
-		} catch (RejectedExecutionException e) {
-			// Can't execute - probably because we're shutting down, so ignore
+			socketChannel.register(channelSelector, SelectionKey.OP_READ);
+		} catch (ClosedChannelException e) {
+			// If channel has somehow already closed then remove from connectedPeers
+			synchronized (this.connectedPeers) {
+				this.connectedPeers.remove(newPeer);
+			}
 		}
+
+		this.onPeerReady(newPeer);
+	}
+
+	private Peer getPeerFromChannel(SocketChannel socketChannel) {
+		synchronized (this.connectedPeers) {
+			for (Peer peer : this.connectedPeers)
+				if (peer.getSocketChannel() == socketChannel)
+					return peer;
+		}
+
+		return null;
 	}
 
 	// Peer callbacks
@@ -478,7 +687,7 @@ public class Network extends Thread {
 	/** Called when a new message arrives for a peer. message can be null if called after connection */
 	public void onMessage(Peer peer, Message message) {
 		if (message != null)
-			LOGGER.trace(String.format("Received %s message from %s", message.getType().name(), peer));
+			LOGGER.trace(() -> String.format("Processing %s message with ID %d from peer %s", message.getType().name(), message.getId(), peer));
 
 		Handshake handshakeStatus = peer.getHandshakeStatus();
 		if (handshakeStatus != Handshake.COMPLETED) {
@@ -823,63 +1032,38 @@ public class Network extends Thread {
 	// Network-wide calls
 
 	private void mergePeers(String addedBy, List<PeerAddress> peerAddresses) {
-		// This can block (due to lock) so fire off in separate thread
-		class PeersMerger implements Runnable {
-			private String addedBy;
-			private List<PeerAddress> peerAddresses;
+		// Serialize using lock to prevent repository deadlocks
+		if (!mergePeersLock.tryLock())
+			return;
 
-			public PeersMerger(String addedBy, List<PeerAddress> peerAddresses) {
-				this.addedBy = addedBy;
-				this.peerAddresses = peerAddresses;
-			}
-
-			@Override
-			public void run() {
-				Thread.currentThread().setName(String.format("Merging peers from %s", this.addedBy));
-
-				// Serialize using lock to prevent repository deadlocks
-				try {
-					mergePeersLock.lockInterruptibly();
-
-					final long addedWhen = System.currentTimeMillis();
-
-					try {
-						try (final Repository repository = RepositoryManager.getRepository()) {
-							List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
-
-							// Filter out duplicates
-							Predicate<PeerAddress> isKnownAddress = peerAddress -> {
-								return knownPeers.stream().anyMatch(knownPeerData -> knownPeerData.getAddress().equals(peerAddress));
-							};
-
-							peerAddresses.removeIf(isKnownAddress);
-
-							// Save the rest into database
-							for (PeerAddress peerAddress : peerAddresses) {
-								PeerData peerData = new PeerData(peerAddress, addedWhen, addedBy);
-								LOGGER.info(String.format("Adding new peer %s to repository", peerAddress));
-								repository.getNetworkRepository().save(peerData);
-							}
-
-							repository.saveChanges();
-						} catch (DataException e) {
-							LOGGER.error("Repository issue while merging peers list from remote node", e);
-						}
-					} finally {
-						mergePeersLock.unlock();
-					}
-				} catch (InterruptedException e1) {
-					// We're exiting anyway...
-				}
-
-				Thread.currentThread().setName("Merging peers (dormant)");
-			}
-		}
+		final long addedWhen = System.currentTimeMillis();
 
 		try {
-			mergePeersExecutor.execute(new PeersMerger(addedBy, peerAddresses));
-		} catch (RejectedExecutionException e) {
-			// Can't execute - probably because we're shutting down, so ignore
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
+
+				// Filter out duplicates
+				Predicate<PeerAddress> isKnownAddress = peerAddress -> {
+					return knownPeers.stream().anyMatch(knownPeerData -> knownPeerData.getAddress().equals(peerAddress));
+				};
+
+				peerAddresses.removeIf(isKnownAddress);
+
+				repository.discardChanges();
+
+				// Save the rest into database
+				for (PeerAddress peerAddress : peerAddresses) {
+					PeerData peerData = new PeerData(peerAddress, addedWhen, addedBy);
+					LOGGER.info(String.format("Adding new peer %s to repository", peerAddress));
+					repository.getNetworkRepository().save(peerData);
+				}
+
+				repository.saveChanges();
+			} catch (DataException e) {
+				LOGGER.error("Repository issue while merging peers list from remote node", e);
+			}
+		} finally {
+			mergePeersLock.unlock();
 		}
 	}
 
@@ -900,11 +1084,11 @@ public class Network extends Thread {
 				Random random = new Random();
 
 				for (Peer peer : targetPeers) {
-					// Very short sleep to reduce strain, improve multithreading and catch interrupts
+					// Very short sleep to reduce strain, improve multi-threading and catch interrupts
 					try {
 						Thread.sleep(random.nextInt(20) + 20);
 					} catch (InterruptedException e) {
-						return;
+						break;
 					}
 
 					Message message = peerMessageBuilder.apply(peer);
@@ -915,6 +1099,8 @@ public class Network extends Thread {
 					if (!peer.sendMessage(message))
 						peer.disconnect("failed to broadcast message");
 				}
+
+				Thread.currentThread().setName("Network Broadcast (dormant)");
 			}
 		}
 
@@ -928,31 +1114,20 @@ public class Network extends Thread {
 	// Shutdown
 
 	public void shutdown() {
-		this.isStopping = true;
-
 		// Close listen socket to prevent more incoming connections
-		if (!this.listenSocket.isClosed())
+		if (this.serverChannel.isOpen())
 			try {
-				this.listenSocket.close();
+				this.serverChannel.close();
 			} catch (IOException e) {
 				// Not important
 			}
 
-		// Stop our run() thread
-		this.interrupt();
+		// Stop processing threads
 		try {
-			this.join();
+			if (!this.networkEPC.shutdown(5000))
+				LOGGER.debug("Network threads failed to terminate");
 		} catch (InterruptedException e) {
-			LOGGER.debug("Interrupted while waiting for networking thread to terminate");
-		}
-
-		// Give up merging peer lists
-		this.mergePeersExecutor.shutdownNow();
-		try {
-			if (!this.mergePeersExecutor.awaitTermination(1000, TimeUnit.MILLISECONDS))
-				LOGGER.debug("Peer-list merging threads failed to terminate");
-		} catch (InterruptedException e) {
-			LOGGER.debug("Interrupted while waiting for peer-list merging threads failed to terminate");
+			LOGGER.debug("Interrupted while waiting for networking threads to terminate");
 		}
 
 		// Stop broadcasts

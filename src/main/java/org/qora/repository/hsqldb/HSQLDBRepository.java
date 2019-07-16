@@ -238,9 +238,7 @@ public class HSQLDBRepository implements Repository {
 	public void backup(boolean quick) throws DataException {
 		// First perform a CHECKPOINT
 		try {
-			if (quick)
-				this.connection.createStatement().execute("CHECKPOINT");
-			else
+			if (!quick)
 				this.connection.createStatement().execute("CHECKPOINT DEFRAG");
 		} catch (SQLException e) {
 			throw new DataException("Unable to prepare repository for backup");
@@ -272,7 +270,7 @@ public class HSQLDBRepository implements Repository {
 
 		// Actually create backup
 		try {
-			this.connection.createStatement().execute("BACKUP DATABASE TO 'backup/' BLOCKING AS FILES");
+			this.connection.createStatement().execute("BACKUP DATABASE TO 'backup/' NOT BLOCKING AS FILES");
 		} catch (SQLException e) {
 			throw new DataException("Unable to backup repository");
 		}
