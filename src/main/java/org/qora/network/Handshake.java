@@ -101,8 +101,10 @@ public enum Handshake {
 			ProofMessage proofMessage = (ProofMessage) message;
 
 			// Check peer's timestamp is within acceptable bounds
-			if (Math.abs(proofMessage.getTimestamp() - peer.getConnectionTimestamp()) > MAX_TIMESTAMP_DELTA)
+			if (Math.abs(proofMessage.getTimestamp() - peer.getConnectionTimestamp()) > MAX_TIMESTAMP_DELTA) {
+				LOGGER.debug(String.format("Rejecting PROOF from %s as timestamp delta %d greater than max %d", peer, Math.abs(proofMessage.getTimestamp() - peer.getConnectionTimestamp()), MAX_TIMESTAMP_DELTA));
 				return null;
+			}
 
 			// If we connected outbound to peer, then this is a faked confirmation response, so we're good
 			if (peer.isOutbound())
