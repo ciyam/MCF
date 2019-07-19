@@ -9,7 +9,15 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowFocusListener;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
+import java.util.List;
 
 import javax.swing.JDialog;
 import javax.swing.JMenuItem;
@@ -23,11 +31,13 @@ import org.apache.logging.log4j.Logger;
 import org.qora.controller.Controller;
 import org.qora.globalization.Translator;
 import org.qora.settings.Settings;
+import org.qora.ui.UiService;
 import org.qora.utils.URLViewer;
 
 public class SysTray {
 
 	protected static final Logger LOGGER = LogManager.getLogger(SplashFrame.class);
+	private static final String NTP_SCRIPT = "ntpcfg.bat";
 
 	private static SysTray instance;
 	private TrayIcon trayIcon = null;
@@ -145,6 +155,35 @@ public class SysTray {
 		});
 		menu.add(openUi);
 
+		JMenuItem openTimeCheck = new JMenuItem(Translator.INSTANCE.translate("SysTray", "CHECK_TIME_ACCURACY"));
+		openTimeCheck.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				destroyHiddenDialog();
+
+				try {
+					URLViewer.openWebpage(new URL("https://time.is"));
+				} catch (Exception e1) {
+					LOGGER.error("Unable to open time-check website in browser");
+				}
+			}
+		});
+		menu.add(openTimeCheck);
+
+		// Only for Windows users
+		if (System.getProperty("os.name").toLowerCase().contains("win")) {
+			JMenuItem syncTime = new JMenuItem(Translator.INSTANCE.translate("SysTray", "SYNCHRONIZE_CLOCK"));
+			syncTime.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					destroyHiddenDialog();
+
+					new SynchronizeWorker().execute();
+				}
+			});
+			menu.add(syncTime);
+		}
+
 		JMenuItem exit = new JMenuItem(Translator.INSTANCE.translate("SysTray", "EXIT"));
 		exit.addActionListener(new ActionListener() {
 			@Override
@@ -157,6 +196,34 @@ public class SysTray {
 		menu.add(exit);
 
 		return menu;
+	}
+
+	class SynchronizeWorker extends SwingWorker<Void, Void> {
+		@Override
+		protected Void doInBackground() {
+			// Extract reconfiguration script from resources
+			String resourceName = "/" + UiService.DOWNLOADS_RESOURCE_PATH + "/" + NTP_SCRIPT;
+			Path scriptPath = Paths.get(NTP_SCRIPT);
+
+			try (InputStream in = SysTray.class.getResourceAsStream(resourceName)) {
+				Files.copy(in, scriptPath, StandardCopyOption.REPLACE_EXISTING);
+			} catch (IllegalArgumentException | IOException e) {
+				LOGGER.warn(String.format("Couldn't locate NTP configuration resource: %s", resourceName));
+				return null;
+			}
+
+			// Now execute extracted script
+			List<String> scriptCmd = Arrays.asList(NTP_SCRIPT);
+			LOGGER.info(String.format("Running NTP configuration script: %s", String.join(" ", scriptCmd)));
+			try {
+				new ProcessBuilder(scriptCmd).start();
+			} catch (IOException e) {
+				LOGGER.warn(String.format("Failed to execute NTP configuration script: %s", e.getMessage()));
+				return null;
+			}
+
+			return null;
+		}
 	}
 
 	class ClosingWorker extends SwingWorker<Void, Void> {
