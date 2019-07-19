@@ -75,9 +75,9 @@ public class Settings {
 	/** Minimum number of peers to allow block generation / synchronization. */
 	private int minBlockchainPeers = 3;
 	/** Target number of outbound connections to peers we should make. */
-	private int minOutboundPeers = 10;
+	private int minOutboundPeers = 20;
 	/** Maximum number of peer connections we allow. */
-	private int maxPeers = 30;
+	private int maxPeers = 50;
 
 	// Which blockchains this node is running
 	private String blockchainConfig = null; // use default from resources

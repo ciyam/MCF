@@ -13,6 +13,8 @@ import org.qora.settings.Settings;
 
 public class UiService {
 
+	public static final String DOWNLOADS_RESOURCE_PATH = "node-ui-downloads";
+
 	private final Server server;
 
 	public UiService() {
@@ -42,9 +44,17 @@ public class UiService {
 		corsFilterHolder.setInitParameter(CrossOriginFilter.CHAIN_PREFLIGHT_PARAM, "false");
 		context.addFilter(corsFilterHolder, "/*", null);
 
+		ClassLoader loader = this.getClass().getClassLoader();
+
+		// Node management UI download servlet
+		ServletHolder uiDownloadServlet = new ServletHolder("node-ui-download", new DefaultServlet(new DownloadResourceService()));
+		uiDownloadServlet.setInitParameter("resourceBase", loader.getResource(DOWNLOADS_RESOURCE_PATH + "/").toString());
+		uiDownloadServlet.setInitParameter("dirAllowed", "true");
+		uiDownloadServlet.setInitParameter("pathInfoOnly", "true");
+		context.addServlet(uiDownloadServlet, "/downloads/*");
+
 		// Node management UI static content servlet
 		ServletHolder uiServlet = new ServletHolder("node-management-ui", DefaultServlet.class);
-		ClassLoader loader = this.getClass().getClassLoader();
 		uiServlet.setInitParameter("resourceBase", loader.getResource("node-management-ui/").toString());
 		uiServlet.setInitParameter("dirAllowed", "true");
 		uiServlet.setInitParameter("pathInfoOnly", "true");
