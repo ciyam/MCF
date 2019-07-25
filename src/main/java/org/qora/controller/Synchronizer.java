@@ -31,6 +31,7 @@ import org.qora.repository.DataException;
 import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.transaction.Transaction;
+import org.qora.utils.Base58;
 
 public class Synchronizer {
 
@@ -117,10 +118,9 @@ public class Synchronizer {
 					}
 
 					byte[] ourLastBlockSignature = ourLatestBlockData.getSignature();
-					if (peerHeight == ourHeight && (peersLastBlockSignature == null || !Arrays.equals(peersLastBlockSignature, ourLastBlockSignature)))
-						LOGGER.debug(String.format("Synchronizing with peer %s at height %d, our height %d, signatures differ", peer, peerHeight, ourHeight));
-					else
-						LOGGER.debug(String.format("Synchronizing with peer %s at height %d, our height %d", peer, peerHeight, ourHeight));
+					LOGGER.debug(String.format("Synchronizing with peer %s at height %d, sig %.8s, ts %d; our height %d, sig %.8s, ts %d", peer,
+							peerHeight, Base58.encode(peersLastBlockSignature), peer.getLastBlockTimestamp(),
+							ourHeight, Base58.encode(ourLastBlockSignature), ourLatestBlockData.getTimestamp()));
 
 					List<byte[]> signatures = findSignaturesFromCommonBlock(peer, ourHeight);
 					if (signatures == null) {
@@ -135,7 +135,8 @@ public class Synchronizer {
 					// First signature is common block
 					BlockData commonBlockData = this.repository.getBlockRepository().fromSignature(signatures.get(0));
 					final int commonBlockHeight = commonBlockData.getHeight();
-					LOGGER.debug(String.format("Common block with peer %s is at height %d", peer, commonBlockHeight));
+					LOGGER.debug(String.format("Common block with peer %s is at height %d, sig %.8s, ts %d", peer,
+							commonBlockHeight, Base58.encode(commonBlockData.getSignature()), commonBlockData.getTimestamp()));
 					signatures.remove(0);
 
 					// If common block height is higher than peer's last reported height
@@ -187,7 +188,8 @@ public class Synchronizer {
 							List<BlockSummaryData> moreBlockSummaries = this.getBlockSummaries(peer, previousSignature, numberRequired - peerBlockSummaries.size());
 
 							if (moreBlockSummaries == null || moreBlockSummaries.isEmpty()) {
-								LOGGER.info(String.format("Peer %s failed to respond with block summaries after height %d", peer, height));
+								LOGGER.info(String.format("Peer %s failed to respond with block summaries after height %d, sig %.8s", peer,
+										height, Base58.encode(previousSignature)));
 								return SynchronizationResult.NO_REPLY;
 							}
 
@@ -198,7 +200,8 @@ public class Synchronizer {
 								BlockSummaryData blockSummary = moreBlockSummaries.get(i);
 
 								if (blockSummary.getHeight() != height) {
-									LOGGER.info(String.format("Peer %s responded with invalid block summary for height %d", peer, height));
+									LOGGER.info(String.format("Peer %s responded with invalid block summary for height %d, sig %.8s", peer,
+											height, Base58.encode(blockSummary.getSignature())));
 									return SynchronizationResult.NO_REPLY;
 								}
 							}
@@ -258,7 +261,8 @@ public class Synchronizer {
 							signatures = this.getBlockSignatures(peer, signature, numberRequested);
 
 							if (signatures == null || signatures.isEmpty()) {
-								LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d", peer, ourHeight));
+								LOGGER.info(String.format("Peer %s failed to respond with more block signatures after height %d, sig %.8s", peer,
+										ourHeight, Base58.encode(signature)));
 								return SynchronizationResult.NO_REPLY;
 							}
 
@@ -272,19 +276,22 @@ public class Synchronizer {
 						// Is signature in our banned list?
 						for (byte[] bannedSignature : BANNED_BLOCK_SIGNATURES)
 							if (Arrays.equals(signature, bannedSignature)) {
-								LOGGER.info(String.format("Peer %s sent banned block for height %d", peer, ourHeight));
+								LOGGER.info(String.format("Peer %s sent banned block %.8s for height %d", peer,
+										Base58.encode(signature), ourHeight));
 								return SynchronizationResult.INFERIOR_CHAIN;
 							}
 
 						Block newBlock = this.fetchBlock(repository, peer, signature);
 
 						if (newBlock == null) {
-							LOGGER.info(String.format("Peer %s failed to respond with block for height %d", peer, ourHeight));
+							LOGGER.info(String.format("Peer %s failed to respond with block for height %d, sig %.8s", peer,
+									ourHeight, Base58.encode(signature)));
 							return SynchronizationResult.NO_REPLY;
 						}
 
 						if (!newBlock.isSignatureValid()) {
-							LOGGER.info(String.format("Peer %s sent block with invalid signature for height %d", peer, ourHeight));
+							LOGGER.info(String.format("Peer %s sent block with invalid signature for height %d, sig %.8s", peer,
+									ourHeight, Base58.encode(signature)));
 							return SynchronizationResult.INVALID_DATA;
 						}
 
@@ -294,7 +301,8 @@ public class Synchronizer {
 
 						ValidationResult blockResult = newBlock.isValid();
 						if (blockResult != ValidationResult.OK) {
-							LOGGER.info(String.format("Peer %s sent invalid block for height %d: %s", peer, ourHeight, blockResult.name()));
+							LOGGER.info(String.format("Peer %s sent invalid block for height %d, sig %.8s: %s", peer,
+									ourHeight, Base58.encode(signature), blockResult.name()));
 							return SynchronizationResult.INVALID_DATA;
 						}
 
@@ -313,7 +321,11 @@ public class Synchronizer {
 
 					// Commit
 					repository.saveChanges();
-					LOGGER.info(String.format("Synchronized with peer %s to height %d", peer, ourHeight));
+
+					final BlockData newLatestBlockData = this.repository.getBlockRepository().getLastBlock();
+					LOGGER.info(String.format("Synchronized with peer %s to height %d, sig %.8s, ts: %d", peer,
+							newLatestBlockData.getHeight(), Base58.encode(newLatestBlockData.getSignature()),
+							newLatestBlockData.getTimestamp()));
 
 					return SynchronizationResult.OK;
 				} finally {
