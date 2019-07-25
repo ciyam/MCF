@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
@@ -264,6 +265,8 @@ public class HSQLDBRepository implements Repository {
 					.map(Path::toFile)
 					.filter(file -> file.getPath().startsWith(backupDirPathname))
 					.forEach(File::delete);
+		} catch (NoSuchFileException e) {
+			// Nothing to remove
 		} catch (SQLException | IOException e) {
 			throw new DataException("Unable to remove previous repository backup");
 		}

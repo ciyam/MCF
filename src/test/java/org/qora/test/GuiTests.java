@@ -19,9 +19,7 @@ public class GuiTests {
 	public void testSysTray() throws InterruptedException {
 		SysTray.getInstance();
 
-		while(true) {
-			Thread.sleep(2000L);
-		}
+		Thread.sleep(10_000L);
 	}
 
 }
