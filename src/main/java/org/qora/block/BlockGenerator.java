@@ -81,6 +81,15 @@ public class BlockGenerator extends Thread {
 					return;
 				}
 
+				// If Controller says we can't generate, then don't...
+				if (!Controller.getInstance().isGenerationAllowed())
+					continue;
+
+				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();
+				// No forging accounts?
+				if (forgingAccountsData.isEmpty())
+					continue;
+
 				List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
 				BlockData lastBlockData = blockRepository.getLastBlock();
 
@@ -118,11 +127,6 @@ public class BlockGenerator extends Thread {
 					continue;
 
 				// Do we need to build any potential new blocks?
-				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();
-				// No forging accounts?
-				if (forgingAccountsData.isEmpty())
-					continue;
-
 				List<PrivateKeyAccount> forgingAccounts = forgingAccountsData.stream().map(accountData -> new PrivateKeyAccount(repository, accountData.getSeed())).collect(Collectors.toList());
 
 				// Discard accounts we have blocks for

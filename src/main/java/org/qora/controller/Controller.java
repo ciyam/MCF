@@ -92,7 +92,7 @@ public class Controller extends Thread {
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true;hsqldb.full_log_replay=true";
 	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000; // ms
 	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000; // ms
-	private static final long NTP_NAG_PERIOD = 5 * 60 * 1000; // ms
+	private static final long NTP_CHECK_PERIOD = 5 * 60 * 1000; // ms
 	private static final long MAX_NTP_OFFSET = 500; // ms
 
 	private static volatile boolean isStopping = false;
@@ -104,7 +104,9 @@ public class Controller extends Thread {
 	private final long buildTimestamp; // seconds
 
 	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD;
-	private long ntpNagTimestamp = startTime + NTP_NAG_PERIOD;
+	private long ntpCheckTimestamp = startTime; // ms
+	/** Whether BlockGenerator is allowed to generate blocks. Mostly determined by system clock accuracy. */
+	private boolean isGenerationAllowed = false;
 
 	/** Signature of peer's latest block when we tried to sync but peer had inferior chain. */
 	private byte[] inferiorChainPeerBlockSignature = null;
@@ -201,6 +203,10 @@ public class Controller extends Thread {
 
 	public ReentrantLock getBlockchainLock() {
 		return this.blockchainLock;
+	}
+
+	public boolean isGenerationAllowed() {
+		return this.isGenerationAllowed;
 	}
 
 	// Entry point
@@ -322,9 +328,13 @@ public class Controller extends Thread {
 				}
 
 				// Potentially nag end-user about NTP
-				if (System.currentTimeMillis() >= ntpNagTimestamp) {
-					ntpNagTimestamp += NTP_NAG_PERIOD;
-					ntpNag();
+				if (System.currentTimeMillis() >= ntpCheckTimestamp) {
+					ntpCheckTimestamp += NTP_CHECK_PERIOD;
+					Boolean isClockAccurate = ntpCheck();
+					if (isClockAccurate != null) {
+						isGenerationAllowed = isClockAccurate;
+						updateSysTray();
+					}
 				}
 
 				// Prune stuck/slow/old peers
@@ -423,8 +433,12 @@ public class Controller extends Thread {
 		}
 	}
 
-	/** Nag if we detect system clock is too far from internet time. */
-	private void ntpNag() {
+	/**
+	 * Nag if we detect system clock is too far from internet time.
+	 * 
+	 * @return <tt>true</tt> if clock is accurate, <tt>false</tt> if inaccurate, <tt>null</tt> if we don't know.
+	 */
+	private Boolean ntpCheck() {
 		// Fetch mean offset from internet time (ms).
 		Long meanOffset = NTP.getOffset();
 
@@ -460,13 +474,20 @@ public class Controller extends Thread {
 		}
 
 		// If offset is good and ntp is active then we're good
-		if (Math.abs(meanOffset) < MAX_NTP_OFFSET && isNtpActive == true)
-			return;
+		if (meanOffset != null && Math.abs(meanOffset) < MAX_NTP_OFFSET && isNtpActive == true)
+			return true;
 
 		// Time to nag
 		String caption = Translator.INSTANCE.translate("SysTray", "NTP_NAG_CAPTION");
 		String text = Translator.INSTANCE.translate("SysTray", isWindows ? "NTP_NAG_TEXT_WINDOWS" : "NTP_NAG_TEXT_UNIX");
 		SysTray.getInstance().showMessage(caption, text, MessageType.WARNING);
+
+		if (meanOffset == null)
+			// We don't know if we're inaccurate
+			return null;
+
+		// Return whether we're accurate (disregarding whether NTP service is active)
+		return Math.abs(meanOffset) < MAX_NTP_OFFSET;
 	}
 
 	public void updateSysTray() {
@@ -476,7 +497,9 @@ public class Controller extends Thread {
 
 		String connectionsText = Translator.INSTANCE.translate("SysTray", numberOfPeers != 1 ? "CONNECTIONS" : "CONNECTION");
 		String heightText = Translator.INSTANCE.translate("SysTray", "BLOCK_HEIGHT");
-		String tooltip = String.format("MCF - %d %s - %s %d", numberOfPeers, connectionsText, heightText, height);
+		String generatingText = Translator.INSTANCE.translate("SysTray", isGenerationAllowed ? "GENERATING_ENABLED" : "GENERATING_DISABLED");
+
+		String tooltip = String.format("%s - %d %s - %s %d", generatingText, numberOfPeers, connectionsText, heightText, height);
 		SysTray.getInstance().setToolTipText(tooltip);
 	}
 
