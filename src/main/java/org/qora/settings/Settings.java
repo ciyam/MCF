@@ -98,6 +98,20 @@ public class Settings {
 		"https://github.com/ciyam/MCF/raw/%s/MCF-core.update"
 	};
 
+	// NTP sources
+	private String[] ntpServers = new String[] {
+		"pool.ntp.org",
+		"0.pool.ntp.org",
+		"1.pool.ntp.org",
+		"2.pool.ntp.org",
+		"3.pool.ntp.org",
+		"asia.pool.ntp.org",
+		"0.asia.pool.ntp.org",
+		"1.asia.pool.ntp.org",
+		"2.asia.pool.ntp.org",
+		"3.asia.pool.ntp.org"
+	};
+
 	// Constructors
 
 	private Settings() {
@@ -309,6 +323,10 @@ public class Settings {
 
 	public String[] getAutoUpdateRepos() {
 		return this.autoUpdateRepos;
+	}
+
+	public String[] getNtpServers() {
+		return this.ntpServers;
 	}
 
 }
