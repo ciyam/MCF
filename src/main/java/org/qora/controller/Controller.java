@@ -70,6 +70,7 @@ import org.qora.transaction.Transaction.TransactionType;
 import org.qora.transaction.Transaction.ValidationResult;
 import org.qora.ui.UiService;
 import org.qora.utils.Base58;
+import org.qora.utils.NTP;
 import org.qora.utils.Triple;
 
 public class Controller extends Thread {
@@ -91,6 +92,7 @@ public class Controller extends Thread {
 	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000; // ms
 	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000; // ms
 	private static final long NTP_NAG_PERIOD = 5 * 60 * 1000; // ms
+	private static final long MAX_NTP_OFFSET = 500; // ms
 
 	private static volatile boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
@@ -420,46 +422,50 @@ public class Controller extends Thread {
 		}
 	}
 
-	/** Nag Windows users that don't have many/any peers and not using Windows' auto time sync. */
+	/** Nag if we detect system clock is too far from internet time. */
 	private void ntpNag() {
-		// Only for Windows users
-		if (!System.getProperty("os.name").toLowerCase().contains("win"))
-			return;
+		// Fetch mean offset from internet time (ms).
+		Long meanOffset = NTP.getOffset();
 
-		// Suffering from lack of peers?
-		final int numberOfPeers = Network.getInstance().getUniqueHandshakedPeers().size();
-		if (numberOfPeers > 0)
-			return;
+		final boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+		Boolean isNtpActive = null;
+		if (isWindows) {
+			// Detecting Windows Time service
 
-		// Do we actually know any peers to connect to?
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			final int numberOfKnownPeers = repository.getNetworkRepository().getAllPeers().size();
-			if (numberOfKnownPeers == 0)
-				return;
-		} catch (DataException e) {
-			// Not important
-			return;
-		}
-
-		String[] detectCmd = new String[] { "net", "start" };
-		try {
-			Process process = new ProcessBuilder(Arrays.asList(detectCmd)).start();
-			try (InputStream in = process.getInputStream(); Scanner scanner = new Scanner(in, "UTF8")) {
-				scanner.useDelimiter("\\A");
-				String output = scanner.hasNext() ? scanner.next() : "";
-				boolean isRunning = output.contains("Windows Time");
-				if (isRunning)
-					return;
+			String[] detectCmd = new String[] { "net", "start" };
+			try {
+				Process process = new ProcessBuilder(Arrays.asList(detectCmd)).start();
+				try (InputStream in = process.getInputStream(); Scanner scanner = new Scanner(in, "UTF8")) {
+					scanner.useDelimiter("\\A");
+					String output = scanner.hasNext() ? scanner.next() : "";
+					isNtpActive = output.contains("Windows Time");
+				}
+			} catch (IOException e) {
+				// Not important
 			}
-		} catch (IOException e) {
-			// Not important
-			return;
+		} else {
+			// Very basic unix-based attempt to check for ntpd
+			String[] detectCmd = new String[] { "ps", "-agx" };
+			try {
+				Process process = new ProcessBuilder(Arrays.asList(detectCmd)).start();
+				try (InputStream in = process.getInputStream(); Scanner scanner = new Scanner(in, "UTF8")) {
+					scanner.useDelimiter("\\A");
+					String output = scanner.hasNext() ? scanner.next() : "";
+					isNtpActive = output.contains("ntpd");
+				}
+			} catch (IOException e) {
+				// Not important
+			}
 		}
+
+		// If offset is good and ntp is active then we're good
+		if (Math.abs(meanOffset) < MAX_NTP_OFFSET && isNtpActive == true)
+			return;
 
 		// Time to nag
 		String caption = Translator.INSTANCE.translate("SysTray", "NTP_NAG_CAPTION");
-		String text = Translator.INSTANCE.translate("SysTray", "NTP_NAG_TEXT");
-		SysTray.getInstance().showMessage(caption, text, MessageType.INFO);
+		String text = Translator.INSTANCE.translate("SysTray", isWindows ? "NTP_NAG_TEXT_WINDOWS" : "NTP_NAG_TEXT_UNIX");
+		SysTray.getInstance().showMessage(caption, text, MessageType.WARNING);
 	}
 
 	public void updateSysTray() {
@@ -467,7 +473,9 @@ public class Controller extends Thread {
 
 		final int height = getChainHeight();
 
-		String tooltip = String.format("qora-core - %d peer%s - height %d", numberOfPeers, (numberOfPeers != 1 ? "s" : ""), height);
+		String connectionsText = Translator.INSTANCE.translate("SysTray", numberOfPeers != 1 ? "CONNECTIONS" : "CONNECTION");
+		String heightText = Translator.INSTANCE.translate("SysTray", "BLOCK_HEIGHT");
+		String tooltip = String.format("qora-core - %d %s - %s %d", numberOfPeers, connectionsText, heightText, height);
 		SysTray.getInstance().setToolTipText(tooltip);
 	}
 
