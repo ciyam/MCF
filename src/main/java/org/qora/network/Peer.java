@@ -483,7 +483,8 @@ public class Peer {
 	}
 
 	public void disconnect(String reason) {
-		LOGGER.debug(String.format("Disconnecting peer %s: %s", this, reason));
+		if (!isStopping)
+			LOGGER.debug(() -> String.format("Disconnecting peer %s: %s", this, reason));
 
 		this.shutdown();
 
@@ -491,7 +492,10 @@ public class Peer {
 	}
 
 	public void shutdown() {
-		LOGGER.debug(() -> String.format("Shutting down peer %s", this));
+		if (!isStopping)
+			LOGGER.debug(() -> String.format("Shutting down peer %s", this));
+
+		isStopping = true;
 
 		if (this.socketChannel.isOpen()) {
 			try {
