@@ -102,11 +102,11 @@ public class Settings {
 		"1.pool.ntp.org",
 		"2.pool.ntp.org",
 		"3.pool.ntp.org",
-		"asia.pool.ntp.org",
-		"0.asia.pool.ntp.org",
-		"1.asia.pool.ntp.org",
-		"2.asia.pool.ntp.org",
-		"3.asia.pool.ntp.org"
+		"cn.pool.ntp.org",
+		"0.cn.pool.ntp.org",
+		"1.cn.pool.ntp.org",
+		"2.cn.pool.ntp.org",
+		"3.cn.pool.ntp.org"
 	};
 
 	// Constructors

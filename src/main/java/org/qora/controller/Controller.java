@@ -91,12 +91,13 @@ public class Controller extends Thread {
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true;hsqldb.full_log_replay=true";
 	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000; // ms
 	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000; // ms
-	private static final long NTP_CHECK_PERIOD = 5 * 60 * 1000; // ms
+	private static final long NTP_CHECK_PERIOD = 10 * 60 * 1000; // ms
 	private static final long MAX_NTP_OFFSET = 500; // ms
 
 	private static volatile boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
 	private static volatile boolean requestSync = false;
+	private static volatile boolean requestSysTrayUpdate = false;
 	private static Controller instance;
 
 	private final String buildVersion;
@@ -105,7 +106,7 @@ public class Controller extends Thread {
 	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD;
 	private long ntpCheckTimestamp = startTime; // ms
 	/** Whether BlockGenerator is allowed to generate blocks. Mostly determined by system clock accuracy. */
-	private boolean isGenerationAllowed = false;
+	private volatile boolean isGenerationAllowed = false;
 
 	/** Signature of peer's latest block when we tried to sync but peer had inferior chain. */
 	private byte[] inferiorChainPeerBlockSignature = null;
@@ -329,11 +330,8 @@ public class Controller extends Thread {
 				// Potentially nag end-user about NTP
 				if (System.currentTimeMillis() >= ntpCheckTimestamp) {
 					ntpCheckTimestamp += NTP_CHECK_PERIOD;
-					Boolean isClockAccurate = ntpCheck();
-					if (isClockAccurate != null) {
-						isGenerationAllowed = isClockAccurate;
-						updateSysTray();
-					}
+					isGenerationAllowed = ntpCheck();
+					requestSysTrayUpdate = true;
 				}
 
 				// Prune stuck/slow/old peers
@@ -341,6 +339,12 @@ public class Controller extends Thread {
 					Network.getInstance().prunePeers();
 				} catch (DataException e) {
 					LOGGER.warn(String.format("Repository issue when trying to prune peers: %s", e.getMessage()));
+				}
+
+				// Maybe update SysTray
+				if (requestSysTrayUpdate) {
+					requestSysTrayUpdate = false;
+					updateSysTray();
 				}
 			}
 		} catch (InterruptedException e) {
@@ -418,7 +422,7 @@ public class Controller extends Thread {
 					break;
 
 				case OK:
-					updateSysTray();
+					requestSysTrayUpdate = true;
 					// fall-through...
 				case NOTHING_TO_DO:
 					LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
@@ -435,14 +439,14 @@ public class Controller extends Thread {
 	/**
 	 * Nag if we detect system clock is too far from internet time.
 	 * 
-	 * @return <tt>true</tt> if clock is accurate, <tt>false</tt> if inaccurate, <tt>null</tt> if we don't know.
+	 * @return <tt>true</tt> if clock is accurate, <tt>false</tt> if inaccurate or we don't know.
 	 */
-	private Boolean ntpCheck() {
+	private boolean ntpCheck() {
 		// Fetch mean offset from internet time (ms).
 		Long meanOffset = NTP.getOffset();
 
 		final boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-		Boolean isNtpActive = null;
+		boolean isNtpActive = false;
 		if (isWindows) {
 			// Detecting Windows Time service
 
@@ -472,24 +476,22 @@ public class Controller extends Thread {
 			}
 		}
 
-		// If offset is good and ntp is active then we're good
-		if (meanOffset != null && Math.abs(meanOffset) < MAX_NTP_OFFSET && isNtpActive == true)
-			return true;
+		LOGGER.info(String.format("NTP mean offset %s, NTP service active: %s", meanOffset, isNtpActive));
 
-		// Time to nag
-		String caption = Translator.INSTANCE.translate("SysTray", "NTP_NAG_CAPTION");
-		String text = Translator.INSTANCE.translate("SysTray", isWindows ? "NTP_NAG_TEXT_WINDOWS" : "NTP_NAG_TEXT_UNIX");
-		SysTray.getInstance().showMessage(caption, text, MessageType.WARNING);
+		final boolean isOffsetGood = meanOffset != null && Math.abs(meanOffset) < MAX_NTP_OFFSET;
 
-		if (meanOffset == null)
-			// We don't know if we're inaccurate
-			return null;
+		// If offset bad or NTP not active then nag
+		if (!isOffsetGood || !isNtpActive) {
+			String caption = Translator.INSTANCE.translate("SysTray", "NTP_NAG_CAPTION");
+			String text = Translator.INSTANCE.translate("SysTray", isWindows ? "NTP_NAG_TEXT_WINDOWS" : "NTP_NAG_TEXT_UNIX");
+			SysTray.getInstance().showMessage(caption, text, MessageType.WARNING);
+		}
 
 		// Return whether we're accurate (disregarding whether NTP service is active)
-		return Math.abs(meanOffset) < MAX_NTP_OFFSET;
+		return isOffsetGood;
 	}
 
-	public void updateSysTray() {
+	private void updateSysTray() {
 		final int numberOfPeers = Network.getInstance().getUniqueHandshakedPeers().size();
 
 		final int height = getChainHeight();
@@ -565,17 +567,14 @@ public class Controller extends Thread {
 	public void doNetworkBroadcast() {
 		Network network = Network.getInstance();
 
-		// Send our known peers
-		network.broadcast(peer -> network.buildPeersMessage(peer));
+		// Send (if outbound) / Request peer lists
+		network.broadcast(peer -> peer.isOutbound() ? network.buildPeersMessage(peer) : new GetPeersMessage());
 
 		// Send our current height
 		BlockData latestBlockData = getChainTip();
 		network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));
 
-		// Request peers lists
-		network.broadcast(peer -> new GetPeersMessage());
-
-		// Request unconfirmed transaction signatures
+		// Send (if outbound) / Request unconfirmed transaction signatures
 		network.broadcast(peer -> network.buildGetUnconfirmedTransactionsMessage(peer));
 	}
 
@@ -594,39 +593,42 @@ public class Controller extends Thread {
 	}
 
 	public void onPeerHandshakeCompleted(Peer peer) {
-		if (peer.getVersion() < 2) {
-			// Legacy mode
+		// Only send if outbound
+		if (peer.isOutbound()) {
+			if (peer.getVersion() < 2) {
+				// Legacy mode
 
-			// Send our unconfirmed transactions
-			try (final Repository repository = RepositoryManager.getRepository()) {
-				List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+				// Send our unconfirmed transactions
+				try (final Repository repository = RepositoryManager.getRepository()) {
+					List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
-				for (TransactionData transactionData : transactions) {
-					Message transactionMessage = new TransactionMessage(transactionData);
-					if (!peer.sendMessage(transactionMessage)) {
-						peer.disconnect("failed to send unconfirmed transaction");
-						return;
+					for (TransactionData transactionData : transactions) {
+						Message transactionMessage = new TransactionMessage(transactionData);
+						if (!peer.sendMessage(transactionMessage)) {
+							peer.disconnect("failed to send unconfirmed transaction");
+							return;
+						}
 					}
+				} catch (DataException e) {
+					LOGGER.error("Repository issue while sending unconfirmed transactions", e);
 				}
-			} catch (DataException e) {
-				LOGGER.error("Repository issue while sending unconfirmed transactions", e);
-			}
-		} else {
-			// V2 protocol
+			} else {
+				// V2 protocol
 
-			// Request peer's unconfirmed transactions
-			Message message = new GetUnconfirmedTransactionsMessage();
-			if (!peer.sendMessage(message)) {
-				peer.disconnect("failed to send request for unconfirmed transactions");
-				return;
+				// Request peer's unconfirmed transactions
+				Message message = new GetUnconfirmedTransactionsMessage();
+				if (!peer.sendMessage(message)) {
+					peer.disconnect("failed to send request for unconfirmed transactions");
+					return;
+				}
 			}
 		}
 
-		updateSysTray();
+		requestSysTrayUpdate = true;
 	}
 
 	public void onPeerDisconnect(Peer peer) {
-		updateSysTray();
+		requestSysTrayUpdate = true;
 	}
 
 	public void onNetworkMessage(Peer peer, Message message) {
@@ -655,10 +657,17 @@ public class Controller extends Thread {
 			case HEIGHT_V2: {
 				HeightV2Message heightV2Message = (HeightV2Message) message;
 
+				// If peer is inbound and we've not updated their height
+				// then this is probably their initial HEIGHT_V2 message
+				// so they need a corresponding HEIGHT_V2 message from us
+				if (!peer.isOutbound() && peer.getLastHeight() == null)
+					peer.sendMessage(Network.getInstance().buildHeightMessage(peer, getChainTip()));
+
 				// Update all peers with same ID
 
 				List<Peer> connectedPeers = Network.getInstance().getHandshakedPeers();
 				for (Peer connectedPeer : connectedPeers) {
+					// Skip connectedPeer if they have no ID or their ID doesn't match sender's ID
 					if (connectedPeer.getPeerId() == null || !Arrays.equals(connectedPeer.getPeerId(), peer.getPeerId()))
 						continue;
 

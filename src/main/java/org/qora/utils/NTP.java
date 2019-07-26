@@ -14,7 +14,7 @@ import org.qora.settings.Settings;
 public class NTP {
 
 	private static final Logger LOGGER = LogManager.getLogger(NTP.class);
-	private static final double MAX_STDDEV = 25; // ms
+	private static final double MAX_STDDEV = 125; // ms
 
 	/**
 	 * Returns aggregated internet time.
@@ -71,7 +71,7 @@ public class NTP {
 		}
 
 		if (offsets.size() < ntpServers.length / 2) {
-			LOGGER.debug("Not enough replies");
+			LOGGER.info(String.format("Not enough replies: %d, minimum is %d", offsets.size(), ntpServers.length / 2));
 			return null;
 		}
 
@@ -90,8 +90,10 @@ public class NTP {
 		double stddev = Math.sqrt(((s0 * s2) - (s1 * s1)) / (s0 * (s0 - 1)));
 
 		// If stddev is excessive then we're not very sure so give up
-		if (stddev > MAX_STDDEV)
+		if (stddev > MAX_STDDEV) {
+			LOGGER.info(String.format("Excessive standard deviation %.1f, maximum is %.1f", stddev, MAX_STDDEV));
 			return null;
+		}
 
 		return (long) mean;
 	}
