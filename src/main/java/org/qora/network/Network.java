@@ -63,7 +63,7 @@ public class Network extends Thread {
 
 	private static final int LISTEN_BACKLOG = 10;
 	/** How long before retrying after a connection failure, in milliseconds. */
-	private static final int CONNECT_FAILURE_BACKOFF = 60 * 1000; // ms
+	private static final int CONNECT_FAILURE_BACKOFF = 5 * 60 * 1000; // ms
 	/** How long between informational broadcasts to all connected peers, in milliseconds. */
 	private static final int BROADCAST_INTERVAL = 60 * 1000; // ms
 	/** Maximum time since last successful connection for peer info to be propagated, in milliseconds. */
@@ -514,7 +514,7 @@ public class Network extends Thread {
 		handshakePeers.removeIf(peer -> peer.getHandshakeStatus() == Handshake.COMPLETED || peer.getConnectionTimestamp() == null || peer.getConnectionTimestamp() > now - HANDSHAKE_TIMEOUT);
 
 		for (Peer peer : handshakePeers)
-			peer.disconnect("handshake timeout");
+			peer.disconnect(String.format("handshake timeout at %s", peer.getHandshakeStatus().name()));
 
 		// Prune 'old' peers from repository...
 		try (final Repository repository = RepositoryManager.getRepository()) {
@@ -854,24 +854,29 @@ public class Network extends Thread {
 		// Start regular pings
 		peer.startPings();
 
-		// Send our height
-		Message heightMessage = buildHeightMessage(peer, Controller.getInstance().getChainTip());
-		if (!peer.sendMessage(heightMessage)) {
-			peer.disconnect("failed to send height/info");
-			return;
+		// Only the outbound side needs to send anything (after we've received handshake-completing response).
+		// (If inbound sent anything here, it's possible it could be processed out-of-order with handshake message).
+
+		if (peer.isOutbound()) {
+			// Send our height
+			Message heightMessage = buildHeightMessage(peer, Controller.getInstance().getChainTip());
+			if (!peer.sendMessage(heightMessage)) {
+				peer.disconnect("failed to send height/info");
+				return;
+			}
+
+			// Send our peers list
+			Message peersMessage = this.buildPeersMessage(peer);
+			if (!peer.sendMessage(peersMessage))
+				peer.disconnect("failed to send peers list");
+
+			// Request their peers list
+			Message getPeersMessage = new GetPeersMessage();
+			if (!peer.sendMessage(getPeersMessage))
+				peer.disconnect("failed to request peers list");
 		}
 
-		// Send our peers list
-		Message peersMessage = this.buildPeersMessage(peer);
-		if (!peer.sendMessage(peersMessage))
-			peer.disconnect("failed to send peers list");
-
-		// Request their peers list
-		Message getPeersMessage = new GetPeersMessage();
-		if (!peer.sendMessage(getPeersMessage))
-			peer.disconnect("failed to request peers list");
-
-		// Ask Controller if they want to send anything
+		// Ask Controller if they want to do anything
 		Controller.getInstance().onPeerHandshakeCompleted(peer);
 	}
 
