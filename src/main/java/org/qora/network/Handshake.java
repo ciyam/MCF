@@ -106,6 +106,9 @@ public enum Handshake {
 				return null;
 			}
 
+			// Save peer's value for connectionTimestamp
+			peer.setPeersConnectionTimestamp(proofMessage.getTimestamp());
+
 			// If we connected outbound to peer, then this is a faked confirmation response, so we're good
 			if (peer.isOutbound())
 				return COMPLETED;
@@ -176,7 +179,7 @@ public enum Handshake {
 	private static final Logger LOGGER = LogManager.getLogger(Handshake.class);
 
 	/** Maximum allowed difference between peer's reported timestamp and when they connected, in milliseconds. */
-	private static final long MAX_TIMESTAMP_DELTA = 5000; // ms
+	private static final long MAX_TIMESTAMP_DELTA = 30 * 1000; // ms
 
 	public final MessageType expectedMessageType;
 

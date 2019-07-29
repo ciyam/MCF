@@ -80,6 +80,9 @@ public class Peer {
 	/** Timestamp of when socket was accepted, or connected. */
 	private Long connectionTimestamp = null;
 
+	/** Peer's value of connectionTimestamp. */
+	private Long peersConnectionTimestamp = null;
+
 	/** Version info as reported by peer. */
 	private VersionMessage versionMessage = null;
 
@@ -167,6 +170,14 @@ public class Peer {
 
 	public Long getConnectionTimestamp() {
 		return this.connectionTimestamp;
+	}
+
+	public Long getPeersConnectionTimestamp() {
+		return this.peersConnectionTimestamp;
+	}
+
+	/* package */ void setPeersConnectionTimestamp(Long peersConnectionTimestamp) {
+		this.peersConnectionTimestamp = peersConnectionTimestamp;
 	}
 
 	public Long getLastPing() {

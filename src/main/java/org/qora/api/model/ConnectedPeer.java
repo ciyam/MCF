@@ -20,6 +20,7 @@ public class ConnectedPeer {
 	public Handshake handshakeStatus;
 	public Long lastPing;
 	public Long connectedWhen;
+	public Long peersConnectedWhen;
 
 	public String address;
 	public String version;
@@ -39,7 +40,8 @@ public class ConnectedPeer {
 		this.lastPing = peer.getLastPing();
 
 		PeerData peerData = peer.getPeerData();
-		this.connectedWhen = peerData.getLastConnected();
+		this.connectedWhen = peer.getConnectionTimestamp();
+		this.peersConnectedWhen = peer.getPeersConnectionTimestamp();
 
 		this.address = peerData.getAddress().toString();
 		if (peer.getVersionMessage() != null) {
