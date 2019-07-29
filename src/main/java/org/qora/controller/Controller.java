@@ -92,7 +92,7 @@ public class Controller extends Thread {
 	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000; // ms
 	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000; // ms
 	private static final long NTP_CHECK_PERIOD = 10 * 60 * 1000; // ms
-	private static final long MAX_NTP_OFFSET = 500; // ms
+	private static final long MAX_NTP_OFFSET = 30 * 1000; // ms
 
 	private static volatile boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
