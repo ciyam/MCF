@@ -42,6 +42,7 @@ import org.qora.transform.Transformer;
 import org.qora.transform.block.BlockTransformer;
 import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.utils.Base58;
+import org.qora.utils.NTP;
 
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
@@ -81,6 +82,7 @@ public class Block {
 		TIMESTAMP_IN_FUTURE(21),
 		TIMESTAMP_MS_INCORRECT(22),
 		TIMESTAMP_TOO_SOON(23),
+		TIMESTAMP_INCORRECT(24),
 		VERSION_INCORRECT(30),
 		FEATURE_NOT_YET_RELEASED(31),
 		GENERATING_BALANCE_INCORRECT(40),
@@ -214,6 +216,10 @@ public class Block {
 		BigDecimal generatingBalance = parentBlock.calcNextBlockGeneratingBalance();
 		int height = parentBlockData.getHeight() + 1;
 
+		// After a certain height, block timestamps are generated using previous block and generator's public key
+		if (height >= BlockChain.getInstance().getNewBlockTimestampHeight())
+			timestamp = calcTimestamp(parentBlockData, generator.getPublicKey());
+
 		byte[] generatorSignature;
 		try {
 			Integer signatureHeight = version >= 4 ? height : null;
@@ -260,6 +266,7 @@ public class Block {
 	public Block regenerate(PrivateKeyAccount generator) throws DataException {
 		Block newBlock = new Block(this.repository, this.blockData);
 		newBlock.generator = generator;
+		BlockData parentBlockData = newBlock.getParent();
 
 		// Copy AT state data
 		newBlock.ourAtStates = this.ourAtStates;
@@ -272,6 +279,10 @@ public class Block {
 		long timestamp = this.blockData.getTimestamp();
 		byte[] parentGeneratorSignature = BlockTransformer.getGeneratorSignatureFromReference(reference);
 		int height = this.blockData.getHeight();
+
+		// After a certain height, block timestamps are generated using previous block and generator's public key
+		if (height >= BlockChain.getInstance().getNewBlockTimestampHeight())
+			timestamp = calcTimestamp(parentBlockData, generator.getPublicKey());
 
 		byte[] generatorSignature;
 		try {
@@ -685,7 +696,7 @@ public class Block {
 	 * 20% of (90s - 30s) is 12s<br>
 	 * So this block's timestamp is previous block's timestamp + 30s + 12s.
 	 */
-	public static long calcMinimumTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
+	public static long calcTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
 		BigInteger distance = calcGeneratorDistance(parentBlockData, generatorPublicKey);
 		final int thisHeight = parentBlockData.getHeight() + 1;
 		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(thisHeight);
@@ -705,8 +716,10 @@ public class Block {
 		return parentBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation + timeOffset;
 	}
 
-	public long calcMinimumTimestamp(BlockData parentBlockData) {
-		return calcMinimumTimestamp(parentBlockData, this.generator.getPublicKey());
+	public static long calcMinimumTimestamp(BlockData parentBlockData) {
+		final int thisHeight = parentBlockData.getHeight() + 1;
+		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(thisHeight);
+		return parentBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation;
 	}
 
 	/**
@@ -763,13 +776,20 @@ public class Block {
 		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp())
 			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
 
-		// Check timestamp is not in the future (within configurable ~500ms margin)
-		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > System.currentTimeMillis())
+		// Check timestamp is not in the future (within configurable margin)
+		// We don't need to check NTP.getTime() for null as we shouldn't reach here if that is already the case
+		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
 			return ValidationResult.TIMESTAMP_IN_FUTURE;
 
 		// Check timestamp is at least minimum based on parent block
-		if (this.blockData.getTimestamp() < this.calcMinimumTimestamp(parentBlockData))
+		if (this.blockData.getTimestamp() < Block.calcMinimumTimestamp(parentBlockData))
 			return ValidationResult.TIMESTAMP_TOO_SOON;
+
+		if (this.blockData.getHeight() >= BlockChain.getInstance().getNewBlockTimestampHeight()) {
+			long expectedTimestamp = calcTimestamp(parentBlockData, this.blockData.getGeneratorPublicKey());
+			if (this.blockData.getTimestamp() != expectedTimestamp)
+				return ValidationResult.TIMESTAMP_INCORRECT;
+		}
 
 		return ValidationResult.OK;
 	}

@@ -30,6 +30,18 @@ public enum Handshake {
 			PeerIdMessage peerIdMessage = (PeerIdMessage) message;
 			byte[] peerId = peerIdMessage.getPeerId();
 
+			if (Arrays.equals(peerId, Network.ZERO_PEER_ID)) {
+				if (peer.isOutbound()) {
+					// Peer has indicated they already have an outbound connection to us
+					LOGGER.trace(String.format("Peer %s already connected to us - discarding this connection", peer));
+				} else {
+					// Not sure this should occur so log it
+					LOGGER.info(String.format("Inbound peer %s claims we also have outbound connection to them?", peer));
+				}
+
+				return null;
+			}
+
 			if (Arrays.equals(peerId, Network.getInstance().getOurPeerId())) {
 				// Connected to self!
 				// If outgoing connection then record destination as self so we don't try again
@@ -53,6 +65,11 @@ public enum Handshake {
 				if (otherOutboundPeer == null) {
 					// We already have an inbound peer with this ID, but no outgoing peer with which to request verification
 					LOGGER.trace(String.format("Discarding inbound peer %s with existing ID", peer));
+
+					// Let peer know by sending special zero peer ID. This avoids peer keeping connection open until timeout.
+					peerIdMessage = new PeerIdMessage(Network.ZERO_PEER_ID);
+					peer.sendMessage(peerIdMessage);
+
 					return null;
 				} else {
 					// Use corresponding outbound peer to verify inbound

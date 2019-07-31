@@ -28,6 +28,7 @@ import org.qora.network.message.Message.MessageException;
 import org.qora.network.message.Message.MessageType;
 import org.qora.settings.Settings;
 import org.qora.utils.ExecuteProduceConsume;
+import org.qora.utils.NTP;
 import org.qora.network.message.PingMessage;
 import org.qora.network.message.VersionMessage;
 
@@ -279,7 +280,7 @@ public class Peer {
 	}
 
 	private void sharedSetup() throws IOException {
-		this.connectionTimestamp = System.currentTimeMillis();
+		this.connectionTimestamp = NTP.getTime();
 		this.socketChannel.setOption(StandardSocketOptions.TCP_NODELAY, true);
 		this.socketChannel.configureBlocking(false);
 		this.byteBuffer = ByteBuffer.allocate(Network.MAXIMUM_MESSAGE_SIZE);
@@ -510,6 +511,7 @@ public class Peer {
 
 		if (this.socketChannel.isOpen()) {
 			try {
+				this.socketChannel.shutdownOutput();
 				this.socketChannel.close();
 			} catch (IOException e) {
 				LOGGER.debug(String.format("IOException while trying to close peer %s", this));

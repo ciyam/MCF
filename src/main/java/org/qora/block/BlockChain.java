@@ -86,6 +86,7 @@ public class BlockChain {
 		atHeight,
 		newBlockDistanceHeight,
 		newBlockTimingHeight,
+		newBlockTimestampHeight,
 		assetsTimestamp,
 		votingTimestamp,
 		arbitraryTimestamp,
@@ -296,6 +297,10 @@ public class BlockChain {
 
 	public int getNewBlockTimingHeight() {
 		return featureTriggers.get("newBlockTimingHeight").intValue();
+	}
+
+	public int getNewBlockTimestampHeight() {
+		return featureTriggers.get("newBlockTimestampHeight").intValue();
 	}
 
 	public long getPowFixReleaseTimestamp() {

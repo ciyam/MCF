@@ -1,7 +1,7 @@
 {
 	"maxBalance": "10000000000",
 	"blockDifficultyInterval": 10,
-	"blockTimestampMargin": 500,
+	"blockTimestampMargin": 2000,
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "0.00001",
 	"requireGroupForApproval": false,
@@ -242,6 +242,7 @@
 		"atHeight": 0,
 		"newBlockDistanceHeight": 24400,
 		"newBlockTimingHeight": 44000,
+		"newBlockTimestampHeight": 1000000,
 		"assetsTimestamp": 0,
 		"votingTimestamp": 0,
 		"arbitraryTimestamp": 0,

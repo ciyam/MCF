@@ -58,6 +58,7 @@ import org.qora.network.Network;
 import org.qora.network.Peer;
 import org.qora.network.PeerAddress;
 import org.qora.utils.Base58;
+import org.qora.utils.NTP;
 
 import com.google.common.collect.Lists;
 
@@ -112,6 +113,7 @@ public class AdminResource {
 	public NodeInfo info() {
 		NodeInfo nodeInfo = new NodeInfo();
 
+		nodeInfo.currentTimestamp = NTP.getTime();
 		nodeInfo.uptime = System.currentTimeMillis() - Controller.startTime;
 		nodeInfo.buildVersion = Controller.getInstance().getVersionString();
 		nodeInfo.buildTimestamp = Controller.getInstance().getBuildTimestamp();

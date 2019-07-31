@@ -63,7 +63,7 @@ public class BlockTimingTests extends Common {
 		long cumulativeTime = 0;
 		for (int i = 0; i < numberRounds; ++i) {
 			random.nextBytes(randomKey);
-			cumulativeTime += Block.calcMinimumTimestamp(previousBlockData, randomKey);
+			cumulativeTime += Block.calcTimestamp(previousBlockData, randomKey);
 		}
 
 		cumulativeTime -= previousBlockData.getTimestamp() * numberRounds;
@@ -102,7 +102,7 @@ public class BlockTimingTests extends Common {
 
 			for (int ci = 0; ci < numberContestants; ++ci) {
 				random.nextBytes(randomKey);
-				long timestamp = Block.calcMinimumTimestamp(previousBlockData, randomKey);
+				long timestamp = Block.calcTimestamp(previousBlockData, randomKey);
 
 				if (ci == 0 || timestamp < lowestTime)
 					lowestTime = timestamp;
@@ -138,7 +138,7 @@ public class BlockTimingTests extends Common {
 		for (int height = 2; height < numberRounds; ++height) {
 			for (int ci = 0; ci < numberContestants; ++ci) {
 				random.nextBytes(randomKey);
-				long newTimestamp = Block.calcMinimumTimestamp(previousBlockData, randomKey);
+				long newTimestamp = Block.calcTimestamp(previousBlockData, randomKey);
 
 				long legacyTimestamp = calcLegacyMinimumTimestamp(previousBlockData, randomKey);
 
