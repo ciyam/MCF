@@ -3,7 +3,7 @@
 	"blockDifficultyInterval": 10,
 	"minBlockTime": 60,
 	"maxBlockTime": 300,
-	"blockTimestampMargin": 500,
+	"blockTimestampMargin": 2000,
 	"maxBytesPerUnitFee": 1024,
 	"unitFee": "1.0",
 	"useBrokenMD160ForAddresses": true,

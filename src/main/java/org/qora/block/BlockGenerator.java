@@ -26,6 +26,7 @@ import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
 import org.qora.transaction.Transaction;
 import org.qora.utils.Base58;
+import org.qora.utils.NTP;
 
 // Forging new blocks
 
@@ -83,6 +84,14 @@ public class BlockGenerator extends Thread {
 				if (!Controller.getInstance().isGenerationAllowed())
 					continue;
 
+				final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+				if (minLatestBlockTimestamp == null)
+					continue;
+
+				final Long now = NTP.getTime();
+				if (now == null)
+					continue;
+
 				List<ForgingAccountData> forgingAccountsData = repository.getAccountRepository().getForgingAccounts();
 				// No forging accounts?
 				if (forgingAccountsData.isEmpty())
@@ -97,8 +106,6 @@ public class BlockGenerator extends Thread {
 				// Don't generate if we don't have enough connected peers as where would the transactions/consensus come from?
 				if (peers.size() < Settings.getInstance().getMinBlockchainPeers())
 					continue;
-
-				final long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
 
 				// Disregard peers that don't have a recent block
 				peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
@@ -172,7 +179,7 @@ public class BlockGenerator extends Thread {
 					Block newBlock = goodBlocks.get(winningIndex);
 
 					// Delete invalid transactions. NOTE: discards repository changes on entry, saves changes on exit.
-					deleteInvalidTransactions(repository);
+					// deleteInvalidTransactions(repository);
 
 					// Add unconfirmed transactions
 					addUnconfirmedTransactions(repository, newBlock);
@@ -202,12 +209,16 @@ public class BlockGenerator extends Thread {
 
 						if (proxyForgerData != null) {
 							PublicKeyAccount forger = new PublicKeyAccount(repository, proxyForgerData.getForgerPublicKey());
-							LOGGER.info(String.format("Generated block %d by %s on behalf of %s",
+							LOGGER.info(String.format("Generated block %d, sig %.8s by %s on behalf of %s",
 									newBlock.getBlockData().getHeight(),
+									Base58.encode(newBlock.getBlockData().getSignature()),
 									forger.getAddress(),
 									proxyForgerData.getRecipient()));
 						} else {
-							LOGGER.info(String.format("Generated block %d by %s", newBlock.getBlockData().getHeight(), newBlock.getGenerator().getAddress()));
+							LOGGER.info(String.format("Generated block %d, sig %.8s by %s",
+									newBlock.getBlockData().getHeight(),
+									Base58.encode(newBlock.getBlockData().getSignature()),
+									newBlock.getGenerator().getAddress()));
 						}
 
 						repository.saveChanges();
@@ -327,7 +338,7 @@ public class BlockGenerator extends Thread {
 		blockchainLock.lock();
 		try {
 			// Delete invalid transactions
-			deleteInvalidTransactions(repository);
+			// deleteInvalidTransactions(repository);
 
 			// Add unconfirmed transactions
 			addUnconfirmedTransactions(repository, newBlock);

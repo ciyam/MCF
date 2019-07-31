@@ -159,7 +159,10 @@ public class Synchronizer {
 					int highestMutualHeight = Math.min(peerHeight, ourHeight);
 
 					// If our latest block is very old, we're very behind and should ditch our fork.
-					final long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+					final Long minLatestBlockTimestamp = Controller.getMinimumLatestBlockTimestamp();
+					if (minLatestBlockTimestamp == null)
+						return SynchronizationResult.REPOSITORY_ISSUE;
+
 					if (ourInitialHeight > commonBlockHeight && ourLatestBlockData.getTimestamp() < minLatestBlockTimestamp) {
 						LOGGER.info(String.format("Ditching our chain after height %d as our latest block is very old", commonBlockHeight));
 						highestMutualHeight = commonBlockHeight;

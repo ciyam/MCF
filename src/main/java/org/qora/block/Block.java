@@ -40,6 +40,7 @@ import org.qora.transform.TransformationException;
 import org.qora.transform.block.BlockTransformer;
 import org.qora.transform.transaction.TransactionTransformer;
 import org.qora.utils.Base58;
+import org.qora.utils.NTP;
 
 import com.google.common.primitives.Bytes;
 
@@ -78,6 +79,7 @@ public class Block {
 		TIMESTAMP_IN_FUTURE(21),
 		TIMESTAMP_MS_INCORRECT(22),
 		TIMESTAMP_TOO_SOON(23),
+		TIMESTAMP_INCORRECT(24),
 		VERSION_INCORRECT(30),
 		FEATURE_NOT_YET_RELEASED(31),
 		GENERATING_BALANCE_INCORRECT(40),
@@ -205,6 +207,10 @@ public class Block {
 		byte[] reference = parentBlockData.getSignature();
 		BigDecimal generatingBalance = parentBlock.calcNextBlockGeneratingBalance();
 
+		// After a certain height, block timestamps are generated using previous block and generator's public key
+		if (height >= BlockChain.getInstance().getNewBlockTimestampHeight())
+			timestamp = calcTimestamp(parentBlockData, generator.getPublicKey());
+
 		byte[] generatorSignature;
 		try {
 			generatorSignature = generator
@@ -258,6 +264,7 @@ public class Block {
 		Block parentBlock = new Block(repository, parentBlockData);
 
 		newBlock.generator = generator;
+		BlockData parentBlockData = newBlock.getParent();
 
 		// Copy AT state data
 		newBlock.ourAtStates = this.ourAtStates;
@@ -268,6 +275,10 @@ public class Block {
 		int version = this.blockData.getVersion();
 		byte[] reference = this.blockData.getReference();
 		BigDecimal generatingBalance = this.blockData.getGeneratingBalance();
+
+		// After a certain height, block timestamps are generated using previous block and generator's public key
+		if (height >= BlockChain.getInstance().getNewBlockTimestampHeight())
+			timestamp = calcTimestamp(parentBlockData, generator.getPublicKey());
 
 		byte[] generatorSignature;
 		try {
@@ -734,13 +745,15 @@ public class Block {
 	 * <p>
 	 * For qora-core, we'll using the minimum from BlockChain config.
 	 */
-	public static long calcMinimumTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
+	public static long calcTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
 		long minBlockTime = BlockChain.getInstance().getMinBlockTime(); // seconds
 		return parentBlockData.getTimestamp() + (minBlockTime * 1000L);
 	}
 
-	public long calcMinimumTimestamp(BlockData parentBlockData) {
-		return calcMinimumTimestamp(parentBlockData, this.generator.getPublicKey());
+	public static long calcMinimumTimestamp(BlockData parentBlockData) {
+		final int thisHeight = parentBlockData.getHeight() + 1;
+		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(thisHeight);
+		return parentBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation;
 	}
 
 	/**
@@ -797,8 +810,9 @@ public class Block {
 		if (this.blockData.getTimestamp() <= parentBlockData.getTimestamp())
 			return ValidationResult.TIMESTAMP_OLDER_THAN_PARENT;
 
-		// Check timestamp is not in the future (within configurable ~500ms margin)
-		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > System.currentTimeMillis())
+		// Check timestamp is not in the future (within configurable margin)
+		// We don't need to check NTP.getTime() for null as we shouldn't reach here if that is already the case
+		if (this.blockData.getTimestamp() - BlockChain.getInstance().getBlockTimestampMargin() > NTP.getTime())
 			return ValidationResult.TIMESTAMP_IN_FUTURE;
 
 		// Legacy gen1 test: check timestamp milliseconds is the same as parent timestamp milliseconds?
@@ -807,8 +821,14 @@ public class Block {
 
 		// Too early to forge block?
 		// XXX DISABLED as it doesn't work - but why?
-		// if (this.blockData.getTimestamp() < parentBlock.getBlockData().getTimestamp() + BlockChain.getInstance().getMinBlockTime())
+		// if (this.blockData.getTimestamp() < Block.calcMinimumTimestamp(parentBlockData))
 		// 	return ValidationResult.TIMESTAMP_TOO_SOON;
+
+		if (this.blockData.getHeight() >= BlockChain.getInstance().getNewBlockTimestampHeight()) {
+			long expectedTimestamp = calcTimestamp(parentBlockData, this.blockData.getGeneratorPublicKey());
+			if (this.blockData.getTimestamp() != expectedTimestamp)
+				return ValidationResult.TIMESTAMP_INCORRECT;
+		}
 
 		return ValidationResult.OK;
 	}
