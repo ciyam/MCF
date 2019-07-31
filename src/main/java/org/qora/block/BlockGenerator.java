@@ -129,7 +129,7 @@ public class BlockGenerator extends Thread {
 				// Too early to generate any new blocks?
 				BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(lastBlockData.getHeight() + 1);
 
-				boolean tooEarlyToForge = System.currentTimeMillis() < lastBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation;
+				boolean tooEarlyToForge = now < lastBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation;
 				if (newBlocks.isEmpty() && tooEarlyToForge)
 					continue;
 
@@ -141,12 +141,12 @@ public class BlockGenerator extends Thread {
 
 				for (PrivateKeyAccount generator : forgingAccounts) {
 					// Too early for this generator to generate a new block?
-					if (System.currentTimeMillis() < Block.calcMinimumTimestamp(previousBlock.getBlockData(), generator.getPublicKey()))
+					if (now < Block.calcTimestamp(previousBlock.getBlockData(), generator.getPublicKey()))
 						continue;
 
 					// First block does the AT heavy-lifting
 					if (newBlocks.isEmpty()) {
-						Block newBlock = new Block(repository, previousBlock.getBlockData(), generator, System.currentTimeMillis());
+						Block newBlock = new Block(repository, previousBlock.getBlockData(), generator, now);
 						newBlocks.add(newBlock);
 					} else {
 						// The blocks for other generators require less effort...

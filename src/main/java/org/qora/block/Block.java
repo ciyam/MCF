@@ -782,7 +782,7 @@ public class Block {
 			return ValidationResult.TIMESTAMP_IN_FUTURE;
 
 		// Check timestamp is at least minimum based on parent block
-		if (this.blockData.getTimestamp() < this.calcMinimumTimestamp(parentBlockData))
+		if (this.blockData.getTimestamp() < Block.calcMinimumTimestamp(parentBlockData))
 			return ValidationResult.TIMESTAMP_TOO_SOON;
 
 		if (this.blockData.getHeight() >= BlockChain.getInstance().getNewBlockTimestampHeight()) {

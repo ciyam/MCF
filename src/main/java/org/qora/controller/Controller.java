@@ -1154,7 +1154,7 @@ public class Controller extends Thread {
 			return now - offset;
 		} catch (DataException e) {
 			LOGGER.error("Repository issue when fetching blockchain height", e);
-			return 0;
+			return null;
 		}
 	}
 

@@ -242,6 +242,7 @@
 		"atHeight": 0,
 		"newBlockDistanceHeight": 24400,
 		"newBlockTimingHeight": 44000,
+		"newBlockTimestampHeight": 1000000,
 		"assetsTimestamp": 0,
 		"votingTimestamp": 0,
 		"arbitraryTimestamp": 0,
