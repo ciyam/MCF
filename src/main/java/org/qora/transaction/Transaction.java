@@ -30,6 +30,7 @@ import org.qora.repository.Repository;
 import org.qora.settings.Settings;
 import org.qora.transform.TransformationException;
 import org.qora.transform.transaction.TransactionTransformer;
+import org.qora.utils.NTP;
 
 import static java.util.Arrays.stream;
 import static java.util.stream.Collectors.toMap;
@@ -235,6 +236,7 @@ public abstract class Transaction {
 		TRANSACTION_ALREADY_EXISTS(85),
 		NO_BLOCKCHAIN_LOCK(86),
 		ORDER_ALREADY_CLOSED(87),
+		CLOCK_NOT_SYNCED(88),
 		NOT_YET_RELEASED(1000);
 
 		public final int value;
@@ -301,9 +303,13 @@ public abstract class Transaction {
 
 	// More information
 
-	public long getDeadline() {
+	public static long getDeadline(TransactionData transactionData) {
 		// 24 hour deadline to include transaction in a block
-		return this.transactionData.getTimestamp() + (24 * 60 * 60 * 1000);
+		return transactionData.getTimestamp() + (24 * 60 * 60 * 1000);
+	}
+
+	public long getDeadline() {
+		return Transaction.getDeadline(transactionData);
 	}
 
 	public boolean hasMinimumFee() {
@@ -507,7 +513,7 @@ public abstract class Transaction {
 	 * NOTE: temporarily updates accounts' lastReference to check validity.<br>
 	 * To do this, blockchain lock is obtained and pending repository changes are discarded.
 	 * 
-	 * @return true if transaction can be added to unconfirmed transactions, false otherwise
+	 * @return transaction validation result, e.g. OK
 	 * @throws DataException
 	 */
 	public ValidationResult isValidUnconfirmed() throws DataException {
@@ -517,7 +523,11 @@ public abstract class Transaction {
 			return ValidationResult.TIMESTAMP_TOO_OLD;
 
 		// Transactions with a timestamp too far into future are too new
-		long maxTimestamp = System.currentTimeMillis() + Settings.getInstance().getMaxTransactionTimestampFuture();
+		final Long now = NTP.getTime();
+		if (now == null)
+			return ValidationResult.CLOCK_NOT_SYNCED;
+
+		long maxTimestamp = now + Settings.getInstance().getMaxTransactionTimestampFuture();
 		if (this.transactionData.getTimestamp() > maxTimestamp)
 			return ValidationResult.TIMESTAMP_TOO_NEW;
 
@@ -734,10 +744,14 @@ public abstract class Transaction {
 	 * @throws DataException
 	 */
 	private static boolean isStillValidUnconfirmed(Repository repository, TransactionData transactionData, long blockTimestamp) throws DataException {
+		final Long now = NTP.getTime();
+		if (now == null)
+			return false;
+
 		Transaction transaction = Transaction.fromData(repository, transactionData);
 
 		// Check transaction has not expired
-		if (transaction.getDeadline() <= blockTimestamp || transaction.getDeadline() < System.currentTimeMillis())
+		if (transaction.getDeadline() <= blockTimestamp || transaction.getDeadline() < now)
 			return false;
 
 		// Is transaction is past max approval period?

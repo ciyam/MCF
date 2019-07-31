@@ -54,6 +54,7 @@ import org.qora.repository.Repository;
 import org.qora.repository.RepositoryManager;
 import org.qora.settings.Settings;
 import org.qora.utils.ExecuteProduceConsume;
+import org.qora.utils.NTP;
 
 // For managing peers
 public class Network extends Thread {
@@ -100,6 +101,7 @@ public class Network extends Thread {
 	public static final int MAX_SIGNATURES_PER_REPLY = 500;
 	public static final int MAX_BLOCK_SUMMARIES_PER_REPLY = 500;
 	public static final int PEER_ID_LENGTH = 128;
+	public static final byte[] ZERO_PEER_ID = new byte[PEER_ID_LENGTH];
 
 	private final byte[] ourPeerId;
 	private List<Peer> connectedPeers;
@@ -115,7 +117,6 @@ public class Network extends Thread {
 	private long nextConnectTaskTimestamp;
 
 	private ExecutorService broadcastExecutor;
-	/** Timestamp (ms) for next general info broadcast to all connected peers. Based on <tt>System.currentTimeMillis()</tt>. */
 	private long nextBroadcastTimestamp;
 
 	private Lock mergePeersLock;
@@ -152,14 +153,16 @@ public class Network extends Thread {
 
 		ourPeerId = new byte[PEER_ID_LENGTH];
 		new SecureRandom().nextBytes(ourPeerId);
+		// Set bit to make sure our peer ID is not 0
+		ourPeerId[ourPeerId.length - 1] |= 0x01;
 
 		minOutboundPeers = Settings.getInstance().getMinOutboundPeers();
 		maxPeers = Settings.getInstance().getMaxPeers();
 
-		nextConnectTaskTimestamp = System.currentTimeMillis();
+		nextConnectTaskTimestamp = 0; // First connect once NTP syncs
 
 		broadcastExecutor = Executors.newCachedThreadPool();
-		nextBroadcastTimestamp = System.currentTimeMillis();
+		nextBroadcastTimestamp = 0; // First broadcast once NTP syncs
 
 		mergePeersLock = new ReentrantLock();
 
@@ -426,8 +429,8 @@ public class Network extends Thread {
 			if (getOutboundHandshakedPeers().size() >= minOutboundPeers)
 				return null;
 
-			final long now = System.currentTimeMillis();
-			if (now < nextConnectTaskTimestamp)
+			final Long now = NTP.getTime();
+			if (now == null || now < nextConnectTaskTimestamp)
 				return null;
 
 			nextConnectTaskTimestamp = now + 1000L;
@@ -441,8 +444,8 @@ public class Network extends Thread {
 		}
 
 		private Task maybeProduceBroadcastTask() {
-			final long now = System.currentTimeMillis();
-			if (now < nextBroadcastTimestamp)
+			final Long now = NTP.getTime();
+			if (now == null || now < nextBroadcastTimestamp)
 				return null;
 
 			nextBroadcastTimestamp = now + BROADCAST_INTERVAL;
@@ -463,9 +466,15 @@ public class Network extends Thread {
 		if (socketChannel == null)
 			return;
 
+		final Long now = NTP.getTime();
 		Peer newPeer;
 
 		try {
+			if (now == null) {
+				LOGGER.trace(String.format("Connection discarded from peer %s due to lack of NTP sync", socketChannel.getRemoteAddress()));
+				return;
+			}
+
 			synchronized (this.connectedPeers) {
 				if (connectedPeers.size() >= maxPeers) {
 					// We have enough peers
@@ -505,7 +514,9 @@ public class Network extends Thread {
 	}
 
 	public void prunePeers() throws InterruptedException, DataException {
-		final long now = System.currentTimeMillis();
+		final Long now = NTP.getTime();
+		if (now == null)
+			return;
 
 		// Disconnect peers that are stuck during handshake
 		List<Peer> handshakePeers = this.getConnectedPeers();
@@ -557,12 +568,14 @@ public class Network extends Thread {
 	}
 
 	private Peer getConnectablePeer() throws InterruptedException {
+		final long now = NTP.getTime();
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			// Find an address to connect to
 			List<PeerData> peers = repository.getNetworkRepository().getAllPeers();
 
 			// Don't consider peers with recent connection failures
-			final long lastAttemptedThreshold = System.currentTimeMillis() - CONNECT_FAILURE_BACKOFF;
+			final long lastAttemptedThreshold = now - CONNECT_FAILURE_BACKOFF;
 			peers.removeIf(peerData -> peerData.getLastAttempted() != null && peerData.getLastAttempted() > lastAttemptedThreshold);
 
 			// Don't consider peers that we know loop back to ourself
@@ -613,7 +626,7 @@ public class Network extends Thread {
 
 			// Update connection attempt info
 			repository.discardChanges();
-			peerData.setLastAttempted(System.currentTimeMillis());
+			peerData.setLastAttempted(now);
 			repository.getNetworkRepository().save(peerData);
 			repository.saveChanges();
 
@@ -840,7 +853,7 @@ public class Network extends Thread {
 		LOGGER.debug(String.format("Handshake completed with peer %s", peer));
 
 		// Make a note that we've successfully completed handshake (and when)
-		peer.getPeerData().setLastConnected(System.currentTimeMillis());
+		peer.getPeerData().setLastConnected(NTP.getTime());
 
 		// Update connection info for outbound peers only
 		if (peer.isOutbound())
@@ -888,7 +901,7 @@ public class Network extends Thread {
 			List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
 			// Filter out peers that we've not connected to ever or within X milliseconds
-			final long connectionThreshold = System.currentTimeMillis() - RECENT_CONNECTION_THRESHOLD;
+			final long connectionThreshold = NTP.getTime() - RECENT_CONNECTION_THRESHOLD;
 			Predicate<PeerData> notRecentlyConnected = peerData -> {
 				final Long lastAttempted = peerData.getLastAttempted();
 				final Long lastConnected = peerData.getLastConnected();
@@ -1037,11 +1050,13 @@ public class Network extends Thread {
 	// Network-wide calls
 
 	private void mergePeers(String addedBy, List<PeerAddress> peerAddresses) {
+		final Long addedWhen = NTP.getTime();
+		if (addedWhen == null)
+			return;
+
 		// Serialize using lock to prevent repository deadlocks
 		if (!mergePeersLock.tryLock())
 			return;
-
-		final long addedWhen = System.currentTimeMillis();
 
 		try {
 			try (final Repository repository = RepositoryManager.getRepository()) {

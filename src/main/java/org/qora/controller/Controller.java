@@ -1,6 +1,5 @@
 package org.qora.controller;
 
-import java.awt.TrayIcon.MessageType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.SecureRandom;
@@ -16,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
-import java.util.Scanner;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
@@ -92,8 +90,9 @@ public class Controller extends Thread {
 	private static final String repositoryUrlTemplate = "jdbc:hsqldb:file:%s/blockchain;create=true;hsqldb.full_log_replay=true";
 	private static final long ARBITRARY_REQUEST_TIMEOUT = 5 * 1000; // ms
 	private static final long REPOSITORY_BACKUP_PERIOD = 123 * 60 * 1000; // ms
-	private static final long NTP_CHECK_PERIOD = 10 * 60 * 1000; // ms
-	private static final long MAX_NTP_OFFSET = 500; // ms
+	private static final long NTP_PRE_SYNC_CHECK_PERIOD = 5 * 1000; // ms
+	private static final long NTP_POST_SYNC_CHECK_PERIOD = 5 * 60 * 1000; // ms
+	private static final long DELETE_EXPIRED_INTERVAL = 5 * 60 * 1000; // ms
 
 	private static volatile boolean isStopping = false;
 	private static BlockGenerator blockGenerator = null;
@@ -104,15 +103,16 @@ public class Controller extends Thread {
 	private final String buildVersion;
 	private final long buildTimestamp; // seconds
 
-	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD;
+	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD; // ms
 	private long ntpCheckTimestamp = startTime; // ms
+	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
 	/** Whether BlockGenerator is allowed to generate blocks. Mostly determined by system clock accuracy. */
 	private volatile boolean isGenerationAllowed = false;
 
-	/** Signature of peer's latest block when we tried to sync but peer had inferior chain. */
-	private byte[] inferiorChainPeerBlockSignature = null;
-	/** Signature of our latest block when we tried to sync but peer had inferior chain. */
-	private byte[] inferiorChainOurBlockSignature = null;
+	/** Signature of peer's latest block that will result in no sync action needed (e.g. INFERIOR_CHAIN, NOTHING_TO_DO, OK). */
+	private byte[] noSyncPeerBlockSignature = null;
+	/** Signature of our latest block that will result in no sync action needed (e.g. INFERIOR_CHAIN, NOTHING_TO_DO, OK). */
+	private byte[] noSyncOurBlockSignature = null;
 
 	/**
 	 * Map of recent requests for ARBITRARY transaction data payloads.
@@ -224,6 +224,9 @@ public class Controller extends Thread {
 		// Load/check settings, which potentially sets up blockchain config, etc.
 		Settings.getInstance();
 
+		LOGGER.info("Starting NTP");
+		NTP.start();
+
 		LOGGER.info("Starting repository");
 		try {
 			RepositoryFactory repositoryFactory = new HSQLDBRepositoryFactory(getRepositoryUrl());
@@ -318,20 +321,31 @@ public class Controller extends Thread {
 					potentiallySynchronize();
 				}
 
+				final long now = System.currentTimeMillis();
+
 				// Clean up arbitrary data request cache
-				final long requestMinimumTimestamp = System.currentTimeMillis() - ARBITRARY_REQUEST_TIMEOUT;
+				final long requestMinimumTimestamp = now - ARBITRARY_REQUEST_TIMEOUT;
 				arbitraryDataRequests.entrySet().removeIf(entry -> entry.getValue().getC() < requestMinimumTimestamp);
 
 				// Give repository a chance to backup
-				if (System.currentTimeMillis() >= repositoryBackupTimestamp) {
-					repositoryBackupTimestamp += REPOSITORY_BACKUP_PERIOD;
+				if (now >= repositoryBackupTimestamp) {
+					repositoryBackupTimestamp = now + REPOSITORY_BACKUP_PERIOD;
 					RepositoryManager.backup(true);
 				}
 
-				// Potentially nag end-user about NTP
-				if (System.currentTimeMillis() >= ntpCheckTimestamp) {
-					ntpCheckTimestamp += NTP_CHECK_PERIOD;
-					isGenerationAllowed = ntpCheck();
+				// Check NTP status
+				if (now >= ntpCheckTimestamp) {
+					Long ntpTime = NTP.getTime();
+
+					if (ntpTime != null) {
+						LOGGER.info(String.format("Adjusting system time by NTP offset: %dms", ntpTime - now));
+						ntpCheckTimestamp = now + NTP_POST_SYNC_CHECK_PERIOD;
+					} else {
+						LOGGER.info(String.format("No NTP offset yet"));
+						ntpCheckTimestamp = now + NTP_PRE_SYNC_CHECK_PERIOD;
+					}
+
+					isGenerationAllowed = ntpTime != null;
 					requestSysTrayUpdate = true;
 				}
 
@@ -340,6 +354,12 @@ public class Controller extends Thread {
 					Network.getInstance().prunePeers();
 				} catch (DataException e) {
 					LOGGER.warn(String.format("Repository issue when trying to prune peers: %s", e.getMessage()));
+				}
+
+				// Delete expired transactions
+				if (now >= deleteExpiredTimestamp) {
+					deleteExpiredTimestamp = now + DELETE_EXPIRED_INTERVAL;
+					deleteExpiredTransactions();
 				}
 
 				// Maybe update SysTray
@@ -354,6 +374,10 @@ public class Controller extends Thread {
 	}
 
 	private void potentiallySynchronize() throws InterruptedException {
+		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
+		if (minLatestBlockTimestamp == null)
+			return;
+
 		List<Peer> peers = Network.getInstance().getUniqueHandshakedPeers();
 
 		// Disregard peers that have "misbehaved" recently
@@ -364,7 +388,6 @@ public class Controller extends Thread {
 			return;
 
 		// Disregard peers that don't have a recent block
-		final long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
 		peers.removeIf(peer -> peer.getLastBlockTimestamp() == null || peer.getLastBlockTimestamp() < minLatestBlockTimestamp);
 
 		BlockData latestBlockData = getChainTip();
@@ -372,17 +395,17 @@ public class Controller extends Thread {
 		// Disregard peers that have no block signature or the same block signature as us
 		peers.removeIf(peer -> peer.getLastBlockSignature() == null || Arrays.equals(latestBlockData.getSignature(), peer.getLastBlockSignature()));
 
-		// Disregard peer we used last time, if both we and they are still on the same block and we didn't like their chain
-		if (inferiorChainOurBlockSignature != null && Arrays.equals(inferiorChainOurBlockSignature, latestBlockData.getSignature()))
-			peers.removeIf(peer -> Arrays.equals(inferiorChainPeerBlockSignature, peer.getLastBlockSignature()));
+		// Disregard peers that are on the same block as last sync attempt and we didn't like their chain
+		if (noSyncOurBlockSignature != null && Arrays.equals(noSyncOurBlockSignature, latestBlockData.getSignature()))
+			peers.removeIf(peer -> Arrays.equals(noSyncPeerBlockSignature, peer.getLastBlockSignature()));
 
 		if (!peers.isEmpty()) {
 			// Pick random peer to sync with
 			int index = new SecureRandom().nextInt(peers.size());
 			Peer peer = peers.get(index);
 
-			inferiorChainOurBlockSignature = null;
-			inferiorChainPeerBlockSignature = null;
+			noSyncOurBlockSignature = null;
+			noSyncPeerBlockSignature = null;
 
 			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer, false);
 			switch (syncResult) {
@@ -396,7 +419,7 @@ public class Controller extends Thread {
 
 					// Don't use this peer again for a while
 					PeerData peerData = peer.getPeerData();
-					peerData.setLastMisbehaved(System.currentTimeMillis());
+					peerData.setLastMisbehaved(NTP.getTime());
 
 					// Only save to repository if outbound peer
 					if (peer.isOutbound())
@@ -409,8 +432,8 @@ public class Controller extends Thread {
 					break;
 
 				case INFERIOR_CHAIN:
-					inferiorChainOurBlockSignature = latestBlockData.getSignature();
-					inferiorChainPeerBlockSignature = peer.getLastBlockSignature();
+					noSyncOurBlockSignature = latestBlockData.getSignature();
+					noSyncPeerBlockSignature = peer.getLastBlockSignature();
 					// These are minor failure results so fine to try again
 					LOGGER.debug(() -> String.format("Refused to synchronize with peer %s (%s)", peer, syncResult.name()));
 					break;
@@ -426,6 +449,8 @@ public class Controller extends Thread {
 					requestSysTrayUpdate = true;
 					// fall-through...
 				case NOTHING_TO_DO:
+					noSyncOurBlockSignature = latestBlockData.getSignature();
+					noSyncPeerBlockSignature = peer.getLastBlockSignature();
 					LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
 					break;
 			}
@@ -437,62 +462,12 @@ public class Controller extends Thread {
 		}
 	}
 
-	/**
-	 * Nag if we detect system clock is too far from internet time.
-	 * 
-	 * @return <tt>true</tt> if clock is accurate, <tt>false</tt> if inaccurate or we don't know.
-	 */
-	private boolean ntpCheck() {
-		// Fetch mean offset from internet time (ms).
-		Long meanOffset = NTP.getOffset();
-
-		final boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-		boolean isNtpActive = false;
-		if (isWindows) {
-			// Detecting Windows Time service
-
-			String[] detectCmd = new String[] { "net", "start" };
-			try {
-				Process process = new ProcessBuilder(Arrays.asList(detectCmd)).start();
-				try (InputStream in = process.getInputStream(); Scanner scanner = new Scanner(in, "UTF8")) {
-					scanner.useDelimiter("\\A");
-					String output = scanner.hasNext() ? scanner.next() : "";
-					isNtpActive = output.contains("Windows Time");
-				}
-			} catch (IOException e) {
-				// Not important
-			}
-		} else {
-			// Very basic unix-based attempt to check for ntpd
-			String[] detectCmd = new String[] { "ps", "-agx" };
-			try {
-				Process process = new ProcessBuilder(Arrays.asList(detectCmd)).start();
-				try (InputStream in = process.getInputStream(); Scanner scanner = new Scanner(in, "UTF8")) {
-					scanner.useDelimiter("\\A");
-					String output = scanner.hasNext() ? scanner.next() : "";
-					isNtpActive = output.contains("ntpd");
-				}
-			} catch (IOException e) {
-				// Not important
-			}
-		}
-
-		LOGGER.info(String.format("NTP mean offset %s, NTP service active: %s", meanOffset, isNtpActive));
-
-		final boolean isOffsetGood = meanOffset != null && Math.abs(meanOffset) < MAX_NTP_OFFSET;
-
-		// If offset bad or NTP not active then nag
-		if (!isOffsetGood || !isNtpActive) {
-			String caption = Translator.INSTANCE.translate("SysTray", "NTP_NAG_CAPTION");
-			String text = Translator.INSTANCE.translate("SysTray", isWindows ? "NTP_NAG_TEXT_WINDOWS" : "NTP_NAG_TEXT_UNIX");
-			SysTray.getInstance().showMessage(caption, text, MessageType.WARNING);
-		}
-
-		// Return whether we're accurate (disregarding whether NTP service is active)
-		return isOffsetGood;
-	}
-
 	private void updateSysTray() {
+		if (NTP.getTime() == null) {
+			SysTray.getInstance().setToolTipText(Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING CLOCK"));
+			return;
+		}
+
 		final int numberOfPeers = Network.getInstance().getUniqueHandshakedPeers().size();
 
 		final int height = getChainHeight();
@@ -503,6 +478,22 @@ public class Controller extends Thread {
 
 		String tooltip = String.format("%s - %d %s - %s %d", generatingText, numberOfPeers, connectionsText, heightText, height);
 		SysTray.getInstance().setToolTipText(tooltip);
+	}
+
+	public void deleteExpiredTransactions() {
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
+
+			for (TransactionData transactionData : transactions)
+				if (transactionData.getTimestamp() >= Transaction.getDeadline(transactionData)) {
+					LOGGER.info(String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
+					repository.getTransactionRepository().delete(transactionData);
+				}
+
+			repository.saveChanges();
+		} catch (DataException e) {
+			LOGGER.error("Repository issue while deleting expired unconfirmed transactions", e);
+		}
 	}
 
 	// Shutdown
@@ -552,6 +543,9 @@ public class Controller extends Thread {
 				} catch (DataException e) {
 					LOGGER.error("Error occurred while shutting down repository", e);
 				}
+
+				LOGGER.info("Shutting down NTP");
+				NTP.shutdownNow();
 
 				LOGGER.info("Shutdown complete!");
 			}
@@ -961,7 +955,7 @@ public class Controller extends Thread {
 
 				byte[] signature = getArbitraryDataMessage.getSignature();
 				String signature58 = Base58.encode(signature);
-				Long timestamp = System.currentTimeMillis();
+				Long timestamp = NTP.getTime();
 				Triple<String, Peer, Long> newEntry = new Triple<>(signature58, peer, timestamp);
 
 				// If we've seen this request recently, then ignore
@@ -1071,7 +1065,7 @@ public class Controller extends Thread {
 
 		// Save our request into requests map
 		String signature58 = Base58.encode(signature);
-		Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, System.currentTimeMillis());
+		Triple<String, Peer, Long> requestEntry = new Triple<>(signature58, null, NTP.getTime());
 
 		// Assign random ID to this message
 		int id;
@@ -1112,12 +1106,15 @@ public class Controller extends Thread {
 
 	public static final Predicate<Peer> hasPeerMisbehaved = peer -> {
 		Long lastMisbehaved = peer.getPeerData().getLastMisbehaved();
-		return lastMisbehaved != null && lastMisbehaved > System.currentTimeMillis() - MISBEHAVIOUR_COOLOFF;
+		return lastMisbehaved != null && lastMisbehaved > NTP.getTime() - MISBEHAVIOUR_COOLOFF;
 	};
 
 	/** Returns whether we think our node has up-to-date blockchain based on our info about other peers. */
 	public boolean isUpToDate() {
-		final long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
+		final Long minLatestBlockTimestamp = getMinimumLatestBlockTimestamp();
+		if (minLatestBlockTimestamp == null)
+			return false;
+
 		BlockData latestBlockData = getChainTip();
 
 		// Is our blockchain too old?
@@ -1140,7 +1137,11 @@ public class Controller extends Thread {
 		return !peers.isEmpty();
 	}
 
-	public static long getMinimumLatestBlockTimestamp() {
+	public static Long getMinimumLatestBlockTimestamp() {
+		Long now = NTP.getTime();
+		if (now == null)
+			return null;
+
 		try (final Repository repository = RepositoryManager.getRepository()) {
 			int height = repository.getBlockRepository().getBlockchainHeight();
 
@@ -1150,7 +1151,7 @@ public class Controller extends Thread {
 				offset += blockTiming.target + blockTiming.deviation;
 			}
 
-			return System.currentTimeMillis() - offset;
+			return now - offset;
 		} catch (DataException e) {
 			LOGGER.error("Repository issue when fetching blockchain height", e);
 			return 0;
