@@ -47,7 +47,6 @@ import org.qora.api.model.ActivitySummary;
 import org.qora.api.model.NodeInfo;
 import org.qora.block.BlockChain;
 import org.qora.controller.Controller;
-import org.qora.controller.Synchronizer;
 import org.qora.controller.Synchronizer.SynchronizationResult;
 import org.qora.repository.DataException;
 import org.qora.repository.Repository;
@@ -455,7 +454,7 @@ public class AdminResource {
 			SynchronizationResult syncResult;
 			try {
 				do {
-					syncResult = Synchronizer.getInstance().synchronize(targetPeer, true);
+					syncResult = Controller.getInstance().actuallySynchronize(targetPeer, true);
 				} while (syncResult == SynchronizationResult.OK);
 			} finally {
 				blockchainLock.unlock();

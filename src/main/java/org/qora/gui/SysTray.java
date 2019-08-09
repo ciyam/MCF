@@ -1,5 +1,6 @@
 package org.qora.gui;
 
+import java.awt.AWTError;
 import java.awt.AWTException;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
@@ -46,8 +47,13 @@ public class SysTray {
 	private JDialog hiddenDialog = null;
 
 	private SysTray() {
-		if (!SystemTray.isSupported())
+		try {
+			if (!SystemTray.isSupported())
+				return;
+		} catch (AWTError e) {
+			// Even SystemTray.isSupported can fail, so catch that too
 			return;
+		}
 
 		LOGGER.info("Launching system tray icon");
 

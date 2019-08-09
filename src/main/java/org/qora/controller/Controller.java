@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
@@ -103,6 +104,8 @@ public class Controller extends Thread {
 	private final String buildVersion;
 	private final long buildTimestamp; // seconds
 
+	private AtomicReference<BlockData> chainTip = new AtomicReference<>();
+
 	private long repositoryBackupTimestamp = startTime + REPOSITORY_BACKUP_PERIOD; // ms
 	private long ntpCheckTimestamp = startTime; // ms
 	private long deleteExpiredTimestamp = startTime + DELETE_EXPIRED_INTERVAL; // ms
@@ -184,22 +187,20 @@ public class Controller extends Thread {
 
 	/** Returns current blockchain height, or 0 if there's a repository issue */
 	public int getChainHeight() {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getBlockRepository().getBlockchainHeight();
-		} catch (DataException e) {
-			LOGGER.error("Repository issue when fetching blockchain height", e);
+		BlockData blockData = this.chainTip.get();
+		if (blockData == null)
 			return 0;
-		}
+
+		return blockData.getHeight();
 	}
 
 	/** Returns highest block, or null if there's a repository issue */
 	public BlockData getChainTip() {
-		try (final Repository repository = RepositoryManager.getRepository()) {
-			return repository.getBlockRepository().getLastBlock();
-		} catch (DataException e) {
-			LOGGER.error("Repository issue when fetching blockchain tip", e);
-			return null;
-		}
+		return this.chainTip.get();
+	}
+
+	public void setChainTip(BlockData blockData) {
+		this.chainTip.set(blockData);
 	}
 
 	public ReentrantLock getBlockchainLock() {
@@ -239,7 +240,14 @@ public class Controller extends Thread {
 		LOGGER.info("Validating blockchain");
 		try {
 			BlockChain.validate();
-			LOGGER.info(String.format("Our chain height at start-up: %d", getInstance().getChainHeight()));
+
+			// Set initial chain height/tip
+			try (final Repository repository = RepositoryManager.getRepository()) {
+				BlockData blockData = repository.getBlockRepository().getLastBlock();
+
+				Controller.getInstance().setChainTip(blockData);
+				LOGGER.info(String.format("Our chain height at start-up: %d", blockData.getHeight()));
+			}
 		} catch (DataException e) {
 			LOGGER.error("Couldn't validate blockchain", e);
 			System.exit(2);
@@ -404,67 +412,84 @@ public class Controller extends Thread {
 			int index = new SecureRandom().nextInt(peers.size());
 			Peer peer = peers.get(index);
 
-			noSyncOurBlockSignature = null;
-			noSyncPeerBlockSignature = null;
-
-			SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer, false);
-			switch (syncResult) {
-				case GENESIS_ONLY:
-				case NO_COMMON_BLOCK:
-				case TOO_FAR_BEHIND:
-				case TOO_DIVERGENT:
-				case INVALID_DATA:
-					// These are more serious results that warrant a cool-off
-					LOGGER.info(String.format("Failed to synchronize with peer %s (%s) - cooling off", peer, syncResult.name()));
-
-					// Don't use this peer again for a while
-					PeerData peerData = peer.getPeerData();
-					peerData.setLastMisbehaved(NTP.getTime());
-
-					// Only save to repository if outbound peer
-					if (peer.isOutbound())
-						try (final Repository repository = RepositoryManager.getRepository()) {
-							repository.getNetworkRepository().save(peerData);
-							repository.saveChanges();
-						} catch (DataException e) {
-							LOGGER.warn("Repository issue while updating peer synchronization info", e);
-						}
-					break;
-
-				case INFERIOR_CHAIN:
-					noSyncOurBlockSignature = latestBlockData.getSignature();
-					noSyncPeerBlockSignature = peer.getLastBlockSignature();
-					// These are minor failure results so fine to try again
-					LOGGER.debug(() -> String.format("Refused to synchronize with peer %s (%s)", peer, syncResult.name()));
-					break;
-
-				case NO_REPLY:
-				case NO_BLOCKCHAIN_LOCK:
-				case REPOSITORY_ISSUE:
-					// These are minor failure results so fine to try again
-					LOGGER.debug(() -> String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
-					break;
-
-				case OK:
-					requestSysTrayUpdate = true;
-					// fall-through...
-				case NOTHING_TO_DO:
-					noSyncOurBlockSignature = latestBlockData.getSignature();
-					noSyncPeerBlockSignature = peer.getLastBlockSignature();
-					LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
-					break;
-			}
-
-			// Broadcast our new chain tip (if changed)
-			BlockData newLatestBlockData = getChainTip();
-			if (!Arrays.equals(newLatestBlockData.getSignature(), latestBlockData.getSignature()))
-				Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, newLatestBlockData));
+			actuallySynchronize(peer, false);
 		}
+	}
+
+	public SynchronizationResult actuallySynchronize(Peer peer, boolean force) throws InterruptedException {
+		BlockData latestBlockData = getChainTip();
+
+		noSyncOurBlockSignature = null;
+		noSyncPeerBlockSignature = null;
+
+		SynchronizationResult syncResult = Synchronizer.getInstance().synchronize(peer, force);
+		switch (syncResult) {
+			case GENESIS_ONLY:
+			case NO_COMMON_BLOCK:
+			case TOO_FAR_BEHIND:
+			case TOO_DIVERGENT:
+			case INVALID_DATA:
+				// These are more serious results that warrant a cool-off
+				LOGGER.info(String.format("Failed to synchronize with peer %s (%s) - cooling off", peer, syncResult.name()));
+
+				// Don't use this peer again for a while
+				PeerData peerData = peer.getPeerData();
+				peerData.setLastMisbehaved(NTP.getTime());
+
+				// Only save to repository if outbound peer
+				if (peer.isOutbound())
+					try (final Repository repository = RepositoryManager.getRepository()) {
+						repository.getNetworkRepository().save(peerData);
+						repository.saveChanges();
+					} catch (DataException e) {
+						LOGGER.warn("Repository issue while updating peer synchronization info", e);
+					}
+				break;
+
+			case INFERIOR_CHAIN:
+				noSyncOurBlockSignature = latestBlockData.getSignature();
+				noSyncPeerBlockSignature = peer.getLastBlockSignature();
+				// These are minor failure results so fine to try again
+				LOGGER.debug(() -> String.format("Refused to synchronize with peer %s (%s)", peer, syncResult.name()));
+				break;
+
+			case NO_REPLY:
+			case NO_BLOCKCHAIN_LOCK:
+			case REPOSITORY_ISSUE:
+				// These are minor failure results so fine to try again
+				LOGGER.debug(() -> String.format("Failed to synchronize with peer %s (%s)", peer, syncResult.name()));
+				break;
+
+			case OK:
+				requestSysTrayUpdate = true;
+				// fall-through...
+			case NOTHING_TO_DO:
+				noSyncOurBlockSignature = latestBlockData.getSignature();
+				noSyncPeerBlockSignature = peer.getLastBlockSignature();
+				LOGGER.debug(() -> String.format("Synchronized with peer %s (%s)", peer, syncResult.name()));
+				break;
+		}
+
+		// Broadcast our new chain tip (if changed)
+		BlockData newLatestBlockData;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			newLatestBlockData = repository.getBlockRepository().getLastBlock();
+			this.setChainTip(newLatestBlockData);
+		} catch (DataException e) {
+			LOGGER.warn(String.format("Repository issue when trying to fetch post-synchronization chain tip: %s", e.getMessage()));
+			return syncResult;
+		}
+
+		if (!Arrays.equals(newLatestBlockData.getSignature(), latestBlockData.getSignature()))
+			Network.getInstance().broadcast(recipientPeer -> Network.getInstance().buildHeightMessage(recipientPeer, newLatestBlockData));
+
+		return syncResult;
 	}
 
 	private void updateSysTray() {
 		if (NTP.getTime() == null) {
-			SysTray.getInstance().setToolTipText(Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING CLOCK"));
+			SysTray.getInstance().setToolTipText(Translator.INSTANCE.translate("SysTray", "SYNCHRONIZING_CLOCK"));
 			return;
 		}
 
@@ -481,11 +506,19 @@ public class Controller extends Thread {
 	}
 
 	public void deleteExpiredTransactions() {
-		try (final Repository repository = RepositoryManager.getRepository()) {
+		final Long now = NTP.getTime();
+		if (now == null)
+			return;
+
+		// This isn't critical so don't block for repository instance.
+		try (final Repository repository = RepositoryManager.tryRepository()) {
+			if (repository == null)
+				return;
+
 			List<TransactionData> transactions = repository.getTransactionRepository().getUnconfirmedTransactions();
 
 			for (TransactionData transactionData : transactions)
-				if (transactionData.getTimestamp() >= Transaction.getDeadline(transactionData)) {
+				if (now >= Transaction.getDeadline(transactionData)) {
 					LOGGER.info(String.format("Deleting expired, unconfirmed transaction %s", Base58.encode(transactionData.getSignature())));
 					repository.getTransactionRepository().delete(transactionData);
 				}
@@ -575,7 +608,15 @@ public class Controller extends Thread {
 
 	public void onGeneratedBlock() {
 		// Broadcast our new height info
-		BlockData latestBlockData = getChainTip();
+		BlockData latestBlockData;
+
+		try (final Repository repository = RepositoryManager.getRepository()) {
+			latestBlockData = repository.getBlockRepository().getLastBlock();
+			this.setChainTip(latestBlockData);
+		} catch (DataException e) {
+			LOGGER.warn(String.format("Repository issue when trying to fetch post-generation chain tip: %s", e.getMessage()));
+			return;
+		}
 
 		Network network = Network.getInstance();
 		network.broadcast(peer -> network.buildHeightMessage(peer, latestBlockData));

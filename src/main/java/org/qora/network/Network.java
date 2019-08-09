@@ -22,6 +22,8 @@ import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -166,8 +168,13 @@ public class Network extends Thread {
 
 		mergePeersLock = new ReentrantLock();
 
+		// We'll use a cached thread pool, but with more aggressive 10 second timeout.
+		ExecutorService networkExecutor = new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+				10L, TimeUnit.SECONDS,
+				new SynchronousQueue<Runnable>());
+		networkEPC = new NetworkProcessor(networkExecutor);
+
 		// Start up first networking thread
-		networkEPC = new NetworkProcessor();
 		networkEPC.start();
 	}
 
@@ -278,10 +285,16 @@ public class Network extends Thread {
 	// Main thread
 
 	class NetworkProcessor extends ExecuteProduceConsume {
+
+		public NetworkProcessor(ExecutorService executor) {
+			super(executor);
+		}
+
 		@Override
 		protected Task produceTask(boolean canBlock) throws InterruptedException {
 			Task task;
 
+			// Only this method can block to reduce CPU spin
 			task = maybeProduceChannelTask(canBlock);
 			if (task != null)
 				return task;
@@ -471,14 +484,14 @@ public class Network extends Thread {
 
 		try {
 			if (now == null) {
-				LOGGER.trace(String.format("Connection discarded from peer %s due to lack of NTP sync", socketChannel.getRemoteAddress()));
+				LOGGER.debug(String.format("Connection discarded from peer %s due to lack of NTP sync", socketChannel.getRemoteAddress()));
 				return;
 			}
 
 			synchronized (this.connectedPeers) {
 				if (connectedPeers.size() >= maxPeers) {
 					// We have enough peers
-					LOGGER.trace(String.format("Connection discarded from peer %s", socketChannel.getRemoteAddress()));
+					LOGGER.debug(String.format("Connection discarded from peer %s", socketChannel.getRemoteAddress()));
 					return;
 				}
 
@@ -528,7 +541,11 @@ public class Network extends Thread {
 			peer.disconnect(String.format("handshake timeout at %s", peer.getHandshakeStatus().name()));
 
 		// Prune 'old' peers from repository...
-		try (final Repository repository = RepositoryManager.getRepository()) {
+		// Pruning peers isn't critical so no need to block for a repository instance.
+		try (final Repository repository = RepositoryManager.tryRepository()) {
+			if (repository == null)
+				return;
+
 			// Fetch all known peers
 			List<PeerData> peers = repository.getNetworkRepository().getAllPeers();
 
@@ -570,7 +587,11 @@ public class Network extends Thread {
 	private Peer getConnectablePeer() throws InterruptedException {
 		final long now = NTP.getTime();
 
-		try (final Repository repository = RepositoryManager.getRepository()) {
+		// We can't block here so use tryRepository(). We don't NEED to connect a new peer.
+		try (final Repository repository = RepositoryManager.tryRepository()) {
+			if (repository == null)
+				return null;
+
 			// Find an address to connect to
 			List<PeerData> peers = repository.getNetworkRepository().getAllPeers();
 
@@ -632,7 +653,7 @@ public class Network extends Thread {
 
 			return newPeer;
 		} catch (DataException e) {
-			LOGGER.warn(String.format("Repository issue while finding a connectable peer: %s", e.getMessage()));
+			LOGGER.error("Repository issue while finding a connectable peer", e);
 			return null;
 		}
 	}
@@ -693,7 +714,7 @@ public class Network extends Thread {
 				repository.getNetworkRepository().delete(peer.getPeerData().getAddress());
 				repository.saveChanges();
 			} catch (DataException e) {
-				LOGGER.warn(String.format("Repository issue while trying to delete inbound peer %s", peer));
+				LOGGER.error(String.format("Repository issue while trying to delete inbound peer %s", peer), e);
 			}
 	}
 
@@ -861,7 +882,7 @@ public class Network extends Thread {
 				repository.getNetworkRepository().save(peer.getPeerData());
 				repository.saveChanges();
 			} catch (DataException e) {
-				LOGGER.warn(String.format("Repository issue while trying to update outbound peer %s", peer));
+				LOGGER.error(String.format("Repository issue while trying to update outbound peer %s", peer), e);
 			}
 
 		// Start regular pings
@@ -1059,7 +1080,11 @@ public class Network extends Thread {
 			return;
 
 		try {
-			try (final Repository repository = RepositoryManager.getRepository()) {
+			// Merging peers isn't critical so don't block for a repository instance.
+			try (final Repository repository = RepositoryManager.tryRepository()) {
+				if (repository == null)
+					return;
+
 				List<PeerData> knownPeers = repository.getNetworkRepository().getAllPeers();
 
 				// Filter out duplicates
@@ -1145,18 +1170,18 @@ public class Network extends Thread {
 		// Stop processing threads
 		try {
 			if (!this.networkEPC.shutdown(5000))
-				LOGGER.debug("Network threads failed to terminate");
+				LOGGER.warn("Network threads failed to terminate");
 		} catch (InterruptedException e) {
-			LOGGER.debug("Interrupted while waiting for networking threads to terminate");
+			LOGGER.warn("Interrupted while waiting for networking threads to terminate");
 		}
 
 		// Stop broadcasts
 		this.broadcastExecutor.shutdownNow();
 		try {
 			if (!this.broadcastExecutor.awaitTermination(1000, TimeUnit.MILLISECONDS))
-				LOGGER.debug("Broadcast threads failed to terminate");
+				LOGGER.warn("Broadcast threads failed to terminate");
 		} catch (InterruptedException e) {
-			LOGGER.debug("Interrupted while waiting for broadcast threads failed to terminate");
+			LOGGER.warn("Interrupted while waiting for broadcast threads failed to terminate");
 		}
 
 		// Close all peer connections
