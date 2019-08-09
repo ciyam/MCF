@@ -724,6 +724,9 @@ public class BlockChain {
 					repository.saveChanges();
 				}
 
+				BlockData lastBlockData = repository.getBlockRepository().getLastBlock();
+				Controller.getInstance().setChainTip(lastBlockData);
+
 				return true;
 			}
 		} finally {

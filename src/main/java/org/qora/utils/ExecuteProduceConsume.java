@@ -103,8 +103,13 @@ public abstract class ExecuteProduceConsume implements Runnable {
 					}
 
 					final boolean lambdaCanIdle = canBlock;
-					logger.trace(() -> String.format("[%d] producing, canBlock is %b...", Thread.currentThread().getId(), lambdaCanIdle));
+					logger.trace(() -> String.format("[%d] producing, activeThreadCount: %d, consumerCount: %d, canBlock is %b...",
+							Thread.currentThread().getId(), activeThreadCount, consumerCount, lambdaCanIdle));
+
+					final long now = System.currentTimeMillis();
 					task = produceTask(canBlock);
+					final long delay = System.currentTimeMillis() - now;
+					logger.trace(() -> String.format("[%d] producing took %dms", Thread.currentThread().getId(), delay));
 				}
 
 				if (task == null)
