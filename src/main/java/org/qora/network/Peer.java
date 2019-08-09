@@ -51,7 +51,7 @@ public class Peer {
 	 * <p>
 	 * Just under every 30s is usually ideal to keep NAT mappings refreshed.
 	 */
-	private static final int PING_INTERVAL = 8000; // ms
+	private static final int PING_INTERVAL = 20_000; // ms
 
 	private volatile boolean isStopping = false;
 

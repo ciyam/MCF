@@ -15,6 +15,13 @@ public abstract class RepositoryManager {
 		return repositoryFactory.getRepository();
 	}
 
+	public static Repository tryRepository() throws DataException {
+		if (repositoryFactory == null)
+			throw new DataException("No repository available");
+
+		return repositoryFactory.tryRepository();
+	}
+
 	public static void closeRepositoryFactory() throws DataException {
 		repositoryFactory.close();
 		repositoryFactory = null;

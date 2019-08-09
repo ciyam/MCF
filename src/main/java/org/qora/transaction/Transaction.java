@@ -517,16 +517,20 @@ public abstract class Transaction {
 	 * @throws DataException
 	 */
 	public ValidationResult isValidUnconfirmed() throws DataException {
+		final Long now = NTP.getTime();
+		if (now == null)
+			return ValidationResult.CLOCK_NOT_SYNCED;
+
+		// Expired already?
+		if (now >= this.getDeadline())
+			return ValidationResult.TIMESTAMP_TOO_OLD;
+
 		// Transactions with a timestamp prior to latest block's timestamp are too old
 		BlockData latestBlock = repository.getBlockRepository().getLastBlock();
 		if (this.getDeadline() <= latestBlock.getTimestamp())
 			return ValidationResult.TIMESTAMP_TOO_OLD;
 
 		// Transactions with a timestamp too far into future are too new
-		final Long now = NTP.getTime();
-		if (now == null)
-			return ValidationResult.CLOCK_NOT_SYNCED;
-
 		long maxTimestamp = now + Settings.getInstance().getMaxTransactionTimestampFuture();
 		if (this.transactionData.getTimestamp() > maxTimestamp)
 			return ValidationResult.TIMESTAMP_TOO_NEW;
