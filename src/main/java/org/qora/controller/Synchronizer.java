@@ -191,7 +191,7 @@ public class Synchronizer {
 							List<BlockSummaryData> moreBlockSummaries = this.getBlockSummaries(peer, previousSignature, numberRequired - peerBlockSummaries.size());
 
 							if (moreBlockSummaries == null || moreBlockSummaries.isEmpty()) {
-								LOGGER.info(String.format("Peer %s failed to respond with block summaries after height %d", peer,
+								LOGGER.info(String.format("Peer %s failed to respond with block summaries after height %d, sig %.8s", peer,
 										height, Base58.encode(previousSignature)));
 								return SynchronizationResult.NO_REPLY;
 							}
@@ -203,7 +203,8 @@ public class Synchronizer {
 								BlockSummaryData blockSummary = moreBlockSummaries.get(i);
 
 								if (blockSummary.getHeight() != height) {
-									LOGGER.info(String.format("Peer %s responded with invalid block summary for height %d", peer, height));
+									LOGGER.info(String.format("Peer %s responded with invalid block summary for height %d, sig %.8s", peer,
+											height, Base58.encode(blockSummary.getSignature())));
 									return SynchronizationResult.NO_REPLY;
 								}
 							}
@@ -278,7 +279,8 @@ public class Synchronizer {
 						// Is signature in our banned list?
 						for (byte[] bannedSignature : BANNED_BLOCK_SIGNATURES)
 							if (Arrays.equals(signature, bannedSignature)) {
-								LOGGER.info(String.format("Peer %s sent banned block for height %d", peer, ourHeight));
+								LOGGER.info(String.format("Peer %s sent banned block %.8s for height %d", peer,
+										Base58.encode(signature), ourHeight));
 								return SynchronizationResult.INFERIOR_CHAIN;
 							}
 

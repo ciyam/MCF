@@ -334,6 +334,10 @@ public class BlockChain {
 	// More complex getters for aspects that change by height or timestamp
 
 	public BigDecimal getRewardAtHeight(int ourHeight) {
+		// No rewards configured?
+		if (rewardsByHeight == null)
+			return null;
+
 		// Scan through for reward at our height
 		for (int i = rewardsByHeight.size() - 1; i >= 0; --i)
 			if (rewardsByHeight.get(i).height <= ourHeight)
