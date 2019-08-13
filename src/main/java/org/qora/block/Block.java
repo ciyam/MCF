@@ -207,10 +207,6 @@ public class Block {
 		byte[] reference = parentBlockData.getSignature();
 		BigDecimal generatingBalance = parentBlock.calcNextBlockGeneratingBalance();
 
-		// After a certain height, block timestamps are generated using previous block and generator's public key
-		if (height >= BlockChain.getInstance().getNewBlockTimestampHeight())
-			timestamp = calcTimestamp(parentBlockData, generator.getPublicKey());
-
 		byte[] generatorSignature;
 		try {
 			generatorSignature = generator
@@ -259,12 +255,10 @@ public class Block {
 	 */
 	public Block regenerate(PrivateKeyAccount generator) throws DataException {
 		Block newBlock = new Block(this.repository, this.blockData);
+		newBlock.generator = generator;
 
 		BlockData parentBlockData = this.getParent();
 		Block parentBlock = new Block(repository, parentBlockData);
-
-		newBlock.generator = generator;
-		BlockData parentBlockData = newBlock.getParent();
 
 		// Copy AT state data
 		newBlock.ourAtStates = this.ourAtStates;
@@ -275,10 +269,6 @@ public class Block {
 		int version = this.blockData.getVersion();
 		byte[] reference = this.blockData.getReference();
 		BigDecimal generatingBalance = this.blockData.getGeneratingBalance();
-
-		// After a certain height, block timestamps are generated using previous block and generator's public key
-		if (height >= BlockChain.getInstance().getNewBlockTimestampHeight())
-			timestamp = calcTimestamp(parentBlockData, generator.getPublicKey());
 
 		byte[] generatorSignature;
 		try {
@@ -741,19 +731,13 @@ public class Block {
 	}
 
 	/**
-	 * Returns timestamp based on previous block and this block's generator.
+	 * Returns timestamp based on previous block.
 	 * <p>
 	 * For qora-core, we'll using the minimum from BlockChain config.
 	 */
-	public static long calcTimestamp(BlockData parentBlockData, byte[] generatorPublicKey) {
+	public static long calcMinimumTimestamp(BlockData parentBlockData) {
 		long minBlockTime = BlockChain.getInstance().getMinBlockTime(); // seconds
 		return parentBlockData.getTimestamp() + (minBlockTime * 1000L);
-	}
-
-	public static long calcMinimumTimestamp(BlockData parentBlockData) {
-		final int thisHeight = parentBlockData.getHeight() + 1;
-		BlockTimingByHeight blockTiming = BlockChain.getInstance().getBlockTimingByHeight(thisHeight);
-		return parentBlockData.getTimestamp() + blockTiming.target - blockTiming.deviation;
 	}
 
 	/**
@@ -823,12 +807,6 @@ public class Block {
 		// XXX DISABLED as it doesn't work - but why?
 		// if (this.blockData.getTimestamp() < Block.calcMinimumTimestamp(parentBlockData))
 		// 	return ValidationResult.TIMESTAMP_TOO_SOON;
-
-		if (this.blockData.getHeight() >= BlockChain.getInstance().getNewBlockTimestampHeight()) {
-			long expectedTimestamp = calcTimestamp(parentBlockData, this.blockData.getGeneratorPublicKey());
-			if (this.blockData.getTimestamp() != expectedTimestamp)
-				return ValidationResult.TIMESTAMP_INCORRECT;
-		}
 
 		return ValidationResult.OK;
 	}
